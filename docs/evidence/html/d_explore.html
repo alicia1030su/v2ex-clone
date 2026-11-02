@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta name="Content-Type" content="text/html;charset=utf-8">
+    <meta name="Referrer" content="unsafe-url">
+    <meta content="True" name="HandheldFriendly">
+    
+    <meta name="theme-color" content="#ffffff">
+    
+    
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="detectify-verification" content="d0264f228155c7a1f72c3d91c17ce8fb" />
+<meta name="p:domain_verify" content="b87e3b55b409494aab88c1610b05a5f0"/>
+<meta name="alexaVerifyID" content="OFc8dmwZo7ttU4UCnDh1rKDtLlY" />
+<meta name="baidu-site-verification" content="D00WizvYyr" />
+<meta name="msvalidate.01" content="D9B08FEA08E3DA402BF07ABAB61D77DE" />
+<meta property="wb:webmaster" content="f2f4cb229bda06a4" />
+<meta name="google-site-verification" content="LM_cJR94XJIqcYJeOCscGVMWdaRUvmyz6cVOqkFplaU" />
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+     crossorigin="anonymous"></script>
+<script defer data-site="388d5c063206" src="https://stats.v2core.com/js/s.js"></script>
+    
+    <title>V2EX › explore</title>
+    <link rel="dns-prefetch" href="https://static.v2ex.com/" />
+<link rel="dns-prefetch" href="https://cdn.v2ex.com/" />
+<link rel="dns-prefetch" href="https://i.v2ex.co/" />
+<link rel="dns-prefetch" href="https://www.google-analytics.com/" />    
+    <style>
+        body {
+            min-width: 820px;
+            font-family: "Helvetica Neue", "Luxi Sans", "Segoe UI", "Hiragino Sans GB", "Microsoft Yahei", sans-serif, "Apple Logo";
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/24a675cc31e0246e4ab1b09af3608861ace026c1-combo.css?t=1793626200">
+    
+    <script>
+        const SITE_NIGHT = 0;
+    </script>
+    <link rel="stylesheet" href="/static/css/vendor/tomorrow.css?v=3c006808236080a5d98ba4e64b8f323f" type="text/css">
+    
+    <link rel="icon" sizes="192x192" href="/static/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png?v=91e795b8b5d9e2cbf2d886c3d4b7d63c">
+    
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/png">
+    
+    
+    <link rel="manifest" href="/manifest.webmanifest">
+    <script>
+        const LANG = 'zhcn';
+        const FEATURES = ['search', 'favorite-nodes-sort'];
+        const SOLANA_WEB3_URL = '/assets/f6493ddb7835bc10ae580acdd2e161e012a316e4-solana-web3.js?t=1793626200';
+    </script>
+    <script src="/assets/e0c593b6f75c1dc6eaaaaf8d57c0c71d578081f0-combo.js?t=1793626200" defer></script>
+    <meta name="description" content="">
+    
+    
+    
+<script>
+var dictHomePath = '/d/';
+var dictQueryPath = '/dq/';
+var dictPopupLookupPattern = "\u67e5\u8be2 {word}";
+
+function dictSearch() {
+    var word = document.getElementById('dict_word_input').value.trim();
+    if (word) {
+        window.location.href = dictHomePath + encodeURIComponent(word);
+    }
+}
+document.addEventListener("DOMContentLoaded", function(event) {
+    var input = document.getElementById('dict_word_input');
+    var ac = document.getElementById('dict_ac');
+    var clearBtn = document.getElementById('dict_clear');
+    var acIndex = -1;
+    var debounceTimer = null;
+    var pronButtons = document.querySelectorAll('.dict-pron-button');
+    var pronAudio = null;
+    var pronPlaying = false;
+
+    function updatePronButtons() {
+        for (var i = 0; i < pronButtons.length; i++) {
+            pronButtons[i].classList.toggle('is-playing', pronPlaying);
+            pronButtons[i].setAttribute('aria-pressed', pronPlaying ? 'true' : 'false');
+        }
+    }
+
+    if (pronButtons.length > 0) {
+        pronAudio = new Audio(pronButtons[0].getAttribute('data-audio-url'));
+        pronAudio.addEventListener('ended', function() {
+            pronPlaying = false;
+            updatePronButtons();
+        });
+        for (var i = 0; i < pronButtons.length; i++) {
+            pronButtons[i].addEventListener('click', function() {
+                if (!pronAudio) { return; }
+                if (pronPlaying) {
+                    pronAudio.pause();
+                    pronAudio.currentTime = 0;
+                    pronPlaying = false;
+                    updatePronButtons();
+                    return;
+                }
+                pronAudio.currentTime = 0;
+                var playPromise = pronAudio.play();
+                pronPlaying = true;
+                updatePronButtons();
+                if (playPromise && playPromise.catch) {
+                    playPromise.catch(function() {
+                        pronPlaying = false;
+                        updatePronButtons();
+                    });
+                }
+            });
+        }
+        updatePronButtons();
+    }
+
+    function updateClear() {
+        clearBtn.style.display = (input.value.length > 0 && document.activeElement === input) ? 'block' : 'none';
+    }
+
+    clearBtn.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        input.value = '';
+        hideAC();
+        updateClear();
+        input.focus();
+    });
+
+    document.getElementById('dict_search_btn').addEventListener('click', dictSearch);
+
+    input.addEventListener('keydown', function(e) {
+        var items = ac.querySelectorAll('.ac-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            acIndex = Math.min(acIndex + 1, items.length - 1);
+            updateActive(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            acIndex = Math.max(acIndex - 1, -1);
+            updateActive(items);
+        } else if (e.key === 'Enter') {
+            if (acIndex >= 0 && items.length > 0) {
+                input.value = items[acIndex].textContent;
+                hideAC();
+            }
+            dictSearch();
+        } else if (e.key === 'Escape') {
+            hideAC();
+        }
+    });
+
+    input.addEventListener('focus', updateClear);
+
+    input.addEventListener('input', function() {
+        updateClear();
+        clearTimeout(debounceTimer);
+        var q = input.value.trim();
+        if (q.length === 0) { hideAC(); return; }
+        debounceTimer = setTimeout(function() {
+            $.get(dictQueryPath + encodeURIComponent(q), function(data) {
+                if (!data.words || data.words.length === 0) { hideAC(); return; }
+                acIndex = -1;
+                ac.innerHTML = '';
+                data.words.forEach(function(word) {
+                    var div = document.createElement('div');
+                    div.className = 'ac-item';
+                    div.textContent = word;
+                    div.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        input.value = word;
+                        hideAC();
+                        dictSearch();
+                    });
+                    ac.appendChild(div);
+                });
+                ac.style.display = 'block';
+            });
+        }, 200);
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(hideAC, 150);
+        setTimeout(updateClear, 150);
+    });
+
+    function hideAC() { ac.style.display = 'none'; acIndex = -1; }
+
+    function updateActive(items) {
+        items.forEach(function(el, i) {
+            el.classList.toggle('ac-active', i === acIndex);
+        });
+    }
+
+    if (input.value.length > 0) {
+        input.setSelectionRange(input.value.length, input.value.length);
+        input.focus();
+    }
+
+    // Selection lookup popup
+    var popup = document.createElement('div');
+    popup.id = 'dict_sel_popup';
+    popup.style.display = 'none';
+    document.body.appendChild(popup);
+
+    function hidePopup() { popup.style.display = 'none'; }
+
+    document.addEventListener('mousedown', function(e) {
+        if (popup.style.display === 'block' && !popup.contains(e.target)) {
+            hidePopup();
+        }
+    });
+
+    var mb = document.querySelector('.markdown_body');
+    if (mb) {
+        mb.addEventListener('mouseup', function(e) {
+            var sel = window.getSelection();
+            var text = sel ? sel.toString().trim() : '';
+            if (text.length > 0 && text.length <= 100 && /^[a-zA-Z0-9 -]+$/.test(text)) {
+                popup.textContent = '';
+                var link = document.createElement('a');
+                link.href = dictHomePath + encodeURIComponent(text);
+                link.textContent = dictPopupLookupPattern.replace('{word}', text);
+                popup.appendChild(link);
+                popup.style.display = 'block';
+                popup.style.left = e.pageX + 'px';
+                popup.style.top = (e.pageY + 16) + 'px';
+                // Keep popup within viewport
+                var rect = popup.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    popup.style.left = (e.pageX - rect.width) + 'px';
+                }
+            } else {
+                hidePopup();
+            }
+        });
+    }
+});
+</script>
+<style type="text/css">
+#dict_clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    font-size: 12px;
+    border-radius: 50%;
+    background-color: var(--color-gray);
+    color: var(--box-background-color);
+    z-index: 10;
+    user-select: none;
+}
+#dict_clear:hover {
+    background-color: var(--color-gray);
+}
+#dict_ac {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    background-color: var(--box-background-color);
+    border: solid 1px var(--box-border-color);
+    border-radius: 3px;
+    box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.1);
+    padding: 5px 10px;
+    font-size: 14px;
+    line-height: 28px;
+    box-sizing: border-box;
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 2px 0 0 0;
+}
+#dict_ac .ac-item {
+    cursor: pointer;
+}
+#dict_ac .ac-item:hover, #dict_ac .ac-item.ac-active {
+    background-color: rgba(135, 206, 250, 0.25);
+    margin: 0 -10px;
+    padding: 0 10px;
+}
+#dict_sel_popup {
+    position: absolute;
+    background-color: var(--box-background-color);
+    border: solid 1px var(--box-border-color);
+    border-radius: 5px;
+    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.15);
+    padding: 6px 12px;
+    font-size: 14px;
+    z-index: 200;
+    white-space: nowrap;
+}
+#dict_sel_popup a {
+    text-decoration: none;
+    color: var(--link-color);
+}
+#dict_sel_popup a:hover {
+    text-decoration: underline;
+}
+.dict-pron-button {
+    appearance: none;
+    border: 1px solid var(--box-border-color);
+    background-color: var(--box-background-color);
+    color: var(--color-text);
+    border-radius: 999px;
+    padding: 7px 14px 7px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+.dict-pron-button:hover {
+    border-color: var(--link-color);
+    box-shadow: 0px 0px 0px 3px rgba(135, 206, 250, 0.15);
+}
+.dict-pron-button:focus {
+    outline: none;
+    border-color: var(--link-color);
+    box-shadow: 0px 0px 0px 3px rgba(135, 206, 250, 0.2);
+}
+.dict-pron-icon {
+    width: 14px;
+    height: 14px;
+    position: relative;
+    display: inline-block;
+}
+.dict-pron-icon:before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 11px solid var(--link-color);
+}
+.dict-pron-button.is-playing .dict-pron-icon:before {
+    left: 2px;
+    top: 2px;
+    width: 10px;
+    height: 10px;
+    border: 0;
+    background-color: var(--link-color);
+    border-radius: 2px;
+}
+.dict-pron-button.is-playing {
+    border-color: var(--link-color);
+    color: var(--link-color);
+}
+.dict-h1-with-pron {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.dict-h1-with-pron .dict-pron-button {
+    flex-shrink: 0;
+}
+
+#Rightbar {
+    width: 300px;
+}
+
+#Main {
+    margin-right: 340px;
+}
+
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.getElementById('definition'), {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\(', right: '\\)', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}], throwOnError: false});"></script>
+
+
+    
+</head>
+<body>
+    
+    
+    <div id="Top">
+        <div class="content">
+            <div class="site-nav">
+                <a href="/" name="top" title="way to explore"><div id="Logo"></div></a>
+                <div id="search-container">
+                    <input id="search" type="text" maxlength="128" autocomplete="off" tabindex="1">
+                    <div id="search-result" class="box"></div>
+                </div>
+                <div class="tools" >
+                
+                    <a href="/" class="top">首页</a>
+                    <a href="https://edge.v2ex.com/signup" class="top">注册</a>
+                    <a href="https://edge.v2ex.com/signin" class="top">登录</a>
+                
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="Wrapper">
+        <div class="content">
+            
+            <div id="Leftbar"></div>
+            <div id="Rightbar">
+                <div class="sep20"></div>
+                
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+     crossorigin="anonymous"></script>
+<!-- Vertical Responsive -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-5060390720525238"
+     data-ad-slot="5769549468"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+
+            </div>
+            <div id="Main">
+                <div class="sep20"></div>
+                
+<div class="box">
+    <div class="header">
+        <a href="/">V2EX</a> <span class="chevron">&nbsp;›&nbsp;</span> <a href="/d/">英汉词典</a>
+    </div>
+    <div class="cell flex-one-row gap10">
+    <div class="spacer"></div>
+    <div style="position: relative; width: 50%;">
+        <input type="text" class="mle" style="box-sizing: border-box; width: 100%; padding-right: 28px;" id="dict_word_input" placeholder="输入一个单词或短语" autofocus autocomplete="off" value="explore">
+        <div id="dict_clear" style="display: none;">&times;</div>
+        <div id="dict_ac" class="dropdown" style="display: none;"></div>
+    </div>
+    <button style="box-sizing: border-box; width: 80px; padding: 4px 10px;" id="dict_search_btn" class="super normal button">查询</button>
+    <div class="spacer"></div>
+</div>
+    
+    
+    <div class="cell topic_content markdown_body" id="definition">
+            <h1 class="dict-h1-with-pron">Explore <button aria-pressed="false" class="dict-pron-button" data-audio-url="/pron/explore" type="button"><span class="dict-pron-icon"></span><span class="dict-pron-label">发音</span></button></h1>
+<h2>释义 Definition</h2>
+<p><strong>explore</strong>（动词）：探索；探究；考察（未知的地方、想法或问题），以获取信息、理解或发现新事物。（也常用于“探讨某个话题/可能性”。）</p>
+<h2>发音 Pronunciation</h2>
+<p>/ɪkˈsplɔːr/（美式常见）<br/>
+/ɪkˈsplɔːə/（英式常见）</p>
+<h2>例句 Examples</h2>
+<p>I want to explore the city on foot.<br/>
+我想步行探索这座城市。</p>
+<p>The report explores how social media influences teenagers’ mental health and learning habits.<br/>
+这份报告探讨了社交媒体如何影响青少年的心理健康与学习习惯。</p>
+<h2>词源 Etymology</h2>
+<p><strong>explore</strong> 来自拉丁语 <em>explorare</em>，原意与“侦察、搜寻、查找”有关，后来引申为对未知地域的“探索”，再进一步扩展到对观点、问题与可能性的“探究/探讨”。</p>
+<h2>相关词 Related Words</h2>
+<ul>
+<li><a href="./investigate" rel="nofollow">Investigate</a></li>
+<li><a href="./examine" rel="nofollow">Examine</a></li>
+<li><a href="./research" rel="nofollow">Research</a></li>
+<li><a href="./discover" rel="nofollow">Discover</a></li>
+<li><a href="./survey" rel="nofollow">Survey</a></li>
+<li><a href="./probe" rel="nofollow">Probe</a></li>
+<li><a href="./venture" rel="nofollow">Venture</a></li>
+<li><a href="./wander" rel="nofollow">Wander</a></li>
+</ul>
+<h2>文学作品 Literary Works</h2>
+<ul>
+<li><strong>Jules Verne</strong>《<em>Journey to the Center of the Earth</em>》（《地心游记》）：以“探索未知世界”为核心主题。  </li>
+<li><strong>Herman Melville</strong>《<em>Moby-Dick</em>》（《白鲸》）：大量描写航海与对海洋未知的探索。  </li>
+<li><strong>Joseph Conrad</strong>《<em>Heart of Darkness</em>》（《黑暗之心》）：以探险旅程推动叙事，并“探究”人性与文明主题。</li>
+</ul>
+
+        </div>
+        
+        <style type="text/css">
+            .topic_content, .markdown_body {
+                font-family: serif;
+                font-size: 16px;
+                line-height: 160%;
+                font-weight: 450;
+            }
+
+            .topic_content h1, .markdown_body h1 {
+                font-family: serif;
+                font-size: 32px;
+            }
+        </style>
+</div>
+
+
+            </div>
+            
+            
+        </div>
+        <div class="c"></div>
+        <div class="sep20"></div>
+    </div>
+    <div id="Bottom">
+        <div class="content">
+            <div class="inner">
+                <div class="sep10"></div>
+                    <div class="fr">
+                        <a href="https://www.digitalocean.com/?refcode=1b51f1a7651d" target="_blank"><div id="DigitalOcean"></div></a>
+                    </div>
+                    <strong><a href="/about" class="dark" target="_self">关于</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/help" class="dark" target="_self">帮助文档</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/pro/about" class="dark" target="_self">自助推广系统</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://blog.v2ex.com/" class="dark" target="_blank">博客</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/help/api" class="dark" target="_self">API</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/faq" class="dark" target="_self">FAQ</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/privacy" class="dark" target="_self">Privacy</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/solana" class="dark" target="_self">Solana</a> &nbsp; <span class="snow">·</span> &nbsp; 2907 人在线</strong> &nbsp; <span class="fade">最高记录 6679</span> &nbsp; <span class="snow">·</span> &nbsp; <a href="/select/language" class="f11"><img src="/static/img/language.png?v=6a5cfa731dc71a3769f6daace6784739" width="16" align="absmiddle" id="ico-select-language" /> &nbsp; Select Language</a>
+                    <div class="sep20"></div>
+                    创意工作者们的社区
+                    <div class="sep5"></div>
+                    World is powered by solitude
+                    <div class="sep20"></div>
+                    <span class="small fade">VERSION: 3.9.8.5 · 35ms · <a href="/worldclock#utc">UTC 13:30</a> · <a href="/worldclock#pvg">PVG 21:30</a> · <a href="/worldclock#lax">LAX 05:30</a> · <a href="/worldclock#jfk">JFK 08:30</a><br />♥ Do have faith in what you're doing.</span>
+                <div class="sep10"></div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-11940834-2', 'v2ex.com');
+      ga('send', 'pageview');
+      
+
+    </script>
+    
+
+    
+<button class="scroll-top" data-scroll="up" type="button"><span>❯<span></button>
+</body>
+</html>

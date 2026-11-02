@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta name="Content-Type" content="text/html;charset=utf-8">
+    <meta name="Referrer" content="unsafe-url">
+    <meta content="True" name="HandheldFriendly">
+    
+    <meta name="theme-color" content="#ffffff">
+    
+    
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="detectify-verification" content="d0264f228155c7a1f72c3d91c17ce8fb" />
+<meta name="p:domain_verify" content="b87e3b55b409494aab88c1610b05a5f0"/>
+<meta name="alexaVerifyID" content="OFc8dmwZo7ttU4UCnDh1rKDtLlY" />
+<meta name="baidu-site-verification" content="D00WizvYyr" />
+<meta name="msvalidate.01" content="D9B08FEA08E3DA402BF07ABAB61D77DE" />
+<meta property="wb:webmaster" content="f2f4cb229bda06a4" />
+<meta name="google-site-verification" content="LM_cJR94XJIqcYJeOCscGVMWdaRUvmyz6cVOqkFplaU" />
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+     crossorigin="anonymous"></script>
+<script defer data-site="388d5c063206" src="https://stats.v2core.com/js/s.js"></script>
+    
+    <title>V2EX › Go 编程语言</title>
+    <link rel="dns-prefetch" href="https://static.v2ex.com/" />
+<link rel="dns-prefetch" href="https://cdn.v2ex.com/" />
+<link rel="dns-prefetch" href="https://i.v2ex.co/" />
+<link rel="dns-prefetch" href="https://www.google-analytics.com/" />    
+    <style>
+        body {
+            min-width: 820px;
+            font-family: "Helvetica Neue", "Luxi Sans", "Segoe UI", "Hiragino Sans GB", "Microsoft Yahei", sans-serif, "Apple Logo";
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/24a675cc31e0246e4ab1b09af3608861ace026c1-combo.css?t=1793626200">
+    
+    <script>
+        const SITE_NIGHT = 0;
+    </script>
+    <link rel="stylesheet" href="/static/css/vendor/tomorrow.css?v=3c006808236080a5d98ba4e64b8f323f" type="text/css">
+    
+    <link rel="icon" sizes="192x192" href="/static/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png?v=91e795b8b5d9e2cbf2d886c3d4b7d63c">
+    
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/png">
+    
+    
+    <link rel="manifest" href="/manifest.webmanifest">
+    <script>
+        const LANG = 'zhcn';
+        const FEATURES = ['search', 'favorite-nodes-sort'];
+        const SOLANA_WEB3_URL = '/assets/f6493ddb7835bc10ae580acdd2e161e012a316e4-solana-web3.js?t=1793626200';
+    </script>
+    <script src="/assets/e0c593b6f75c1dc6eaaaaf8d57c0c71d578081f0-combo.js?t=1793626200" defer></script>
+    <meta name="description" content="Go 是一个开源的编程语言，它能让构造简单、可靠且高效的软件变得容易。">
+    
+    <link rel="alternate" type="application/atom+xml" href="/feed/go.xml">
+    
+    
+    <link rel="canonical" href="https://www.v2ex.com/go/go">
+    
+    
+    
+    <meta name="robots" content="noindex, nofollow" />
+    
+    <script>
+        var nodeName = "go";
+        
+
+		document.addEventListener("DOMContentLoaded", function(event) {
+			protectTraffic();
+            autosize($('#topic_content'));
+
+            $("#topic_content").keydown(function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.which === 13) {
+                    e.preventDefault();
+                    $("#topic_content").parent().submit();
+                }
+            });
+            $("#topic_title").keydown(function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.which === 13) {
+                    e.preventDefault();
+                    $("#topic_title").parent().submit();
+                }
+            });
+
+            $("#topic_title").on('input', function(e) {
+                saveTopicDraft(nodeName, memberId);
+            });
+            $("#topic_content").on('input', function(e) {
+                saveTopicDraft(nodeName, memberId);
+            });
+
+            const topicLinks = document.getElementsByClassName('topic-link');
+const moreLinks = document.getElementsByClassName('count_livid');
+const orangeLinks = document.getElementsByClassName('count_orange');
+// merge non-duplicate arrays
+const links = Array.from(new Set([...topicLinks, ...moreLinks, ...orangeLinks]));
+for (link in links) {
+    let aLink = links[link];
+    if (aLink === undefined) {
+        continue;
+    }
+    if (!aLink.hasAttribute || !aLink.hasAttribute('href')) {
+        continue;
+    }
+    let href = aLink.getAttribute('href');
+    if (href && href.startsWith('/t/')) {
+        // href is something like "/t/1234#reply567"
+        const topicID = href.split('/')[2].split('#')[0];
+        const key = "tp" + topicID;
+        const value = lscache.get(key);
+        if (value) {
+            const anchor = href.split('#')[1];
+            const newHref = "/t/" + topicID + "?p=" + value + "#" + anchor;
+            aLink.setAttribute('href', newHref);
+            console.log("Set p for topic " + topicID + " to " + value + ": " + newHref);
+        }
+    }
+}
+
+            
+
+            tippy('[title]', {
+                placement: 'bottom',
+                arrow: true,
+                arrowTransform: 'translateY(-2px)'
+            });
+		    });
+	</script>
+    
+    <script type="application/ld+json">{"dateModified": "2022-07-27T08:26:39Z", "description": "Go 是一个开源的编程语言，它能让构造简单、可靠且高效的软件变得容易。", "url": "https://www.v2ex.com/go/go", "image": "https://cdn.v2ex.com/navatar/f61d/6947/375_xxxlarge.png?m=1658910399", "dateCreated": "2011-04-17T15:50:21Z", "@context": "https://schema.org", "mainEntity": {"itemListElement": [{"url": "https://www.v2ex.com/t/1253381", "position": 1, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/wsseo", "@type": "Person", "name": "wsseo"}, "headline": "dbx 的作者用 go 搞了一个 ssh 客户端 motty", "datePublished": "2026-10-31T04:19:40Z", "commentCount": 9, "url": "https://www.v2ex.com/t/1253381", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1253162", "position": 2, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/RedisMasterNode", "@type": "Person", "name": "RedisMasterNode"}, "headline": "VictoriaLogs 与 Loki、Elasticsearch、OpenSearch、SigNoz、ClickStack 的日志写入性能对比", "datePublished": "2026-10-30T05:15:07Z", "commentCount": 4, "url": "https://www.v2ex.com/t/1253162", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1246944", "position": 3, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/zhengfan2016", "@type": "Person", "name": "zhengfan2016"}, "headline": "golang 有啥版本管理推荐啊", "datePublished": "2026-10-08T02:25:17Z", "commentCount": 23, "url": "https://www.v2ex.com/t/1246944", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1243119", "position": 4, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/shuijingwanwqyy", "@type": "Person", "name": "shuijingwanwqyy"}, "headline": "做了一个持续同步官方的 A Tour of Go 中文版，也逐渐扩展成了多语言项目", "datePublished": "2026-09-19T02:34:04Z", "commentCount": 0, "url": "https://www.v2ex.com/t/1243119", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1240979", "position": 5, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/kevan", "@type": "Person", "name": "kevan"}, "headline": "WorkBuddy + 企业微信 有人用过吗?", "datePublished": "2026-09-10T03:48:08Z", "commentCount": 1, "url": "https://www.v2ex.com/t/1240979", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1238085", "position": 6, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/aababc", "@type": "Person", "name": "aababc"}, "headline": "业务系统开发语言从 PHP / Python 转向 Go 如何实现数据的存储", "datePublished": "2026-08-29T14:30:19Z", "commentCount": 49, "url": "https://www.v2ex.com/t/1238085", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1238080", "position": 7, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/daqing", "@type": "Person", "name": "daqing"}, "headline": "[2026 最新] Go 1.27 泛型方法完全解读", "datePublished": "2026-08-29T13:31:37Z", "commentCount": 2, "url": "https://www.v2ex.com/t/1238080", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1237839", "position": 8, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/amztianshi888", "@type": "Person", "name": "amztianshi888"}, "headline": "Go 后台接入 SSO 后，本地用户表应该怎么退？", "datePublished": "2026-08-28T04:32:24Z", "commentCount": 5, "url": "https://www.v2ex.com/t/1237839", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1237497", "position": 9, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/roy2220", "@type": "Person", "name": "roy2220"}, "headline": "clbtransport - 自带负载均衡的 http.Transport 简易替代", "datePublished": "2026-08-26T16:52:51Z", "commentCount": 0, "url": "https://www.v2ex.com/t/1237497", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1233652", "position": 10, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/Hifone", "@type": "Person", "name": "Hifone"}, "headline": "基于 go+react 开发的一款可私有化部署、任务驱动的代码托管平台 iForge", "datePublished": "2026-08-11T11:31:55Z", "commentCount": 0, "url": "https://www.v2ex.com/t/1233652", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1231606", "position": 11, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/kkhaike", "@type": "Person", "name": "kkhaike"}, "headline": "分享一个还在 RC 阶段的项目：把 C 编译成不依赖 cgo 的 Go package", "datePublished": "2026-08-03T01:16:57Z", "commentCount": 8, "url": "https://www.v2ex.com/t/1231606", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1229421", "position": 12, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/anviod", "@type": "Person", "name": "anviod"}, "headline": "[工业边缘网关] EdgeX 更新啦，增加了 MCP，可以被 AI 接管了，可以让 AI 控制物理世界啦", "datePublished": "2026-07-23T16:56:29Z", "commentCount": 6, "url": "https://www.v2ex.com/t/1229421", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1228795", "position": 13, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/amztianshi888", "@type": "Person", "name": "amztianshi888"}, "headline": "有了 Agent，后台脚手架是该退场，还是变成约束层？", "datePublished": "2026-07-21T05:28:50Z", "commentCount": 17, "url": "https://www.v2ex.com/t/1228795", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1228726", "position": 14, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/menfrexu", "@type": "Person", "name": "menfrexu"}, "headline": "强兼 Claude Code：左 DeepSeek V4，右 Kimi K3", "datePublished": "2026-07-21T02:07:33Z", "commentCount": 2, "url": "https://www.v2ex.com/t/1228726", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1228818", "position": 15, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/anviod", "@type": "Person", "name": "anviod"}, "headline": "[工业边缘网关] EdgeX 更新啦 上线了官网 顺便更新版本 v0.10.0", "datePublished": "2026-07-21T06:48:56Z", "commentCount": 2, "url": "https://www.v2ex.com/t/1228818", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1227640", "position": 16, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/breezeStrak", "@type": "Person", "name": "breezeStrak"}, "headline": "构建时自动注入版本号：从 Git tag 到 Go 可执行文件", "datePublished": "2026-07-16T02:00:36Z", "commentCount": 2, "url": "https://www.v2ex.com/t/1227640", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1223588", "position": 17, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/le4tim", "@type": "Person", "name": "le4tim"}, "headline": "我开源了一款极简的 P2P 文件传输与 VPN 工具 (Win/Mac/ Linux /Android)", "datePublished": "2026-06-29T02:36:31Z", "commentCount": 2, "url": "https://www.v2ex.com/t/1223588", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1225773", "position": 18, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/anviod", "@type": "Person", "name": "anviod"}, "headline": "[边缘计算] 想借助 AI 来开发 边缘网关接入 AI 解决设备通信 不知道有没有需求", "datePublished": "2026-07-08T02:51:07Z", "commentCount": 0, "url": "https://www.v2ex.com/t/1225773", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1224087", "position": 19, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/hanxiV2EX", "@type": "Person", "name": "hanxiV2EX"}, "headline": "go 跨平台也牛逼，直接把服务端打包进客户端", "datePublished": "2026-07-01T00:56:56Z", "commentCount": 37, "url": "https://www.v2ex.com/t/1224087", "@type": "DiscussionForumPosting"}}, {"url": "https://www.v2ex.com/t/1224300", "position": 20, "@type": "ListItem", "item": {"author": {"url": "https://www.v2ex.com/member/jxia", "@type": "Person", "name": "jxia"}, "headline": "eget：不用等中央仓库，直接安装 GitHub 和任意下载站的工具", "datePublished": "2026-07-01T10:41:58Z", "commentCount": 3, "url": "https://www.v2ex.com/t/1224300", "@type": "DiscussionForumPosting"}}], "@type": "ItemList", "itemListOrder": "https://schema.org/ItemListOrderDescending", "numberOfItems": 3366}, "@type": "CollectionPage", "name": "Go 编程语言"}</script>
+    
+
+    
+</head>
+<body>
+    
+    
+    <div id="Top">
+        <div class="content">
+            <div class="site-nav">
+                <a href="/" name="top" title="way to explore"><div id="Logo"></div></a>
+                <div id="search-container">
+                    <input id="search" type="text" maxlength="128" autocomplete="off" tabindex="1">
+                    <div id="search-result" class="box"></div>
+                </div>
+                <div class="tools" >
+                
+                    <a href="/" class="top">首页</a>
+                    <a href="https://edge.v2ex.com/signup" class="top">注册</a>
+                    <a href="https://edge.v2ex.com/signin" class="top">登录</a>
+                
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="Wrapper">
+        <div class="content">
+            
+            <div id="Leftbar"></div>
+            <div id="Rightbar">
+                <div class="sep20"></div>
+                
+
+
+
+<div class="box">
+    <div class="pro-unit-title">节点订阅方式</div>
+    <div class="cell" style="padding: 8px; line-height: 100%;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="28"><a href="/feed/go.xml"><img src="/static/img/planet/rss512.png" width="28" border="0" style="border-radius: 4px; vertical-align: bottom;" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle" align="left"><a href="/feed/go.xml">RSS</a></td>
+                <td width="16" valign="middle" align="right"><a href="javascript:copyToClipboard(window.location.origin + '/feed/go.xml')" title="复制 RSS 地址"><img src="/static/img/copy.svg" alt="copy RSS feed" align="absmiddle" width="16" /></a></td>
+            </tr>
+        </table>
+    </div>
+    <div class="cell" style="padding: 8px; line-height: 100%;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="28"><a href="/feed/go.json"><img src="/static/img/json-feed.png" width="28" border="0" style="border-radius: 4px; vertical-align: bottom;" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle" align="left"><a href="/feed/go.json">JSON Feed</a></td>
+                <td width="16" valign="middle" align="right"><a href="javascript:copyToClipboard(window.location.origin + '/feed/go.json')" title="复制 JSON Feed 地址"><img src="/static/img/copy.svg" alt="copy JSON feed" align="absmiddle" width="16" /></a></td>
+            </tr>
+        </table>
+    </div>
+    <div class="cell" style="padding: 8px; line-height: 100%;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="28"><a href="/planet/about"><img src="/static/img/planet/planet128.png" width="28" border="0" style="vertical-align: bottom;" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle" align="left"><a href="/planet/about">使用 Planet 订阅节点更新</a></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+
+
+
+
+<div class="sep"></div>
+        <div class="box">
+            <div class="inner" id="node_sidebar">
+                <div class="sidebar_units">
+</div>
+<strong>The Go Programming Language</strong>
+<div class="sep5"></div>
+<span class="chevron">›</span> <a href="http://golang.org/" target="_blank">http://golang.org/</a>
+<div class="sep5"></div>
+<span class="chevron">›</span> <a href="http://play.golang.org/" target="_blank">Go Playground</a>
+<div class="sep10"></div>
+<strong>Go Projects</strong>
+<div class="sep5"></div>
+<span class="chevron">›</span> <a href="http://revel.github.io/" target="_blank">Revel Web Framework</a>
+<div class="sep5"></div>
+                
+            </div>
+            <div class="sidebar_compliance"><a href="/advertise" target="_blank">广告</a></div>
+        </div>
+<style type="text/css">
+
+.node-header > .page-content-header {
+    background-color: #001D25;
+}
+
+
+
+.node-header > .page-content-header a {
+    color: #03C8FF;
+}
+
+
+
+.node-header > .page-content-header a:hover {
+    color: #03C8FF;
+}
+
+
+</style>
+
+
+<div class="sep20"></div>
+<div class="box">
+    
+    <div class="inner">
+        <strong class="gray">父节点</strong>
+        <div class="sep10"></div>
+        <node-sidebar
+        nodeId=413
+        nodeName="programming"
+        nodeTitle="编程"
+        nodeAvatar="https://cdn.v2ex.com/navatar/0deb/1c54/413_normal.png?m=1610122546"
+        ></node-sidebar>
+    </div>
+    
+    
+    <div class="cell-top">
+        <span class="f12 gray"><div class="fr">36</div>相关节点</span>
+    </div>
+    <div class="nodes-sidebar-container">
+        
+        <node-sidebar
+        nodeId=90
+        nodeName="python"
+        nodeTitle="Python"
+        nodeAvatar="https://cdn.v2ex.com/navatar/8613/985e/90_normal.png?m=1648339948"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=63
+        nodeName="java"
+        nodeTitle="Java"
+        nodeAvatar="https://cdn.v2ex.com/navatar/03af/dbd6/63_normal.png?m=1644490200"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=62
+        nodeName="php"
+        nodeTitle="PHP"
+        nodeAvatar="https://cdn.v2ex.com/navatar/44f6/83a8/62_normal.png?m=1644475743"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=146
+        nodeName="js"
+        nodeTitle="JavaScript"
+        nodeAvatar="https://cdn.v2ex.com/navatar/a5e0/0132/146_normal.png?m=1650095218"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=57
+        nodeName="c"
+        nodeTitle="C"
+        nodeAvatar="https://cdn.v2ex.com/navatar/72b3/2a1f/57_normal.png?m=1575483197"
+        ></node-sidebar>
+        
+        <div onclick="toggleMoreNodes(this, 'nodes-more-related', 31, `显示 31 个更多的相关节点`, `收起下面额外的节点`);" class="toggle-more-nodes"><i class="fa fa-caret-right"></i> &nbsp;<span>显示 31 个更多的相关节点</span></div>
+        <div id="nodes-more-related" style="display: none;">
+        
+        
+        <node-sidebar
+        nodeId=1063
+        nodeName="cpp"
+        nodeTitle="C++"
+        nodeAvatar="https://cdn.v2ex.com/navatar/6c34/0f25/1063_normal.png?m=1645243654"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=139
+        nodeName="css"
+        nodeTitle="CSS"
+        nodeAvatar="https://cdn.v2ex.com/navatar/e00d/a03b/139_normal.png?m=1644497140"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=790
+        nodeName="rust"
+        nodeTitle="Rust"
+        nodeAvatar="https://cdn.v2ex.com/navatar/2dac/e78f/790_normal.png?m=1632977380"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=638
+        nodeName="swift"
+        nodeTitle="Swift"
+        nodeAvatar="https://cdn.v2ex.com/navatar/4c27/cea8/638_normal.png?m=1661630260"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=60
+        nodeName="html"
+        nodeTitle="HTML"
+        nodeAvatar="https://cdn.v2ex.com/navatar/072b/030b/60_normal.png?m=1640171734"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=349
+        nodeName="dotnet"
+        nodeTitle=".NET"
+        nodeAvatar="https://cdn.v2ex.com/navatar/0bb4/aec1/349_normal.png?m=1579009691"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=1005
+        nodeName="csharp"
+        nodeTitle="C#"
+        nodeAvatar="https://cdn.v2ex.com/navatar/2387/337b/1005_normal.png?m=1579006175"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=137
+        nodeName="re"
+        nodeTitle="正则表达式"
+        nodeAvatar="https://cdn.v2ex.com/navatar/3988/c7f8/137_normal.png?m=1643852696"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=477
+        nodeName="editors"
+        nodeTitle="编辑器"
+        nodeAvatar="https://cdn.v2ex.com/navatar/7407/1a67/477_normal.png?m=1439978846"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=367
+        nodeName="ruby"
+        nodeTitle="Ruby"
+        nodeAvatar="https://cdn.v2ex.com/navatar/0504/9e90/367_normal.png?m=1579009612"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=863
+        nodeName="qt"
+        nodeTitle="Qt"
+        nodeAvatar="https://cdn.v2ex.com/navatar/19b6/5066/863_normal.png?m=1646756512"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=982
+        nodeName="kotlin"
+        nodeTitle="Kotlin"
+        nodeAvatar="https://cdn.v2ex.com/navatar/fec8/d47d/982_normal.png?m=1585380699"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=530
+        nodeName="meteor"
+        nodeTitle="Meteor"
+        nodeAvatar="https://cdn.v2ex.com/navatar/d64a/340b/530_normal.png?m=1414522195"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=124
+        nodeName="scala"
+        nodeTitle="Scala"
+        nodeAvatar="https://cdn.v2ex.com/navatar/c8ff/e9a5/124_normal.png?m=1488098428"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=147
+        nodeName="lua"
+        nodeTitle="Lua"
+        nodeAvatar="https://cdn.v2ex.com/navatar/8d5e/957f/147_normal.png?m=1586483655"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=275
+        nodeName="lisp"
+        nodeTitle="Lisp"
+        nodeAvatar="https://cdn.v2ex.com/navatar/6392/3f49/275_normal.png?m=1340401232"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=531
+        nodeName="haskell"
+        nodeTitle="Haskell"
+        nodeAvatar="https://cdn.v2ex.com/navatar/0fcb/c61a/531_normal.png?m=1421573082"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=174
+        nodeName="erlang"
+        nodeTitle="Erlang"
+        nodeAvatar="https://cdn.v2ex.com/navatar/bf82/2969/174_normal.png?m=1323093961"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=872
+        nodeName="elixir"
+        nodeTitle="Elixir 编程语言"
+        nodeAvatar="https://cdn.v2ex.com/navatar/43fe/aeee/872_normal.png?m=1634038949"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=742
+        nodeName="dart"
+        nodeTitle="Dart"
+        nodeAvatar="https://cdn.v2ex.com/navatar/e945/50c9/742_normal.png?m=1385212827"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=186
+        nodeName="assembly"
+        nodeTitle="汇编"
+        nodeAvatar="/static/img/node_default_normal.png"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=123
+        nodeName="perl"
+        nodeTitle="Perl"
+        nodeAvatar="https://cdn.v2ex.com/navatar/202c/b962/123_normal.png?m=1439985149"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=415
+        nodeName="vcs"
+        nodeTitle="版本控制系统"
+        nodeAvatar="/static/img/node_default_normal.png"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=472
+        nodeName="clojure"
+        nodeTitle="Clojure"
+        nodeAvatar="https://cdn.v2ex.com/navatar/ef57/5e88/472_normal.png?m=1547552725"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=416
+        nodeName="frameworks"
+        nodeTitle="编程框架"
+        nodeAvatar="https://cdn.v2ex.com/navatar/8fe0/093b/416_normal.png?m=1335305316"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=396
+        nodeName="gcc"
+        nodeTitle="GCC"
+        nodeAvatar="/static/img/node_default_normal.png"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=1064
+        nodeName="objc"
+        nodeTitle="Objective-C"
+        nodeAvatar="/static/img/node_default_normal.png"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=1068
+        nodeName="wenyan"
+        nodeTitle="文言文编程语言"
+        nodeAvatar="/static/img/node_default_normal.png"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=978
+        nodeName="racket"
+        nodeTitle="Racket"
+        nodeAvatar="https://cdn.v2ex.com/navatar/2ab5/6412/978_normal.png?m=1565786996"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=420
+        nodeName="basic"
+        nodeTitle="BASIC"
+        nodeAvatar="https://cdn.v2ex.com/navatar/b6f0/479a/420_normal.png?m=1346453734"
+        ></node-sidebar>
+        
+        
+        <node-sidebar
+        nodeId=473
+        nodeName="coldfusion"
+        nodeTitle="ColdFusion"
+        nodeAvatar="https://cdn.v2ex.com/navatar/2050/e03c/473_normal.png?m=1340401368"
+        ></node-sidebar>
+        
+        
+        
+        </div>
+        
+    </div>
+    
+    
+</div>
+
+
+
+
+            </div>
+            <div id="Main">
+                <div class="sep20"></div>
+                
+<div class="box box-title node-header">
+    <div class="cell page-content-header">
+        
+        <img src="https://cdn.v2ex.com/navatar/f61d/6947/375_xlarge.png?m=1658910399" border="0" align="default" width="64" alt="go" />
+        
+        <div>
+            <div class="title">
+                <div class="node-breadcrumb"><a href="/">V2EX</a> <span class="chevron">&nbsp;›&nbsp;</span> Go 编程语言</div>
+                <span class="topic-count">主题总数 <strong>3,366</strong></span>
+                <span class="node-feed">
+                    <a href="/feed/go.xml" target="_blank"><img src="/static/img/rss@2x.png?v=75acbbff5b6041ae197f371447ab0c07" alt="RSS" /></a>
+                    <a href="/feed/go.json" target="_blank"><img src="/static/img/json-feed.png?v=a2d98663319ecfabacf796fab6a005a7" alt="JSON Feed" /></a>
+                </span>
+            </div>
+            
+            <div class="intro">Go 是一个开源的编程语言，它能让构造简单、可靠且高效的软件变得容易。</div>
+            
+        </div>
+    </div>
+    
+</div>
+
+<div class="box">
+    
+    
+<div class="cell ps_container">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+            <td width="92%" align="left"><a href="/go/go?p=1" class="page_current">1</a> &nbsp;<a href="/go/go?p=2" class="page_normal">2</a> &nbsp;<a href="/go/go?p=3" class="page_normal">3</a> &nbsp;<a href="/go/go?p=4" class="page_normal">4</a> &nbsp;<a href="/go/go?p=5" class="page_normal">5</a> &nbsp;<a href="/go/go?p=6" class="page_normal">6</a> &nbsp;<a href="/go/go?p=7" class="page_normal">7</a> &nbsp;<a href="/go/go?p=8" class="page_normal">8</a> &nbsp;<a href="/go/go?p=9" class="page_normal">9</a> &nbsp;<a href="/go/go?p=10" class="page_normal">10</a><span class="fade"> ... </span><a href="/go/go?p=169" class="page_normal">169</a> &nbsp; <input type="number" class="page_input" autocomplete="off" value="1" min="1" max="169"  onkeydown = "if (event.keyCode == 13)
+                    location.href = '/go/go?p=' + this.value" /></td>
+            <td width="8%" align="right">
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <tr>
+                        <td width="50%" align="center" class="super normal button disable_now" style="display: table-cell; border-right: none; border-top-right-radius: 0px; border-bottom-right-radius: 0px;"  >❮</td>
+                        <td width="50%" align="center" class="super normal_page_right button" style="display: table-cell; border-top-left-radius: 0px; border-bottom-left-radius: 0px;" onclick="location.href='/go/go?p=2';" onmouseover="$(this).addClass('hover_now');" onmousedown="$(this).addClass('active_now');" onmouseleave="$(this).removeClass('hover_now'); $(this).removeClass('active_now');" title="下一页" >❯</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+
+    <div id="TopicsNode">
+    
+    <div class="cell from_351577 t_1253381">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/wsseo"><img src="https://cdn.v2ex.com/gravatar/76d2c2c844d4bfb2b4fbec4d2151b02f?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="wsseo" data-uid="351577" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1253381#reply9" class="topic-link" id="topic-link-1253381">dbx 的作者用 go 搞了一个 ssh 客户端 motty</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/wsseo">wsseo</a></strong> &nbsp;•&nbsp; <span title="2026-11-01 18:38:33 +08:00">1 天前</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/bronyakaka">bronyakaka</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1253381#reply9" class="count_livid">9</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_453516 t_1253162">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/RedisMasterNode"><img src="https://cdn.v2ex.com/avatar/6741/d78c/453516_xlarge.png?m=1779765289" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="RedisMasterNode" data-uid="453516" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1253162#reply4" class="topic-link" id="topic-link-1253162">VictoriaLogs 与 Loki、Elasticsearch、OpenSearch、SigNoz、ClickStack 的日志写入性能对比</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/RedisMasterNode">RedisMasterNode</a></strong> &nbsp;•&nbsp; <span title="2026-10-30 18:02:46 +08:00">10 月 30 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/perfectlife">perfectlife</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1253162#reply4" class="count_livid">4</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_466531 t_1246944">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/zhengfan2016"><img src="https://cdn.v2ex.com/gravatar/df526f138d10cac8c95b274c720a6f55?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="zhengfan2016" data-uid="466531" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1246944#reply23" class="topic-link" id="topic-link-1246944">golang 有啥版本管理推荐啊</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/zhengfan2016">zhengfan2016</a></strong> &nbsp;•&nbsp; <span title="2026-10-09 09:54:11 +08:00">10 月 9 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/Rehtt">Rehtt</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1246944#reply23" class="count_livid">23</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_808002 t_1243119">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/shuijingwanwqyy"><img src="https://cdn.v2ex.com/avatar/8597/43c7/808002_xlarge.png?m=1793087728" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="shuijingwanwqyy" data-uid="808002" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1243119#reply0" class="topic-link" id="topic-link-1243119">做了一个持续同步官方的 A Tour of Go 中文版，也逐渐扩展成了多语言项目</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/shuijingwanwqyy">shuijingwanwqyy</a></strong> &nbsp;•&nbsp; <span title="2026-09-19 10:34:04 +08:00">9 月 19 日</span></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_21701 t_1240979">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/kevan"><img src="https://cdn.v2ex.com/avatar/ed1d/ac00/21701_large.png?m=1762935639" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="kevan" data-uid="21701" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1240979#reply1" class="topic-link" id="topic-link-1240979">WorkBuddy + 企业微信 有人用过吗?</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/kevan">kevan</a></strong> &nbsp;•&nbsp; <span title="2026-09-11 08:40:09 +08:00">9 月 11 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/tencentcloud">tencentcloud</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1240979#reply1" class="count_livid">1</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="border-bottom: 1px solid var(--box-border-color);">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+        crossorigin="anonymous"></script>
+<ins class="adsbygoogle"
+     style="display: block; height: 72px;"
+     data-ad-format="fluid"
+     data-ad-layout-key="-hs-19-p-2z+is"
+     data-ad-client="ca-pub-5060390720525238"
+     data-ad-slot="1009394990"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+    
+    
+    <div class="cell from_558843 t_1238085">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/aababc"><img src="https://cdn.v2ex.com/gravatar/faeed46bc4fc9ab903ce5334086f9f79?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="aababc" data-uid="558843" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1238085#reply49" class="topic-link" id="topic-link-1238085">业务系统开发语言从 PHP / Python 转向 Go 如何实现数据的存储</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/aababc">aababc</a></strong> &nbsp;•&nbsp; <span title="2026-09-10 14:53:50 +08:00">9 月 10 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/lovedeepl">lovedeepl</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1238085#reply49" class="count_livid">49</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_51 t_1238080">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/daqing"><img src="https://cdn.v2ex.com/avatar/2838/023a/51_xlarge.png?m=1788397306" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="daqing" data-uid="51" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1238080#reply2" class="topic-link" id="topic-link-1238080">[2026 最新] Go 1.27 泛型方法完全解读</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/daqing">daqing</a></strong> &nbsp;•&nbsp; <span title="2026-08-30 20:29:03 +08:00">8 月 30 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/daqing">daqing</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1238080#reply2" class="count_livid">2</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_822008 t_1237839">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/amztianshi888"><img src="https://cdn.v2ex.com/gravatar/4b1e236348144f54652372bc3373000a?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="amztianshi888" data-uid="822008" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1237839#reply5" class="topic-link" id="topic-link-1237839">Go 后台接入 SSO 后，本地用户表应该怎么退？</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/amztianshi888">amztianshi888</a></strong> &nbsp;•&nbsp; <span title="2026-08-28 14:57:40 +08:00">8 月 28 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/coderzhangsan">coderzhangsan</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1237839#reply5" class="count_livid">5</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_309680 t_1237497">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/roy2220"><img src="https://cdn.v2ex.com/gravatar/a51b5f9079bb8b58b6811b7735ee337e?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="roy2220" data-uid="309680" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1237497#reply0" class="topic-link" id="topic-link-1237497">clbtransport - 自带负载均衡的 http.Transport 简易替代</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/roy2220">roy2220</a></strong> &nbsp;•&nbsp; <span title="2026-08-27 00:52:51 +08:00">8 月 27 日</span></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_65409 t_1233652">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/Hifone"><img src="https://cdn.v2ex.com/avatar/3d69/abef/65409_large.png?m=1789625712" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="Hifone" data-uid="65409" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1233652#reply0" class="topic-link" id="topic-link-1233652">基于 go+react 开发的一款可私有化部署、任务驱动的代码托管平台 iForge</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/Hifone">Hifone</a></strong> &nbsp;•&nbsp; <span title="2026-08-11 19:31:55 +08:00">8 月 11 日</span></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_70387 t_1231606">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/kkhaike"><img src="https://cdn.v2ex.com/avatar/d93e/c7b7/70387_large.png?m=1782369194" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="kkhaike" data-uid="70387" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1231606#reply8" class="topic-link" id="topic-link-1231606">分享一个还在 RC 阶段的项目：把 C 编译成不依赖 cgo 的 Go package</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/kkhaike">kkhaike</a></strong> &nbsp;•&nbsp; <span title="2026-08-15 02:40:52 +08:00">8 月 15 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/zhsj">zhsj</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1231606#reply8" class="count_livid">8</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_205389 t_1229421">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/anviod"><img src="https://cdn.v2ex.com/avatar/eecc/7819/205389_large.png?m=1782959684" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="anviod" data-uid="205389" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1229421#reply6" class="topic-link" id="topic-link-1229421">[工业边缘网关] EdgeX 更新啦，增加了 MCP，可以被 AI 接管了，可以让 AI 控制物理世界啦</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/anviod">anviod</a></strong> &nbsp;•&nbsp; <span title="2026-08-08 19:18:49 +08:00">8 月 8 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/YukiCoCo">YukiCoCo</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1229421#reply6" class="count_livid">6</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="border-bottom: 1px solid var(--box-border-color);">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+        crossorigin="anonymous"></script>
+<ins class="adsbygoogle"
+     style="display: block; height: 72px;"
+     data-ad-format="fluid"
+     data-ad-layout-key="-hs-19-p-2z+is"
+     data-ad-client="ca-pub-5060390720525238"
+     data-ad-slot="1009394990"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+    
+    
+    <div class="cell from_822008 t_1228795">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/amztianshi888"><img src="https://cdn.v2ex.com/gravatar/4b1e236348144f54652372bc3373000a?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="amztianshi888" data-uid="822008" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1228795#reply17" class="topic-link" id="topic-link-1228795">有了 Agent，后台脚手架是该退场，还是变成约束层？</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/amztianshi888">amztianshi888</a></strong> &nbsp;•&nbsp; <span title="2026-07-22 14:48:31 +08:00">7 月 22 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/realism">realism</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1228795#reply17" class="count_livid">17</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_826731 t_1228726">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/menfrexu"><img src="https://cdn.v2ex.com/avatar/db22/1c3c/826731_xlarge.png?m=1785726899" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="menfrexu" data-uid="826731" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1228726#reply2" class="topic-link" id="topic-link-1228726">强兼 Claude Code：左 DeepSeek V4，右 Kimi K3</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/menfrexu">menfrexu</a></strong> &nbsp;•&nbsp; <span title="2026-07-21 16:57:56 +08:00">7 月 21 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/yh7gdiaYW">yh7gdiaYW</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1228726#reply2" class="count_livid">2</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_205389 t_1228818">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/anviod"><img src="https://cdn.v2ex.com/avatar/eecc/7819/205389_large.png?m=1782959684" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="anviod" data-uid="205389" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1228818#reply2" class="topic-link" id="topic-link-1228818">[工业边缘网关] EdgeX 更新啦 上线了官网 顺便更新版本 v0.10.0</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/anviod">anviod</a></strong> &nbsp;•&nbsp; <span title="2026-07-21 22:25:04 +08:00">7 月 21 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/anviod">anviod</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1228818#reply2" class="count_livid">2</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_453971 t_1227640">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/breezeStrak"><img src="https://cdn.v2ex.com/avatar/ad0d/275d/453971_large.png?m=1790693694" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="breezeStrak" data-uid="453971" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1227640#reply2" class="topic-link" id="topic-link-1227640">构建时自动注入版本号：从 Git tag 到 Go 可执行文件</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/breezeStrak">breezeStrak</a></strong> &nbsp;•&nbsp; <span title="2026-07-16 19:57:01 +08:00">7 月 16 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/kingofzihua">kingofzihua</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1227640#reply2" class="count_livid">2</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_110693 t_1223588">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/le4tim"><img src="https://cdn.v2ex.com/avatar/8b5b/655a/110693_large.png?m=1761911438" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="le4tim" data-uid="110693" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1223588#reply2" class="topic-link" id="topic-link-1223588">我开源了一款极简的 P2P 文件传输与 VPN 工具 (Win/Mac/ Linux /Android)</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/le4tim">le4tim</a></strong> &nbsp;•&nbsp; <span title="2026-10-22 09:11:31 +08:00">10 月 22 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/evalfun">evalfun</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1223588#reply2" class="count_livid">2</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_205389 t_1225773">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/anviod"><img src="https://cdn.v2ex.com/avatar/eecc/7819/205389_large.png?m=1782959684" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="anviod" data-uid="205389" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1225773#reply0" class="topic-link" id="topic-link-1225773">[边缘计算] 想借助 AI 来开发 边缘网关接入 AI 解决设备通信 不知道有没有需求</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/anviod">anviod</a></strong> &nbsp;•&nbsp; <span title="2026-07-08 10:51:07 +08:00">7 月 8 日</span></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_172691 t_1224087">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/hanxiV2EX"><img src="https://cdn.v2ex.com/avatar/2d5f/b1ec/172691_large.png?m=1782865986" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="hanxiV2EX" data-uid="172691" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1224087#reply37" class="topic-link" id="topic-link-1224087">go 跨平台也牛逼，直接把服务端打包进客户端</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/hanxiV2EX">hanxiV2EX</a></strong> &nbsp;•&nbsp; <span title="2026-07-04 21:06:24 +08:00">7 月 4 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/Rwing">Rwing</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1224087#reply37" class="count_livid">37</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    
+    <div class="cell from_580329 t_1224300">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="48" valign="top" align="center"><a href="/member/jxia"><img src="https://cdn.v2ex.com/gravatar/dea018ce9022c5cdf520afa71dc8b99e?s=48&d=retro" class="avatar" border="0" align="default" width="48" style="width: 48px; max-height: 48px;" alt="jxia" data-uid="580329" /></a></td>
+                <td width="10"></td>
+                <td width="auto" valign="middle"><span class="item_title"><a href="/t/1224300#reply3" class="topic-link" id="topic-link-1224300">eget：不用等中央仓库，直接安装 GitHub 和任意下载站的工具</a></span>
+                <div class="sep5"></div>
+                <span class="topic_info"><strong><a href="/member/jxia">jxia</a></strong> &nbsp;•&nbsp; <span title="2026-07-05 13:47:56 +08:00">7 月 5 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/clow">clow</a></strong></span>
+                </td>
+                <td width="70" align="right" valign="middle">
+                    
+                    <a href="/t/1224300#reply3" class="count_livid">3</a>
+                    
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="border-bottom: 1px solid var(--box-border-color);">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+        crossorigin="anonymous"></script>
+<ins class="adsbygoogle"
+     style="display: block; height: 72px;"
+     data-ad-format="fluid"
+     data-ad-layout-key="-hs-19-p-2z+is"
+     data-ad-client="ca-pub-5060390720525238"
+     data-ad-slot="1009394990"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+    
+    
+    </div>
+    
+<div class="cell ps_container">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+            <td width="92%" align="left"><a href="/go/go?p=1" class="page_current">1</a> &nbsp;<a href="/go/go?p=2" class="page_normal">2</a> &nbsp;<a href="/go/go?p=3" class="page_normal">3</a> &nbsp;<a href="/go/go?p=4" class="page_normal">4</a> &nbsp;<a href="/go/go?p=5" class="page_normal">5</a> &nbsp;<a href="/go/go?p=6" class="page_normal">6</a> &nbsp;<a href="/go/go?p=7" class="page_normal">7</a> &nbsp;<a href="/go/go?p=8" class="page_normal">8</a> &nbsp;<a href="/go/go?p=9" class="page_normal">9</a> &nbsp;<a href="/go/go?p=10" class="page_normal">10</a><span class="fade"> ... </span><a href="/go/go?p=169" class="page_normal">169</a> &nbsp; <input type="number" class="page_input" autocomplete="off" value="1" min="1" max="169"  onkeydown = "if (event.keyCode == 13)
+                    location.href = '/go/go?p=' + this.value" /></td>
+            <td width="8%" align="right">
+                <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <tr>
+                        <td width="50%" align="center" class="super normal button disable_now" style="display: table-cell; border-right: none; border-top-right-radius: 0px; border-bottom-right-radius: 0px;"  >❮</td>
+                        <td width="50%" align="center" class="super normal_page_right button" style="display: table-cell; border-top-left-radius: 0px; border-bottom-left-radius: 0px;" onclick="location.href='/go/go?p=2';" onmouseover="$(this).addClass('hover_now');" onmousedown="$(this).addClass('active_now');" onmouseleave="$(this).removeClass('hover_now'); $(this).removeClass('active_now');" title="下一页" >❯</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+
+    <div class="cell flex-one-row gap10">
+        <span class="gray">第 1 到 20 / 共 3366 个主题</span>
+        <div class="spacer"></div>
+        <div>4147 人收藏了这个节点</div>
+        
+    </div>
+</div>
+
+
+
+            </div>
+            
+            
+        </div>
+        <div class="c"></div>
+        <div class="sep20"></div>
+    </div>
+    <div id="Bottom">
+        <div class="content">
+            <div class="inner">
+                <div class="sep10"></div>
+                    <div class="fr">
+                        <a href="https://www.digitalocean.com/?refcode=1b51f1a7651d" target="_blank"><div id="DigitalOcean"></div></a>
+                    </div>
+                    <strong><a href="/about" class="dark" target="_self">关于</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/help" class="dark" target="_self">帮助文档</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/pro/about" class="dark" target="_self">自助推广系统</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://blog.v2ex.com/" class="dark" target="_blank">博客</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/help/api" class="dark" target="_self">API</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/faq" class="dark" target="_self">FAQ</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/privacy" class="dark" target="_self">Privacy</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/solana" class="dark" target="_self">Solana</a> &nbsp; <span class="snow">·</span> &nbsp; 2844 人在线</strong> &nbsp; <span class="fade">最高记录 6679</span> &nbsp; <span class="snow">·</span> &nbsp; <a href="/select/language" class="f11"><img src="/static/img/language.png?v=6a5cfa731dc71a3769f6daace6784739" width="16" align="absmiddle" id="ico-select-language" /> &nbsp; Select Language</a>
+                    <div class="sep20"></div>
+                    创意工作者们的社区
+                    <div class="sep5"></div>
+                    World is powered by solitude
+                    <div class="sep20"></div>
+                    <span class="small fade">VERSION: 3.9.8.5 · 59ms · <a href="/worldclock#utc">UTC 13:38</a> · <a href="/worldclock#pvg">PVG 21:38</a> · <a href="/worldclock#lax">LAX 05:38</a> · <a href="/worldclock#jfk">JFK 08:38</a><br />♥ Do have faith in what you're doing.</span>
+                <div class="sep10"></div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    
+
+    
+    <script src="/b/i/oS9FmgOvgoN-Dow0hgdUzju8AkQMsCvhxNOgoVwBdnybduOuus7jHOeqLsaY6x-cHYE71e1pCtJgT3OvxMyfTyXOSmWbK0S9CLKxX_QE4Zwkwrp1KHkvg1edFxGOjnDXKDScHm0aE6MRroFROwHFpwu5kQoWb-jiUeqySPquHfs="></script>
+    
+
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-11940834-2', 'v2ex.com');
+      ga('send', 'pageview');
+      
+ga('send', 'event', 'Node', 'list', 'go');
+
+
+    </script>
+    
+
+    
+<button class="scroll-top" data-scroll="up" type="button"><span>❯<span></button>
+</body>
+</html>

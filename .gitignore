@@ -1,0 +1,44 @@
+# 依赖
+node_modules/
+.pnp
+.pnp.js
+
+# 构建产物
+.next/
+out/
+build/
+dist/
+
+# 环境变量（含密钥，不入库）
+.env
+.env.local
+.env.*.local
+
+# 测试产物
+test-results/
+playwright-report/
+blob-report/
+coverage/
+*.tsbuildinfo
+next-env.d.ts.bak
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+*.log
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 抓取的原始证据体积较大，按需保留：
+# docs/evidence/html/ 与 docs/evidence/assets/ 是逆向调查的一手证据，
+# 默认保留；如需精简可取消下面的注释。
+# docs/evidence/html/
+# docs/evidence/assets/

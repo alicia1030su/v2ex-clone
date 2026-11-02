@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta name="Content-Type" content="text/html;charset=utf-8">
+    <meta name="Referrer" content="unsafe-url">
+    <meta content="True" name="HandheldFriendly">
+    
+    <meta name="theme-color" content="#ffffff">
+    
+    
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="detectify-verification" content="d0264f228155c7a1f72c3d91c17ce8fb" />
+<meta name="p:domain_verify" content="b87e3b55b409494aab88c1610b05a5f0"/>
+<meta name="alexaVerifyID" content="OFc8dmwZo7ttU4UCnDh1rKDtLlY" />
+<meta name="baidu-site-verification" content="D00WizvYyr" />
+<meta name="msvalidate.01" content="D9B08FEA08E3DA402BF07ABAB61D77DE" />
+<meta property="wb:webmaster" content="f2f4cb229bda06a4" />
+<meta name="google-site-verification" content="LM_cJR94XJIqcYJeOCscGVMWdaRUvmyz6cVOqkFplaU" />
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060390720525238"
+     crossorigin="anonymous"></script>
+<script defer data-site="388d5c063206" src="https://stats.v2core.com/js/s.js"></script>
+    
+    <title>V2EX › 1</title>
+    <link rel="dns-prefetch" href="https://static.v2ex.com/" />
+<link rel="dns-prefetch" href="https://cdn.v2ex.com/" />
+<link rel="dns-prefetch" href="https://i.v2ex.co/" />
+<link rel="dns-prefetch" href="https://www.google-analytics.com/" />    
+    <style>
+        body {
+            min-width: 820px;
+            font-family: "Helvetica Neue", "Luxi Sans", "Segoe UI", "Hiragino Sans GB", "Microsoft Yahei", sans-serif, "Apple Logo";
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" media="screen" href="/assets/24a675cc31e0246e4ab1b09af3608861ace026c1-combo.css?t=1793626200">
+    
+    <script>
+        const SITE_NIGHT = 0;
+    </script>
+    <link rel="stylesheet" href="/static/css/vendor/tomorrow.css?v=3c006808236080a5d98ba4e64b8f323f" type="text/css">
+    
+    <link rel="icon" sizes="192x192" href="/static/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png?v=91e795b8b5d9e2cbf2d886c3d4b7d63c">
+    
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/png">
+    
+    
+    <link rel="manifest" href="/manifest.webmanifest">
+    <script>
+        const LANG = 'zhcn';
+        const FEATURES = ['search', 'favorite-nodes-sort'];
+        const SOLANA_WEB3_URL = '/assets/f6493ddb7835bc10ae580acdd2e161e012a316e4-solana-web3.js?t=1793626200';
+    </script>
+    <script src="/assets/e0c593b6f75c1dc6eaaaaf8d57c0c71d578081f0-combo.js?t=1793626200" defer></script>
+    <meta name="description" content="1&#39;s profile on V2EX">
+    
+    <link rel="alternate" type="application/atom+xml" href="/feed/member/1.xml">
+    
+    
+    <link rel="canonical" href="https://www.v2ex.com/member/1">
+    
+    
+
+<script>
+	document.addEventListener("DOMContentLoaded", function(event) {
+		protectTraffic();
+
+        tippy('[title]', {
+        placement: 'bottom',
+        arrow: true,
+        arrowTransform: 'translateY(-2px)'
+        });
+
+        
+
+        const topicLinks = document.getElementsByClassName('topic-link');
+const moreLinks = document.getElementsByClassName('count_livid');
+const orangeLinks = document.getElementsByClassName('count_orange');
+// merge non-duplicate arrays
+const links = Array.from(new Set([...topicLinks, ...moreLinks, ...orangeLinks]));
+for (link in links) {
+    let aLink = links[link];
+    if (aLink === undefined) {
+        continue;
+    }
+    if (!aLink.hasAttribute || !aLink.hasAttribute('href')) {
+        continue;
+    }
+    let href = aLink.getAttribute('href');
+    if (href && href.startsWith('/t/')) {
+        // href is something like "/t/1234#reply567"
+        const topicID = href.split('/')[2].split('#')[0];
+        const key = "tp" + topicID;
+        const value = lscache.get(key);
+        if (value) {
+            const anchor = href.split('#')[1];
+            const newHref = "/t/" + topicID + "?p=" + value + "#" + anchor;
+            aLink.setAttribute('href', newHref);
+            console.log("Set p for topic " + topicID + " to " + value + ": " + newHref);
+        }
+    }
+}
+	});
+</script>
+<script type="text/javascript">
+function format(tpl) {
+    var index = 1, items = arguments;
+    return (tpl || '').replace(/{(\w*)}/g, function(match, p1) {
+        return items[index++] || p1 || match;
+    });
+}
+function loadCSS(url, callback) {
+    return $('<link type="text/css" rel="stylesheet"/>')
+        .attr({ href: url })
+        .on('load', callback)
+        .appendTo(document.head);
+}
+function lazyGist(element) {
+    var $btn = $(element);
+    var $self = $(element).parent();
+    var $link = $self.find('a');
+    $btn.prop('disabled', 'disabled').text('Loading...');
+    $.getJSON(format('{}.json?callback=?', $link.prop('href').replace($link.prop('hash'), '')))
+        .done(function(data) {
+            loadCSS(data.stylesheet, function() {
+                $self.replaceWith(data.div);
+                $('.gist .gist-file .gist-meta a').filter(function() { return this.href === $link.prop('href'); }).parents('.gist-file').siblings().remove();
+            });
+        })
+        .fail(function() { $self.replaceWith($('<a>').attr('href', url).text(url)); });
+}
+</script>
+
+<script type="application/ld+json">{"url": "https://www.v2ex.com/member/1", "@type": "ProfilePage", "@context": "https://schema.org", "dateCreated": "2010-04-26T07:59:05Z", "mainEntity": {"url": "https://www.v2ex.com/member/1", "identifier": "131", "@type": "Person", "name": "1"}, "dateModified": "2010-09-07T02:59:51Z"}</script>
+
+
+    
+</head>
+<body>
+    
+
+
+    
+    <div id="Top">
+        <div class="content">
+            <div class="site-nav">
+                <a href="/" name="top" title="way to explore"><div id="Logo"></div></a>
+                <div id="search-container">
+                    <input id="search" type="text" maxlength="128" autocomplete="off" tabindex="1">
+                    <div id="search-result" class="box"></div>
+                </div>
+                <div class="tools" >
+                
+                    <a href="/" class="top">首页</a>
+                    <a href="https://edge.v2ex.com/signup" class="top">注册</a>
+                    <a href="https://edge.v2ex.com/signin" class="top">登录</a>
+                
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="Wrapper">
+        <div class="content">
+            
+            <div id="Leftbar"></div>
+            <div id="Rightbar">
+                <div class="sep20"></div>
+                
+
+
+
+
+
+
+
+<div class="box">
+    <div class="cell"><img src="/static/img/neue_comment.png" width="18" align="absmiddle" /> &nbsp;1 最近的时间轴更新</div>
+    <div id="statuses">
+        
+    </div>
+</div>
+<div class="sep20"></div>
+
+
+
+
+
+
+            </div>
+            <div id="Main">
+                <div class="sep20"></div>
+                
+<div class="box">
+    <div class="cell">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+            <td width="73" valign="top" align="center"><img src="https://cdn.v2ex.com/gravatar/ef99d26403934bc80382835c2285d258?s=73&d=retro" class="avatar" border="0" align="default" alt="1" data-uid="131" /><div class="sep10"></div></td>
+            <td width="10"></td>
+            <td width="auto" valign="top" align="left">
+                <div class="fr">
+                
+                
+                </div>
+                <h1 style="margin-bottom: 5px;">1</h1>
+                
+                <span class="bigger"></span>
+                
+                <div class="sep10"></div>
+                <span class="gray">V2EX 第 131 号会员，加入于 2010-04-26 15:59:05 +08:00
+                
+                
+                </span>
+                
+            </td>
+        </tr>
+    </table>
+    <div class="sep5"></div>
+</div>
+    
+    
+    
+    
+    
+    
+</div>
+<div class="sep20"></div>
+<div class="box">
+    <div class="cell_tabs flex-one-row">
+        <div>
+        <img src="https://cdn.v2ex.com/gravatar/ef99d26403934bc80382835c2285d258?s=48&d=retro" width="24" style="border-radius: 24px; margin-top: -2px;" border="0" />
+        </div>
+        <div style="flex: 1;"><a href="/member/1" class="cell_tab_current">1</a><a href="/member/1/qna" class="cell_tab">提问</a><a href="/member/1/tech" class="cell_tab">技术话题</a><a href="/member/1/play" class="cell_tab">好玩</a><a href="/member/1/jobs" class="cell_tab">工作信息</a><a href="/member/1/deals" class="cell_tab">交易信息</a><a href="/member/1/city" class="cell_tab">城市相关</a></div>
+    </div>
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+<div class="cell item">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+            
+            <td width="auto" valign="middle"><span class="item_title"><a href="/t/2322#reply5" class="topic-link" id="topic-link-2322">怎么利用服务器的强大带宽将文件下载到自己的电脑</a></span>
+            <div class="sep5"></div>
+            <span class="topic_info"><div class="votes"></div><a class="node" href="/go/server">服务器</a> &nbsp;•&nbsp; <strong><a href="/member/1">1</a></strong> &nbsp;•&nbsp; <span title="2010-09-06 11:04:01 +08:00">2010 年 9 月 6 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/1">1</a></strong></span>
+            </td>
+            <td width="70" align="right" valign="middle">
+                
+                <a href="/t/2322#reply5" class="count_livid">5</a>
+                
+            </td>
+        </tr>
+    </table>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="cell item">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+            
+            <td width="auto" valign="middle"><span class="item_title"><a href="/t/1467#reply6" class="topic-link" id="topic-link-1467">怎样快速学习和开发 iPhone 应用</a></span>
+            <div class="sep5"></div>
+            <span class="topic_info"><div class="votes"></div><a class="node" href="/go/idev">iDev</a> &nbsp;•&nbsp; <strong><a href="/member/1">1</a></strong> &nbsp;•&nbsp; <span title="2010-08-08 00:42:26 +08:00">2010 年 8 月 8 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/1">1</a></strong></span>
+            </td>
+            <td width="70" align="right" valign="middle">
+                
+                <a href="/t/1467#reply6" class="count_livid">6</a>
+                
+            </td>
+        </tr>
+    </table>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="cell item">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+            
+            <td width="auto" valign="middle"><span class="item_title"><a href="/t/576#reply4" class="topic-link" id="topic-link-576">咨询 Apple 广告上使用的中英文字体</a></span>
+            <div class="sep5"></div>
+            <span class="topic_info"><div class="votes"></div><a class="node" href="/go/typography">字体排印</a> &nbsp;•&nbsp; <strong><a href="/member/1">1</a></strong> &nbsp;•&nbsp; <span title="2010-06-29 01:47:54 +08:00">2010 年 6 月 29 日</span> &nbsp;•&nbsp; 最后回复来自 <strong><a href="/member/lianghai">lianghai</a></strong></span>
+            </td>
+            <td width="70" align="right" valign="middle">
+                
+                <a href="/t/576#reply4" class="count_livid">4</a>
+                
+            </td>
+        </tr>
+    </table>
+</div>
+
+
+
+    
+    <div class="inner"><span class="chevron">»</span> <a href="/member/1/topics">1 创建的更多主题</a></div>
+    
+    
+</div>
+<div class="sep20"></div>
+<div class="box">
+    <div class="cell"><span class="gray">1 最近回复了</span></div>
+    
+    
+    <div class="dock_area">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td style="padding: 10px 15px 8px 15px; font-size: 12px; text-align: left;"><div class="fr"><span class="fade" title="2010-09-06 14:28:51 +08:00">2010 年 9 月 6 日</span> </div><span class="gray">回复了 <a href="/member/1">1</a> 创建的主题 <span class="chevron">›</span> <a href="/go/server">服务器</a> <span class="chevron">›</span> <a href="/t/2322#reply5">怎么利用服务器的强大带宽将文件下载到自己的电脑</a></span></td>
+            </tr>
+        </table>
+    </div>
+    <div class="inner">
+        <div class="reply_content">先谢谢各位的回答，我一一去google一下</div>
+    </div>
+    
+    
+    
+    <div class="dock_area">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td style="padding: 10px 15px 8px 15px; font-size: 12px; text-align: left;"><div class="fr"><span class="fade" title="2010-08-08 10:54:31 +08:00">2010 年 8 月 8 日</span> </div><span class="gray">回复了 <a href="/member/1">1</a> 创建的主题 <span class="chevron">›</span> <a href="/go/idev">iDev</a> <span class="chevron">›</span> <a href="/t/1467#reply6">怎样快速学习和开发 iPhone 应用</a></span></td>
+            </tr>
+        </table>
+    </div>
+    <div class="inner">
+        <div class="reply_content">之前也知道这些资源不过没有用心去看，现在就去认真翻翻看，谢谢各位！</div>
+    </div>
+    
+    
+    
+    <div class="dock_area">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td style="padding: 10px 15px 8px 15px; font-size: 12px; text-align: left;"><div class="fr"><span class="fade" title="2010-08-08 01:05:34 +08:00">2010 年 8 月 8 日</span> </div><span class="gray">回复了 <a href="/member/1">1</a> 创建的主题 <span class="chevron">›</span> <a href="/go/idev">iDev</a> <span class="chevron">›</span> <a href="/t/1467#reply6">怎样快速学习和开发 iPhone 应用</a></span></td>
+            </tr>
+        </table>
+    </div>
+    <div class="inner">
+        <div class="reply_content">@<a href="/member/GordianZ">GordianZ</a> 我重点想知道大家的学习开发过程，也希望自己可以尽快完成一个完整的应用出来。<br /><br />当然你的建议也提高了我学习下去的信心。谢谢！<br /><br />“他”可以统一用于指代男女哦 :)</div>
+    </div>
+    
+    
+    
+    <div class="dock_area">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td style="padding: 10px 15px 8px 15px; font-size: 12px; text-align: left;"><div class="fr"><span class="fade" title="2010-06-29 11:31:46 +08:00">2010 年 6 月 29 日</span> </div><span class="gray">回复了 <a href="/member/1">1</a> 创建的主题 <span class="chevron">›</span> <a href="/go/typography">字体排印</a> <span class="chevron">›</span> <a href="/t/576#reply4">咨询 Apple 广告上使用的中英文字体</a></span></td>
+            </tr>
+        </table>
+    </div>
+    <div class="cell">
+        <div class="reply_content">谢谢 Livid :-)</div>
+    </div>
+    
+    
+    
+    <div class="inner"><span class="chevron">»</span> <a href="/member/1/replies">1 创建的更多回复</a></div>
+    
+</div>
+
+            </div>
+            
+            
+        </div>
+        <div class="c"></div>
+        <div class="sep20"></div>
+    </div>
+    <div id="Bottom">
+        <div class="content">
+            <div class="inner">
+                <div class="sep10"></div>
+                    <div class="fr">
+                        <a href="https://www.digitalocean.com/?refcode=1b51f1a7651d" target="_blank"><div id="DigitalOcean"></div></a>
+                    </div>
+                    <strong><a href="/about" class="dark" target="_self">关于</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/help" class="dark" target="_self">帮助文档</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/pro/about" class="dark" target="_self">自助推广系统</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://blog.v2ex.com/" class="dark" target="_blank">博客</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/help/api" class="dark" target="_self">API</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/faq" class="dark" target="_self">FAQ</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="/privacy" class="dark" target="_self">Privacy</a> &nbsp; <span class="snow">·</span> &nbsp; <a href="https://edge.v2ex.com/solana" class="dark" target="_self">Solana</a> &nbsp; <span class="snow">·</span> &nbsp; 2890 人在线</strong> &nbsp; <span class="fade">最高记录 6679</span> &nbsp; <span class="snow">·</span> &nbsp; <a href="/select/language" class="f11"><img src="/static/img/language.png?v=6a5cfa731dc71a3769f6daace6784739" width="16" align="absmiddle" id="ico-select-language" /> &nbsp; Select Language</a>
+                    <div class="sep20"></div>
+                    创意工作者们的社区
+                    <div class="sep5"></div>
+                    World is powered by solitude
+                    <div class="sep20"></div>
+                    <span class="small fade">VERSION: 3.9.8.5 · 14ms · <a href="/worldclock#utc">UTC 13:30</a> · <a href="/worldclock#pvg">PVG 21:30</a> · <a href="/worldclock#lax">LAX 05:30</a> · <a href="/worldclock#jfk">JFK 08:30</a><br />♥ Do have faith in what you're doing.</span>
+                <div class="sep10"></div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    
+
+    
+    <script src="/b/i/oS9FmgOvgoN-Dow0hgdUzju8AkQMsCvhxNOgoVwBdnxgko_KoM6dqpAjN-D4cR03uF6wLzIiu63sXj8HNZTZhu4XbkwK2RnBe7hyCrnloT8tG1Lr3rFGTNFfoR9jfczsd4GRu0FdCzskzd0CBlik6urei10cxib2x6P1XguALw4="></script>
+    
+
+    
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-11940834-2', 'v2ex.com');
+      ga('send', 'pageview');
+      
+ga('send', 'event', 'Member', 'profile', '1');
+
+
+    </script>
+    
+
+    
+<button class="scroll-top" data-scroll="up" type="button"><span>❯<span></button>
+</body>
+</html>

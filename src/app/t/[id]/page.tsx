@@ -1,0 +1,241 @@
+import { avatarUrl } from '@/components/Avatar';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { and, eq, sql } from 'drizzle-orm';
+import { db, schema } from '@/db';
+import { getSessionUser } from '@/lib/auth';
+import { renderMarkdown } from '@/lib/markdown';
+import { relativeTime, fullTimestamp, formatDate } from '@/lib/time';
+import { getTopicById, listReplies, REPLIES_PER_PAGE } from '@/server/queries';
+import Wrapper from '@/components/Wrapper';
+import PageNav from '@/components/PageNav';
+import CollectButton from '@/components/CollectButton';
+
+export const dynamic = 'force-dynamic';
+
+export default async function TopicPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ p?: string }>;
+}) {
+  const { id } = await params;
+  const { p } = await searchParams;
+  const topicId = Number(id);
+  const page = Math.max(1, Number(p ?? 1) || 1);
+
+  if (!Number.isInteger(topicId) || topicId <= 0) notFound();
+
+  const user = await getSessionUser();
+  const topic = await getTopicById(topicId);
+  if (!topic || topic.status === 'deleted') notFound();
+
+  const nodeRows = await db
+    .select()
+    .from(schema.nodes)
+    .where(eq(schema.nodes.id, topic.nodeId))
+    .limit(1);
+  const node = nodeRows[0];
+
+  const authorRows = await db
+    .select({ id: schema.users.id, username: schema.users.username, avatar: schema.users.avatar })
+    .from(schema.users)
+    .where(eq(schema.users.id, topic.authorId))
+    .limit(1);
+  const author = authorRows[0];
+
+  const { items: replies, total: replyTotal } = await listReplies(topicId, page, REPLIES_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(replyTotal / REPLIES_PER_PAGE));
+  const contentHtml = await renderMarkdown(topic.content);
+  // 预先渲染回复正文（避免在 JSX 回调内 await）
+  const repliesWithHtml = await Promise.all(
+    replies.map(async (r) => ({ ...r, html: await renderMarkdown(r.content) })),
+  );
+
+  const tags = await db
+    .select({ name: schema.tags.name })
+    .from(schema.topicTags)
+    .innerJoin(schema.tags, eq(schema.tags.id, schema.topicTags.tagId))
+    .where(eq(schema.topicTags.topicId, topicId));
+
+  // 浏览计数
+  await db
+    .update(schema.topics)
+    .set({ views: sql`${schema.topics.views} + 1` })
+    .where(eq(schema.topics.id, topicId));
+
+  return (
+    <Wrapper>
+      <div className="box" style={{ borderBottom: '0px' }}>
+        <div className="header">
+          <div className="fr">
+            <Link href={`/member/${author?.username ?? ''}`}>
+              <img
+                src={avatarUrl({ id: author?.id ?? 0, username: author?.username ?? "?", avatar: author?.avatar }, 73)}
+                className="avatar"
+                width={73}
+                height={73}
+                alt={author?.username}
+                data-uid={author?.id}
+              />
+            </Link>
+          </div>
+          <div className="flex-one-row gap10">
+            <div>
+              <Link href="/">V2EX</Link> <span className="chevron">&nbsp;›&nbsp;</span>{' '}
+              {node ? (
+                <>
+                  <Link href={`/go/${node.name}`}>{node.title}</Link>
+                </>
+              ) : (
+                '未知节点'
+              )}
+            </div>
+          </div>
+          <div className="sep10" />
+          <h1>{topic.title}</h1>
+          <div id={`topic_${topicId}_votes`} className="votes">
+            <a href="javascript:" className="vote">
+              <li className="fa fa-chevron-up" />
+            </a>{' '}
+            &nbsp;
+            <a href="javascript:" className="vote">
+              <li className="fa fa-chevron-down" />
+            </a>
+          </div>{' '}
+          &nbsp;{' '}
+          <small className="gray">
+            <Link href={`/member/${author?.username ?? ''}`}>{author?.username}</Link> ·{' '}
+            <span title={fullTimestamp(topic.createdAt)}>{relativeTime(topic.createdAt)}</span> ·{' '}
+            {topic.views} 次点击
+          </small>
+        </div>
+
+        <div className="cell">
+          <div
+            className="topic_content markdown_body"
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
+        </div>
+        <div className="cell_ops">
+          <CollectButton target="topic" id={topicId} />
+        </div>
+      </div>
+
+      <div className="sep20" />
+      <div id="topic-replies">
+        <div className="box">
+          <div className="cell">
+            <div className="fr" style={{ margin: '-3px -5px 0px 0px' }}>
+              {tags.map((t) => (
+                <Link key={t.name} href={`/tag/${encodeURIComponent(t.name)}`} className="tag">
+                  <li className="fa fa-tag" /> {t.name}
+                </Link>
+              ))}
+            </div>
+            <span className="gray">
+              {replyTotal} 条回复 &nbsp;<strong className="snow">•</strong> &nbsp;
+              {fullTimestamp(topic.lastReplyAt)}
+            </span>
+          </div>
+
+          {totalPages > 1 ? (
+            <div className="cell ps_container">
+              <PageNav page={page} totalPages={totalPages} basePath={`/t/${topicId}`} />
+            </div>
+          ) : null}
+
+          {repliesWithHtml.map((r) => (
+            <div key={r.id} id={`r_${r.id}`} className="cell">
+              <table cellPadding={0} cellSpacing={0} border={0} width="100%">
+                <tr>
+                  <td width={48} valign="top" align="center">
+                    <Link href={`/member/${r.username}`}>
+                      <img
+                        src={avatarUrl({ id: r.userId, username: r.username, avatar: r.avatar }, 48)}
+                        className="avatar"
+                        width={48}
+                        height={48}
+                        alt={r.username}
+                        data-uid={r.userId}
+                      />
+                    </Link>
+                  </td>
+                  <td width={10} valign="top" />
+                  <td width="auto" valign="top" align="left">
+                    <div className="fr">
+                      &nbsp; &nbsp; <span className="no">{r.floor}</span>
+                    </div>
+                    <div className="sep3" />
+                    <strong>
+                      <Link href={`/member/${r.username}`} className="dark">
+                        {r.username}
+                      </Link>
+                    </strong>{' '}
+                    &nbsp;
+                    <div className="badges" />
+                    &nbsp; &nbsp;
+                    <span className="ago" title={fullTimestamp(r.createdAt)}>
+                      {relativeTime(r.createdAt)}
+                    </span>
+                    {r.thanks > 0 ? (
+                      <>
+                        {' '}
+                        &nbsp;
+                        <span className="small fade">❤️ {r.thanks}</span>
+                      </>
+                    ) : null}
+                    <div className="sep5" />
+                    <div className="reply_content markdown_body" dangerouslySetInnerHTML={{ __html: r.html }} />
+                  </td>
+                </tr>
+              </table>
+            </div>
+          ))}
+
+          {totalPages > 1 ? (
+            <div className="cell ps_container">
+              <PageNav page={page} totalPages={totalPages} basePath={`/t/${topicId}`} />
+            </div>
+          ) : null}
+        </div>
+
+        {user ? (
+          <>
+            <div className="sep20" />
+            <div className="box">
+              <div className="cell">
+                <form action="/api/replies" method="post">
+                  <input type="hidden" name="topicId" value={topicId} />
+                  <input type="hidden" name="redirect" value={`/t/${topicId}`} />
+                  <textarea
+                    name="content"
+                    placeholder="回复内容"
+                    required
+                    minLength={2}
+                    maxLength={20000}
+                  />
+                  <div className="sep10" />
+                  <button type="submit" className="button">
+                    提交回复
+                  </button>
+                </form>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="sep20" />
+            <div className="box">
+              <div className="cell">
+                <span className="fade">请先</span> <Link href="/signin">登录</Link>{' '}
+                <span className="fade">后回复</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </Wrapper>
+  );
+}
