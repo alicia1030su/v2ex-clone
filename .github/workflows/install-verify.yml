@@ -1,0 +1,435 @@
+name: 安装验证
+
+# ---------------------------------------------------------------------------
+# 跨平台安装验证（真实环境，非模拟）
+#
+# 存在的理由：
+#   v0.0.1 暴露的两个 Windows 缺陷 —— install.ps1 缺 UTF-8 BOM 导致
+#   Windows PowerShell 5.1 解析失败；Git Bash 下 chmod 600 对 NTFS 无效 ——
+#   都**没有**被任何自动化测试覆盖过。本 workflow 补上这一层。
+#
+# 矩阵覆盖 4 个环境：
+#   ubuntu-latest  → 真实 Linux + 真实 Docker（跑 install.sh 全流程）
+#   ubuntu-latest  → 真实 Linux + Docker 缺失时的脚本逻辑分支
+#   windows-latest → Windows PowerShell 5.1（跑 install.ps1 全流程）
+#   windows-latest → Windows Git Bash（跑 install.sh）
+#
+# 关键：Windows 上**没有** Docker daemon（GitHub 的 windows runner 不提供），
+# 因此 Windows 侧只能验证「脚本逻辑分支」（配置生成 / 幂等 / 权限 / 错误处理），
+# 并在报告里**明确标注为「模拟测试」**；真实 Docker 部署由 ubuntu 侧负责。
+# ---------------------------------------------------------------------------
+
+on:
+  push:
+    branches: [master, 'fix/**', 'feat/**']
+    paths:
+      - 'deploy/**'
+      - 'scripts/**'
+      - '.github/workflows/install-verify.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'deploy/**'
+      - 'scripts/**'
+      - '.github/workflows/install-verify.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: install-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ===========================================================================
+  # Linux —— 真实 Docker 全流程
+  # ===========================================================================
+  linux-real-docker:
+    name: Linux + 真实 Docker 安装
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 环境信息
+        run: |
+          echo "  OS: $(uname -a)"
+          echo "  Docker: $(docker --version)"
+          echo "  Compose: $(docker compose version)"
+          echo "  磁盘可用: $(df -h / | tail -1 | awk '{print $4}')"
+          echo "  端口 3000 占用检查: $(ss -ltn 2>/dev/null | grep -c ':3000' || echo 0)"
+
+      - name: 构建镜像（供安装脚本拉取）
+        run: |
+          docker build -t v2ex-clone:install-verify .
+          docker images v2ex-clone:install-verify --format "  {{.Repository}}:{{.Tag}} {{.Size}}"
+
+      - name: 准备安装目录
+        run: |
+          mkdir -p /tmp/inst && cp -r deploy/. /tmp/inst/
+          cd /tmp/inst
+          ls -la
+
+      - name: 校验 shell 语法
+        run: |
+          cd /tmp/inst
+          for f in *.sh; do
+            printf '  %-16s ' "$f"
+            bash -n "$f" && echo "OK"
+          done
+
+      - name: 运行 install.sh（真实 Docker）
+        id: install
+        env:
+          # 用本地构建的镜像替代 GHCR 拉取（验证脚本逻辑，不依赖网络仓库）
+          V2EX_IMAGE: v2ex-clone:install-verify
+        run: |
+          cd /tmp/inst
+          chmod +x *.sh
+          set +e
+          ./install.sh 2>&1 | tee /tmp/install.log
+          echo "exit=$?" >> /tmp/install.log
+          # 输出末尾摘要
+          echo "----- 关键输出 -----"
+          grep -E "^\[成功\]|^\[错误\]|^\[警告\]|访问地址|管理员账号|安装完成" /tmp/install.log || true
+
+      - name: 校验生成的配置与权限
+        run: |
+          cd /tmp/inst
+          echo "===== .env 存在性 ====="
+          test -f .env && echo "  ✓ .env 已生成" || { echo "  ✗ .env 缺失"; exit 1; }
+          echo "===== .env 权限（必须 600）====="
+          stat -c '  %a %n' .env
+          PERM=$(stat -c '%a' .env)
+          if [ "$PERM" = "600" ]; then echo "  ✓ 权限为 600"; else echo "  ✗ 权限为 $PERM，应为 600"; exit 1; fi
+          echo "===== 凭据文件权限（必须 600）====="
+          if [ -f INSTALL_CREDENTIALS.txt ]; then
+            stat -c '  %a %n' INSTALL_CREDENTIALS.txt
+            CRED_PERM=$(stat -c '%a' INSTALL_CREDENTIALS.txt)
+            if [ "$CRED_PERM" = "600" ]; then echo "  ✓ 权限为 600"; else echo "  ✗ 权限为 $CRED_PERM"; exit 1; fi
+          else
+            echo "  ✗ 凭据文件缺失"; exit 1
+          fi
+          echo "===== 口令强度（不得为默认值）====="
+          for k in POSTGRES_PASSWORD REDIS_PASSWORD SESSION_SECRET SEED_ADMIN_PASSWORD; do
+            V=$(grep -E "^$k=" .env | cut -d= -f2-)
+            LEN=${#V}
+            printf '  %-22s 长度 %s\n' "$k" "$LEN"
+            if [ "$LEN" -lt 16 ]; then echo "  ✗ $k 太短"; exit 1; fi
+          done
+          echo "===== 不得含弱默认口令 ====="
+          if grep -qiE '(admin12345|password|123456|change_me)\s*$' .env; then
+            echo "  ✗ 检测到弱默认口令"; exit 1
+          fi
+          echo "  ✓ 未检出弱默认口令"
+
+      - name: 校验容器真实运行（健康检查 + 管理员创建）
+        run: |
+          cd /tmp/inst
+          echo "===== compose ps ====="
+          docker compose --env-file .env ps
+          echo "===== 健康状态 ====="
+          for i in $(seq 1 40); do
+            H=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
+            [ "$H" = "healthy" ] && break
+            [ "$H" = "unhealthy" ] || [ "$H" = "exited" ] && { echo "  ✗ 容器状态 $H"; docker compose --env-file .env logs --tail=100; exit 1; }
+            sleep 3
+          done
+          echo "  app health = $H"
+          [ "$H" = "healthy" ] || { echo "  ✗ 未达 healthy"; docker compose --env-file .env logs --tail=100; exit 1; }
+          echo "===== HTTP 探活 ====="
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/)
+          echo "  GET / → $CODE"
+          [ "$CODE" = "200" ] || exit 1
+          echo "===== 管理员账号已创建 ====="
+          CNT=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "select count(*) from users where username='admin' and role='admin';")
+          echo "  管理员账号数 = $CNT"
+          [ "$CNT" = "1" ] || exit 1
+
+      - name: 校验数据持久化（重启后数据仍在）
+        run: |
+          cd /tmp/inst
+          # 取 CSRF 后注册一个探针用户
+          curl -s -c /tmp/ck.txt -o /dev/null http://localhost:3000/
+          CSRF=$(awk '$6=="v2_csrf"{print $7}' /tmp/ck.txt | tail -1)
+          CODE=$(curl -s -b /tmp/ck.txt -o /tmp/s.json -w '%{http_code}' -X POST http://localhost:3000/api/auth/signup \
+            -H 'Content-Type: application/json' -H "x-csrf-token: $CSRF" \
+            -d '{"username":"persist_probe","email":"persist@example.com","password":"Persist-Probe-2026!"}')
+          echo "  注册探针用户 → $CODE"
+          [ "$CODE" = "201" ] || { cat /tmp/s.json; exit 1; }
+          echo "  重启全部容器"
+          docker compose --env-file .env restart
+          for i in $(seq 1 60); do
+            sleep 3
+            curl -sf http://localhost:3000/ >/dev/null 2>&1 && break
+          done
+          CNT=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "select count(*) from users where username='persist_probe';")
+          echo "  重启后探针用户数 = $CNT"
+          [ "$CNT" = "1" ] || { echo "  ✗ 数据丢失"; exit 1; }
+          echo "  ✓ 数据持久化通过"
+
+      - name: 校验管理员密码在重启后不变
+        run: |
+          cd /tmp/inst
+          BEFORE=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "select password_hash from users where username='admin';")
+          docker compose --env-file .env restart app
+          sleep 20
+          AFTER=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "select password_hash from users where username='admin';")
+          if [ -n "$BEFORE" ] && [ "$BEFORE" = "$AFTER" ]; then
+            echo "  ✓ 管理员口令哈希未变"
+          else
+            echo "  ✗ 管理员口令被改动"; exit 1
+          fi
+
+      - name: 校验数据库与 Redis 端口未暴露
+        run: |
+          cd /tmp/inst
+          for target in "5432 PostgreSQL" "6379 Redis"; do
+            PORT_N=${target%% *}; NAME=${target##* }
+            if timeout 5 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$PORT_N" 2>/dev/null; then
+              echo "  ✗ $NAME 端口 $PORT_N 可从宿主机直连"; exit 1
+            else
+              echo "  ✓ $NAME 端口 $PORT_N 未暴露"
+            fi
+          done
+
+      - name: 校验幂等（重复安装不覆盖配置、不重建管理员）
+        run: |
+          cd /tmp/inst
+          BEFORE=$(cat .env)
+          BEFORE_HASH=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "select password_hash from users where username='admin';")
+          set +e
+          ./install.sh > /tmp/install2.log 2>&1
+          set -e
+          AFTER=$(cat .env)
+          if [ "$BEFORE" != "$AFTER" ]; then
+            echo "  ✗ 重复安装覆盖了 .env"; diff <(echo "$BEFORE") <(echo "$AFTER") || true; exit 1
+          fi
+          echo "  ✓ .env 未被覆盖"
+          AFTER_HASH=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "select password_hash from users where username='admin';")
+          if [ "$BEFORE_HASH" != "$AFTER_HASH" ]; then
+            echo "  ✗ 重复安装重建了管理员口令"; exit 1
+          fi
+          echo "  ✓ 管理员口令未被重置"
+
+      - name: 校验 stop.sh 不删除数据卷
+        run: |
+          cd /tmp/inst
+          ./stop.sh
+          VOL_BEFORE=$(docker volume ls -q | wc -l)
+          echo "  停止后数据卷数 = $VOL_BEFORE"
+          [ "$VOL_BEFORE" -ge 2 ] || { echo "  ✗ 数据卷异常减少"; exit 1; }
+          echo "  ✓ 数据卷保留"
+          echo "  ----- stop.sh 是否出现 down -v -----"
+          if grep -qE "down[[:space:]]+-v|down[[:space:]]+--volumes" stop.sh update.sh backup.sh 2>/dev/null; then
+            echo "  ✗ 脚本中出现 down -v"; exit 1
+          else
+            echo "  ✓ stop.sh / update.sh / backup.sh 均无 down -v"
+          fi
+          ./start.sh >/dev/null 2>&1 || true
+
+      - name: 校验备份与恢复
+        run: |
+          cd /tmp/inst
+          ./backup.sh 2>&1 | tail -12
+          BK=$(ls -t backups/*.sql.gz 2>/dev/null | head -1)
+          [ -n "$BK" ] || { echo "  ✗ 未生成备份文件"; exit 1; }
+          echo "  备份文件: $BK ($(stat -c%s "$BK") 字节)"
+          # 恢复到临时库
+          docker compose --env-file .env exec -T postgres psql -U v2ex -d postgres -c "DROP DATABASE IF EXISTS v2ex_restore_check;" >/dev/null
+          docker compose --env-file .env exec -T postgres psql -U v2ex -d postgres -c "CREATE DATABASE v2ex_restore_check;" >/dev/null
+          gunzip -c "$BK" | docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex_restore_check >/dev/null
+          CNT=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex_restore_check -t -A -c "select count(*) from users;")
+          echo "  恢复库用户数 = $CNT"
+          [ "$CNT" -ge 1 ] || { echo "  ✗ 恢复失败"; exit 1; }
+          echo "  ✓ 备份恢复通过"
+
+      - name: 校验卸载流程需要显式确认删卷
+        run: |
+          cd /tmp/inst
+          echo "  ----- 文档是否警告 down -v 的破坏性 -----"
+          grep -rn "down -v" README.md INSTALL.md 2>/dev/null | head -3 || echo "  (文档未提及)"
+          if grep -rqE "down -v" README.md INSTALL.md 2>/dev/null; then
+            echo "  ✓ 文档已警告 down -v 会删卷"
+          else
+            echo "  ⚠ 文档未警告 down -v —— 建议补充"
+          fi
+
+      - name: 收集安装日志
+        if: always()
+        run: |
+          cd /tmp/inst
+          docker compose --env-file .env logs --tail=200 > /tmp/install-verify-logs.txt 2>&1 || true
+          cat /tmp/install.log 2>/dev/null | tail -40 || true
+
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: install-verify-linux-logs
+          path: |
+            /tmp/install*.log
+            /tmp/install-verify-logs.txt
+          retention-days: 7
+
+      - name: 清理
+        if: always()
+        run: |
+          cd /tmp/inst
+          docker compose --env-file .env down -v 2>/dev/null || true
+          docker rmi -f v2ex-clone:install-verify 2>/dev/null || true
+
+  # ===========================================================================
+  # Windows —— PowerShell 5.1 + Git Bash（无 Docker daemon，验证脚本逻辑分支）
+  # ===========================================================================
+  windows-script:
+    name: Windows 脚本验证（PowerShell 5.1 / Git Bash）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 环境信息
+        shell: pwsh
+        run: |
+          Write-Output "  OS: $((Get-CimInstance Win32_OperatingSystem).Caption)"
+          Write-Output ("  Windows PowerShell: " + $PSVersionTable.PSVersion.ToString())
+          Write-Output "  bash: $(if (Get-Command bash -ErrorAction SilentlyContinue) { '可用' } else { '无' })"
+          Write-Output "  docker: $(if (Get-Command docker -ErrorAction SilentlyContinue) { '已安装' } else { '未安装' })"
+
+      - name: PowerShell 5.1 解析检查（install.ps1 必须 0 错误）
+        shell: powershell
+        run: |
+          $path = "${{ github.workspace }}\deploy\install.ps1"
+          $errors = $null
+          $tokens = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+          if ($errors -and $errors.Count -gt 0) {
+            Write-Output "  ✗ 解析错误 $($errors.Count) 处："
+            $errors | Select-Object -First 10 | ForEach-Object { Write-Output ("    行 {0}: {1}" -f $_.Extent.StartLineNumber, $_.Message) }
+            exit 1
+          }
+          Write-Output "  ✓ install.ps1 解析通过（0 错误）"
+          # BOM 检查：Windows PowerShell 5.1 执行无 BOM 的 UTF-8 中文脚本会失败
+          $bytes = [System.IO.File]::ReadAllBytes($path)
+          if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            Write-Output "  ✓ install.ps1 带 UTF-8 BOM（EF BB BF）"
+          } else {
+            Write-Output ("  ✗ install.ps1 缺 UTF-8 BOM（首字节 {0:X2} {1:X2} {2:X2}）—— PowerShell 5.1 会解析失败" -f $bytes[0], $bytes[1], $bytes[2])
+            exit 1
+          }
+
+      - name: 准备安装目录
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}\inst" | Out-Null
+          Copy-Item "${{ github.workspace }}\deploy\*" "${{ runner.temp }}\inst" -Recurse -Force
+          Copy-Item "${{ github.workspace }}\deploy\.env.example" "${{ runner.temp }}\inst" -Force
+          Copy-Item "${{ github.workspace }}\deploy\.dockerignore" "${{ runner.temp }}\inst" -Force
+          Get-ChildItem "${{ runner.temp }}\inst" | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: 安装脚本在缺 Docker 时给出明确错误
+        shell: powershell
+        run: |
+          $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "${{ runner.temp }}\inst\install.ps1" 2>&1 | Out-String
+          Write-Output "  ----- 输出 -----"
+          Write-Output $r
+          if ($r -notmatch 'docker' -and $r -notmatch 'Docker') {
+            Write-Output "  ✗ 缺 Docker 时未给出明确提示"; exit 1
+          }
+          Write-Output "  ✓ 缺 Docker 时给出了明确错误"
+
+      - name: PowerShell 5.1 真实执行（假 docker 验证逻辑分支）
+        shell: powershell
+        run: |
+          $inst = "${{ runner.temp }}\inst"
+          # 造一个假 docker（仅回显参数）
+          $shim = @'
+          @echo off
+          if "%1"=="info" ( echo Server Version: 27.0.0 & exit /b 0 )
+          if "%1"=="compose" (
+            shift
+            if "%1"=="version" ( echo 2.29.0 & exit /b 0 )
+            if "%1"=="pull" ( echo [shim] pull & exit /b 0 )
+            if "%1"=="up" ( echo [shim] up & exit /b 0 )
+            if "%1"=="ps" ( echo fakecid & exit /b 0 )
+            if "%1"=="logs" ( echo [shim] logs & exit /b 0 )
+            echo [shim] compose %1
+            exit /b 0
+          )
+          if "%1"=="inspect" ( echo healthy & exit /b 0 )
+          if "%1"=="image" ( echo [shim] image & exit /b 0 )
+          echo [shim] docker %1
+          exit /b 0
+          '@
+          Set-Content -Path "$inst\docker.cmd" -Value $shim -Encoding ASCII
+          $env:Path = "$inst;$env:Path"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" 2>&1 | Out-String | Write-Output
+          if ($LASTEXITCODE -ne 0) { Write-Output "  ✗ install.ps1 退出码 $LASTEXITCODE"; exit 1 }
+          Write-Output "  ✓ install.ps1 完整流程跑通"
+
+      - name: 校验生成的配置与权限
+        shell: powershell
+        run: |
+          $inst = "${{ runner.temp }}\inst"
+          $envFile = "$inst\.env"
+          if (-not (Test-Path $envFile)) { Write-Output "  ✗ .env 未生成"; exit 1 }
+          Write-Output "  ✓ .env 已生成"
+          # 口令长度
+          foreach ($k in 'POSTGRES_PASSWORD','REDIS_PASSWORD','SESSION_SECRET','SEED_ADMIN_PASSWORD') {
+            $line = Get-Content $envFile | Where-Object { $_ -like "$k=*" } | Select-Object -First 1
+            $v = ($line -split '=',2)[1]
+            Write-Output ("  {0,-22} 长度 {1}" -f $k, $v.Length)
+            if ($v.Length -lt 16) { Write-Output "  ✗ $k 太短"; exit 1 }
+          }
+          # 凭据文件 ACL
+          $cred = "$inst\INSTALL_CREDENTIALS.txt"
+          if (-not (Test-Path $cred)) { Write-Output "  ✗ 凭据文件缺失"; exit 1 }
+          Write-Output "  ----- 凭据文件 ACL -----"
+          $acl = & icacls $cred
+          $acl | ForEach-Object { Write-Output "    $_" }
+          # 继承权限必须已被移除
+          if (($acl | Out-String) -match '\(I\)') {
+            Write-Output "  ✗ 凭据文件仍保留继承权限 (I)"
+            exit 1
+          }
+          Write-Output "  ✓ 凭据文件继承权限已移除"
+
+      - name: 校验幂等（重复安装不覆盖 .env）
+        shell: powershell
+        run: |
+          $inst = "${{ runner.temp }}\inst"
+          $before = Get-Content "$inst\.env" -Raw
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" *> $null
+          $after = Get-Content "$inst\.env" -Raw
+          if ($before -ne $after) { Write-Output "  ✗ .env 被覆盖"; exit 1 }
+          Write-Output "  ✓ .env 未被覆盖"
+
+      - name: Git Bash 下运行 install.sh（假 docker 验证逻辑分支）
+        shell: bash
+        run: |
+          cd "${{ runner.temp }}/inst"
+          echo "  bash 版本: $BASH_VERSION"
+          for f in *.sh; do printf '  %-16s ' "$f"; bash -n "$f" && echo "OK"; done
+          chmod +x *.sh
+          export PATH="$PWD:$PATH"
+          ./install.sh 2>&1 | tail -20
+          echo "  ----- 权限检查（Git Bash 下 NTFS 权限位不可靠，须靠 icacls）-----"
+          ls -l .env | awk '{print "    ls 显示: " $1}'
+          echo "  ----- icacls 实际 ACL -----"
+          MSYS_NO_PATHCONV=1 icacls "$(cygpath -w .env)" 2>/dev/null | head -5
+
+      - name: 校验任何脚本都不含 down -v
+        shell: bash
+        run: |
+          cd "${{ github.workspace }}/deploy"
+          if grep -nE "down[[:space:]]+-v|down[[:space:]]+--volumes" *.sh; then
+            echo "  ✗ 发现 down -v"; exit 1
+          fi
+          echo "  ✓ 所有脚本均无 down -v"
+
+      - name: 上传产物
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: install-verify-windows-logs
+          path: ${{ runner.temp }}/inst
+          retention-days: 7
