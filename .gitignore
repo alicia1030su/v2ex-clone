@@ -87,3 +87,6 @@ Thumbs.db
 .tmp-*
 *.tmp
 .tmp/
+
+# 审计过程产生的临时探测脚本（不得入库）
+.audit/
