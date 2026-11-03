@@ -837,12 +837,26 @@ jobs:
           set -euo pipefail
           cd deploy
           # 注册一个测试用户，作为持久化探针。
+          #
+          # 必须带 CSRF token：本项目对所有写接口启用**双提交 Cookie** 防护，
+          # verifyCsrf() 在缺少 CSRF Cookie 时直接判定失败并返回 403。
+          # 因此先 GET 一次首页拿 v2_csrf Cookie，再用同一个值作为请求头。
+          #
           # 注意：APP_RUNTIME_ENV=production 时验证码是强制项，
           # 但**注册**接口不校验验证码（只有登录接口校验），所以这里无需带 captcha。
-          HTTP_CODE="$(curl -s -X POST http://localhost:3000/api/auth/signup \
+          curl -s -c /tmp/cookies.txt -o /dev/null http://localhost:3000/
+          CSRF_TOKEN="$(awk '$6 == "v2_csrf" {print $7}' /tmp/cookies.txt | tail -1)"
+          if [ -z "$CSRF_TOKEN" ]; then
+            echo "::error::未能从首页获取 CSRF Cookie（v2_csrf）"
+            curl -s -i http://localhost:3000/ | head -20
+            exit 1
+          fi
+          echo "已获取 CSRF token（长度 ${#CSRF_TOKEN}）"
+          HTTP_CODE="$(curl -s -b /tmp/cookies.txt -X POST http://localhost:3000/api/auth/signup \
             -H 'Content-Type: application/json' \
+            -H "x-csrf-token: $CSRF_TOKEN" \
             -H 'x-forwarded-for: 10.99.0.1' \
-            -d '{"username":"persist-check","email":"persist@example.com","password":"Persist-Check-2026"}' \
+            -d '{"username":"persist_check","email":"persist@example.com","password":"Persist-Check-2026"}' \
             -o /tmp/signup.json -w '%{http_code}' || true)"
           echo "注册接口返回：$HTTP_CODE"
           if [ "$HTTP_CODE" != "201" ]; then
@@ -871,10 +885,10 @@ jobs:
           # 重启后测试用户必须还在
           CNT="$(docker compose --env-file .env exec -T postgres \
             psql -U v2ex -d v2ex -t -A -c \
-            "select count(*) from users where username='persist-check';")"
-          echo "重启后 persist-check 用户数 = $CNT"
+            "select count(*) from users where username='persist_check';")"
+          echo "重启后 persist_check 用户数 = $CNT"
           if [ "$CNT" != "1" ]; then
-            echo "::error::重启后数据丢失（persist-check 不存在）"
+            echo "::error::重启后数据丢失（persist_check 不存在）"
             docker compose --env-file .env logs --tail=100
             exit 1
           fi
