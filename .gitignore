@@ -81,3 +81,9 @@ Thumbs.db
 # 默认保留；如需精简可取消下面的注释。
 # docs/evidence/html/
 # docs/evidence/assets/
+
+# 临时/自测脚本（不得入库 —— 这类文件会被误提交进公开发布包）
+*.tmp-*
+.tmp-*
+*.tmp
+.tmp/
