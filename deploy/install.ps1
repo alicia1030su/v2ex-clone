@@ -1,4 +1,4 @@
-# ---------------------------------------------------------------------------
+﻿# ---------------------------------------------------------------------------
 # V2EX Clone v0.0.1 — 一键安装脚本（Windows PowerShell）
 #
 # 用法：
@@ -51,6 +51,28 @@ function Write-Utf8NoBom {
     )
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
+# ---------------------------------------------------------------------------
+# 限制文件的访问权限（仅当前用户）
+#
+# Windows 上 NTFS 不支持 POSIX 权限位，chmod 是空操作 ——
+# 含明文口令的 .env / INSTALL_CREDENTIALS.txt 对同机其他用户依然可读。
+# 这里用 icacls 移除继承的 ACL，并只授予当前用户完全控制。
+# ---------------------------------------------------------------------------
+function Set-FileOwnerOnly {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    try {
+        # 移除继承的权限
+        & icacls $Path /inheritance:r | Out-Null
+        # 只授予当前用户完全控制
+        $me = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        & icacls $Path "/grant:r" "${me}:(F)" | Out-Null
+        return $true
+    } catch {
+        Write-Warn "无法收紧 ${Path} 的访问权限：$($_.Exception.Message)"
+        return $false
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -246,6 +268,7 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
         }
     }
     Write-Utf8NoBom -Path $EnvFile -Content (($lines -join "`r`n") + "`r`n")
+    Set-FileOwnerOnly -Path $EnvFile | Out-Null
 
     # 管理员凭据单独落盘
     $appUrl = (Read-EnvValue -Key 'APP_URL')
@@ -261,11 +284,12 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
         "管理员初始密码: $adminPassword"
     ) -join "`r`n"
     Write-Utf8NoBom -Path $CredFile -Content ($credContent + "`r`n")
+    Set-FileOwnerOnly -Path $CredFile | Out-Null
 
     $AdminPasswordNew = $adminPassword
     Write-Ok '已生成 .env 与随机口令'
     Write-Info "管理员凭据已写入：$CredFile"
-    Write-Warn 'Windows 上的 .env 无法用 chmod 限制权限，请确保该目录只有管理员可访问。'
+    Write-Info '已用 icacls 收紧 .env 与凭据文件的访问权限（仅当前用户可读写）。'
 } else {
     Write-Ok '.env 已存在，**未覆盖**（幂等）'
     Write-Info '沿用 .env 中的现有配置与口令'
