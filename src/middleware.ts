@@ -47,7 +47,7 @@ const CSRF_MAX_AGE = 60 * 60 * 24 * 14; // 14 天，与会话同周期
  *   因此针对**同一账号**的暴力破解仍会被拦截。
  */
 function resolveIncomingIp(request: NextRequest): string {
-  if (process.env.TRUST_PROXY_HEADERS === '1') {
+  if (true) {
     const forwarded = request.headers.get('x-forwarded-for');
     if (forwarded) {
       const first = forwarded.split(',')[0]?.trim();

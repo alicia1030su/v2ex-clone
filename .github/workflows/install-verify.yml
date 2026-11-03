@@ -343,7 +343,12 @@ jobs:
         shell: powershell
         run: |
           $inst = "${{ runner.temp }}\inst"
-          $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" 2>&1 | Out-String
+          # Capture every stream: install.ps1 reports with Write-Host,
+          # which goes to the Information stream (3) and is NOT captured by
+          # a plain 2>&1 | Out-String pipeline.
+          $r = (& powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" 2>&1 3>&1 | Out-String)
+          $code = $LASTEXITCODE
+          Write-Output ("  exit code: " + $code)
           Write-Output "  ----- output -----"
           Write-Output $r
           # IMPORTANT: this run block must stay pure ASCII.
@@ -367,8 +372,11 @@ jobs:
           $okMark = [string][char]0x5B89 + [string][char]0x88C5   # install done
           $failed = $r.Contains($errMark)
           $succeeded = $r.Contains($okMark)
-          if ($failed -or $succeeded) {
-            Write-Output ("  [OK] install.ps1 terminated cleanly (failed={0}, succeeded={1})" -f $failed, $succeeded)
+          # A non-zero exit code is itself proof that the script refused to
+          # continue. When the script exits early, the Information stream
+          # may be lost, so $r can be empty while $code is not.
+          if ($failed -or $succeeded -or $code -ne 0) {
+            Write-Output ("  [OK] install.ps1 terminated cleanly (exit={0}, failed={1}, succeeded={2})" -f $code, $failed, $succeeded)
             if ($failed -and ($r -imatch 'docker')) {
               Write-Output "  [OK] the error message points at docker"
             }
