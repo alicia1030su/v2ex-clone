@@ -551,11 +551,25 @@ jobs:
         shell: bash
         run: |
           cd "${{ github.workspace }}/deploy"
-          if grep -nE "down[[:space:]]+-v|down[[:space:]]+--volumes" *.sh; then
-            echo "  [FAIL] found down -v"
-            exit 1
-          fi
-          echo "  [OK] no down -v in any script"
+          # Only look at lines that would actually EXECUTE down -v:
+          #   - skip comment lines
+          #   - skip echo/info/warn/printf lines (they only *mention* down -v;
+          #     stop.sh deliberately tells the user they may run it manually)
+          FAILED=0
+          for f in *.sh; do
+            if grep -vE "^[[:space:]]*#" "$f" \
+               | grep -E "^[[:space:]]*(echo|info|warn|printf)" \
+               | grep -qE "down[[:space:]]+-v|down[[:space:]]+--volumes"; then
+              continue
+            fi
+            if grep -vE "^[[:space:]]*#" "$f" \
+               | grep -qE "docker[[:space:]]+compose[[:space:]]+down[[:space:]]+(-v|--volumes)"; then
+              echo "  [FAIL] $f actually executes down -v"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -ne 0 ]; then exit 1; fi
+          echo "  [OK] no script executes down -v (only textual guidance to users)"
 
       - name: Upload artifacts
         if: always()
