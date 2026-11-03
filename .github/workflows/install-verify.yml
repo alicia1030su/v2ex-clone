@@ -495,12 +495,53 @@ jobs:
           echo "  bash version: $BASH_VERSION"
           for f in *.sh; do printf '  %-16s ' "$f"; bash -n "$f" && echo "syntax OK"; done
           chmod +x *.sh
+
+          # Use a **no-extension** `docker` shim.
+          # The GH windows runner ships a real docker.exe, and PATHEXT
+          # resolves .EXE before .CMD -- so a `docker.cmd` shim would be
+          # shadowed by the real docker, which then tries to pull the
+          # not-yet-published v0.0.2 image and fails.
+          # Git Bash has no PATHEXT: a plain `docker` file wins.
+          rm -f ./docker.cmd
+          cat > ./docker << 'SHIM'
+          #!/usr/bin/env bash
+          # Fake docker for script-logic verification only.
+          if [ "$1" = "compose" ]; then
+            shift
+            case "$1" in
+              version) echo "2.29.0"; exit 0 ;;
+              pull) echo "[shim] pull"; exit 0 ;;
+              up) echo "[shim] up"; exit 0 ;;
+              ps) echo fakecid; exit 0 ;;
+              logs) echo "[shim] logs"; exit 0 ;;
+              *) echo "[shim] compose $1"; exit 0 ;;
+            esac
+          fi
+          if [ "$1" = "info" ]; then echo "Server Version: 27.0.0"; exit 0; fi
+          if [ "$1" = "image" ] && [ "$2" = "inspect" ]; then echo "sha256:fake"; exit 0; fi
+          echo "[shim] docker $1"
+          exit 0
+          SHIM
+          chmod +x ./docker
           export PATH="$PWD:$PATH"
-          ./install.sh 2>&1 | tail -20
+          hash -r
+          echo "  docker resolves to: $(command -v docker)"
+
+          set +e
+          ./install.sh > /tmp/bash-install.log 2>&1
+          RC=$?
+          set -e
+          echo "  install.sh exit code: $RC"
+          tail -20 /tmp/bash-install.log
+          if [ "$RC" -ne 0 ]; then
+            echo "  [FAIL] install.sh failed under Git Bash"
+            exit 1
+          fi
           echo "  ----- ls view (NTFS perm bits are unreliable) -----"
           ls -l .env | awk '{print "    ls shows: " $1}'
           echo "  ----- real ACL via icacls -----"
           MSYS_NO_PATHCONV=1 icacls "$(cygpath -w .env)" 2>/dev/null | head -5
+          echo "  [OK] install.sh completed under Git Bash"
 
       - name: No script may contain down -v
         shell: bash
