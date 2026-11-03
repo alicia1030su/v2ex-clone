@@ -259,6 +259,27 @@
 
 ---
 
+## 4.1 补充发现：ENV_FILE 从未生效（测试环境隔离形同虚设）
+
+这是本轮审计中最重要的问题之一，在**克隆副本独立验证**时暴露。
+
+| 项 | 内容 |
+|---|---|
+| 症状 | 所有登录类 E2E 用例 30s 超时；服务器日志显示登录返回 401，但用同一口令直连数据库校验 hash 却**匹配** |
+| 代码位置 | `src/db/index.ts`、`drizzle.config.ts`、`scripts/seed.ts`、`tests/setup.ts` 的 `config({ path: ENV_FILE })` |
+| 根因 | Next.js 在应用代码**之前**就自动加载 `.env` / `.env.production` / `.env.local`，`DATABASE_URL` 等变量已被占位；而 `dotenv.config()` **默认不覆盖**已有值 → `ENV_FILE=.env.test` 从未生效 |
+| 后果 | 所谓"隔离测试环境"实际一直连的是**开发库 `v2ex`**。此前的所有"测试环境"验证结论都建立在错误的库上 |
+| 实测证据 | 诊断端点返回 `{"envFile":".env.test","databaseUrl":"postgres://.../v2ex"}` —— ENV_FILE 生效但 DATABASE_URL 没被覆盖 |
+| 修复 | 加载 ENV_FILE 时加 `override: true`（4 个文件）；修复后诊断端点返回 `.../v2ex_test` |
+| 连带修复 | ① Playwright worker 是独立进程，不继承配置模块里 dotenv 写入的 `process.env` → 新增 `e2e/global-setup.ts` 显式透传；② 测试账号口令硬编码 `password123` 与 seed 的环境变量口令不一致 → 改为从 `SEED_*_PASSWORD` 读取；③ seed 对已存在账号不更新口令 → 改为同步口令与角色 |
+| 回归验证 | 本仓库与**克隆副本**各自独立跑通：类型检查 → 构建 → 干净库 18 表迁移 → seed → 单元 28/28 → E2E 67/67 |
+
+> 这个发现说明：**"测试通过"本身也需要验证测试环境是对的**。
+> 本轮通过"克隆副本独立验证"这一手段发现了它 —— 只有把代码放到一个
+> 全新环境、从零初始化（干净库 + npm ci + 迁移）才能暴露这类问题。
+
+---
+
 ## 5. 发布前安全审计结果
 
 ### 5.1 Git 历史扫描

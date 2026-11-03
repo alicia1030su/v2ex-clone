@@ -26,6 +26,22 @@
 
 机器可读结果：`test-results/e2e-results.json`（Playwright JSON reporter）。
 
+### 2.0 克隆副本独立验证
+
+把仓库克隆到全新目录后从零验证（这是发现 ENV_FILE 失效的关键手段）：
+
+| 步骤 | 命令 | 结果 |
+|---|---|---|
+| 克隆 | `git clone https://github.com/alicia1030su/v2ex-clone.git` | ✅ 200 个文件，HEAD 一致 |
+| 依赖 | `npm ci` | ✅ 117 包 |
+| 类型检查 | `npx tsc --noEmit` | ✅ 零错误 |
+| 构建 | `npx next build` | ✅ Compiled successfully |
+| 干净库 | `CREATE DATABASE v2ex_clone_test` | ✅ |
+| 迁移 | `drizzle-kit migrate` | ✅ 18 张表 |
+| 种子 | `tsx scripts/seed.ts` | ✅ 9 分类 / 5 用户 / 23 节点 / 10 主题 |
+| 单元测试 | `npx vitest run` | ✅ **28/28** |
+| E2E | `npx playwright test` | ✅ **67/67** |
+
 ### 2.1 新增的安全回归套件（20 项）
 
 `e2e/security-regression.spec.ts` —— 逐项对应本轮修复的 P0/P1 缺陷：
