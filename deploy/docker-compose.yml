@@ -114,6 +114,10 @@ services:
       DEBUG_ENDPOINT_TOKEN: ''
       DISABLE_CAPTCHA: '0'
       TEST_ENV_ISOLATED: '0'
+      # 是否采信 x-forwarded-for / x-real-ip 作为客户端真实 IP。
+      # 默认 0（不信任）—— 应用端口直接映射到宿主机时，客户端可任意伪造
+      # 这些头从而绕过限流。设为 1 仅在确定位于反向代理之后才安全。
+      TRUST_PROXY_HEADERS: '${TRUST_PROXY_HEADERS:-0}'
     ports:
       - '${APP_PORT:-3000}:3000'
     networks:

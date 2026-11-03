@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { randomBytes, createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { resolveClientIp } from '@/lib/client-ip';
 
 export { hashPassword, verifyPassword } from './password';
 
@@ -27,10 +28,8 @@ export async function createSession(userId: number): Promise<string> {
     userId,
     expiresAt,
     userAgent: hdrs.get('user-agent'),
-    ip:
-      hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      hdrs.get('x-real-ip') ??
-      '127.0.0.1',
+    // 信任边界见 src/lib/client-ip.ts（默认不采信可伪造的代理头）
+    ip: await resolveClientIp(),
   });
   return id;
 }

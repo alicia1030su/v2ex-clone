@@ -1,6 +1,6 @@
 import 'server-only';
-import { headers } from 'next/headers';
 import { getKV } from './kv';
+import { resolveClientIp } from './client-ip';
 
 export type RateLimitResult = {
   ok: boolean;
@@ -10,13 +10,15 @@ export type RateLimitResult = {
   retryAfterSeconds: number;
 };
 
+/**
+ * 限流用的客户端 IP。
+ *
+ * 信任边界见 `src/lib/client-ip.ts`：
+ * 默认不采信 x-forwarded-for / x-real-ip（可被客户端伪造），
+ * 只用 middleware 注入的内部头；显式设置 TRUST_PROXY_HEADERS=1 时才采信代理头。
+ */
 async function clientIp(): Promise<string> {
-  const hdrs = await headers();
-  return (
-    hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    hdrs.get('x-real-ip') ??
-    '127.0.0.1'
-  );
+  return resolveClientIp();
 }
 
 /**
