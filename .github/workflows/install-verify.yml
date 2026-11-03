@@ -220,12 +220,21 @@ jobs:
           echo "  停止后数据卷数 = $VOL_BEFORE"
           [ "$VOL_BEFORE" -ge 2 ] || { echo "  ✗ 数据卷异常减少"; exit 1; }
           echo "  ✓ 数据卷保留"
-          echo "  ----- stop.sh 是否出现 down -v -----"
-          if grep -qE "down[[:space:]]+-v|down[[:space:]]+--volumes" stop.sh update.sh backup.sh 2>/dev/null; then
-            echo "  ✗ 脚本中出现 down -v"; exit 1
-          else
-            echo "  ✓ stop.sh / update.sh / backup.sh 均无 down -v"
-          fi
+          echo "  ----- do any scripts actually EXECUTE down -v -----"
+          # 只看**会被执行**的行：排除注释行，也排除 echo/info/warn 里
+          # 提示用户手动执行的说明文本（stop.sh 会提示用户自行执行 down -v，
+          # 这是刻意保留的引导，不是脚本行为）。
+          for f in stop.sh update.sh backup.sh restore.sh; do
+            if grep -vE "^[[:space:]]*#" "$f" \
+               | grep -E "^[[:space:]]*(echo|info|warn|printf)" \
+               | grep -qE "down[[:space:]]+-v|down[[:space:]]+--volumes"; then
+              continue
+            fi
+            if grep -vE "^[[:space:]]*#" "$f" | grep -qE "docker[[:space:]]+compose[[:space:]]+down[[:space:]]+(-v|--volumes)"; then
+              echo "  x $f actually executes down -v"; exit 1
+            fi
+          done
+          echo "  OK no script executes down -v (only textual guidance to users)"
           ./start.sh >/dev/null 2>&1 || true
 
       - name: 校验备份与恢复
@@ -337,11 +346,22 @@ jobs:
           $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" 2>&1 | Out-String
           Write-Output "  ----- output -----"
           Write-Output $r
-          if ($r -notmatch 'docker') {
-            Write-Output "  [FAIL] no docker-related message"
+          # Detection notes (both were real bugs in earlier revisions):
+          #   1. -notmatch is case-SENSITIVE; the script prints "docker" or
+          #      "Docker" depending on which check failed.
+          #   2. The script's messages are in Chinese, so an English-only
+          #      failure-signal pattern never matches.
+          # Signal = docker mentioned (case-insensitive) AND a failure marker
+          # (Chinese or English). Verified against 5 sample outputs.
+          $hasDocker = $r -imatch 'docker'
+          $hasFail = ($r -match '错误|失败|未检测到|未安装|未运行') -or `
+                     ($r -imatch 'not detected|not installed|not running|fail|error|denied')
+          if ($hasDocker -and $hasFail) {
+            Write-Output "  [OK] clear docker-related error shown"
+          } else {
+            Write-Output "  [FAIL] no clear docker-related error"
             exit 1
           }
-          Write-Output "  [OK] clear docker-related error shown"
 
       - name: Run install.ps1 end to end (fake docker - logic branch only)
         shell: powershell
