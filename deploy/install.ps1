@@ -21,8 +21,11 @@ Set-StrictMode -Version Latest
 
 # --- 常量 ------------------------------------------------------------------
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
-$AppVersion     = '0.0.1'
+$AppVersion     = '0.0.2'
 $DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.2'
+# 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
+# 之前硬编码写回 DefaultImage，会**静默忽略**调用方的取值。
+$ImageOverride  = $env:V2EX_IMAGE
 $EnvFile        = Join-Path $ScriptDir '.env'
 $EnvTemplate    = Join-Path $ScriptDir '.env.example'
 $CredFile       = Join-Path $ScriptDir 'INSTALL_CREDENTIALS.txt'
@@ -259,7 +262,7 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
             @('REDIS_PASSWORD',       $redisPassword),
             @('SESSION_SECRET',       $sessionSecret),
             @('SEED_ADMIN_PASSWORD',  $adminPassword),
-            @('V2EX_IMAGE',           $DefaultImage)
+            @('V2EX_IMAGE',           $(if ($ImageOverride) { $ImageOverride } else { $DefaultImage }))
         )) {
             $key = $pair[0]; $value = $pair[1]
             if ($line -match "^$([regex]::Escape($key))=") {

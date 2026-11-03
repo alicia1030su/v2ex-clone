@@ -23,8 +23,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_VERSION="0.0.1"
+APP_VERSION="0.0.2"
 DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.2"
+# 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
+# 之前这里硬编码写回 DEFAULT_IMAGE，会**静默忽略**调用方的取值，
+# 导致「用本地镜像跑安装验证」的 CI 场景必然拉取远端不存在的镜像而失败。
+IMAGE_OVERRIDE="${V2EX_IMAGE:-}"
 ENV_FILE="$SCRIPT_DIR/.env"
 ENV_TEMPLATE="$SCRIPT_DIR/.env.example"
 CRED_FILE="$SCRIPT_DIR/INSTALL_CREDENTIALS.txt"
@@ -271,7 +275,10 @@ if [ ! -f "$ENV_FILE" ]; then
   set_env_value REDIS_PASSWORD "$REDIS_PASSWORD_NEW"
   set_env_value SESSION_SECRET "$SESSION_SECRET_NEW"
   set_env_value SEED_ADMIN_PASSWORD "$ADMIN_PASSWORD_NEW"
-  set_env_value V2EX_IMAGE "$DEFAULT_IMAGE"
+  # 镜像地址：调用方显式指定时优先（CI 用本地构建的镜像验证安装流程），
+  # 否则用默认的 GHCR 镜像。之前这里硬编码写回 DEFAULT_IMAGE，
+  # 会**静默忽略**调用方的取值。
+  set_env_value V2EX_IMAGE "${IMAGE_OVERRIDE:-$DEFAULT_IMAGE}"
   unset POSTGRES_PASSWORD_NEW REDIS_PASSWORD_NEW SESSION_SECRET_NEW
 
   restrict_to_owner "$ENV_FILE"
