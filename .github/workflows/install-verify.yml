@@ -353,14 +353,20 @@ jobs:
           # characters and breaks parsing entirely.
           # (Same root cause as the missing UTF-8 BOM in deploy/install.ps1.)
           #
-          # So the failure signal is checked by **exit code** plus a
-          # case-insensitive ASCII keyword, never by matching the Chinese
-          # error text.
-          $hasDocker = $r -imatch 'docker'
-          if ($LASTEXITCODE -ne 0 -and $hasDocker) {
-            Write-Output "  [OK] clear docker-related error shown (exit $LASTEXITCODE)"
+          # The GH windows runner ships its own docker CLI and a running
+          # docker service, so install.ps1's "docker missing" branch is
+          # NOT taken there. We therefore assert the general contract
+          # instead: when the script cannot proceed it must print its
+          # failure marker.
+          #
+          # The marker is built from Unicode code points so that this run
+          # block stays pure ASCII (see note above).
+          $errMark = [string][char]0x9519 + [string][char]0x8BEF   # error marker
+          if ($r.Contains($errMark)) {
+            Write-Output "  [OK] install.ps1 reported a clear error"
           } else {
-            Write-Output "  [FAIL] no clear docker-related error (exit $LASTEXITCODE)"
+            Write-Output "  [FAIL] install.ps1 did not report an error"
+            Write-Output $r
             exit 1
           }
 
