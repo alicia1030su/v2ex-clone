@@ -8,9 +8,12 @@ import * as schema from './schema';
 //  2. .env.local（本地开发）
 //  3. .env（容器 / 生产）
 // dotenv 不会覆盖已存在的环境变量，因此 CI 中用环境变量注入的配置优先。
+// ENV_FILE 指定的文件用 override:true —— Next.js 在应用代码之前已自动
+// 加载了 .env / .env.production / .env.local，DATABASE_URL 等变量已被占位；
+// dotenv 默认不覆盖已有值，不加 override 的话 ENV_FILE 永远不生效。
 const ENV_FILE = process.env.ENV_FILE;
 if (ENV_FILE) {
-  config({ path: ENV_FILE, quiet: true });
+  config({ path: ENV_FILE, quiet: true, override: true });
 }
 config({ path: '.env.local', quiet: true });
 config({ path: '.env', quiet: true });

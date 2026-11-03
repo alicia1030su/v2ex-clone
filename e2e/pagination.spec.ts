@@ -13,22 +13,30 @@ test.describe('分页', () => {
     await page.goto('/go/programmer?p=1');
     await expect(page.locator('#TopicsNode')).toBeVisible();
 
-    // 第 1 页的主题项
-    const firstPageIds = await page
-      .locator('#TopicsNode > div[class*="t_"]')
-      .evaluateAll((els) => els.map((e) => e.className.match(/t_(\d+)/)?.[1] ?? ''));
+    const idsOf = async () =>
+      page
+        .locator('#TopicsNode > div[class*="t_"]')
+        .evaluateAll((els) => els.map((e) => e.className.match(/t_(\d+)/)?.[1] ?? ''));
+
+    // 第 1 页
+    const firstPageIds = await idsOf();
     expect(firstPageIds.length).toBeGreaterThan(0);
     // 每页最多 20 条
     expect(firstPageIds.length).toBeLessThanOrEqual(20);
 
-    // 当前页码高亮
-    await expect(page.locator('.page_current').first()).toHaveText('1');
+    // 分页器是否出现必须与内容总量一致：
+    // 主题数 > 20 时必须有分页器且当前页高亮；否则不应出现。
+    const pagerCount = await page.locator('.page_current').count();
+    if (firstPageIds.length === 20) {
+      expect(pagerCount).toBeGreaterThan(0);
+      await expect(page.locator('.page_current').first()).toHaveText('1');
+    } else {
+      expect(pagerCount).toBe(0);
+    }
 
-    // 第 2 页存在且内容与第 1 页不同
+    // 第 2 页（如有）
     await page.goto('/go/programmer?p=2');
-    const secondPageIds = await page
-      .locator('#TopicsNode > div[class*="t_"]')
-      .evaluateAll((els) => els.map((e) => e.className.match(/t_(\d+)/)?.[1] ?? ''));
+    const secondPageIds = await idsOf();
     if (secondPageIds.length > 0) {
       const overlap = secondPageIds.filter((id) => firstPageIds.includes(id));
       expect(overlap).toHaveLength(0);

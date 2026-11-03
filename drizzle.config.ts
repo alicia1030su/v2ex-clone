@@ -2,7 +2,7 @@ import type { Config } from 'drizzle-kit';
 import { config } from 'dotenv';
 
 if (process.env.ENV_FILE) {
-  config({ path: process.env.ENV_FILE, quiet: true });
+  config({ path: process.env.ENV_FILE, quiet: true, override: true });
 }
 config({ path: '.env.local', quiet: true });
 config({ path: '.env', quiet: true });

@@ -19,6 +19,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // worker 是独立进程，需要显式透传环境变量（见 e2e/global-setup.ts）
+  globalSetup: './e2e/global-setup.ts',
   reporter: [['list'], ['json', { outputFile: 'test-results/e2e-results.json' }]],
   // 把测试环境变量透传给用例进程
   // （DEBUG_ENDPOINT_TOKEN 等由 CI / 本地 shell 注入）

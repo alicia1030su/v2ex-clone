@@ -1,9 +1,19 @@
 import { Page, expect } from '@playwright/test';
 
-export const ADMIN = { username: 'admin', password: 'admin12345' };
-export const USER_A = { username: 'lisi', password: 'password123' };
-export const USER_B = { username: 'wangwu', password: 'password123' };
-export const MODERATOR = { username: 'moderator', password: 'password123' };
+/**
+ * 测试账号
+ *
+ * 口令从环境变量读取，与 seed 脚本保持一致 ——
+ * seed 的口令由 SEED_ADMIN_PASSWORD / SEED_DEMO_PASSWORD 决定，
+ * 硬编码会让「seed 用强口令、测试用弱口令」的两边对不上（登录必然失败）。
+ */
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'password123';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'admin12345';
+
+export const ADMIN = { username: 'admin', password: ADMIN_PASSWORD };
+export const USER_A = { username: 'lisi', password: DEMO_PASSWORD };
+export const USER_B = { username: 'wangwu', password: DEMO_PASSWORD };
+export const MODERATOR = { username: 'moderator', password: DEMO_PASSWORD };
 
 /**
  * 清理限流计数。

@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 
 if (process.env.ENV_FILE) {
-  config({ path: process.env.ENV_FILE, quiet: true });
+  config({ path: process.env.ENV_FILE, quiet: true, override: true });
 }
 config({ path: '.env.local', quiet: true });
 config({ path: '.env', quiet: true });
@@ -247,6 +247,13 @@ async function main() {
       .where(eq(schema.users.username, u.username))
       .limit(1);
     if (existing[0]) {
+      // 已存在的账号：同步口令与角色。
+      // 否则「改了 SEED_*_PASSWORD 后重跑 seed」不会生效，
+      // 环境变量与数据库状态会长期不一致（E2E 登录必然失败）。
+      await db
+        .update(schema.users)
+        .set({ passwordHash: hashPassword(u.password), role: u.role })
+        .where(eq(schema.users.id, existing[0].id));
       userIds.set(u.username, existing[0].id);
       continue;
     }
