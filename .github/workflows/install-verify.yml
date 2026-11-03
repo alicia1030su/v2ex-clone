@@ -461,11 +461,32 @@ jobs:
         shell: powershell
         run: |
           $inst = "${{ runner.temp }}\inst"
-          $before = Get-Content "$inst\.env" -Raw
-          & powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" *> $null
-          $after = Get-Content "$inst\.env" -Raw
-          if ($before -ne $after) { Write-Output "  [FAIL] .env was overwritten"; exit 1 }
-          Write-Output "  [OK] .env not overwritten"
+          # Normalize line endings before comparing: install.ps1 writes the
+          # file with CRLF while Get-Content -Raw returns the raw bytes, so a
+          # naive -ne comparison reports a false "overwritten".
+          $before = (Get-Content "$inst\.env" -Raw) -replace "`r`n", "`n"
+          $before = $before.TrimEnd()
+
+          # Run again through Start-Process + file redirection (same approach
+          # as the preflight step) so that the script's `exit 1` cannot break
+          # a pipeline.
+          $outFile2 = Join-Path $inst 'install-output-2.txt'
+          $errFile2 = Join-Path $inst 'install-stderr-2.txt'
+          $proc2 = Start-Process -FilePath 'powershell' `
+            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $inst 'install.ps1')) `
+            -RedirectStandardOutput $outFile2 `
+            -RedirectStandardError $errFile2 `
+            -NoNewWindow -Wait -PassThru
+
+          $after = (Get-Content "$inst\.env" -Raw) -replace "`r`n", "`n"
+          $after = $after.TrimEnd()
+          if ($before -ne $after) {
+            Write-Output "  [FAIL] .env was overwritten"
+            Write-Output "  --- before ---"; Write-Output $before
+            Write-Output "  --- after  ---"; Write-Output $after
+            exit 1
+          }
+          Write-Output "  [OK] .env not overwritten (rerun exit code $($proc2.ExitCode))"
 
       - name: Git Bash - run install.sh and inspect real ACL
         shell: bash
