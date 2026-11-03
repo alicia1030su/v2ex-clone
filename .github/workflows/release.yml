@@ -699,20 +699,27 @@ jobs:
           set -euo pipefail
           # 全部用十六进制随机串：不含 / + = 等字符，
           # 可直接嵌入 DATABASE_URL / REDIS_URL 而无需 URL 编码。
-          PG_PASS="$(openssl rand -hex 24)"
-          REDIS_PASS="$(openssl rand -hex 24)"
-          SESSION="$(openssl rand -hex 32)"
-          ADMIN_PASS="$(openssl rand -hex 12)Aa1"
+          # 必须是**单行**纯十六进制 —— GitHub 的 ::add-mask:: 不接受换行，
+          # 用 base64 会因含 \n 导致 "Invalid format" 而失败。
+          PG_PASS="$(openssl rand -hex 24 | tr -d '\n')"
+          REDIS_PASS="$(openssl rand -hex 24 | tr -d '\n')"
+          SESSION="$(openssl rand -hex 32 | tr -d '\n')"
+          ADMIN_PASS="$(openssl rand -hex 12 | tr -d '\n')Aa1"
+
+          # ::add-mask:: 是 **workflow command**，必须写到 stdout，
+          # 写到 $GITHUB_ENV 会被当成环境变量而报 "Invalid format"。
+          printf '::add-mask::%s\n' "$PG_PASS"
+          printf '::add-mask::%s\n' "$REDIS_PASS"
+          printf '::add-mask::%s\n' "$SESSION"
+          printf '::add-mask::%s\n' "$ADMIN_PASS"
+
+          # 实际值写入 $GITHUB_ENV 供后续步骤使用（同样保证单行）
           {
-            echo "::add-mask::$PG_PASS"
-            echo "::add-mask::$REDIS_PASS"
-            echo "::add-mask::$SESSION"
-            echo "::add-mask::$ADMIN_PASS"
+            printf 'PG_PASS=%s\n' "$PG_PASS"
+            printf 'REDIS_PASS=%s\n' "$REDIS_PASS"
+            printf 'SESSION=%s\n' "$SESSION"
+            printf 'ADMIN_PASS=%s\n' "$ADMIN_PASS"
           } >> "$GITHUB_ENV"
-          echo "PG_PASS=$PG_PASS"      >> "$GITHUB_ENV"
-          echo "REDIS_PASS=$REDIS_PASS" >> "$GITHUB_ENV"
-          echo "SESSION=$SESSION"      >> "$GITHUB_ENV"
-          echo "ADMIN_PASS=$ADMIN_PASS" >> "$GITHUB_ENV"
           echo "随机凭据已生成并屏蔽 ✓"
 
       - name: 准备发布版 compose 配置
