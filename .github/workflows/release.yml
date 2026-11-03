@@ -898,13 +898,51 @@ jobs:
         run: |
           set -euo pipefail
           cd deploy
-          # postgres / redis 没有声明 ports，compose 不应给出宿主机绑定
-          if docker compose --env-file .env port postgres 5432 2>/dev/null | grep -q .; then
-            echo "::error::PostgreSQL 端口暴露到宿主机"
-            exit 1
+          # postgres / redis **不应**声明 ports。
+          #
+          # 注意：不能用 `docker compose port <svc> <port>` 来判断 ——
+          # 该命令在容器内部 EXPOSE 了端口时**仍会输出**，
+          # 即使 compose 并未把它发布到宿主机（实测误报）。
+          #
+          # 改用三重检测：
+          #   ① compose 文件里确实没有 ports 声明
+          #   ② 宿主机上真的连不上该端口（实际 TCP 连接测试）
+          #   ③ 宿主机没有对应的监听套接字
+          fail=0
+
+          # ① compose 声明检查
+          for svc in postgres redis; do
+            if docker compose --env-file .env config 2>/dev/null \
+                 | grep -A20 "^  ${svc}:" | grep -qE '^\s+published:'; then
+              echo "::error::compose 配置里 $svc 声明了 published 端口"
+              fail=1
+            fi
+          done
+
+          # ② 实际 TCP 连接测试（从宿主机直连）
+          for target in "5432 PostgreSQL" "6379 Redis"; do
+            port="${target%% *}"
+            name="${target##* }"
+            if timeout 5 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+              echo "::error::$name 端口 $port 可从宿主机直连 —— 已被暴露"
+              fail=1
+            else
+              echo "✓ $name 端口 $port 无法从宿主机直连"
+            fi
+          done
+
+          # ③ 宿主机监听套接字检查
+          if command -v ss >/dev/null 2>&1; then
+            for port in 5432 6379; do
+              if ss -ltn 2>/dev/null | grep -qE "[:.]${port}\s"; then
+                echo "::error::宿主机有进程监听 $port"
+                fail=1
+              fi
+            done
           fi
-          if docker compose --env-file .env port redis 6379 2>/dev/null | grep -q .; then
-            echo "::error::Redis 端口暴露到宿主机"
+
+          if [ "$fail" -ne 0 ]; then
+            docker compose --env-file .env ps
             exit 1
           fi
           echo "✓ 数据库与 Redis 未暴露端口"
