@@ -43,6 +43,38 @@ export const notificationType = pgEnum('notification_type', [
 ]);
 export const voteDirection = pgEnum('vote_direction', ['up', 'down']);
 
+/**
+ * v0.0.3 新增枚举
+ *
+ * 说明：软删除不使用新的 enum 值，而是复用已有的 `topic_status`：
+ *  - 'deleted'  = 软删除（内容保留在库中，普通 API 不可见）
+ *  - 'locked'   = 已锁定（同时可与 deleted 组合，见 topics.deletedAt）
+ * 为避免破坏 v0.0.2 已有数据，topic_status 未新增枚举值。
+ */
+
+/** 举报对象类型 */
+export const reportTargetType = pgEnum('report_target_type', ['topic', 'reply', 'user']);
+
+/** 举报处理状态 */
+export const reportStatus = pgEnum('report_status', ['pending', 'accepted', 'rejected']);
+
+/** 积分流水类型（不可篡改账本的分类） */
+export const ledgerEntryType = pgEnum('ledger_entry_type', [
+  'topic_created',
+  'reply_created',
+  'topic_thanked',
+  'daily_checkin',
+  'admin_adjust',
+  'admin_deduct',
+  'registration_bonus',
+]);
+
+/** 节点申请状态（节点创建需审批） */
+export const nodeRequestStatus = pgEnum('node_request_status', ['pending', 'approved', 'rejected']);
+
+/** 邮件用途（找回密码等） */
+export const emailPurpose = pgEnum('email_purpose', ['password_reset']);
+
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
@@ -131,6 +163,16 @@ export const topics = pgTable(
     locked: boolean('locked').notNull().default(false),
     /** 是否置顶 */
     pinned: boolean('pinned').notNull().default(false),
+    /** v0.0.3：软删除标记。内容保留在库中，但普通 API 与列表一律不可见。 */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /** v0.0.3：软删除操作人（管理员或作者本人） */
+    deletedBy: integer('deleted_by').references(() => users.id),
+    /** v0.0.3：软删除原因 */
+    deletedReason: text('deleted_reason'),
+    /** v0.0.3：最后编辑时间 */
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    /** v0.0.3：编辑次数 */
+    editCount: integer('edit_count').notNull().default(0),
     lastReplyAt: timestamp('last_reply_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -141,6 +183,8 @@ export const topics = pgTable(
     index('topics_created_at_idx').on(t.createdAt),
     index('topics_last_reply_at_idx').on(t.lastReplyAt),
     index('topics_node_last_reply_idx').on(t.nodeId, t.lastReplyAt),
+    // v0.0.3：列表查询恒定过滤未删除主题，索引含 deletedAt 以便走索引
+    index('topics_node_deleted_idx').on(t.nodeId, t.deletedAt, t.lastReplyAt),
   ],
 );
 
@@ -161,12 +205,24 @@ export const replies = pgTable(
     thanks: integer('thanks').notNull().default(0),
     /** 引用回复的楼层 */
     quoteId: integer('quote_id'),
+    /** v0.0.3：软删除标记。内容保留在库中，但普通 API 与列表一律不可见。 */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /** v0.0.3：软删除操作人 */
+    deletedBy: integer('deleted_by').references(() => users.id),
+    /** v0.0.3：软删除原因 */
+    deletedReason: text('deleted_reason'),
+    /** v0.0.3：最后编辑时间 */
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    /** v0.0.3：编辑次数 */
+    editCount: integer('edit_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('replies_topic_floor_uidx').on(t.topicId, t.floor),
     index('replies_author_idx').on(t.authorId),
+    // v0.0.3：楼层计数在并发下用 ON CONFLICT 原子递增，此索引支持按楼层定位
+    index('replies_topic_deleted_idx').on(t.topicId, t.deletedAt),
   ],
 );
 
@@ -343,3 +399,243 @@ export const floorCounters = pgTable('floor_counters', {
   topicId: integer('topic_id').primaryKey(),
   lastFloor: integer('last_floor').notNull().default(0),
 });
+
+// ---------------------------------------------------------------------------
+// v0.0.3 新增表
+// ---------------------------------------------------------------------------
+
+/**
+ * 编辑历史（主题与回复共用）
+ *
+ * 每次编辑写入一行，保留编辑前后的内容快照，用于审计与「此内容已被编辑」提示。
+ * 不可变：没有 UPDATE 路径，只有 INSERT。
+ */
+export const editHistory = pgTable(
+  'edit_history',
+  {
+    id: serial('id').primaryKey(),
+    /** 'topic' | 'reply' */
+    targetType: varchar('target_type', { length: 16 }).notNull(),
+    targetId: integer('target_id').notNull(),
+    /** 编辑者 */
+    editorId: integer('editor_id')
+      .notNull()
+      .references(() => users.id),
+    /** 编辑前标题（仅主题） */
+    previousTitle: text('previous_title'),
+    /** 编辑前正文 */
+    previousContent: text('previous_content'),
+    /** 编辑后标题（仅主题） */
+    newTitle: text('new_title'),
+    /** 编辑后正文 */
+    newContent: text('new_content'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('edit_history_target_idx').on(t.targetType, t.targetId),
+    index('edit_history_editor_idx').on(t.editorId),
+  ],
+);
+
+/**
+ * 密码重置令牌
+ *
+ * - 仅存哈希（sha256），数据库泄露也无法直接用于重置
+ * - expiresAt 到期即失效
+ * - usedAt 非空表示已使用（防重放）
+ * - revokedAt 非空表示被管理员撤销
+ */
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** sha256 十六进制 */
+    tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /** 请求来源 IP（审计用） */
+    requestIp: varchar('request_ip', { length: 64 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('password_reset_tokens_hash_uidx').on(t.tokenHash),
+    index('password_reset_tokens_user_idx').on(t.userId),
+  ],
+);
+
+/**
+ * 积分流水（不可篡改账本）
+ *
+ * 设计要点：
+ * 1. 只 INSERT，从不 UPDATE / DELETE —— 没有对应的 ORM 更新路径
+ * 2. balanceAfter 记录变动后的余额快照，可用于对账
+ * 3. 幂等键 idempotencyKey 唯一，防止重复请求造成重复奖励
+ */
+export const creditLedger = pgTable(
+  'credit_ledger',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: ledgerEntryType('type').notNull(),
+    /** 本次变动数量（正为增加，负为扣减） */
+    amount: integer('amount').notNull(),
+    /** 变动前余额 */
+    balanceBefore: integer('balance_before').notNull(),
+    /** 变动后余额 */
+    balanceAfter: integer('balance_after').notNull(),
+    /** 关联对象（如 topic id / reply id） */
+    refType: varchar('ref_type', { length: 32 }),
+    refId: integer('ref_id'),
+    /** 幂等键：同一业务动作重复提交时保证只有一条流水 */
+    idempotencyKey: varchar('idempotency_key', { length: 128 }),
+    /** 操作者（管理员调整时为管理员，否则为用户本人） */
+    actorId: integer('actor_id').references(() => users.id),
+    /** 管理员调整的理由 */
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('credit_ledger_user_idx').on(t.userId, t.createdAt),
+    uniqueIndex('credit_ledger_idem_uidx').on(t.idempotencyKey),
+  ],
+);
+
+/**
+ * 每日签到
+ *
+ * (user_id, checkin_date) 唯一 —— 同一天重复签到不会重复发放奖励。
+ */
+export const dailyCheckins = pgTable(
+  'daily_checkins',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 签到日期（UTC 日期，YYYY-MM-DD） */
+    checkinDate: varchar('checkin_date', { length: 10 }).notNull(),
+    /** 本次获得的积分 */
+    reward: integer('reward').notNull().default(0),
+    /** 连续签到天数 */
+    streak: integer('streak').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('daily_checkins_user_date_uidx').on(t.userId, t.checkinDate),
+    index('daily_checkins_date_idx').on(t.checkinDate),
+  ],
+);
+
+/**
+ * 举报
+ */
+export const reports = pgTable(
+  'reports',
+  {
+    id: serial('id').primaryKey(),
+    targetType: reportTargetType('target_type').notNull(),
+    targetId: integer('target_id').notNull(),
+    /** 举报人 */
+    reporterId: integer('reporter_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    status: reportStatus('status').notNull().default('pending'),
+    /** 处理人 */
+    handledBy: integer('handled_by').references(() => users.id),
+    handledAt: timestamp('handled_at', { withTimezone: true }),
+    handleNote: text('handle_note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('reports_status_idx').on(t.status, t.createdAt),
+    index('reports_target_idx').on(t.targetType, t.targetId),
+    index('reports_reporter_idx').on(t.reporterId),
+  ],
+);
+
+/**
+ * 节点创建申请（节点需审批后才可见）
+ */
+export const nodeRequests = pgTable(
+  'node_requests',
+  {
+    id: serial('id').primaryKey(),
+    name: varchar('name', { length: 64 }).notNull(),
+    title: varchar('title', { length: 128 }).notNull(),
+    description: text('description'),
+    /** 期望所属分类 */
+    categoryId: integer('category_id').references(() => categories.id),
+    /** 申请创建的用户 */
+    requesterId: integer('requester_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: nodeRequestStatus('status').notNull().default('pending'),
+    handledBy: integer('handled_by').references(() => users.id),
+    handledAt: timestamp('handled_at', { withTimezone: true }),
+    /** 审批通过后创建的节点 id */
+    approvedNodeId: integer('approved_node_id').references(() => nodes.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('node_requests_status_idx').on(t.status, t.createdAt),
+    index('node_requests_requester_idx').on(t.requesterId),
+  ],
+);
+
+/**
+ * 头像文件元数据
+ *
+ * 实际图片二进制存于磁盘（public/uploads/avatars/），此表记录元数据与归属。
+ * 存储路径由服务端生成（不含用户可控部分），杜绝路径穿越。
+ */
+export const avatars = pgTable(
+  'avatars',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 服务器端相对存储路径，如 'avatars/3/a1b2c3.png' */
+    storagePath: varchar('storage_path', { length: 256 }).notNull(),
+    /** 原始文件名（仅展示用，不参与路径拼接） */
+    originalName: varchar('original_name', { length: 255 }),
+    /** MIME 类型 */
+    mimeType: varchar('mime_type', { length: 64 }).notNull(),
+    /** 字节数 */
+    size: integer('size').notNull(),
+    width: integer('width'),
+    height: integer('height'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('avatars_user_idx').on(t.userId),
+    uniqueIndex('avatars_path_uidx').on(t.storagePath),
+  ],
+);
+
+/**
+ * 邮件发送日志（测试环境用本地邮件服务，真实发送受 SMTP 配置控制）
+ */
+export const emailLogs = pgTable(
+  'email_logs',
+  {
+    id: serial('id').primaryKey(),
+    /** 收件人（脱敏存储：仅保留域部分与首字母） */
+    recipientMasked: varchar('recipient_masked', { length: 128 }).notNull(),
+    purpose: emailPurpose('purpose').notNull(),
+    /** 是否真正投递（未配置 SMTP 时为 false） */
+    delivered: boolean('delivered').notNull().default(false),
+    /** 未投递原因 */
+    skipReason: varchar('skip_reason', { length: 128 }),
+    userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('email_logs_user_idx').on(t.userId)],
+);
