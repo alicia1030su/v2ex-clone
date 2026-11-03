@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.1 — 发行版 Docker Compose 配置
+# V2EX Clone v0.0.2 — 发行版 Docker Compose 配置
 #
 # 与仓库根目录的 docker-compose.yml 的差异：
 #   1. app 服务使用**预构建镜像**（ghcr.io），不在用户机器上本地构建。
@@ -73,7 +73,7 @@ services:
     #   build:
     #     context: ..
     #     dockerfile: Dockerfile
-    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.1}
+    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.2}
     container_name: v2ex-app
     restart: unless-stopped
     depends_on:
@@ -114,6 +114,10 @@ services:
       DEBUG_ENDPOINT_TOKEN: ''
       DISABLE_CAPTCHA: '0'
       TEST_ENV_ISOLATED: '0'
+      # 是否采信 x-forwarded-for / x-real-ip 作为客户端真实 IP。
+      # 默认 0（不信任）—— 应用端口直接映射到宿主机时，客户端可任意伪造
+      # 这些头从而绕过限流。设为 1 仅在确定位于反向代理之后才安全。
+      TRUST_PROXY_HEADERS: '${TRUST_PROXY_HEADERS:-0}'
     ports:
       - '${APP_PORT:-3000}:3000'
     networks:

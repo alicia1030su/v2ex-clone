@@ -1,5 +1,5 @@
 ﻿# ---------------------------------------------------------------------------
-# V2EX Clone v0.0.1 — 一键安装脚本（Windows PowerShell）
+# V2EX Clone v0.0.2 — 一键安装脚本（Windows PowerShell）
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -21,8 +21,11 @@ Set-StrictMode -Version Latest
 
 # --- 常量 ------------------------------------------------------------------
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
-$AppVersion     = '0.0.1'
-$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.1'
+$AppVersion     = '0.0.2'
+$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.2'
+# 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
+# 之前硬编码写回 DefaultImage，会**静默忽略**调用方的取值。
+$ImageOverride  = $env:V2EX_IMAGE
 $EnvFile        = Join-Path $ScriptDir '.env'
 $EnvTemplate    = Join-Path $ScriptDir '.env.example'
 $CredFile       = Join-Path $ScriptDir 'INSTALL_CREDENTIALS.txt'
@@ -259,7 +262,7 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
             @('REDIS_PASSWORD',       $redisPassword),
             @('SESSION_SECRET',       $sessionSecret),
             @('SEED_ADMIN_PASSWORD',  $adminPassword),
-            @('V2EX_IMAGE',           $DefaultImage)
+            @('V2EX_IMAGE',           $(if ($ImageOverride) { $ImageOverride } else { $DefaultImage }))
         )) {
             $key = $pair[0]; $value = $pair[1]
             if ($line -match "^$([regex]::Escape($key))=") {
@@ -307,14 +310,27 @@ foreach ($key in @('POSTGRES_PASSWORD', 'REDIS_PASSWORD', 'SESSION_SECRET', 'SEE
 # 步骤 2：拉取镜像并启动
 # ---------------------------------------------------------------------------
 Write-Info '拉取镜像（首次需要下载，请耐心等待）...'
+# 拉取失败不一定致命：镜像可能已在本机存在（离线安装 / 内网镜像仓库 / 预置镜像），
+# 或环境无法访问 ghcr.io 但本地已有同 tag 镜像。
+# 因此先尝试拉取；失败时检查本地是否已有该镜像，有则继续，没有才中止。
+$imageRef = Read-EnvValue -Key 'V2EX_IMAGE'
+if ([string]::IsNullOrWhiteSpace($imageRef)) { $imageRef = $DefaultImage }
 & docker compose pull
 if ($LASTEXITCODE -ne 0) {
-    Write-Warn 'docker compose pull 失败。'
-    Write-Warn '常见原因：网络无法访问 ghcr.io。可改用国内镜像源，或先手动执行：'
-    Write-Warn "  docker pull $DefaultImage"
-    Fail '镜像拉取失败，安装中止。'
+    & docker image inspect $imageRef *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Warn "拉取失败，但本机已存在镜像 $imageRef，继续使用本地镜像。"
+        Write-Warn '如需更新到最新版本，请检查网络后执行 docker compose pull。'
+        Write-Ok "使用本机已有镜像：$imageRef"
+    } else {
+        Write-Warn 'docker compose pull 失败，且本机没有该镜像。'
+        Write-Warn '常见原因：网络无法访问 ghcr.io。可改用国内镜像源，或先手动执行：'
+        Write-Warn "  docker pull $imageRef"
+        Fail '镜像拉取失败，安装中止。'
+    }
+} else {
+    Write-Ok '镜像拉取完成'
 }
-Write-Ok '镜像拉取完成'
 
 Write-Info '启动容器...'
 & docker compose up -d

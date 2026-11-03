@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
+import { resolveClientIp } from '@/lib/client-ip';
 import { sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { hashPassword } from '@/lib/password';
@@ -28,9 +29,8 @@ export async function POST(request: Request) {
   }
 
   const username = body.username.trim();
-  const hdrs = await headers();
-  const ip =
-    hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ?? hdrs.get('x-real-ip') ?? '127.0.0.1';
+  // 信任边界见 src/lib/client-ip.ts（默认不采信可伪造的代理头）
+  const ip = await resolveClientIp();
 
   const email = (body.email ?? '').trim().toLowerCase() || null;
 

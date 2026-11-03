@@ -8,6 +8,126 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [0.0.2] - 2026-11-04
+
+> 早期开发预览版（Pre-release）。功能尚未完备，**不建议用于生产环境**。
+> 界面与原站存在差异，**不保证与 V2EX 完全一致**。
+>
+> **本小节只记录「供应链 / CI/CD / 容器 / 文档」四个方面本轮实际做过的事。**
+> 应用层（业务逻辑、接口、界面）的变更由对应负责人另行补充 ——
+> 本节**不代为声明**，以免夸大。
+
+### 供应链
+
+- **修复** 4 个 moderate 依赖漏洞（`npm audit` 由 4 降为 **0**）：
+  `drizzle-kit` → `@esbuild-kit/esm-loader` → `@esbuild-kit/core-utils` → `esbuild@0.18.20`
+  （GHSA-67mh-4wv8-2f99，「esbuild 开发服务器可被任意网站跨域读取响应」）。
+  通过 `overrides` 把 `@esbuild-kit/core-utils` 下的 esbuild 钉到 `^0.25.0`，
+  实际解析为 **0.25.12**（受影响范围 `<=0.24.2`）。
+- **未降低扫描等级**：发布流水线的漏洞门禁（critical / high 即中止发布）**一个字未改**；
+  漏洞数是**降下来的**，不是被藏起来的。
+- 修复后**迁移能力实测未损坏**：`drizzle-kit generate` 与 `drizzle-kit migrate` 均成功，
+  `tsc --noEmit` 0 错误，`vitest` **103/103** 全绿，`next build` 成功。
+- 补充证据：该漏洞路径在生产**结构性不可达** ——
+  `drizzle-kit` 虽声明了 `@esbuild-kit/esm-loader` 依赖，但**从不 import 它**；
+  它实际加载的是 `drizzle-kit/node_modules/esbuild`（0.25.12，本就安全）。
+
+### 容器与部署
+
+- **修复** 生产镜像携带全部 devDependencies 的问题：
+  Dockerfile 的运行层此前 `COPY --from=builder /app/node_modules`，把含
+  `@playwright/test`、`vitest`、`typescript`、`@types/*` 的**完整** `node_modules`
+  （本机实测 530 MB）打进了生产镜像 —— 同时把漏洞版 esbuild 也一起带了出去。
+  现改为在运行层执行 `npm ci --omit=dev`，按依赖图只装生产依赖。
+- 为此把 `drizzle-kit` 与 `tsx` 从 `devDependencies` **上移到 `dependencies`** ——
+  它们不是测试工具，而是容器 entrypoint 的**真实运行时依赖**
+  （阶段 1 迁移、阶段 2 首次初始化分别直接调用它们）。
+  实测 `npm ci --omit=dev` 后 `drizzle-kit/bin.cjs`、`tsx/dist/cli.mjs`、
+  `next/dist/bin/next` 三个路径均存在。
+- **修复** `playwright-core`（14 MB）仍进生产镜像的问题。
+  根因是 `next@15.5.28` 把 `@playwright/test` 声明为 `peerOptional`，
+  npm 会自动安装 optional peer —— `--omit=dev` 裁不掉，
+  `--omit=peer` 也**无效**（实测仍装 73 包 / 429 MB）。
+  改为安装后显式删除，并加**防回归护栏**：删除后断言三个 entrypoint
+  路径仍在，否则**构建当场失败**（而不是等容器启动时才炸）。
+  依据：实测 next 的运行时代码（`dist/server/**`）**零处**引用 playwright，
+  仅 `next test` / `experimental-test` 引用 —— 本项目不使用这些路径。
+- **实测验证裁剪后的生产依赖闭包真的能跑**（无需 Docker）：
+  - `npm audit --omit=dev --audit-level=moderate` → **found 0 vulnerabilities**
+  - 依赖体积 429 MB →（删 playwright 后）**411 MB**
+  - 裁剪后 `next build` ✓ Compiled successfully
+  - 裁剪后 `next start` + 真实数据库：`/` `/signin` `/signup` `/nodes`
+    `/api/captcha` `/t/1` **全部 200**，日志 `MODULE_NOT_FOUND` 计数 **0**
+  - 裁剪后 `drizzle-kit migrate` ✓ 18 张表；`tsx` 跑 seed ✓ 完成
+  - 漏洞版 esbuild 0.18.20 **已不在**生产依赖闭包内（解析为 0.25.12）
+- 生产镜像**不含**原站版权素材、`.env`、凭据文件 —— 由发布流水线的
+  「核验镜像不含敏感文件」步骤在真实镜像上 `docker run` 实测。
+
+### CI/CD
+
+- **修复** `ci.yml` 全部 action 使用 node20 版本、会在启动阶段直接失败的问题。
+  GitHub 已于 2026-09-23 移除 runner 的 Node 20 运行时，且
+  `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` 退避开关同时失效。
+  `ci.yml` 的 `actions/checkout@v4` / `setup-node@v4` / `upload-artifact@v4`
+  已全部升级到 node24 版本（`@v7`）—— 与 `release.yml` 对齐。
+- **修复** 发布流水线的 `dry_run` 开关**从未生效**的问题。
+  该开关此前被声明、被输出、被打印，但**没有被任何 `if:` 消费**，
+  导致手动触发时勾选「仅验证」依然会推送镜像并创建 Release。
+  现已让 `dry_run=true` 真正做到：不登录 GHCR、不推送镜像、
+  跳过 `publish-release` 与 `verify-release`；同时镜像经 artifact 传给
+  `deploy-verify`，保证「只验证」仍能跑真实镜像。
+- **收紧** 发布触发条件：`push` tag 的通配由 `v*` 改为**显式白名单**。
+  理由：`v*` 会把任意形如 `vX.Y.Z` 的 tag 都变成发布触发器，
+  而发布流水线带 `packages:write` 与 `contents:write`。
+  当前白名单为 `v0.0.2` —— 每次发版需手动加入新版本号，这是**刻意的摩擦**。
+- 审计结论（**无改动**）：两个 workflow 均**无** `pull_request_target`、
+  **无** `workflow_run`；`release.yml` **无** `pull_request` 触发器 ——
+  **未经审查的 PR 代码无法触及任何写权限 job**。
+  顶层权限为 `contents: read`，仅 `build-image`（`packages: write`）
+  与 `publish-release`（`contents: write`）按需提升。
+
+### 文档
+
+- 新增 [`docs/UPGRADE-v0.0.2.md`](docs/UPGRADE-v0.0.2.md) ——
+  v0.0.1 → v0.0.2 的升级步骤、验证清单、回滚说明、已知问题。
+- 新增 [`docs/RELEASE_GATE_v0.0.2.md`](docs/RELEASE_GATE_v0.0.2.md) ——
+  v0.0.2 的发布门槛检查单（缺陷 / 供应链 / CI 权限 / 产物 / 部署 / 安装 / 合规 / 密钥 / 文档）。
+- 新增 [`docs/SECURITY_EXCEPTIONS.md`](docs/SECURITY_EXCEPTIONS.md) ——
+  已评估并接受的风险例外登记表，每条含可复核证据与**到期日**。
+- 更新 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) ——
+  镜像地址更新为 `ghcr.io/alicia1030su/v2ex-clone:v0.0.2`；
+  新增「GHCR 可见性说明」小节（public 包可匿名拉取；
+  `denied` 的三种处理方式）；回滚小节补充「**tag 不可移动，已发布版本一律不覆盖**」；
+  已知限制新增 3 条（生产镜像不含测试工具链 / 镜像体积与非 root 本机未实测 /
+  Windows 只有 `install.ps1`）。
+- 发行包版本号统一更新为 `0.0.2`（`deploy/VERSION`、`deploy/.env.example`
+  的 `V2EX_IMAGE`、`deploy/docker-compose.yml` 的镜像默认值，
+  以及 `install.sh` / `install.ps1` / `update.sh` 等脚本内的默认值）。
+
+### 已知限制
+
+本节**只列本轮新增或变化了的限制**；v0.0.1 已有的限制见下方 v0.0.1 小节。
+
+- **生产镜像不再包含测试工具链** —— 若曾在生产容器里跑 `npx vitest` / `npx playwright`，
+  现在会报「找不到模块」。这是**预期行为**，测试应在源码仓库或 CI 里跑。
+- **镜像体积与非 root 运行的实测未能在本机完成** —— 开发环境没有 Docker。
+  由 CI 的 `docker` job 与发布流水线在真实 Docker 环境验证；
+  见 `docs/SECURITY_EXCEPTIONS.md` E-05。
+- **Windows 发行包只有 `install.ps1`** —— `backup.sh` / `restore.sh` / `update.sh` /
+  `start.sh` / `stop.sh` 均无 `.ps1` 对应版本，Windows 用户需按
+  `docs/UPGRADE-v0.0.2.md` §3.2 / §5.4 的手工步骤操作。
+- **Git 历史中的原站版权素材仍未清理** —— 本轮**未执行**（需单独授权改写历史或移动 tag）。
+  详见 `docs/SECURITY_EXCEPTIONS.md` E-02 与 `RISK_REGISTER.md` R-01。
+
+### 不包含
+
+- 本轮**未**引入任何新的用户可见功能。
+- 本轮**未**新增数据库迁移 —— v0.0.2 的数据库结构与 v0.0.1 相同。
+- 本轮**未**接入任何大模型 API，因此**不存在** API Key 轮换与配额告警的运维负担。
+  （若将来接入，必须先补齐密钥托管位置、轮换周期与配额告警阈值。）
+- 本轮**未**执行任何远端写操作（未 push、未创建 tag、未创建 Release、未运行远程 workflow）——
+  这些由仓库主人执行。
+
 ## [0.0.1] - 2026-11-03
 
 > 早期开发预览版（Pre-release）。功能尚未完备，**不建议用于生产环境**。
@@ -142,4 +262,5 @@
 | 第三方登录 | Google / Solana 未接入 |
 | 投票（顶 / 踩） | `votes` 表已建，交互未接 |
 
+[0.0.2]: https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.2
 [0.0.1]: https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.1
