@@ -1,5 +1,7 @@
 'use client';
 
+import { csrfFetch } from '@/components/CsrfProvider';
+
 import { useEffect, useState } from 'react';
 
 export default function CollectButton({
@@ -38,7 +40,7 @@ export default function CollectButton({
     setPending(true);
     setError(null);
     try {
-      const res = await fetch('/api/collections', {
+      const res = await csrfFetch('/api/collections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, id, action: collected ? 'remove' : 'add' }),

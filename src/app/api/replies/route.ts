@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { guardCsrf } from '@/lib/csrf-guard';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { allocateFloor } from '@/server/floor';
+import { sanitizeRedirect } from '@/lib/redirect';
+import { getFormData } from '@/lib/csrf';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +15,10 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ ok: false, error: '请先登录' }, { status: 401 });
   }
+
+  // CSRF 校验（置于鉴权之后：未登录请求直接 401，不泄露端点存在性）
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
 
   const ct = request.headers.get('content-type') ?? '';
   let topicId = 0;
@@ -26,12 +33,13 @@ export async function POST(request: Request) {
     } | null;
     topicId = Number(body?.topicId ?? 0);
     content = (body?.content ?? '').trim();
-    redirect = body?.redirect ?? '/';
+    redirect = sanitizeRedirect(body?.redirect);
   } else {
-    const form = await request.formData();
-    topicId = Number(form.get('topicId') ?? 0);
-    content = String(form.get('content') ?? '').trim();
-    redirect = String(form.get('redirect') ?? '/');
+    // 复用 CSRF 校验时已解析的表单数据（Request body 只能读取一次）
+    const form = await getFormData(request);
+    topicId = Number(form?.get('topicId') ?? 0);
+    content = String(form?.get('content') ?? '').trim();
+    redirect = sanitizeRedirect(form?.get('redirect'));
   }
 
   if (!Number.isInteger(topicId) || topicId <= 0) {

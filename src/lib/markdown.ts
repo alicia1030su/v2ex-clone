@@ -1,150 +1,98 @@
 import 'server-only';
 import { marked } from 'marked';
+import sanitizeHtmlLib from 'sanitize-html';
 
 /**
  * 内容渲染：Markdown → 安全 HTML
  *
  * 原站正文使用 markdown_body 容器渲染，支持 code/quote/img/表格。
- * 这里用 marked 渲染后做严格清洗，防止 XSS。
+ *
+ * 安全实现说明（安全审计后修复）：
+ *  - 清洗器由自研手写解析器改为成熟方案 `sanitize-html`（2.18.x）。
+ *    自研版本存在多处缺陷：
+ *      1. URL 过滤正则 `[-]` 实为字面量连字符，未能剥离控制字符，
+ *         `java\tscript:` 这类绕过可生效；
+ *      2. 允许 `data:image/svg+xml;base64,`，而 SVG 内可嵌 <script>；
+ *      3. 允许 <a target> 但未强制 rel，存在 tabnabbing；
+ *      4. 注释与畸形标签的处理不完整。
+ *    sanitize-html 使用成熟的 htmlparser2 解析 + 事件级过滤，覆盖畸形 HTML、
+ *    编码绕过、协议混淆等已知攻击面，且无原生依赖、可在服务端直接运行。
+ *
+ *  - Markdown 渲染后立即清洗，清洗结果再交给 React 的 dangerouslySetInnerHTML。
+ *    组件层不做二次拼接，避免"清洗后又被拼接回去"。
  */
 
-const ALLOWED_TAGS = new Set([
+/** 允许的标签（对齐原站 markdown_body 支持的子集） */
+const ALLOWED_TAGS = [
   'p', 'br', 'hr', 'strong', 'em', 'del', 'code', 'pre', 'blockquote',
   'ul', 'ol', 'li', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'div', 'sup', 'sub',
-]);
+];
 
-const ALLOWED_ATTRS: Record<string, Set<string>> = {
-  a: new Set(['href', 'title', 'target', 'rel']),
-  img: new Set(['src', 'alt', 'title', 'width', 'height']),
-  code: new Set(['class']),
-  pre: new Set(['class']),
-  span: new Set(['class']),
-  div: new Set(['class']),
-  th: new Set(['colspan', 'rowspan']),
-  td: new Set(['colspan', 'rowspan']),
+/** 允许的属性 */
+const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
+  a: ['href', 'title', 'target', 'rel'],
+  img: ['src', 'alt', 'title', 'width', 'height'],
+  code: ['class'],
+  pre: ['class'],
+  span: ['class'],
+  div: ['class'],
+  th: ['colspan', 'rowspan'],
+  td: ['colspan', 'rowspan'],
 };
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function safeUrl(value: string, allowData: boolean): string | null {
-  const trimmed = value.trim().replace(/[-]/g, '');
-  if (/^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i.test(trimmed)) return trimmed;
-  if (allowData && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(trimmed)) {
-    return trimmed;
-  }
-  return null;
-}
+/**
+ * 允许的 URL 协议。
+ *
+ * 注意：明确**不包含** `data:` —— 即便是 data:image，
+ * `data:image/svg+xml` 也能内嵌脚本，会造成 XSS。
+ * 图片使用 http/https/相对路径即可覆盖真实需求。
+ */
+const ALLOWED_SCHEMES = ['http', 'https', 'mailto', 'tel'];
 
 /**
- * 解析 HTML 字符串，仅保留白名单标签与属性。
- * 采用标签栈扫描，避免依赖 DOM 环境（服务端可用）。
+ * 清洗 HTML。
+ *
+ * @param html 待清洗的 HTML 片段
+ * @param opts.allowDataImage 是否允许 data:image（默认不允许）
  */
-export function sanitizeHtml(html: string): string {
-  const out: string[] = [];
-  const tagStack: string[] = [];
-  let i = 0;
-
-  while (i < html.length) {
-    const lt = html.indexOf('<', i);
-    if (lt === -1) {
-      out.push(escapeHtml(html.slice(i)));
-      break;
-    }
-    if (lt > i) out.push(escapeHtml(html.slice(i, lt)));
-
-    // 注释
-    if (html.startsWith('<!--', lt)) {
-      const end = html.indexOf('-->', lt + 4);
-      i = end === -1 ? html.length : end + 3;
-      continue;
-    }
-
-    const gt = html.indexOf('>', lt);
-    if (gt === -1) {
-      out.push(escapeHtml(html.slice(lt)));
-      break;
-    }
-
-    let tagSrc = html.slice(lt + 1, gt).trim();
-    const closing = tagSrc.startsWith('/');
-    if (closing) tagSrc = tagSrc.slice(1).trim();
-    const selfClosing = tagSrc.endsWith('/');
-    if (selfClosing) tagSrc = tagSrc.slice(0, -1).trim();
-
-    const nameMatch = tagSrc.match(/^([a-zA-Z][a-zA-Z0-9-]*)/);
-    if (!nameMatch) {
-      out.push(escapeHtml(html.slice(lt, gt + 1)));
-      i = gt + 1;
-      continue;
-    }
-    const tag = nameMatch[1].toLowerCase();
-
-    if (!ALLOWED_TAGS.has(tag)) {
-      // 丢弃未知标签，但保留其文本内容
-      i = gt + 1;
-      continue;
-    }
-
-    if (closing) {
-      const idx = tagStack.lastIndexOf(tag);
-      if (idx !== -1) {
-        tagStack.length = idx;
-        out.push(`</${tag}>`);
-      }
-      i = gt + 1;
-      continue;
-    }
-
-    // 解析属性
-    const attrRe = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*(?:=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
-    const attrs: string[] = [];
-    let m: RegExpExecArray | null;
-    const attrText = tagSrc.slice(nameMatch[0].length);
-    while ((m = attrRe.exec(attrText)) !== null) {
-      const attrName = m[1].toLowerCase();
-      const rawValue = m[3] ?? m[4] ?? m[5] ?? '';
-      if (attrName.startsWith('on')) continue; // 事件处理器一律丢弃
-      if (attrName === 'style' || attrName === 'srcset') continue;
-      const allowed = ALLOWED_ATTRS[tag];
-      if (!allowed || !allowed.has(attrName)) continue;
-      if (attrName === 'href') {
-        const url = safeUrl(rawValue, false);
-        if (!url) continue;
-        attrs.push(`href="${escapeHtml(url)}"`);
-        if (/^https?:/i.test(url)) {
-          attrs.push('target="_blank"', 'rel="nofollow noopener noreferrer"');
-        }
-        continue;
-      }
-      if (attrName === 'src') {
-        const url = safeUrl(rawValue, true);
-        if (!url) continue;
-        attrs.push(`src="${escapeHtml(url)}"`);
-        continue;
-      }
-      attrs.push(`${attrName}="${escapeHtml(rawValue)}"`);
-    }
-
-    out.push(`<${tag}${attrs.length ? ' ' + attrs.join(' ') : ''}>`);
-    if (!selfClosing && !['br', 'hr', 'img'].includes(tag)) {
-      tagStack.push(tag);
-    }
-    i = gt + 1;
-  }
-
-  // 关闭未闭合标签
-  while (tagStack.length) {
-    out.push(`</${tagStack.pop()}>`);
-  }
-  return out.join('');
+export function sanitizeHtml(html: string, opts: { allowDataImage?: boolean } = {}): string {
+  return sanitizeHtmlLib(html, {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: ALLOWED_ATTRIBUTES,
+    allowedSchemes: ALLOWED_SCHEMES,
+    // 协议白名单同时作用于 href 与 src。
+    // 注意：不要再设置 allowedSchemesByTag —— 与 allowedSchemesAppliedToAttributes
+    // 组合会让 sanitize-html 在处理属性时拿到 null 的 scheme 集合并抛错。
+    allowedSchemesAppliedToAttributes: ['href', 'src', 'cite'],
+    allowProtocolRelative: false,
+    // 过滤 style 属性，杜绝 CSS 注入（expression / url() 外联）
+    allowedStyles: undefined,
+    disallowedTagsMode: 'discard',
+    nonTextTags: ['style', 'script', 'textarea', 'option', 'noscript', 'iframe', 'object', 'embed', 'applet', 'template', 'link', 'meta', 'base', 'form'],
+    transformTags: {
+      // 外链一律加 noopener，防止 tabnabbing
+      a: (tagName, attribs) => {
+        const href = attribs.href ?? '';
+        const isExternal = /^https?:\/\//i.test(href);
+        return {
+          tagName,
+          attribs: {
+            ...attribs,
+            ...(isExternal ? { target: '_blank', rel: 'nofollow noopener noreferrer' } : {}),
+            ...(attribs.target === '_blank' && !isExternal
+              ? { rel: 'nofollow noopener noreferrer' }
+              : {}),
+          },
+        };
+      },
+      // 图片补 alt 与 loading，避免布局抖动与无障碍缺陷
+      img: (tagName, attribs) => ({
+        tagName,
+        attribs: { ...attribs, alt: attribs.alt ?? '', loading: 'lazy' },
+      }),
+    },
+  });
 }
 
 export async function renderMarkdown(content: string): Promise<string> {
@@ -187,8 +135,3 @@ export function stripMarkdown(md: string, maxLength = 200): string {
     .trim();
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 }
-
-/**
- * 去除 Markdown 标记，返回纯文本摘要。
- * 用于列表页、用户主页等不需要完整 HTML 的场景。
- */

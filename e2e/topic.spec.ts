@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN, USER_A, USER_B, login, logout, register, uniqueName , clearRateLimits } from './helpers';
+import { ADMIN, USER_A, USER_B, login, logout, register, uniqueName, clearRateLimits, apiPost } from './helpers';
 
 test.describe('主题与回复', () => {
   test.beforeEach(async ({ page }) => {
@@ -40,7 +40,7 @@ test.describe('主题与回复', () => {
     await page.goto('/t/1');
 
     // 记录当前最大楼层号
-    const floorsRes = await page.request.get('/api/debug/floors?topicId=1');
+    const floorsRes = await page.request.get('/api/debug/floors?topicId=1', { headers: { 'x-debug-token': process.env.DEBUG_ENDPOINT_TOKEN ?? '' } });
     const floorsBefore: number[] = (await floorsRes.json()).floors ?? [];
     const maxFloorBefore = floorsBefore.length ? Math.max(...floorsBefore) : 0;
 
@@ -52,7 +52,7 @@ test.describe('主题与回复', () => {
     ]);
 
     // 新回复的楼层号必须大于之前的最大楼层号（递增且唯一）
-    const floorsAfterRes = await page.request.get('/api/debug/floors?topicId=1');
+    const floorsAfterRes = await page.request.get('/api/debug/floors?topicId=1', { headers: { 'x-debug-token': process.env.DEBUG_ENDPOINT_TOKEN ?? '' } });
     const floorsAfter: number[] = (await floorsAfterRes.json()).floors ?? [];
     expect(floorsAfter.length).toBe(floorsBefore.length + 1);
     expect(Math.max(...floorsAfter)).toBeGreaterThan(maxFloorBefore);
@@ -67,34 +67,26 @@ test.describe('主题与回复', () => {
   });
 
   test('未登录用户无法提交回复', async ({ page }) => {
-    const res = await page.request.post('/api/replies', {
-      data: { topicId: 1, content: '未登录尝试回复' },
-    });
+    const res = await apiPost(page, '/api/replies', { topicId: 1, content: '未登录尝试回复' });
     expect(res.status()).toBe(401);
   });
 
   test('回复内容长度受限', async ({ page }) => {
     await login(page, USER_B.username, USER_B.password);
-    const res = await page.request.post('/api/replies', {
-      data: { topicId: 1, content: 'x'.repeat(20001) },
-    });
+    const res = await apiPost(page, '/api/replies', { topicId: 1, content: 'x'.repeat(20001) });
     expect(res.status()).toBe(400);
     expect((await res.json()).error).toContain('过长');
   });
 
   test('对不存在的主题回复返回 404', async ({ page }) => {
     await login(page, USER_B.username, USER_B.password);
-    const res = await page.request.post('/api/replies', {
-      data: { topicId: 999999, content: '测试不存在的主题' },
-    });
+    const res = await apiPost(page, '/api/replies', { topicId: 999999, content: '测试不存在的主题' });
     expect(res.status()).toBe(404);
   });
 
   test('发帖缺少必填项被拒绝', async ({ page }) => {
     await login(page, USER_B.username, USER_B.password);
-    const res = await page.request.post('/api/topics', {
-      data: { nodeId: 1, title: '短', content: '短' },
-    });
+    const res = await apiPost(page, '/api/topics', { nodeId: 1, title: '短', content: '短' });
     expect(res.status()).toBe(400);
   });
 
@@ -103,9 +95,7 @@ test.describe('主题与回复', () => {
     let sawRateLimit = false;
 
     for (let i = 0; i < 30; i++) {
-      const res = await page.request.post('/api/replies', {
-        data: { topicId: 1, content: `限流测试回复 ${i}` },
-      });
+      const res = await apiPost(page, '/api/replies', { topicId: 1, content: `限流测试回复 ${i}` });
       if (res.status() === 429) {
         sawRateLimit = true;
         break;
@@ -121,9 +111,7 @@ test.describe('主题与回复', () => {
 
     const results = await Promise.all(
       Array.from({ length: 5 }, (_, i) =>
-        page.request.post('/api/replies', {
-          data: { topicId: 2, content: `并发回复测试 ${i} ${Date.now()}` },
-        }),
+        apiPost(page, '/api/replies', { topicId: 2, content: `并发回复测试 ${i} ${Date.now()}` }),
       ),
     );
 

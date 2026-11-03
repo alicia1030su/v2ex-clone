@@ -1,11 +1,13 @@
 'use client';
 
+import { csrfFetch } from '@/components/CsrfProvider';
+
 import { useState } from 'react';
 
-export default function SignUpForm() {
+export default function SignUpForm({ error }: { error?: string }) {
   const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' });
   const [pending, setPending] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(error ?? null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -16,7 +18,7 @@ export default function SignUpForm() {
     }
     setPending(true);
     try {
-      const res = await fetch('/api/auth/signup', {
+      const res = await csrfFetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,7 +41,7 @@ export default function SignUpForm() {
   }
 
   return (
-    <div className="cell">
+    <>
       {msg ? (
         <div className="problem" id="problem">
           {msg}
@@ -126,6 +128,6 @@ export default function SignUpForm() {
           </tbody>
         </table>
       </form>
-    </div>
+    </>
   );
 }

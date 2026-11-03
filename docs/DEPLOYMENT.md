@@ -179,8 +179,12 @@ certbot --nginx -d forum.example.com
 - [ ] `SESSION_SECRET` 已改为随机强密钥（≥32 字符）
 - [ ] `SEED_ADMIN_PASSWORD` 已修改
 - [ ] `SEED_ADMIN_EMAIL` 已改为真实邮箱
-- [ ] `.env.local` 中的 `DISABLE_CAPTCHA=1` **已删除**（生产必须启用验证码）
-- [ ] `.env.local` 中的 `ENABLE_DEBUG_ENDPOINTS=1` **已删除**（调试端点必须关闭）
+- [ ] `APP_RUNTIME_ENV=production`（决定安全开关的生效范围）
+- [ ] `DISABLE_CAPTCHA` 未设置或为 `0`（生产环境即使误设为 `1` 也会被忽略，
+      但仍建议清除以免误解）
+- [ ] `ENABLE_DEBUG_ENDPOINTS` 未设置或为 `0`
+- [ ] `TEST_ENV_ISOLATED` 未设置或为 `0`
+- [ ] `DEBUG_ENDPOINT_TOKEN` 未设置（未设置时调试端点一律 404）
 - [ ] PostgreSQL 端口未暴露到公网（仅内部网络）
 - [ ] Redis 已设置密码，且未暴露到公网
 - [ ] 已启用 HTTPS

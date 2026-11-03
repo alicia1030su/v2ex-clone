@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { guardCsrf } from '@/lib/csrf-guard';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser, isAdmin, isStaff } from '@/lib/auth';
@@ -10,6 +11,10 @@ const NAME_RE = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 
 /** 创建节点：管理员直接生效；版主创建后进入待审 */
 export async function POST(request: Request) {
+  // CSRF 校验：写操作必须携带与 Cookie 匹配的 token
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
+
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: '请先登录' }, { status: 401 });

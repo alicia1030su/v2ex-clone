@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN, USER_A, login, logout, register, uniqueName , clearRateLimits } from './helpers';
+import { ADMIN, USER_A, login, logout, register, uniqueName, clearRateLimits, apiPost } from './helpers';
 
 test.describe('账号体系', () => {
   test.beforeEach(async ({ page }) => {
@@ -75,9 +75,7 @@ test.describe('账号体系', () => {
     let sawRateLimit = false;
 
     for (let i = 0; i < 15; i++) {
-      const res = await page.request.post('/api/auth/signin', {
-        data: { username: `ratelimit_${ip}`, password: 'wrong-password' },
-      });
+      const res = await apiPost(page, '/api/auth/signin', { username: `ratelimit_${ip}`, password: 'wrong-password' });
       if (res.status() === 429) {
         sawRateLimit = true;
         expect(res.headers()['retry-after']).toBeTruthy();

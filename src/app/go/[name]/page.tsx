@@ -5,9 +5,11 @@ import { db, schema } from '@/db';
 import { getNodeByName, listTopics, TOPICS_PER_PAGE } from '@/server/queries';
 import { relativeTime, fullTimestamp } from '@/lib/time';
 import { avatarUrl } from '@/components/Avatar';
-import { RssIcon, JsonFeedIcon } from '@/components/FeedIcons';
+import { RssIcon, JsonFeedIcon, CopyIcon } from '@/components/FeedIcons';
 import CollectButton from '@/components/CollectButton';
 import PageNav from '@/components/PageNav';
+import Pager from '@/components/Pager';
+import NodeHeader from '@/components/NodeHeader';
 import Wrapper from '@/components/Wrapper';
 
 export const dynamic = 'force-dynamic';
@@ -33,13 +35,12 @@ export default async function NodePage({
   });
   const totalPages = Math.max(1, Math.ceil(total / TOPICS_PER_PAGE));
 
-  const relatedNodes = node.categoryId
-    ? await db
-        .select()
-        .from(schema.nodes)
-        .where(eq(schema.nodes.categoryId, node.categoryId))
-        .limit(20)
-    : [];
+  // 子节点（原站节点页侧栏的「子节点」区块）
+  const children = await db
+    .select()
+    .from(schema.nodes)
+    .where(eq(schema.nodes.parentId, node.id))
+    .limit(20);
 
   return (
     <Wrapper
@@ -83,19 +84,18 @@ export default async function NodePage({
             </div>
           </div>
 
-          {relatedNodes.length > 0 ? (
+          {children.length > 0 ? (
             <>
               <div className="sep20" />
               <div className="box">
                 <div className="cell-top">
-                  <span className="f12 gray">相关节点</span>
+                  <span className="f12 gray">子节点</span>
                 </div>
-                <div className="cell">
-                  {relatedNodes.map((n) => (
-                    <span key={n.id}>
-                      <Link href={`/go/${n.name}`}>{n.title}</Link>
-                      &nbsp;&nbsp;
-                    </span>
+                <div className="nodes-sidebar-container">
+                  {children.map((n) => (
+                    <Link key={n.id} href={`/go/${n.name}`} className="node-sidebar-item">
+                      {n.title}
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -105,46 +105,19 @@ export default async function NodePage({
       }
     >
       {/* 节点头部 —— 对应原站 .box-title.node-header */}
-      <div className="box box-title node-header">
-        <div className="cell page-content-header">
-          {node.avatar ? (
-            <img src={node.avatar} alt={node.title} width={64} height={64} />
-          ) : null}
-          <div>
-            <div className="title">
-              <div className="node-breadcrumb">
-                <Link href="/">V2EX</Link> <span className="chevron">&nbsp;›&nbsp;</span>{' '}
-                {node.title}
-              </div>
-              <span className="topic-count">
-                主题总数 <strong>{total}</strong>
-              </span>
-              <span className="node-feed">
-                <Link href={`/feed/${node.name}.xml`}>
-                  <RssIcon size={16} />
-                </Link>
-                <Link href={`/feed/${node.name}.json`}>
-                  <JsonFeedIcon size={16} />
-                </Link>
-              </span>
-            </div>
-            {node.description ? (
-              <div className="f12 gray" style={{ marginTop: 4 }}>
-                {node.description}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="cell_ops">
-          <CollectButton target="node" id={node.id} label="加入收藏" />
-        </div>
+      <NodeHeader
+        title={node.title}
+        topicCount={total}
+        feedName={node.name}
+        avatar={node.avatar}
+      />
+      <div className="cell_ops">
+        <CollectButton target="node" id={node.id} label="加入收藏" />
       </div>
 
       <div className="box">
         {totalPages > 1 ? (
-          <div className="cell ps_container">
-            <PageNav page={page} totalPages={totalPages} basePath={`/go/${node.name}`} />
-          </div>
+          <Pager page={page} totalPages={totalPages} basePath={`/go/${node.name}`} />
         ) : null}
 
         <div id="TopicsNode">
@@ -227,9 +200,7 @@ export default async function NodePage({
         </div>
 
         {totalPages > 1 ? (
-          <div className="cell ps_container">
-            <PageNav page={page} totalPages={totalPages} basePath={`/go/${node.name}`} />
-          </div>
+          <Pager page={page} totalPages={totalPages} basePath={`/go/${node.name}`} />
         ) : null}
       </div>
     </Wrapper>

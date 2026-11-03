@@ -317,7 +317,33 @@ topicId=1&content=…&redirect=/t/1
 `RATE_LIMIT_REPLY_MAX`、`RATE_LIMIT_REPLY_WINDOW_SECONDS`、
 `RATE_LIMIT_CREATE_NODE_MAX`、`RATE_LIMIT_CREATE_NODE_WINDOW_SECONDS`。
 
-## 11. 安全响应头
+## 11. CSRF 防护
+
+所有写接口（`/api/auth/*`、`/api/topics`、`/api/replies`、`/api/collections`、
+`/api/nodes`、`/api/settings/*`）都要求 CSRF token。
+
+- **下发**：`src/middleware.ts` 对所有页面路径下发 `v2_csrf` Cookie
+  （非 HttpOnly，供客户端读取；`SameSite=Lax`；`Secure`（生产）；有效期 14 天）
+- **传递**：
+  - `fetch` / XHR —— 客户端组件通过 `csrfFetch()` 自动注入 `x-csrf-token` 头
+  - 原生 HTML 表单 —— 隐藏字段 `csrfToken`（服务端组件用 `readCsrfToken()` 注入）
+- **校验**：`src/lib/csrf.ts` 的 `verifyCsrf()`，恒定时间比较
+- **顺序**：鉴权（401）在 CSRF 校验（403）**之前**，未登录请求不泄露端点存在性
+
+不携带 token 的写请求返回 `403 {"error":"CSRF 校验失败，请刷新页面后重试"}`。
+
+## 12. 运行时开关
+
+`src/lib/runtime-flags.ts` 集中管理所有可影响安全行为的开关：
+
+| 开关 | 生效条件 | 说明 |
+|---|---|---|
+| `DISABLE_CAPTCHA` | `APP_RUNTIME_ENV=test` **且** `TEST_ENV_ISOLATED=1` | 生产/预发一律忽略 |
+| `ENABLE_DEBUG_ENDPOINTS` | 显式设为 `1` | 仍需 `DEBUG_ENDPOINT_TOKEN` 才能访问 |
+| `DEBUG_ENDPOINT_TOKEN` | 非空 | 未配置时调试端点一律返回 404 |
+| `APP_RUNTIME_ENV` | `production`/`staging`/`test`/`development` | 决定上述开关的生效范围 |
+
+## 13. 安全响应头
 
 所有响应附带：
 

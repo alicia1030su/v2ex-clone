@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN, USER_A, USER_B, MODERATOR, login, logout, register, uniqueName, clearRateLimits } from './helpers';
+import { ADMIN, USER_A, USER_B, MODERATOR, login, logout, register, uniqueName, clearRateLimits, apiPost, getCsrfToken } from './helpers';
 
 test.describe('收藏与通知', () => {
   test.beforeEach(async ({ page }) => {
@@ -9,18 +9,28 @@ test.describe('收藏与通知', () => {
   test('收藏主题后出现在收藏页，可取消收藏', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
 
-    await page.goto('/t/3');
-    const btn = page.getByRole('button', { name: /收藏|已收藏/ }).first();
-    await expect(btn).toBeVisible();
+    // 用 API 确定初始状态（按钮文案是异步更新的，直接断言文案会有竞态）
+    const stateOf = async (topicId: number): Promise<boolean> => {
+      const res = await page.request.get(`/api/collections?target=topic&id=${topicId}`, {
+        headers: { 'x-csrf-token': await getCsrfToken(page) },
+      });
+      const data = await res.json();
+      return (data.items ?? []).length > 0;
+    };
 
+    const topicId = 3;
     // 确保处于未收藏状态
-    if ((await btn.innerText()).includes('已收藏')) {
-      await btn.click();
-      await expect(page.getByRole('button', { name: '收藏' }).first()).toBeVisible();
+    if (await stateOf(topicId)) {
+      await apiPost(page, '/api/collections', { target: 'topic', id: topicId, action: 'remove' });
     }
+    expect(await stateOf(topicId)).toBe(false);
 
+    // 通过 UI 收藏
+    await page.goto(`/t/${topicId}`);
     await page.getByRole('button', { name: '收藏' }).first().click();
-    await expect(page.getByRole('button', { name: '已收藏' }).first()).toBeVisible();
+    await expect
+      .poll(async () => await stateOf(topicId), { timeout: 10_000 })
+      .toBe(true);
 
     await page.goto('/bookmarks');
     await expect(page.locator('#Main')).toContainText('收藏的主题');
@@ -51,9 +61,7 @@ test.describe('收藏与通知', () => {
   });
 
   test('未登录用户收藏被拒绝', async ({ page }) => {
-    const res = await page.request.post('/api/collections', {
-      data: { target: 'topic', id: 1, action: 'add' },
-    });
+    const res = await apiPost(page, '/api/collections', { target: 'topic', id: 1, action: 'add' });
     expect(res.status()).toBe(401);
   });
 
@@ -92,9 +100,7 @@ test.describe('收藏与通知', () => {
 
   test('收藏接口校验目标类型', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
-    const res = await page.request.post('/api/collections', {
-      data: { target: 'invalid', id: 1 },
-    });
+    const res = await apiPost(page, '/api/collections', { target: 'invalid', id: 1 });
     expect(res.status()).toBe(400);
   });
 });
@@ -110,7 +116,8 @@ test.describe('搜索', () => {
   test('搜索结果页返回匹配的主题', async ({ page }) => {
     await page.goto('/go/search?q=deepseek');
     await expect(page.locator('#Main')).toContainText('主题');
-    await expect(page.locator('#Main .cell.item').first()).toBeVisible();
+    // 主题项结构与原站一致：.cell.from_{uid}.t_{id}
+    await expect(page.locator('#TopicsNode > div[class*="t_"]').first()).toBeVisible();
   });
 
   test('搜索关键词无结果时给出提示', async ({ page }) => {
@@ -122,18 +129,14 @@ test.describe('搜索', () => {
 test.describe('权限控制', () => {
   test('普通用户不能创建节点', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
-    const res = await page.request.post('/api/nodes', {
-      data: { name: 'e2enodeuser', title: '非法创建' },
-    });
+    const res = await apiPost(page, '/api/nodes', { name: 'e2enodeuser', title: '非法创建' });
     expect(res.status()).toBe(403);
   });
 
   test('管理员可以创建节点', async ({ page }) => {
     await login(page, ADMIN.username, ADMIN.password);
     const name = `e2e_node_${Date.now().toString(36)}`;
-    const res = await page.request.post('/api/nodes', {
-      data: { name, title: 'E2E 测试节点' },
-    });
+    const res = await apiPost(page, '/api/nodes', { name, title: 'E2E 测试节点' });
     expect(res.ok()).toBeTruthy();
     const data = await res.json();
     expect(data.status).toBe('active');
@@ -145,9 +148,7 @@ test.describe('权限控制', () => {
   test('版主创建的节点需要审核', async ({ page }) => {
     await login(page, MODERATOR.username, MODERATOR.password);
     const name = `e2e_mod_${Date.now().toString(36)}`;
-    const res = await page.request.post('/api/nodes', {
-      data: { name, title: '版主创建的节点' },
-    });
+    const res = await apiPost(page, '/api/nodes', { name, title: '版主创建的节点' });
     expect(res.ok()).toBeTruthy();
     const data = await res.json();
     expect(data.status).toBe('pending');
@@ -163,25 +164,19 @@ test.describe('权限控制', () => {
 
   test('节点名格式非法被拒绝', async ({ page }) => {
     await login(page, ADMIN.username, ADMIN.password);
-    const res = await page.request.post('/api/nodes', {
-      data: { name: 'Invalid Name!', title: '非法名字' },
-    });
+    const res = await apiPost(page, '/api/nodes', { name: 'Invalid Name!', title: '非法名字' });
     expect(res.status()).toBe(400);
   });
 
   test('重复节点名被拒绝', async ({ page }) => {
     await login(page, ADMIN.username, ADMIN.password);
-    const res = await page.request.post('/api/nodes', {
-      data: { name: 'programmer', title: '重复节点' },
-    });
+    const res = await apiPost(page, '/api/nodes', { name: 'programmer', title: '重复节点' });
     expect(res.status()).toBe(409);
   });
 
   test('用户只能修改自己的资料', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
-    const res = await page.request.post('/api/settings/profile', {
-      data: { tagline: 'E2E 测试头衔', bio: 'E2E 测试简介' },
-    });
+    const res = await apiPost(page, '/api/settings/profile', { tagline: 'E2E 测试头衔', bio: 'E2E 测试简介' });
     expect(res.ok()).toBeTruthy();
 
     // 访问自己的主页应看到更新后的资料
@@ -191,9 +186,7 @@ test.describe('权限控制', () => {
 
   test('修改密码需要校验当前密码', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
-    const res = await page.request.post('/api/settings/password', {
-      data: { current: 'wrong-current-password', next: 'newpassword123' },
-    });
+    const res = await apiPost(page, '/api/settings/password', { current: 'wrong-current-password', next: 'newpassword123' });
     expect(res.status()).toBe(401);
   });
 });

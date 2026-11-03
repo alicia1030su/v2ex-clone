@@ -3,6 +3,7 @@ import Footer from '@/components/Footer';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { createCaptcha, captchaFieldName } from '@/server/captcha';
+import { isCaptchaDisabled } from '@/lib/runtime-flags';
 import SignInForm from '@/components/SignInForm';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,15 @@ export default async function SignInPage({
   const params = await searchParams;
 
   // 服务端预生成验证码（与原站一致：CAPTCHA 在首屏 HTML 中即存在）
-  const { id: captchaId, image: captchaImage } = await createCaptcha();
+  // 隔离测试环境下不生成也不渲染 —— 服务端校验同样被禁用，两侧保持一致
+  const captchaDisabled = isCaptchaDisabled();
+  const captcha = captchaDisabled
+    ? null
+    : await createCaptcha().then((c) => ({
+        id: c.id,
+        image: c.image,
+        field: captchaFieldName(c.id),
+      }));
 
   return (
     <>
@@ -107,12 +116,16 @@ export default async function SignInPage({
               <SignInForm
                 next={params.next ?? '/'}
                 error={params.error}
-                initialCaptcha={{
-                  id: captchaId,
-                  field: captchaFieldName(captchaId),
-                  image: captchaImage,
-                  placeholder: '请输入上图中的验证码，点击可以更换图片',
-                }}
+                initialCaptcha={
+                  captcha
+                    ? {
+                        id: captcha.id,
+                        field: captcha.field,
+                        image: captcha.image,
+                        placeholder: '请输入上图中的验证码，点击可以更换图片',
+                      }
+                    : undefined
+                }
               />
             </div>
           </div>

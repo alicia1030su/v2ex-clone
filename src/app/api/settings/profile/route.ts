@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { guardCsrf } from '@/lib/csrf-guard';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
@@ -10,6 +11,10 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ ok: false, error: '请先登录' }, { status: 401 });
   }
+
+  // CSRF 校验（置于鉴权之后：未登录请求直接 401，不泄露端点存在性）
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
 
   const body = (await request.json().catch(() => null)) as {
     tagline?: string;

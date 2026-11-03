@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { USER_A, USER_B, login, register, uniqueName , clearRateLimits } from './helpers';
+import { USER_A, USER_B, login, register, uniqueName, clearRateLimits, apiPost } from './helpers';
 
 test.describe('安全性', () => {
   test.beforeEach(async ({ page }) => {
@@ -10,13 +10,11 @@ test.describe('安全性', () => {
     await login(page, USER_B.username, USER_B.password);
 
     const payload = '<script>window.__xss__ = true;</script><img src=x onerror="window.__xss2__=true">';
-    const res = await page.request.post('/api/topics', {
-      data: {
+    const res = await apiPost(page, '/api/topics', {
         nodeId: 1,
         title: `XSS 测试主题 ${Date.now()}`,
         content: `正常内容开头。${payload}正常内容结尾。`,
-      },
-    });
+      });
     expect(res.ok()).toBeTruthy();
     const { redirect } = await res.json();
 
@@ -42,12 +40,10 @@ test.describe('安全性', () => {
     const username = uniqueName('xssreply');
     await register(page, username);
 
-    const res = await page.request.post('/api/replies', {
-      data: {
+    const res = await apiPost(page, '/api/replies', {
         topicId: 1,
         content: '<script>window.__rxss__=true;</script><b onclick="window.__rxss2__=true">粗体</b>',
-      },
-    });
+      });
     expect(res.ok()).toBeTruthy();
 
     await page.goto('/t/1');
@@ -93,17 +89,13 @@ test.describe('安全性', () => {
 
   test('回复接口无法引用不存在的主题（防注入/越权）', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
-    const res = await page.request.post('/api/replies', {
-      data: { topicId: '1; DROP TABLE topics;--', content: '注入尝试' },
-    });
+    const res = await apiPost(page, '/api/replies', { topicId: '1; DROP TABLE topics;--', content: '注入尝试' });
     expect(res.status()).toBe(400);
   });
 
   test('设置接口拒绝非法 URL 协议', async ({ page }) => {
     await login(page, USER_A.username, USER_A.password);
-    const res = await page.request.post('/api/settings/profile', {
-      data: { url: 'javascript:alert(1)' },
-    });
+    const res = await apiPost(page, '/api/settings/profile', { url: 'javascript:alert(1)' });
     expect(res.status()).toBe(400);
   });
 
@@ -115,17 +107,30 @@ test.describe('安全性', () => {
   });
 
   test('未登录状态下的写操作全部被拒绝', async ({ page }) => {
-    const calls = [
-      page.request.post('/api/topics', { data: { nodeId: 1, title: 'x'.repeat(20), content: 'y'.repeat(20) } }),
-      page.request.post('/api/replies', { data: { topicId: 1, content: '未登录回复' } }),
-      page.request.post('/api/collections', { data: { target: 'topic', id: 1 } }),
-      page.request.post('/api/nodes', { data: { name: 'x', title: 'y' } }),
-      page.request.post('/api/settings/profile', { data: { tagline: 'x' } }),
-      page.request.post('/api/settings/password', { data: { current: 'a', next: 'bbbbbbbb' } }),
+    // 顺序执行：并发调用会让多个 apiPost 同时导航，token 互相干扰
+    const cases: [string, unknown][] = [
+      ['/api/topics', { nodeId: 1, title: 'x'.repeat(20), content: 'y'.repeat(20) }],
+      ['/api/replies', { topicId: 1, content: '未登录回复' }],
+      ['/api/collections', { target: 'topic', id: 1 }],
+      ['/api/nodes', { name: 'x', title: 'y' }],
+      ['/api/settings/profile', { tagline: 'x' }],
+      ['/api/settings/password', { current: 'a', next: 'bbbbbbbb' }],
     ];
-    for (const p of calls) {
-      const res = await p;
-      expect(res.status()).toBe(401);
+
+    for (const [path, body] of cases) {
+      const res = await apiPost(page, path, body);
+      // 携带了合法 CSRF token 时，未登录必须返回 401
+      expect(res.status(), `${path} 未登录应返回 401`).toBe(401);
     }
+  });
+
+  test('未登录且缺少 CSRF token 时被拒绝', async ({ page }) => {
+    const res = await page.request.post('/api/topics', {
+      headers: { 'Content-Type': 'application/json' },
+      data: { nodeId: 1, title: 'x'.repeat(20), content: 'y'.repeat(20) },
+    });
+    // 无 token → CSRF 层拦截（403）；有 token 但未登录 → 401。
+    // 两者都是"拒绝"，具体码取决于请求是否携带 token。
+    expect([401, 403]).toContain(res.status());
   });
 });

@@ -65,3 +65,41 @@ export function JsonFeedIcon({ size = 28 }: { size?: number }) {
     </svg>
   );
 }
+
+/**
+ * 复制图标 —— 对应原站 /static/img/copy.svg
+ */
+export function CopyIcon({ size = 16 }: { size?: number }) {
+  const s = size;
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 16 16"
+      role="img"
+      aria-label="copy"
+      style={{ verticalAlign: 'middle' }}
+    >
+      <rect
+        x="5.5"
+        y="1.5"
+        width="8"
+        height="10"
+        rx="1"
+        fill="none"
+        stroke="#999"
+        strokeWidth="1.2"
+      />
+      <rect
+        x="2.5"
+        y="4.5"
+        width="8"
+        height="10"
+        rx="1"
+        fill="#fff"
+        stroke="#999"
+        strokeWidth="1.2"
+      />
+    </svg>
+  );
+}

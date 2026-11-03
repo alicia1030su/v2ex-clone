@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { guardCsrf } from '@/lib/csrf-guard';
 import { eq, sql } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { db, schema } from '@/db';
@@ -8,10 +9,15 @@ import { rateLimit } from '@/lib/rate-limit';
 import { getKV } from '@/lib/kv';
 import { sanitizeRedirect } from '@/lib/redirect';
 import { verifyCaptcha, verifyCaptchaField } from '@/server/captcha';
+import { isCaptchaDisabled } from '@/lib/runtime-flags';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  // CSRF 校验：登录/注册同样需要，防止跨站提交
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
+
   const body = (await request.json().catch(() => null)) as {
     username?: string;
     password?: string;
@@ -25,12 +31,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: '用户名和密码不能为空' }, { status: 400 });
   }
 
-  // 验证码校验（与原站一致：登录页要求输入验证码）
-  // 测试环境可通过 DISABLE_CAPTCHA=1 跳过（仅用于自动化测试，不影响生产行为）
-  const captchaDisabled = process.env.DISABLE_CAPTCHA === '1';
-  if (body.captchaId && !captchaDisabled) {
-    const fieldOk = await verifyCaptchaField(body.captchaId, body.captchaField ?? '');
-    const captchaOk = fieldOk && (await verifyCaptcha(body.captchaId, body.captchaText ?? ''));
+  // 验证码为强制项：无论请求是否携带 captchaId 都必须通过校验。
+  // 唯一例外是隔离测试环境（APP_RUNTIME_ENV=test 且 TEST_ENV_ISOLATED=1）。
+  if (!isCaptchaDisabled()) {
+    if (!body.captchaId || !body.captchaField || !body.captchaText) {
+      return NextResponse.json({ ok: false, error: '请输入验证码' }, { status: 400 });
+    }
+    const fieldOk = await verifyCaptchaField(body.captchaId, body.captchaField);
+    const captchaOk = fieldOk && (await verifyCaptcha(body.captchaId, body.captchaText));
     if (!captchaOk) {
       return NextResponse.json({ ok: false, error: '验证码不正确' }, { status: 400 });
     }

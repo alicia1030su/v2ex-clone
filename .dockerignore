@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Docker 构建上下文排除规则
+#
+# 目的：确保 .env / .env.local、Git 历史、依赖目录、构建产物、
+#      测试临时输出、备份文件等不会进入镜像或推送上下文。
+# ---------------------------------------------------------------------------
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 依赖
+node_modules
+npm-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+.pnpm-store
+
+# 构建产物
+.next
+out
+dist
+build
+*.tsbuildinfo
+
+# 测试产物
+test-results
+playwright-report
+blob-report
+coverage
+.nyc_output
+
+# 运行时与缓存
+.cache
+tmp
+logs
+*.log
+.pid
+
+# 备份与归档（本地备份可能含真实凭据，绝不能进镜像）
+_backups
+backup
+backups
+*.tar.gz
+*.tgz
+*.zip
+*.sql.gz
+
+# 数据库导出（绝不能进镜像或仓库）
+# 注意：drizzle/*.sql 是迁移脚本，必须包含在镜像内
+*.sql
+!drizzle/*.sql
+*.dump
+*.backup
+pgdata/
+
+# 逆向调查的一手证据（体积大且含第三方内容，不进镜像）
+docs/evidence/html/
+docs/evidence/assets/
+docs/evidence/screenshots/
+docs/evidence/visual/
+
+# 编辑器与系统
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+desktop.ini

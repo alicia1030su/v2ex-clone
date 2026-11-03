@@ -12,15 +12,45 @@
 | 测试目标 | `http://localhost:3010`（生产构建） |
 | 执行耗时 | **42.4 秒**（47 个用例） |
 
-## 2. 执行结果
+## 2. 执行结果（2026-11-03 复审后）
 
-```
-47 passed (42.4s)
-```
+| 套件 | 通过 | 失败 | 跳过 | 耗时 |
+|---|---|---|---|---|
+| 单元测试（vitest） | **28** | 0 | 0 | 0.87s |
+| E2E（Playwright） | **67** | 0 | 0 | ~1.1 min |
+| **合计** | **95** | **0** | **0** | — |
 
 **通过率 100%，无跳过、无失败、无重试。**
 
+一键复现：`./scripts/verify.sh`（类型检查 → 构建 → 干净库迁移 → seed → 单元测试 → E2E）。
+
 机器可读结果：`test-results/e2e-results.json`（Playwright JSON reporter）。
+
+### 2.1 新增的安全回归套件（20 项）
+
+`e2e/security-regression.spec.ts` —— 逐项对应本轮修复的 P0/P1 缺陷：
+
+| 组 | 项数 | 覆盖 |
+|---|---|---|
+| P0-1 / P0-2 验证码强制校验 | 4 | 缺失 captchaId、错误答案、字段名不匹配、挑战端点可用 |
+| P0-3 调试端点鉴权 | 3 | 缺令牌、错令牌、floors 端点 |
+| P0-4 限流窗口重置 | 1 | 跨窗口计数归零（经探针端点） |
+| P1-10 注册限流双维度 | 1 | 换用户名批量注册被 IP 维度拦截 |
+| P1-11 redirect 验证 | 2 | 外部 URL、协议相对 URL |
+| P1-13 CSRF | 4 | 缺 token、错 token、正确 token、Cookie 下发 |
+| P1-14 HTML 清洗 | 4 | data:image/svg+xml、javascript:、style 丢弃、外链 rel |
+
+### 2.2 新增的单元测试（28 项）
+
+`tests/captcha.spec.ts` —— **直接覆盖服务端安全模块，不经由 `DISABLE_CAPTCHA` 等运行时开关**，
+因此在隔离测试环境下也能验证真实的生产行为：
+
+| 组 | 项数 | 内容 |
+|---|---|---|
+| 验证码逻辑 | 5 | 错误答案、一次性作废、不存在 ID、空答案、字段名匹配 |
+| 运行时开关 | 6 | production/staging 忽略 DISABLE_CAPTCHA、非隔离 test 拒绝、仅隔离 test 允许、未设变量拒绝、运行时环境判定、调试端点需显式开启 |
+| HTML 清洗器 | 10 | script / onerror / javascript: / data-svg / style / 控制字符绕过 / iframe / object / embed / 保留 Markdown 与表格 |
+| redirect 规范化 | 5 | 站内路径 / 外部 URL / 协议相对 / CR-LF 注入 / 非字符串 |
 
 ## 3. 用例清单
 
@@ -165,9 +195,13 @@ node tools/visual/diff.mjs
 node tools/visual/measure.mjs
 ```
 
-> 测试环境需 `DISABLE_CAPTCHA=1`（跳过登录验证码校验）与
-> `ENABLE_DEBUG_ENDPOINTS=1`（开放 `/api/debug/*` 供测试重置限流配额）。
-> 二者均已写入 `.env.example` 的说明部分，生产部署时**必须移除**。
+> 测试环境（`.env.test`）使用 `APP_RUNTIME_ENV=test` + `TEST_ENV_ISOLATED=1`。
+> 只有在这个**隔离测试环境**中，`DISABLE_CAPTCHA=1` 才会生效；
+> 生产/预发环境即使误配该变量也**强制启用验证码**。
+> `ENABLE_DEBUG_ENDPOINTS=1` 仍需配合 `DEBUG_ENDPOINT_TOKEN` 才能访问。
+>
+> 生产行为另有**独立实例**验证（`APP_RUNTIME_ENV=production`，端口 3040）：
+> 登录页仍渲染验证码、缺失 captchaId 的登录返回 400、未配令牌的调试端点返回 404。
 
 ## 8. 测试过程中发现并修复的真实缺陷
 
@@ -187,3 +221,11 @@ node tools/visual/measure.mjs
 | 10 | `body` 背景色错误 | 所有页面下方大片灰色，与原站不符 | 灰色只保留在 `#Wrapper` |
 | 11 | 路由文件导出非 HTTP 方法 | 生产构建失败 | 抽出到独立模块 |
 | 12 | `next-env.d.ts` 缺 CSS 模块声明 | 生产构建失败 | 补充 `global.d.ts` |
+| 13 | `Pager` 含事件处理器却是 Server Component | 节点页/搜索页整页渲染失败 | 加 `'use client'` |
+| 14 | 主题页原生表单无 CSRF token | UI 回复功能完全失效（500） | 表单注入 `csrfToken` 隐藏字段 |
+| 15 | CSRF 校验与业务处理重复读取 body | `Body is unusable` → 500 | `WeakMap` 缓存 `FormData` |
+| 16 | 节点页 `CollectButton` 在重构中丢失 | 节点收藏功能消失 | 恢复组件 |
+| 17 | `PgKV.del` 未清理限流表 | 登录成功后被持续限流锁定 | 同时删除 `rate_limit_buckets` |
+| 18 | 限流检查早于资源校验 | 正常请求被误判 429 | 改为「参数 → 资源 → 限流」 |
+| 19 | 并发回复楼层冲突 | 高并发 500 | `floor_counters` 原子分配表 |
+| 20 | `.env.test` 未被 gitignore | 测试口令会进 Git | 补充忽略规则 |

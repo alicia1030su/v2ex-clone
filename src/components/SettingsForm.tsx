@@ -1,5 +1,7 @@
 'use client';
 
+import { csrfFetch } from '@/components/CsrfProvider';
+
 import { useState } from 'react';
 
 type User = {
@@ -26,7 +28,7 @@ export default function SettingsForm({ user }: { user: User }) {
     setPending(true);
     setMsg(null);
     try {
-      const res = await fetch('/api/settings/profile', {
+      const res = await csrfFetch('/api/settings/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile),
@@ -53,7 +55,7 @@ export default function SettingsForm({ user }: { user: User }) {
     setPending(true);
     setMsg(null);
     try {
-      const res = await fetch('/api/settings/password', {
+      const res = await csrfFetch('/api/settings/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ current: pwd.current, next: pwd.next }),
@@ -73,7 +75,7 @@ export default function SettingsForm({ user }: { user: User }) {
   }
 
   async function signout() {
-    await fetch('/api/auth/signout', { method: 'POST' });
+    await csrfFetch('/api/auth/signout', { method: 'POST' });
     window.location.href = '/';
   }
 

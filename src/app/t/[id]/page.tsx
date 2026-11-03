@@ -10,6 +10,7 @@ import { getTopicById, listReplies, REPLIES_PER_PAGE } from '@/server/queries';
 import Wrapper from '@/components/Wrapper';
 import PageNav from '@/components/PageNav';
 import CollectButton from '@/components/CollectButton';
+import { readCsrfToken } from '@/lib/csrf';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export default async function TopicPage({
   if (!Number.isInteger(topicId) || topicId <= 0) notFound();
 
   const user = await getSessionUser();
+  const csrfToken = await readCsrfToken();
   const topic = await getTopicById(topicId);
   if (!topic || topic.status === 'deleted') notFound();
 
@@ -209,6 +211,8 @@ export default async function TopicPage({
                 <form action="/api/replies" method="post">
                   <input type="hidden" name="topicId" value={topicId} />
                   <input type="hidden" name="redirect" value={`/t/${topicId}`} />
+                  {/* 原生表单无法自动加请求头，必须通过隐藏字段传递 CSRF token */}
+                  <input type="hidden" name="csrfToken" value={csrfToken} />
                   <textarea
                     name="content"
                     placeholder="回复内容"

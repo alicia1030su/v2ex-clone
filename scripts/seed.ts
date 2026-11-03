@@ -10,22 +10,31 @@ import { sql as pgSql } from '../src/db/index';
 import { db, schema } from '../src/db';
 import { hashPassword } from '../src/lib/password';
 import { eq } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 
-config({ path: '.env.local' });
-config({ path: '.env' });
+if (process.env.ENV_FILE) {
+  config({ path: process.env.ENV_FILE, quiet: true });
+}
+config({ path: '.env.local', quiet: true });
+config({ path: '.env', quiet: true });
 
-const NODES: [string, string, string][] = [
-  // [name, title, categoryName]
+/**
+ * 节点树 —— [name, title, categoryName, parentName?]
+ * parentName 非空表示是某个节点的子节点
+ * （对应原站的节点层级，例如 tech → ev / energy）
+ */
+const NODES: [string, string, string, string?][] = [
+  // [name, title, categoryName, parentName?]
   ['programmer', '程序员', 'tech'],
-  ['python', 'Python', 'tech'],
-  ['idev', 'iDev', 'tech'],
-  ['claude', 'Claude', 'tech'],
-  ['openai', 'OpenAI', 'tech'],
-  ['localllm', 'Local LLM', 'tech'],
+  ['python', 'Python', 'tech', 'programmer'],
+  ['idev', 'iDev', 'tech', 'apple'],
+  ['claude', 'Claude', 'tech', 'programmer'],
+  ['openai', 'OpenAI', 'tech', 'programmer'],
+  ['localllm', 'Local LLM', 'tech', 'programmer'],
   ['cloud', '云计算', 'tech'],
   ['bb', '宽带症候群', 'tech'],
   ['create', '创意', 'create'],
-  ['design', '设计', 'create'],
+  ['design', '设计', 'create', 'create'],
   ['life', '生活', 'life'],
   ['play', '好玩', 'play'],
   ['apple', 'Apple', 'apple'],
@@ -35,7 +44,11 @@ const NODES: [string, string, string][] = [
   ['qna', '问与答', 'qna'],
   ['tech', '技术', 'tech'],
   ['games', '游戏', 'play'],
-  ['hardware', '硬件', 'tech'],
+  ['hardware', '硬件', 'tech', 'tech'],
+  // 子节点（对应原站 tech 节点的 ev / energy 子树）
+  ['ev', '电动汽车', 'tech', 'tech'],
+  ['energy', '能源', 'tech', 'tech'],
+  ['gaming', '游戏硬件', 'tech', 'tech'],
 ];
 
 const CATEGORIES: [string, string, number][] = [
@@ -50,13 +63,76 @@ const CATEGORIES: [string, string, number][] = [
   ['qna', '问与答', 9],
 ];
 
-const USERS: { username: string; email: string; password: string; role: 'admin' | 'moderator' | 'user' }[] = [
-  { username: 'admin', email: 'admin@example.com', password: 'admin12345', role: 'admin' as const },
-  { username: 'lisi', email: 'lisi@example.com', password: 'password123', role: 'user' as const },
-  { username: 'wangwu', email: 'wangwu@example.com', password: 'password123', role: 'user' as const },
-  { username: 'zhaoliu', email: 'zhaoliu@example.com', password: 'password123', role: 'user' as const },
-  { username: 'moderator', email: 'mod@example.com', password: 'password123', role: 'moderator' as const },
-];
+type SeedUser = {
+  username: string;
+  email: string;
+  password: string;
+  role: 'admin' | 'moderator' | 'user';
+};
+
+/**
+ * 管理员账号来自环境变量，不再硬编码默认口令。
+ *
+ * 安全要求：
+ *  - 生产环境（APP_RUNTIME_ENV=production 或 NODE_ENV=production）必须显式提供
+ *    SEED_ADMIN_PASSWORD，否则直接报错退出，绝不使用弱默认口令。
+ *  - 非生产环境若未提供，则生成一次性随机口令并打印到控制台（仅本次运行可见）。
+ */
+function resolveAdminUser(): SeedUser {
+  const username = process.env.SEED_ADMIN_USERNAME?.trim() || 'admin';
+  const email = process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@example.com';
+  const explicit = process.env.SEED_ADMIN_PASSWORD;
+
+  const isProduction =
+    process.env.APP_RUNTIME_ENV === 'production' || process.env.NODE_ENV === 'production';
+
+  if (explicit && explicit.length >= 12) {
+    return { username, email, password: explicit, role: 'admin' };
+  }
+
+  if (explicit && explicit.length > 0) {
+    throw new Error(
+      'SEED_ADMIN_PASSWORD 长度不足 12 位。请设置一个足够强的管理员密码，或删除该变量让脚本生成随机口令。',
+    );
+  }
+
+  if (isProduction) {
+    throw new Error(
+      '生产环境必须显式设置 SEED_ADMIN_PASSWORD（≥12 位）。拒绝使用弱默认口令创建管理员。',
+    );
+  }
+
+  // 非生产环境：生成一次性随机口令
+  const generated = `A9!${randomBytes(12).toString('base64url')}`;
+  console.warn(
+    `\n⚠ 未设置 SEED_ADMIN_PASSWORD，已为管理员 "${username}" 生成一次性随机口令：\n   ${generated}\n   该口令仅本次运行显示，请立即保存。\n`,
+  );
+  return { username, email, password: generated, role: 'admin' };
+}
+
+/**
+ * 演示账号（lisi / wangwu / zhaoliu / moderator）仅在非生产环境创建，
+ * 且可用 SEED_DEMO_USERS=0 关闭。所有演示账号使用统一随机口令。
+ */
+function resolveDemoUsers(): SeedUser[] {
+  if (process.env.SEED_DEMO_USERS === '0') return [];
+
+  const isProduction =
+    process.env.APP_RUNTIME_ENV === 'production' || process.env.NODE_ENV === 'production';
+  if (isProduction) return [];
+
+  const password = process.env.SEED_DEMO_PASSWORD || `demo-${randomBytes(6).toString('base64url')}`;
+  if (!process.env.SEED_DEMO_PASSWORD) {
+    console.warn(`\n⚠ 演示账号统一口令：${password}（仅本次运行显示）\n`);
+  }
+
+  return [
+    { username: 'lisi', email: 'lisi@example.com', password, role: 'user' },
+    { username: 'wangwu', email: 'wangwu@example.com', password, role: 'user' },
+    { username: 'zhaoliu', email: 'zhaoliu@example.com', password, role: 'user' },
+    { username: 'moderator', email: 'mod@example.com', password, role: 'moderator' },
+  ];
+}
 
 const TOPIC_SEEDS = [
   {
@@ -163,7 +239,8 @@ async function main() {
 
   // 2. 用户
   const userIds = new Map<string, number>();
-  for (const u of USERS) {
+  const seedUsers: SeedUser[] = [resolveAdminUser(), ...resolveDemoUsers()];
+  for (const u of seedUsers) {
     const existing = await db
       .select()
       .from(schema.users)
@@ -187,9 +264,13 @@ async function main() {
   }
   console.log(`  用户: ${userIds.size}`);
 
+  // 演示账号可能未创建（SEED_DEMO_USERS=0 或生产环境），作者回退到管理员
+  const fallbackAuthor = userIds.get('admin')!;
+  const authorIdOf = (name: string): number => userIds.get(name) ?? fallbackAuthor;
+
   // 3. 节点
   const nodeIds = new Map<string, number>();
-  for (const [name, title, categoryName] of NODES) {
+  for (const [name, title, categoryName, parentName] of NODES) {
     const existing = await db
       .select()
       .from(schema.nodes)
@@ -205,7 +286,8 @@ async function main() {
         name,
         title,
         categoryId: categoryIds.get(categoryName),
-        createdBy: userIds.get('admin'),
+        parentId: parentName ? (nodeIds.get(parentName) ?? null) : null,
+        createdBy: fallbackAuthor,
       })
       .returning({ id: schema.nodes.id });
     nodeIds.set(name, row.id);
@@ -229,7 +311,7 @@ async function main() {
         title: t.title,
         content: t.content,
         nodeId: nodeIds.get(t.node)!,
-        authorId: userIds.get(t.author)!,
+        authorId: authorIdOf(t.author),
         createdAt: now,
         lastReplyAt: now,
       })
@@ -240,12 +322,12 @@ async function main() {
     const replyCount = Math.floor(Math.random() * 6) + 1;
     const replyIds: number[] = [];
     for (let i = 0; i < replyCount; i++) {
-      const authorName = USERS[Math.floor(Math.random() * USERS.length)].username;
+      const authorName = seedUsers[Math.floor(Math.random() * seedUsers.length)].username;
       const [r] = await db
         .insert(schema.replies)
         .values({
           topicId: topic.id,
-          authorId: userIds.get(authorName)!,
+          authorId: userIds.get(authorName) ?? fallbackAuthor,
           content: REPLY_SEEDS[Math.floor(Math.random() * REPLY_SEEDS.length)],
           floor: i + 1,
           createdAt: new Date(now.getTime() + (i + 1) * 60000),
@@ -267,7 +349,7 @@ async function main() {
   console.log(`  主题: ${topicCount}`);
 
   // 5. 收藏关系（便于测试收藏功能）
-  const lisiId = userIds.get('lisi')!;
+  const lisiId = userIds.get('lisi') ?? fallbackAuthor;
   const firstTopic = await db
     .select({ id: schema.topics.id })
     .from(schema.topics)

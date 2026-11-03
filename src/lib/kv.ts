@@ -92,12 +92,27 @@ class PgKV implements KV {
     );
     const resetAt = windowStart.getTime() + windowSeconds * 1000;
 
-    // postgres.js 不接受 Date 实例作为参数，需传 ISO 字符串
+    // postgres.js 不接受 Date 实例作为参数，需传 ISO 字符串。
+    //
+    // 窗口重置（修复前的缺陷）：原实现 ON CONFLICT 只做 count+1，
+    // 从不比较 window_start。窗口过期后计数会无限累积，
+    // 导致该键被永久锁死（限流阈值再也达不到 resetAt）。
+    //
+    // 现在：若已存在的行属于更早的窗口，则把 count 重置为 1 并更新 window_start。
     const res = await db.execute(sql`
       INSERT INTO rate_limit_buckets (key, count, window_start)
       VALUES (${key}, 1, ${windowStart.toISOString()})
       ON CONFLICT (key) DO UPDATE
-        SET count = rate_limit_buckets.count + 1
+        SET count = CASE
+              WHEN rate_limit_buckets.window_start < ${windowStart.toISOString()}::timestamptz
+                THEN 1
+              ELSE rate_limit_buckets.count + 1
+            END,
+            window_start = CASE
+              WHEN rate_limit_buckets.window_start < ${windowStart.toISOString()}::timestamptz
+                THEN ${windowStart.toISOString()}::timestamptz
+              ELSE rate_limit_buckets.window_start
+            END
       RETURNING count
     `);
 

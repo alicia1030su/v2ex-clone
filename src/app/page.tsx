@@ -7,6 +7,8 @@ import { listTopics, type TopicListItem } from '@/server/queries';
 import TopicItem from '@/components/TopicItem';
 import PageNav from '@/components/PageNav';
 import HotTopics from '@/components/HotTopics';
+import HotNodes from '@/components/HotNodes';
+import SiteOfTheDay from '@/components/SiteOfTheDay';
 import Wrapper from '@/components/Wrapper';
 
 export const dynamic = 'force-dynamic';
@@ -84,6 +86,8 @@ export default async function HomePage({
             </div>
           </div>
           <HotTopics />
+          <HotNodes />
+          <SiteOfTheDay />
         </>
       }
     >

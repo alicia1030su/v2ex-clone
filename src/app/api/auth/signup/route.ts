@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { guardCsrf } from '@/lib/csrf-guard';
 import { sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { hashPassword } from '@/lib/password';
@@ -12,6 +13,10 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{2,32}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
+  // CSRF 校验：登录/注册同样需要，防止跨站提交
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
+
   const body = (await request.json().catch(() => null)) as {
     username?: string;
     email?: string;
@@ -66,18 +71,44 @@ export async function POST(request: Request) {
   }
 
   // 限流放在全部校验之后：无效请求不应消耗限流配额。
-  // 限流键为 IP + 用户名：防止同一账号被反复注册尝试，
-  // 同时不影响同一 IP 下注册不同账号的正常用户。
-  const limit = await rateLimit(
-    'signup',
+  //
+  // 双维度限流（修复前的缺陷）：原实现只有 IP + 用户名一个维度，
+  // 攻击者只要不断更换用户名即可绕过限制进行批量注册。
+  //
+  // 现在同时检查两个维度：
+  //  1. IP + 用户名：防止针对同一账号的反复注册尝试
+  //  2. 纯 IP：限制同一来源在窗口内的注册总次数，阻断换用户名批量注册
+  const registerWindow = Number(process.env.RATE_LIMIT_REGISTER_WINDOW_SECONDS ?? 300);
+
+  const perAccountLimit = await rateLimit(
+    'signup_account',
     `${ip}|${username.toLowerCase()}`,
-    5,
-    Number(process.env.RATE_LIMIT_WINDOW_SECONDS ?? 60),
+    Number(process.env.RATE_LIMIT_REGISTER_MAX ?? 5),
+    registerWindow,
   );
-  if (!limit.ok) {
+  if (!perAccountLimit.ok) {
     return NextResponse.json(
-      { ok: false, error: `注册过于频繁，请 ${limit.retryAfterSeconds} 秒后再试` },
-      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
+      { ok: false, error: `注册过于频繁，请 ${perAccountLimit.retryAfterSeconds} 秒后再试` },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(perAccountLimit.retryAfterSeconds) },
+      },
+    );
+  }
+
+  const perIpLimit = await rateLimit(
+    'signup_ip',
+    ip,
+    Number(process.env.RATE_LIMIT_REGISTER_IP_MAX ?? 20),
+    registerWindow,
+  );
+  if (!perIpLimit.ok) {
+    return NextResponse.json(
+      { ok: false, error: `该网络注册账号过多，请 ${perIpLimit.retryAfterSeconds} 秒后再试` },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(perIpLimit.retryAfterSeconds) },
+      },
     );
   }
 

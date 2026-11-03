@@ -1,5 +1,7 @@
 'use client';
 
+import { csrfFetch } from '@/components/CsrfProvider';
+
 import { useMemo, useState } from 'react';
 
 type NodeOpt = { id: number; name: string; title: string; categoryId: number | null };
@@ -47,7 +49,7 @@ export default function NewTopicForm({
     }
     setPending(true);
     try {
-      const res = await fetch('/api/topics', {
+      const res = await csrfFetch('/api/topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeId: Number(nodeId), title, content }),

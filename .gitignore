@@ -13,6 +13,27 @@ dist/
 .env
 .env.local
 .env.*.local
+.env.test
+.env.*.test
+!.env.example
+
+# 逆向调查的一手证据 —— 原站 HTML/CSS/JS 的完整副本与参考截图。
+#
+# 这些是**原站受保护素材的镜像**，仅用于本机分析：
+#   - 原站页面 HTML（docs/evidence/html/）
+#   - 原站组合 CSS / JS（docs/evidence/assets/）
+#   - 原站参考截图（docs/evidence/screenshots/ref-*.png）
+#   - 差异热力图（docs/evidence/visual/diff-*.png）
+#
+# 按"不复制未获授权的第三方私有源码/商标素材"的要求，
+# 这些文件不进入 Git 仓库。本机分析时可由 tools/recon/fetch.sh 重新采集。
+docs/evidence/html/
+docs/evidence/assets/
+docs/evidence/screenshots/ref-*.png
+docs/evidence/visual/diff-*.png
+
+# 本地验证用环境文件（含测试口令，不入库）
+.env.prod-verify
 
 # 测试产物
 test-results/

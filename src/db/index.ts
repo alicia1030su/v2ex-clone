@@ -3,7 +3,15 @@ import postgres from 'postgres';
 import { config } from 'dotenv';
 import * as schema from './schema';
 
-// 优先加载 .env.local（本地开发），回退 .env
+// 环境文件加载顺序：
+//  1. ENV_FILE 指定的文件（用于隔离测试环境，如 .env.test）
+//  2. .env.local（本地开发）
+//  3. .env（容器 / 生产）
+// dotenv 不会覆盖已存在的环境变量，因此 CI 中用环境变量注入的配置优先。
+const ENV_FILE = process.env.ENV_FILE;
+if (ENV_FILE) {
+  config({ path: ENV_FILE, quiet: true });
+}
 config({ path: '.env.local', quiet: true });
 config({ path: '.env', quiet: true });
 

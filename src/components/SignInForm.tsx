@@ -1,5 +1,7 @@
 'use client';
 
+import { csrfFetch } from '@/components/CsrfProvider';
+
 import { useCallback, useEffect, useState } from 'react';
 
 type Captcha = {
@@ -53,7 +55,7 @@ export default function SignInForm({
     setPending(true);
     setMsg(null);
     try {
-      const res = await fetch('/api/auth/signin', {
+      const res = await csrfFetch('/api/auth/signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

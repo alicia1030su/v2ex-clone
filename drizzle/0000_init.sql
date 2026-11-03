@@ -22,11 +22,22 @@ CREATE TABLE "collections" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "floor_counters" (
+	"topic_id" integer PRIMARY KEY NOT NULL,
+	"last_floor" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "follows" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"follower_id" integer NOT NULL,
 	"following_id" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "kv_store" (
+	"key" varchar(255) PRIMARY KEY NOT NULL,
+	"value" text NOT NULL,
+	"expires_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "login_attempts" (

@@ -330,3 +330,16 @@ export const rateLimitBuckets = pgTable('rate_limit_buckets', {
 
 // 引入 sql 供唯一索引表达式使用
 import { sql } from 'drizzle-orm';
+
+/** 通用键值存储 —— Redis 不可用时的降级实现（验证码答案等） */
+export const kvStore = pgTable('kv_store', {
+  key: varchar('key', { length: 255 }).primaryKey(),
+  value: text('value').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+});
+
+/** 楼层号原子分配器 —— 并发回复时保证 (topic_id, floor) 唯一 */
+export const floorCounters = pgTable('floor_counters', {
+  topicId: integer('topic_id').primaryKey(),
+  lastFloor: integer('last_floor').notNull().default(0),
+});

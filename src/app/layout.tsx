@@ -12,6 +12,8 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // CSRF Cookie 由 src/middleware.ts 下发
+  // （Server Component 不允许修改 Cookie）
   return (
     <html lang="zh-CN">
       <body>{children}</body>

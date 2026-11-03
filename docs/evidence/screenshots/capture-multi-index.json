@@ -1,0 +1,318 @@
+{
+  "viewports": {
+    "desktop-1280": {
+      "width": 1280,
+      "height": 900
+    },
+    "desktop-1920": {
+      "width": 1920,
+      "height": 1080
+    },
+    "mobile-375": {
+      "width": 375,
+      "height": 812
+    }
+  },
+  "pages": [
+    {
+      "viewport": "mobile-375",
+      "name": "home",
+      "originUrl": "https://www.v2ex.com/",
+      "localUrl": "http://localhost:3030/",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-home.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-home.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "node_claude",
+      "originUrl": "https://www.v2ex.com/go/claude",
+      "localUrl": "http://localhost:3030/go/claude",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-node_claude.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-node_claude.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "topic_detail",
+      "originUrl": "https://www.v2ex.com/t/1253638",
+      "localUrl": "http://localhost:3030/t/1",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-topic_detail.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-topic_detail.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "signin",
+      "originUrl": "https://www.v2ex.com/signin",
+      "localUrl": "http://localhost:3030/signin",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-signin.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-signin.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "signup",
+      "originUrl": "https://www.v2ex.com/signup",
+      "localUrl": "http://localhost:3030/signup",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-signup.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-signup.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "search",
+      "originUrl": "https://www.v2ex.com/go/search?q=claude",
+      "localUrl": "http://localhost:3030/go/search?q=claude",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-search.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-search.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "member",
+      "originUrl": "https://www.v2ex.com/member/reoah2",
+      "localUrl": "http://localhost:3030/member/admin",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-member.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-member.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "nodes_all",
+      "originUrl": "https://www.v2ex.com/go/go",
+      "localUrl": "http://localhost:3030/nodes",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-nodes_all.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-nodes_all.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "about",
+      "originUrl": "https://www.v2ex.com/about",
+      "localUrl": "http://localhost:3030/about",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-about.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-about.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "mobile-375",
+      "name": "faq",
+      "originUrl": "https://www.v2ex.com/faq",
+      "localUrl": "http://localhost:3030/faq",
+      "reference": "docs\\evidence\\screenshots\\mobile-375\\ref-faq.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\mobile-375\\local-faq.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "home",
+      "originUrl": "https://www.v2ex.com/",
+      "localUrl": "http://localhost:3030/",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-home.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-home.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "node_claude",
+      "originUrl": "https://www.v2ex.com/go/claude",
+      "localUrl": "http://localhost:3030/go/claude",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-node_claude.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-node_claude.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "topic_detail",
+      "originUrl": "https://www.v2ex.com/t/1253638",
+      "localUrl": "http://localhost:3030/t/1",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-topic_detail.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-topic_detail.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "signin",
+      "originUrl": "https://www.v2ex.com/signin",
+      "localUrl": "http://localhost:3030/signin",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-signin.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-signin.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "signup",
+      "originUrl": "https://www.v2ex.com/signup",
+      "localUrl": "http://localhost:3030/signup",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-signup.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-signup.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "search",
+      "originUrl": "https://www.v2ex.com/go/search?q=claude",
+      "localUrl": "http://localhost:3030/go/search?q=claude",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-search.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-search.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "member",
+      "originUrl": "https://www.v2ex.com/member/reoah2",
+      "localUrl": "http://localhost:3030/member/admin",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-member.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-member.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "nodes_all",
+      "originUrl": "https://www.v2ex.com/go/go",
+      "localUrl": "http://localhost:3030/nodes",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-nodes_all.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-nodes_all.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "about",
+      "originUrl": "https://www.v2ex.com/about",
+      "localUrl": "http://localhost:3030/about",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-about.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-about.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1920",
+      "name": "faq",
+      "originUrl": "https://www.v2ex.com/faq",
+      "localUrl": "http://localhost:3030/faq",
+      "reference": "docs\\evidence\\screenshots\\desktop-1920\\ref-faq.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1920\\local-faq.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "home",
+      "originUrl": "https://www.v2ex.com/",
+      "localUrl": "http://localhost:3030/",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-home.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-home.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "node_claude",
+      "originUrl": "https://www.v2ex.com/go/claude",
+      "localUrl": "http://localhost:3030/go/claude",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-node_claude.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-node_claude.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "topic_detail",
+      "originUrl": "https://www.v2ex.com/t/1253638",
+      "localUrl": "http://localhost:3030/t/1",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-topic_detail.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-topic_detail.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "signin",
+      "originUrl": "https://www.v2ex.com/signin",
+      "localUrl": "http://localhost:3030/signin",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-signin.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-signin.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "signup",
+      "originUrl": "https://www.v2ex.com/signup",
+      "localUrl": "http://localhost:3030/signup",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-signup.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-signup.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "search",
+      "originUrl": "https://www.v2ex.com/go/search?q=claude",
+      "localUrl": "http://localhost:3030/go/search?q=claude",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-search.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-search.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "member",
+      "originUrl": "https://www.v2ex.com/member/reoah2",
+      "localUrl": "http://localhost:3030/member/admin",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-member.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-member.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "nodes_all",
+      "originUrl": "https://www.v2ex.com/go/go",
+      "localUrl": "http://localhost:3030/nodes",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-nodes_all.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-nodes_all.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "about",
+      "originUrl": "https://www.v2ex.com/about",
+      "localUrl": "http://localhost:3030/about",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-about.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-about.png",
+      "localStatus": "ok"
+    },
+    {
+      "viewport": "desktop-1280",
+      "name": "faq",
+      "originUrl": "https://www.v2ex.com/faq",
+      "localUrl": "http://localhost:3030/faq",
+      "reference": "docs\\evidence\\screenshots\\desktop-1280\\ref-faq.png",
+      "referenceStatus": "ok",
+      "local": "docs\\evidence\\screenshots\\desktop-1280\\local-faq.png",
+      "localStatus": "ok"
+    }
+  ]
+}
