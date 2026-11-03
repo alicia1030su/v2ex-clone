@@ -17,6 +17,15 @@ dist/
 .env.*.test
 !.env.example
 
+# 部署包运行时生成的文件（含真实凭据，绝不入库）
+# 注意：`.env` 这条规则会匹配**任意层级**下的 .env，
+# 所以 deploy/.env 已被上面的 `.env` 规则覆盖；这里额外列出是为了明确意图。
+deploy/.env
+deploy/INSTALL_CREDENTIALS.txt
+deploy/backups/
+# 保留部署包模板（! 放行）
+!deploy/.env.example
+
 # 逆向调查的一手证据 —— 原站 HTML/CSS/JS 的完整副本与参考截图。
 #
 # 这些是**原站受保护素材的镜像**，仅用于本机分析：

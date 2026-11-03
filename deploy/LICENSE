@@ -1,0 +1,49 @@
+MIT License
+
+Copyright (c) 2026 v2ex-clone contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+TRADEMARK NOTICE（商标声明）
+==========================
+
+本项目是一个**独立技术研究项目**，与 V2EX 官方无任何关联，未获官方授权。
+
+1. "V2EX"、"v2ex" 及相关标识是 V2EX 及其权利人的商标或服务标识。
+   本项目**不是** V2EX 官方产品，**不**代表任何形式的官方背书。
+
+2. 本 MIT 许可证仅覆盖本仓库中的**源代码与文档**，**不授予**任何商标、
+   品牌标识或服务标记的使用许可。使用者不得使用上述商标来表明
+   本项目与 V2EX 官方存在任何形式的关联、背书或从属关系。
+
+3. 本仓库中的图标、Logo 等视觉元素均为**独立绘制**的等价实现
+   （见 `src/components/Logo.tsx` 与 `src/components/FeedIcons.tsx`），
+   **不包含** V2EX 官方品牌素材。
+
+4. 本项目仅供技术学习与研究用途。使用者需自行确保其使用方式
+   符合所在地法律法规与平台服务条款。
+
+THIRD-PARTY CONTENT（第三方内容）
+=================================
+
+本仓库**不包含** V2EX 官方站点的 HTML / CSS / JavaScript 副本，
+也不包含官方品牌图片或用户数据。相关一手证据仅保留在开发者本机，
+不进入版本控制（详见 `docs/HISTORY_CLEANUP_PLAN.md`）。
