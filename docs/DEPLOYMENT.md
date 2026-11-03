@@ -668,9 +668,47 @@ sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.0|' .en
 | 8 | **预览版迁移不保证向后兼容** | v0.0.x 之间的迁移可能破坏数据兼容性 | 升级前必备份；生产建议固定 digest，回滚前先确认迁移兼容性 |
 | 9 | **未实现的功能较多** | 见 [`README.md`](../README.md) 的「未实现」表 | 按需在源码分支自行补齐 |
 | 10 | **原站素材的 Git 历史清理未执行** | 当前 HEAD 的文件树中已无原站 HTML / CSS / JS 与参考截图，**但 Git 历史中仍可取回** | 历史改写不可逆，**尚未获授权执行**；方案与演练记录为仓库维护者内部记录，未公开 |
-| 11 | **生产镜像不含测试工具链** | v0.0.2 起，生产镜像按 `npm ci --omit=dev` 安装依赖，**不包含** `vitest` / `@playwright/test` / `typescript` | 这是**预期行为**。测试请在源码仓库或 CI 里跑，不要在生产容器里跑 |
-| 12 | **镜像体积与非 root 运行本机未实测** | 开发环境**没有 Docker**，镜像体积数值与 `USER nextjs` 的实际运行效果无法在本地验证 | 由 CI 的 `docker` job 与发布流水线的 `build-image` job 在真实 Docker 环境构建并启动时验证；发布门槛见 [`RELEASE_GATE_v0.0.2.md`](RELEASE_GATE_v0.0.2.md) D7 / D8 |
+| 11 | **生产镜像不含测试工具链** | v0.0.2 起，生产镜像按 `npm ci --omit=dev` 安装依赖，**不包含** `vitest` / `@playwright/test` / `typescript` / `@types/*` | 这是**预期行为**。测试请在源码仓库或 CI 里跑，不要在生产容器里跑 |
+| 12 | **镜像体积与非 root 运行本机未实测** | 开发环境**没有 Docker**，镜像体积数值与 `USER nextjs` 的实际运行效果无法在本地验证。**体积**已通过「裁剪后的依赖树 + 真实 `next start`」间接验证（见 §13.1），但**最终镜像字节数**与容器内 `USER` 仍需真实 Docker | 由 CI 的 `docker` job 与发布流水线的 `build-image` job 在真实 Docker 环境构建并启动时验证；发布门槛见 [`RELEASE_GATE_v0.0.2.md`](RELEASE_GATE_v0.0.2.md) D7 / D8 |
 | 13 | **Windows 只有 `install.ps1`** | 发行包中 `backup.sh` / `restore.sh` / `update.sh` / `start.sh` / `stop.sh` **均无** `.ps1` 对应版本 | Windows 用户按 [`UPGRADE-v0.0.2.md`](UPGRADE-v0.0.2.md) §3.2 / §5.4 的手工步骤操作，或使用 WSL / Git Bash |
+| 14 | **生产镜像含 `@esbuild` / `@esbuild-kit`（约 23 MB）** | `tsx` 与 `drizzle-kit` 的运行时依赖（entrypoint 阶段 2 用 tsx 跑 seed），**必须**保留 | **无风险**：esbuild 在此仅用于**本地 TS 转译**，**不启动任何监听端口**。GHSA-67mh-4wv8-2f99 的攻击前提是「esbuild dev server 正在监听 + 恶意网站跨域读取响应」—— 生产运行时**该前提不成立**。且 esbuild 版本已被 override 提升到 `0.25.12`（受影响范围 `<=0.24.2`） |
+
+### 13.1 生产依赖闭包的自验方法
+
+不需要 Docker 也能验证「生产镜像的依赖够用」：
+
+```bash
+# 1) 复现 Dockerfile 运行层装的依赖
+mkdir /tmp/proddeps && cd /tmp/proddeps
+cp <仓库>/package.json <仓库>/package-lock.json .
+npm ci --omit=dev --no-audit --no-fund
+rm -rf node_modules/playwright-core node_modules/playwright node_modules/@playwright
+
+# 2) 校验 entrypoint 的三个必需路径
+test -f node_modules/drizzle-kit/bin.cjs   # 阶段 1 迁移
+test -f node_modules/tsx/dist/cli.mjs      # 阶段 2 首次初始化
+test -f node_modules/next/dist/bin/next    # 阶段 3 启动
+
+# 3) 校验生产面零漏洞
+npm audit --omit=dev --audit-level=moderate   # → found 0 vulnerabilities
+```
+
+2026-11-04 实测结果（真实 `npm ci --omit=dev`，73 packages）：
+
+| 项 | 结果 |
+|---|---|
+| 依赖体积 | 429 MB →（删 playwright 后）**411 MB** |
+| `npm audit --omit=dev` | **found 0 vulnerabilities** |
+| `core-utils` 解析到的 esbuild | **0.25.12**（漏洞版本 0.18.20 **已不在镜像内**） |
+| 裁剪后 `next build` | ✓ Compiled successfully |
+| 裁剪后 `next start` + 真实数据库 | `/`→200 `/signin`→200 `/signup`→200 `/nodes`→200 `/api/captcha`→200 `/t/1`→200，日志中 `MODULE_NOT_FOUND` 计数 **0** |
+| 裁剪后 `drizzle-kit migrate` | ✓ migrations applied successfully（18 张表） |
+| 裁剪后 `tsx` 跑 seed | ✓ seed 完成（9 分类 / 1 用户 / 23 节点 / 10 主题） |
+
+> **注意**：`typescript` 在**构建期**是必需的（Next.js 用它解析 tsconfig 的 `paths` 别名，
+> 缺了会导致 `@/...` 全部解析失败）。但它是**构建期**依赖 —— Dockerfile 的
+> `builder` 层有完整依赖，`runner` 层用 `--omit=dev` 装，**不影响运行时**。
+> 别在 builder 层也用 `--omit=dev`，否则构建会失败。
 
 ---
 

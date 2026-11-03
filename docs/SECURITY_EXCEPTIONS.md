@@ -82,16 +82,17 @@
 
 ---
 
-## E-05 镜像体积与 USER 的本机不可验证项 ⚠️ **已声明**
+## E-05 镜像体积与 USER 的本机不可验证项 ⚠️ **已声明**（2026-11-04 已大幅缩小范围）
 
 | 维度 | 内容 |
 |---|---|
-| **风险** | Dockerfile 的「非 root 运行（`USER nextjs`）」与「生产依赖裁剪后的镜像体积」**本机无法实测** —— 开发机上**没有 Docker** |
+| **风险** | Dockerfile 的「非 root 运行（`USER nextjs`）」与「**最终镜像**字节数」**本机无法实测** —— 开发机上**没有 Docker** |
 | **为什么可接受** | `USER nextjs` 位于 Dockerfile 的**最后一条指令**之前、`ENTRYPOINT` 之前，语义上确定生效；CI 的 `docker` job 会在真实 Docker 环境构建并启动该镜像，构建失败或启动失败都会让流水线红灯 |
 | **可复核证据** | CI `docker` job 的「构建镜像」+「compose 真实启动 + 健康检查」两步；发布流水线 `build-image` job 的「核验镜像不含敏感文件」会真实 `docker run` 该镜像 |
-| **残余风险** | 若 `npm ci --omit=dev` 裁掉了某个 entrypoint 真实需要的包，**本机发现不了**，只有 CI 能发现 |
+| **本轮已把残余风险大幅缩小**（2026-11-04 实测） | 此前「若 `npm ci --omit=dev` 裁掉了 entrypoint 需要的包，本机发现不了」这一条**已不再成立** —— 本机用**真实 `npm ci --omit=dev`** 装出生产闭包后，**实际执行**了：<br>· `drizzle-kit migrate` ✓ 18 张表<br>· `tsx` 跑 `scripts/seed.ts` ✓ 完成（9 分类 / 1 用户 / 23 节点 / 10 主题）<br>· `next build` ✓ Compiled successfully<br>· `next start` + 真实数据库：`/` `/signin` `/signup` `/nodes` `/api/captcha` `/t/1` **全部 200**，日志 `MODULE_NOT_FOUND` 计数 **0**<br>· `npm audit --omit=dev` → **found 0 vulnerabilities**<br>· 依赖体积 429 MB →（删 playwright-core 后）**411 MB** |
+| **仍未验证的残余** | ① **最终镜像的字节数**（含 `.next` 112 MB + base 层 + alpine 基础镜像）<br>② **容器内 `USER nextjs` 的实际运行效果**（本机无 Docker）<br>③ `playwright-core` 被显式删除后，**若 next 将来把它变成运行时必需**，会在启动时炸 —— 已加**防回归护栏**（Dockerfile 断言三个 entrypoint 路径，失败则构建当场红灯） |
 | **到期日** | **2026-11-11**（v0.0.2 发布前，CI 必须绿） |
-| **状态** | **DEFERRED TO CI —— 必须在 v0.0.2 发布前由 CI 证实** |
+| **状态** | **DEFERRED TO CI —— 必须在 v0.0.2 发布前由 CI 证实**（范围已缩小到「镜像字节数」与「容器内 USER 实测」两项） |
 
 ---
 

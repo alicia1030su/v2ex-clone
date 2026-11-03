@@ -44,6 +44,22 @@
   （阶段 1 迁移、阶段 2 首次初始化分别直接调用它们）。
   实测 `npm ci --omit=dev` 后 `drizzle-kit/bin.cjs`、`tsx/dist/cli.mjs`、
   `next/dist/bin/next` 三个路径均存在。
+- **修复** `playwright-core`（14 MB）仍进生产镜像的问题。
+  根因是 `next@15.5.28` 把 `@playwright/test` 声明为 `peerOptional`，
+  npm 会自动安装 optional peer —— `--omit=dev` 裁不掉，
+  `--omit=peer` 也**无效**（实测仍装 73 包 / 429 MB）。
+  改为安装后显式删除，并加**防回归护栏**：删除后断言三个 entrypoint
+  路径仍在，否则**构建当场失败**（而不是等容器启动时才炸）。
+  依据：实测 next 的运行时代码（`dist/server/**`）**零处**引用 playwright，
+  仅 `next test` / `experimental-test` 引用 —— 本项目不使用这些路径。
+- **实测验证裁剪后的生产依赖闭包真的能跑**（无需 Docker）：
+  - `npm audit --omit=dev --audit-level=moderate` → **found 0 vulnerabilities**
+  - 依赖体积 429 MB →（删 playwright 后）**411 MB**
+  - 裁剪后 `next build` ✓ Compiled successfully
+  - 裁剪后 `next start` + 真实数据库：`/` `/signin` `/signup` `/nodes`
+    `/api/captcha` `/t/1` **全部 200**，日志 `MODULE_NOT_FOUND` 计数 **0**
+  - 裁剪后 `drizzle-kit migrate` ✓ 18 张表；`tsx` 跑 seed ✓ 完成
+  - 漏洞版 esbuild 0.18.20 **已不在**生产依赖闭包内（解析为 0.25.12）
 - 生产镜像**不含**原站版权素材、`.env`、凭据文件 —— 由发布流水线的
   「核验镜像不含敏感文件」步骤在真实镜像上 `docker run` 实测。
 

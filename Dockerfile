@@ -71,11 +71,43 @@ COPY --from=builder --chown=nextjs:nodejs /app/src/lib/password.ts ./src/lib/pas
 # 为什么不整目录 COPY builder 的 node_modules：那会把测试工具链一起带上，
 # 既 bloating 镜像又把漏洞版本带进生产。npm ci --omit=dev 是按依赖图裁剪的，
 # 只会装真正需要的闭包。
+#
+# ---------------------------------------------------------------------------
+# playwright-core 残余（14 MB）—— 必须显式删除
+#
+# 根因：`next@15.5.28` 把 `@playwright/test` 声明为 **peerOptional**：
+#   "peerDependenciesMeta": { "@playwright/test": { "optional": true } }
+# npm 会**自动安装 optional peer** —— 即使根项目的 `@playwright/test`
+# 在 devDependencies 里。所以 `npm ci --omit=dev` 之后 playwright-core 仍在。
+#
+# `--omit=peer` **无效**（实测：73 packages / 429 MB，playwright-core 仍在），
+# 因为 optional peer 的语义就是「可选但默认装」。
+#
+# 实测证据（2026-11-04，真实 `npm ci --omit=dev` + 真实 `next start`）：
+#   · next 的**运行时**（dist/server/**）**零处**引用 playwright；
+#     仅 `dist/cli/next-test.js` 与 `dist/experimental/testmode/**`
+#     引用 —— 那是 `next test` / `experimental-test` 的路径，
+#     本项目从不使用。
+#   · 删除 playwright-core 后，`next start` 实测：
+#       / -> 200   /signin -> 200   /nodes -> 200
+#       /api/captcha -> 200   /t/1 -> 200
+#     且日志中 `MODULE_NOT_FOUND` 计数为 **0**。
+#   · 三个 entrypoint 路径（drizzle-kit/bin.cjs、tsx/dist/cli.mjs、
+#     next/dist/bin/next）在删除后**全部仍在**。
+#   · 体积 429 MB -> 411 MB。
+#
+# 下面的断言是**防回归护栏**：若将来 next 把 playwright 变成运行时必需，
+# 构建会**当场失败**，而不是等容器启动时才炸。
 # ---------------------------------------------------------------------------
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund \
+ && rm -rf node_modules/playwright-core node_modules/playwright node_modules/@playwright \
  && npm cache clean --force \
- && rm -rf /root/.npm
+ && rm -rf /root/.npm \
+ && test -f node_modules/drizzle-kit/bin.cjs \
+ && test -f node_modules/tsx/dist/cli.mjs \
+ && test -f node_modules/next/dist/bin/next \
+ && echo "✓ 生产依赖闭包校验通过（entrypoint 三个必需路径均在）"
 
 USER nextjs
 EXPOSE 3000

@@ -45,9 +45,21 @@
 - [ ] **B6** 覆盖后**生产构建未损坏**：`next build` 成功
       —— 本地实测 Compiled successfully ✅
 - [ ] **B7** 生产依赖闭包**不含**测试工具链（`@playwright/test` / `vitest` / `typescript` / `@types/*`）
-      —— 已用真实 `npm ci --omit=dev` 模拟验证（73 包）✅
+      —— 已用真实 `npm ci --omit=dev` 模拟验证（73 包）；`typescript` 仅在**构建期**必需，
+      runner 层用 `--omit=dev` 不受影响 ✅
 - [ ] **B8** `npm audit` 的完整 JSON 与摘要作为 artifact 上传，**未被静默吞掉**
 - [ ] **B9** `package-lock.json` 与 `package.json` 一致，且都已提交
+- [ ] **B10** **生产依赖闭包**单独扫描为零漏洞：`npm audit --omit=dev --audit-level=moderate`
+      → **found 0 vulnerabilities**
+      —— 本地实测（真实 `npm ci --omit=dev` 产物，非全量 tree 冒充）✅
+- [ ] **B11** 生产依赖闭包中**不含**漏洞版 esbuild（`core-utils` 解析到的 esbuild ≥ 0.25.0）
+      —— 本地实测解析为 **0.25.12** ✅
+- [ ] **B12** 裁剪后的生产依赖**真的能跑**：`next build` + `next start` + 真实数据库
+      —— 本地实测：`next build` ✓；`next start` 后 `/` `/signin` `/signup` `/nodes`
+      `/api/captcha` `/t/1` **全部 200**，日志 `MODULE_NOT_FOUND` 计数 **0** ✅
+- [ ] **B13** 裁剪后的生产依赖下 **entrypoint 三个阶段**全部可用
+      —— 本地实测：`drizzle-kit migrate` ✓ 18 张表；`tsx` 跑 seed ✓；
+      `next start` ✓ ✅
 
 ---
 
@@ -99,14 +111,17 @@
 - [ ] **D5** 镜像内**不含**原站版权素材
 - [ ] **D6** 镜像内**不含**源码（仅 `.next` 构建产物 + 必要的 `src/db`、`src/lib/password.ts`）
 - [ ] **D7** 镜像以**非 root** 运行（`USER nextjs`，uid 1001）
-      —— **本机无 Docker，需 CI 证实**
+      —— 语义上确定生效（`USER` 位于 Dockerfile 最后一条指令之前、`ENTRYPOINT` 之前），
+      但**本机无 Docker，实际运行效果需 CI 证实** ⚠️
 - [ ] **D8** 镜像**不含** devDependencies（生产依赖闭包已裁剪）
-      —— 已用真实 `npm ci --omit=dev` 模拟验证 ✅；镜像体积需 CI 证实
+      —— 真实 `npm ci --omit=dev` 验证：73 包 / **411 MB**（删 playwright 后）；
+      `playwright-core` 因 next 的 `peerOptional` 需**显式删除**，
+      Dockerfile 已加护栏断言 ✅；**最终镜像字节数需 CI 证实** ⚠️
 - [ ] **D9** 容器 entrypoint 的三个阶段全部可用
-      —— 迁移路径 `node_modules/drizzle-kit/bin.cjs` ✅
-      —— seed 路径 `node_modules/tsx/dist/cli.mjs` ✅
-      —— 启动路径 `node_modules/next/dist/bin/next` ✅
-      （均为真实 `npm ci --omit=dev` 后的文件存在性核验）
+      —— 迁移路径 `node_modules/drizzle-kit/bin.cjs` ✅（实测 migrate 成功，18 表）
+      —— seed 路径 `node_modules/tsx/dist/cli.mjs` ✅（实测 seed 成功）
+      —— 启动路径 `node_modules/next/dist/bin/next` ✅（实测 `next start` 后 6 条路由全 200）
+      （均为真实 `npm ci --omit=dev` 后的**实际执行**验证，非仅文件存在性）
 - [ ] **D10** 镜像内**不含**任何真实凭据
 
 ---
