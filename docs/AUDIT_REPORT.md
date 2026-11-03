@@ -280,6 +280,63 @@
 
 ---
 
+## 4.2 第二轮独立复审（以远端 HEAD 为基准）
+
+以远端 `master` HEAD (`13a4848`) 为唯一基准的独立复审，修复 7 项已确认的
+P0/P1 问题（详见 PR #1）。这一轮又暴露出 **4 个此前未发现的真实缺陷**，
+其中 3 个只有把代码放进**真实 CI 环境**才会暴露。
+
+### 4.2.1 Docker 镜像根本无法构建（P0）
+
+| 项 | 内容 |
+|---|---|
+| 症状 | CI 的 `docker build` 失败：`Error: DATABASE_URL is not set.` + `[Error: Failed to collect page data for /api/auth/signout]` |
+| 代码位置 | `src/db/index.ts` 的 `export const sql = globalForDb.__v2exSql ?? createClient()` |
+| 根因 | 连接池在**模块加载时**创建。`next build` 会导入全部路由模块，而构建期没有数据库 → 导入即抛错 |
+| 后果 | Dockerfile 的 builder 阶段无数据库可用 → **镜像永远构建不出来**。此前所有关于 Docker 的文档都是未经验证的推测 |
+| 修复 | `src/db/index.ts` 改为**惰性创建**（Proxy 转发），导入模块不再需要 `DATABASE_URL` |
+| 连带缺陷 | 惰性化时若只在非生产环境缓存连接池，生产环境每次 `db.xxx` 都会新建一个池 —— 几十个请求即耗尽连接。**E2E 耗时从 1 分钟涨到 7 分钟**，并发用例随机失败。修复：客户端与 drizzle 实例**始终**缓存在 `globalThis` |
+| 回归验证 | `tests/db-lazy-init.spec.ts`（5 例）；实测无 `DATABASE_URL` 时 `next build` 成功 |
+
+### 4.2.2 楼层号计数器漂移导致回复接口 500
+
+| 项 | 内容 |
+|---|---|
+| 症状 | E2E 间歇性失败（约 2/3 概率），HTTP **500**「回复失败，请重试」——不是 429，因此排除了限流方向 |
+| 代码位置 | `src/server/floor.ts` 的 `allocateFloor`、`src/app/api/replies/route.ts` 的重试循环 |
+| 根因 | `floor_counters` 计数表落后于 `replies` 表的实际 `max(floor)`。seed 写入固定楼层（1..N）的回复却没同步计数表，计数表停留在 0 |
+| 放大机制 | 路由层「冲突就 +1 重试」最多试 5 次；落后超过 5 层时 5 个候选楼层**全部**被占用 → 500 |
+| 实测证据 | 漂移库实测：计数表 `last_floor=24`，实际 `max(floor)=28` → 分配到 24 → 撞唯一索引 `replies_topic_floor_uidx` |
+| 修复 | ① `allocateFloor` 分配时把计数表与实际 `max(floor)` 取**较大值**再原子递增（自愈）；② seed 同步写入 `floor_counters`；③ 路由冲突时重新按实际水位分配而非盲目 +1 |
+| 回归验证 | `tests/floor-counter.spec.ts`（6 例）：漂移时分配到的楼层号必然高于实际最大楼层 |
+
+### 4.2.3 verify.sh 的两个真实缺陷
+
+| 项 | 内容 |
+|---|---|
+| 缺陷 A | `ENV_FILE` 的 `override: true` 会**覆盖** shell 里显式导出的 `DATABASE_URL` → 迁移与 seed 跑回**开发库**。修复：`env-dump.mjs` 把 `.env` 导入 shell 后清空 `ENV_FILE` |
+| 缺陷 B | `netstat` 端口匹配模式 `":$PORT[[:space:]]"` 有误 → 残留的旧服务仍占着端口 → E2E 打到**连着别的数据库的旧实例**。修复：修正匹配并加端口就绪断言 |
+| 安全闸门 | 新增：库名不匹配 `*_verify` / `*_test` / `*_ci` 时**拒绝**执行破坏性操作 |
+
+### 4.2.4 CI 环境变量破坏了限流测试
+
+我最初在 CI 里把限流阈值调高（`RATE_LIMIT_LOGIN_MAX=100`）想让测试跑快些，
+结果两条**专门验证限流生效**的用例永远等不到 429 而失败：
+
+- `e2e/auth.spec.ts`「登录限流生效」—— 连续 15 次错误登录必须出现 429
+- `e2e/topic.spec.ts`「回复限流生效」—— 连续 30 次回复必须出现 429
+
+修复：CI 改用与生产**一致的默认值**，并在 workflow 里写明原因，
+避免后来者「优化」时再次踩坑。
+
+> 这四个缺陷的共同点：**它们都只在"真实环境"里才暴露** ——
+> 本地 Windows + 本机 PostgreSQL 跑不出 Docker 构建问题；
+> 干净的库跑不出计数器漂移（seed 恰好同步了）；
+> 顺序敏感的旧服务跑不出端口串线。
+> 这正是「克隆副本独立验证」与「真实 CI」两个手段的价值。
+
+---
+
 ## 5. 发布前安全审计结果
 
 ### 5.1 Git 历史扫描

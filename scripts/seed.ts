@@ -415,6 +415,17 @@ async function main() {
       .set({ repliesCount: replyCount, lastReplyAt: new Date(now.getTime() + replyCount * 60000) })
       .where(eq(schema.topics.id, topic.id));
 
+    // 同步楼层计数表 —— seed 写的是固定楼层（1..N），
+    // 不同步的话计数表会停留在 0，后续回复分配到的楼层号
+    // 会与已存在的回复撞上（replies_topic_floor_uidx 唯一索引冲突 → 500）。
+    await db
+      .insert(schema.floorCounters)
+      .values({ topicId: topic.id, lastFloor: replyCount })
+      .onConflictDoUpdate({
+        target: schema.floorCounters.topicId,
+        set: { lastFloor: replyCount },
+      });
+
     await db
       .update(schema.nodes)
       .set({ topicsCount: 1 })

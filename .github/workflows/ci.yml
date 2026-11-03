@@ -49,11 +49,26 @@ env:
   SEED_ADMIN_PASSWORD: ci-admin-password-12345
   SEED_DEMO_USERS: '1'
   SEED_DEMO_PASSWORD: ci-demo-password-12345
-  RATE_LIMIT_LOGIN_MAX: '100'
-  RATE_LIMIT_POST_MAX: '100'
-  RATE_LIMIT_REPLY_MAX: '100'
+  # ---- 限流参数 ----
+  #
+  # 这里**必须用与生产一致的默认值**，不能为了「让测试快点跑完」而调高。
+  # 有两条 E2E 用例专门验证限流生效：
+  #   - e2e/auth.spec.ts「登录限流生效」：连续 15 次错误登录必须出现 429
+  #   - e2e/topic.spec.ts「回复限流生效」：连续 30 次回复必须出现 429
+  # 把阈值调高会让这两条用例永远等不到 429 而失败。
+  # 测试之间的配额干扰由 clearRateLimits（调试端点）在每个用例前清理。
+  RATE_LIMIT_LOGIN_MAX: '10'
+  RATE_LIMIT_POST_MAX: '5'
+  RATE_LIMIT_REPLY_MAX: '20'
   RATE_LIMIT_WINDOW_SECONDS: '60'
   RATE_LIMIT_REPLY_WINDOW_SECONDS: '120'
+  RATE_LIMIT_CREATE_NODE_MAX: '10'
+  RATE_LIMIT_CREATE_NODE_WINDOW_SECONDS: '60'
+  # 注册限流：注册用例会连续创建多个账号，IP 维度的阈值必须够高，
+  # 否则正常注册也会被 429 拦下（账号维度阈值保持默认，用于验证双维度限流）。
+  RATE_LIMIT_REGISTER_MAX: '5'
+  RATE_LIMIT_REGISTER_IP_MAX: '200'
+  RATE_LIMIT_REGISTER_WINDOW_SECONDS: '300'
 
 jobs:
   # -------------------------------------------------------------------------
@@ -236,6 +251,17 @@ jobs:
           # 干净克隆必须有 public/ —— 若缺失，COPY 会在构建阶段就失败
           docker run --rm --entrypoint sh v2ex-clone:ci -c \
             'ls -la /app/public'
+
+      - name: 验证构建阶段不需要数据库（惰性初始化）
+        run: |
+          set -e
+          # 构建期没有数据库。若 src/db/index.ts 在模块加载时就建连接池，
+          # 这里会失败并报 DATABASE_URL is not set。
+          docker build \
+            --build-arg NODE_ENV=production \
+            --target builder \
+            -t v2ex-clone:builder-ci .
+          echo "OK: builder 阶段在无数据库环境下构建成功"
 
       - name: 验证 compose 配置不暴露数据库端口（P0-3）
         run: |

@@ -4,7 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
-import { allocateFloor } from '@/server/floor';
+import { allocateFloor, ensureFloorCounter } from '@/server/floor';
 import { sanitizeRedirect } from '@/lib/redirect';
 import { getFormData } from '@/lib/csrf';
 
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
   }
 
   // 分配楼层号：使用独立计数表的原子 UPSERT，避免并发冲突
-  const floor = await allocateFloor(topicId);
+  let floor = await allocateFloor(topicId);
 
   let inserted = false;
   let replyFloor = floor;
@@ -129,7 +129,22 @@ export async function POST(request: Request) {
       const code = e.code ?? e.cause?.code;
       const constraint = e.constraint_name ?? e.cause?.constraint_name;
       if (code === '23505' || constraint?.includes('replies_topic_floor')) {
-        continue; // 楼层冲突，重试下一个楼层
+        // 楼层冲突。
+        //
+        // 计数器与实际楼层不一致时（历史数据导入、seed 写入固定楼层、
+        // 计数器表落后），连续 5 个候选楼层可能**全部**已被占用。
+        // 此时重新按「实际最大楼层 + 1」分配，而不是继续 +1 试探。
+        await ensureFloorCounter(topicId);
+        const retryFloor = await allocateFloor(topicId);
+        if (retryFloor <= floor + attempt) {
+          // 计数表没能抬高水位（并发下被别的请求抢走了），
+          // 退回到继续 +1 试探。
+          continue;
+        }
+        // 抬高水位后从新楼层重新开始尝试
+        floor = retryFloor;
+        attempt = -1; // 下一轮循环 attempt++ 后为 0
+        continue;
       }
       console.error('[replies] 插入失败:', {
         code,

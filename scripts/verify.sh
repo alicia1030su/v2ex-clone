@@ -227,8 +227,18 @@ if [ "$READY" -ne 1 ]; then
   fail "服务未能启动（详见 /tmp/v2ex-verify-server.log）"
 fi
 
-npx playwright test --reporter=list 2>&1 | tail -25
-E2E_EXIT=${PIPESTATUS[0]}
+# E2E 输出完整保存到日志文件 —— 失败时只截取尾部会丢掉真正的错误信息。
+E2E_LOG="${E2E_LOG:-/tmp/v2ex-verify-e2e.log}"
+npx playwright test --reporter=list > "$E2E_LOG" 2>&1
+E2E_EXIT=$?
+
+if [ "$E2E_EXIT" != "0" ]; then
+  echo "--- E2E 失败详情（完整日志：$E2E_LOG）---"
+  # 打印失败用例的断言上下文，而不是只看最后 20 行
+  grep -E "✘|×|Error|Expected|Received|Timeout|at .*spec\.ts" "$E2E_LOG" | head -40
+  echo "..."
+  tail -20 "$E2E_LOG"
+fi
 
 kill "$SERVER_PID" 2>/dev/null
 
@@ -236,6 +246,6 @@ echo ""
 if [ "$E2E_EXIT" = "0" ]; then
   echo "✓ 全部验证通过"
 else
-  echo "✗ E2E 失败（详见 test-results/）"
+  echo "✗ E2E 失败（详见 $E2E_LOG 与 test-results/）"
   exit 1
 fi
