@@ -220,15 +220,17 @@ jobs:
       - name: 依赖漏洞扫描
         run: |
           set -euo pipefail
-          # 门禁策略：**critical 硬阻断；high 按基线判定**。
+          # 门禁策略：**high / critical 一律阻断**。
           #
           # 现状（2026-11-03 实测 `npm audit`）：
-          #   critical=0, high=1, moderate=5
-          #   唯一的 high 是 postcss（经由 next 间接依赖，GHSA-r28c-9q8g-f849 等）。
-          #   修复它需要把 next 升到 16.x —— 破坏性大版本升级，不适合在发布流水线里临时改。
-          #   因此把 1 记为**已知基线**：基线内的 high 记录并显式告警，
-          #   一旦 high 数量超过基线（说明引入了新问题），流水线立刻停下。
-          #   结果**不被静默吞掉** —— 完整 JSON 与摘要都会作为 artifact 上传。
+          #   critical=0, high=0, moderate=4, low=0
+          #   残留的 4 个 moderate 全部来自 drizzle-kit → @esbuild-kit → esbuild
+          #   （GHSA-67mh-4wv8-2f99，esbuild 开发服务器跨域读取）。
+          #   esbuild 只在 drizzle-kit 的**本地迁移工具链**里用到，不进入生产镜像的
+          #   运行时依赖树，因此 moderate 不阻断 —— 但结果**不被静默吞掉**，
+          #   完整 JSON 与摘要都会作为 artifact 上传供人工复核。
+          #
+          # 若将来 high/critical 出现新条目，这里会立刻中止发布。
           npm audit --json > npm-audit.json || true
           node -e '
             const fs = require("fs");
@@ -247,48 +249,72 @@ jobs:
               console.log("::error::存在 critical 级别漏洞，发布中止");
               process.exit(1);
             }
-            const HIGH_BASELINE = 0; // postcss 已通过 overrides 修复；任何新的 high 都阻断
-            if (high > HIGH_BASELINE) {
-              console.log(`::error::high 级别漏洞数 ${high} 超过基线 ${HIGH_BASELINE}，发布中止`);
+            if (high > 0) {
+              console.log(`::error::存在 ${high} 个 high 级别漏洞，发布中止`);
               process.exit(1);
             }
-            if (high > 0) {
-              console.log(`::warning::存在 ${high} 个 high 级别漏洞（已知基线：postcss 经由 next 间接依赖，修复需跨大版本升级 next），已记录但不阻断本次发布`);
+            if ((v.moderate || 0) > 0) {
+              console.log(`::warning::存在 ${v.moderate} 个 moderate 级别漏洞（drizzle-kit 工具链的 esbuild 依赖，不影响生产运行时），已记录但不阻断本次发布`);
             }
           '
 
       - name: 记录依赖树
         run: npm ls --depth=0 > npm-ls.txt 2>&1 || true
 
-      - name: 秘密扫描（gitleaks）
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          # 个人账号仓库无需许可证；只有组织仓库才需要。
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          # 固定 CLI 版本，不用 latest（CLI 版本号不带 v 前缀）
-          GITLEAKS_VERSION: '8.18.4'
-          # 本流水线是 tag 触发，没有 PR 可评论
-          GITLEAKS_ENABLE_COMMENTS: 'false'
-        with:
-          # 只扫描**当前 commit 的工作区内容**，不扫描 git 历史。
+      - name: 秘密扫描（gitleaks，扫描当前工作区）
+        run: |
+          set -euo pipefail
+          # 直接调用 CLI，而不是用 gitleaks/gitleaks-action。
           #
-          # 为什么不用默认的全历史扫描（实测结论）：
+          # 原因（实测 v3.0.0 的 src/gitleaks.js）：该 Action 的命令是**硬编码**的，
+          # 它**不读 `args` 输入** —— 实际执行的是：
+          #   gitleaks detect --redact -v --exit-code=2 --report-format=sarif ...
+          #   --log-opts=--no-merges --first-parent <base>^..<head>
+          # 也就是说它**必定扫描 git 历史**，无法通过 action 参数改成扫工作区。
+          #
+          # 为什么必须扫工作区而不是历史（实测结论）：
           #   仓库历史里曾提交过原站 HTML 素材副本（docs/evidence/html/），
-          #   里面含 Google AdSense 账号 ca-pub-5060390720525238、
+          #   其中含 Google AdSense 账号 ca-pub-5060390720525238、
           #   Solana 代币地址 9raUVuzeWUk53co63M4WXLWPWE4Xc6Lpn7RS9dnkpump 等
           #   **第三方公开标识符**。用 gitleaks v8.18.4 官方配置
           #   （generic-api-key 规则 + 1474 条 stopwords + 熵阈值 3.5）
-          #   模拟全历史扫描，实测命中 **274 条** —— 会让流水线必然失败，
+          #   模拟全历史扫描，实测命中 **274 条** —— 必然让流水线失败，
           #   而它们既不是本项目的凭据，也不是真实泄露。
           #
-          #   这些素材已在当前 commit 中移除（docs/evidence/html/ 不再被 Git 跟踪），
+          #   这些素材在当前 commit 中已不再被 Git 跟踪，
           #   所以扫描**当前工作区**既覆盖了真正需要保护的东西，又不被历史噪声卡死。
           #
-          #   若未来要恢复全历史扫描，正确做法是先用 gitleaks 生成 baseline
+          #   若将来要恢复全历史扫描，正确做法是先用 gitleaks 生成 baseline
           #   （gitleaks detect --generate-config）并把 baseline 提交入库，
           #   而不是放宽规则或加忽略。
-          args: '--detect-leaks=true --redact --no-banner --exit-code=1 --no-git'
+          GITLEAKS_VERSION=8.18.4
+          curl -sSfL --retry 3 --max-time 120 \
+            -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          chmod +x /tmp/gitleaks
+          /tmp/gitleaks version
+
+          # --no-git：把仓库当普通目录扫描，只看当前工作区内容
+          # --exit-code=1：发现泄露即失败
+          # --redact：报告里不打印明文
+          set +e
+          /tmp/gitleaks detect \
+            --no-git \
+            --redact \
+            --no-banner \
+            --exit-code=1 \
+            --report-format=json \
+            --report-path=gitleaks-report.json \
+            --source . 2>&1 | tee gitleaks-output.txt
+          GL_EXIT=${PIPESTATUS[0]}
+          set -e
+          echo "gitleaks 退出码：$GL_EXIT"
+          if [ "$GL_EXIT" -ne 0 ]; then
+            echo "::error::gitleaks 发现疑似泄露的凭据，发布中止（详见 gitleaks-report.json）"
+            exit 1
+          fi
+          echo "✓ gitleaks 未发现泄露"
 
       - name: 发布包内容安全检查
         run: |
@@ -344,6 +370,8 @@ jobs:
             npm-audit.json
             npm-audit-summary.txt
             npm-ls.txt
+            gitleaks-report.json
+            gitleaks-output.txt
           if-no-files-found: warn
           retention-days: 7
 
@@ -1015,6 +1043,15 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
+          # 安装包文件名直接取自 package job 的 output，
+          # 不要靠猜 —— package 产出的是 v2ex-clone-${VERSION}-deploy.zip。
+          ZIP_NAME="${{ needs.package.outputs.zip_name }}"
+          echo "待上传资产：${ZIP_NAME}"
+          # 先确认文件确实在（download-artifact 解压后落在 release-assets/ 下）
+          test -f "release-assets/${ZIP_NAME}" || {
+            echo "::error::未找到安装包 release-assets/${ZIP_NAME}"; exit 1; }
+          test -f "release-assets/SHA256SUMS" || {
+            echo "::error::未找到 SHA256SUMS"; exit 1; }
           cd release-assets
           gh release create "$VERSION" \
             --repo "${{ github.repository }}" \
@@ -1023,7 +1060,7 @@ jobs:
             --prerelease \
             --draft \
             --target "${{ github.sha }}" \
-            "$(cat ../release-assets-name.txt 2>/dev/null || echo "v2ex-clone-${VERSION}-deploy.zip")" \
+            "$ZIP_NAME" \
             SHA256SUMS
           echo "Draft Release 已创建"
 
