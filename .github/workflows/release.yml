@@ -89,15 +89,39 @@ jobs:
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 检查远端 Tag 是否已存在
+      - name: 校验远端 Tag 状态
         run: |
           set -euo pipefail
           VERSION="${{ steps.v.outputs.version }}"
-          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
-            echo "::error::Tag $VERSION 已存在于远端。已发布版本的 tag 不可移动或覆盖，请手动处理。"
-            exit 1
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # tag 触发：tag 必然已存在于远端（它就是触发器）。
+            # 此时要校验的是 —— **tag 指向的 commit 必须就是当前这次构建的 commit**，
+            # 防止 tag 被移动到别处、或 Release 已发布后 tag 又被改动。
+            REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" \
+                          | awk '{print $1}')"
+            if [ -z "$REMOTE_SHA" ]; then
+              # 退回到未解引用的 tag（轻量 tag）
+              REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION" \
+                            | awk '{print $1}')"
+            fi
+            if [ -z "$REMOTE_SHA" ]; then
+              echo "::error::无法读取远端 tag $VERSION 的目标 commit"
+              exit 1
+            fi
+            if [ "$REMOTE_SHA" != "${{ github.sha }}" ]; then
+              echo "::error::tag $VERSION 指向 $REMOTE_SHA，但当前构建 commit 是 ${{ github.sha }}。"
+              echo "::error::已发布版本的 tag 不可移动，请手动处理。"
+              exit 1
+            fi
+            echo "✓ tag $VERSION 指向当前 commit ${{ github.sha }}"
+          else
+            # 手动触发：tag 必须尚不存在，否则禁止覆盖已发布版本
+            if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+              echo "::error::Tag $VERSION 已存在于远端。已发布版本的 tag 不可移动或覆盖，请手动处理。"
+              exit 1
+            fi
+            echo "✓ Tag $VERSION 未被占用"
           fi
-          echo "Tag $VERSION 未被占用 ✓"
 
       - name: 检查远端 Release 是否已存在
         env:
