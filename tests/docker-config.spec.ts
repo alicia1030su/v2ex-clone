@@ -332,11 +332,20 @@ describe('开源发布条件（P0-7）', () => {
     expect(pkg.description).not.toBe('');
   });
 
-  it('README 包含完成度声明与开源发布章节', () => {
+  it('README 包含功能完成度与开源发布章节', () => {
     const readme = read('README.md');
-    expect(readme).toContain('完成度声明');
-    expect(readme).toContain('开源发布');
-    expect(readme).toContain('LICENSE');
+    // 「完成度声明」在 v0.0.1 重写后表述为「功能完成度」，
+    // 断言接受任一表述，但**必须**存在功能完成度的披露。
+    expect(
+      readme.includes('完成度声明') || readme.includes('功能完成度'),
+      'README 必须披露功能完成度',
+    ).toBe(true);
+    expect(readme).toContain('许可证');
+    // 开源发布条件在 v0.0.1 重写后由「许可证」+「当前版本」两节承载，
+    // 必须同时存在，且需明确当前版本号与发布形态。
+    expect(readme).toContain('## 许可证');
+    expect(readme).toContain('v0.0.1');
+    expect(readme).toMatch(/Pre-release|开发预览版/);
   });
 
   it('.env.example 不提供任何可用的默认口令', () => {
@@ -355,10 +364,30 @@ describe('开源发布条件（P0-7）', () => {
     }
   });
 
-  it('存在历史清理方案文档', () => {
-    const plan = read('docs/HISTORY_CLEANUP_PLAN.md');
-    expect(plan).toContain('git filter-repo');
-    expect(plan).toContain('需单独授权');
+  it('历史清理的内部处置文档不入库，但公开文档如实披露现状', () => {
+    // 内部处置方案与演练报告含原站素材路径、泄露细节与不可逆操作指引，
+    // 属于仓库维护者的内部记录，**不随公开发布版本分发**。
+    const tracked = execFileSync('git', ['ls-files'], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+    })
+      .split(/\r?\n/)
+      .filter(Boolean);
+    for (const forbidden of [
+      'docs/HISTORY_CLEANUP_PLAN.md',
+      'docs/ARCH_HISTORY_CLEANUP_PLAN.md',
+      'docs/CLEANUP_DRYRUN_REPORT.md',
+      'scripts/check-residual-exposure.sh',
+    ]) {
+      expect(tracked, `内部处置文档不应入库: ${forbidden}`).not.toContain(forbidden);
+    }
+
+    // 但「Git 历史中仍可取回原站素材」这一事实必须在公开文档中如实披露，
+    // 不得出现「已完成历史清理」这类虚假表述。
+    const readme = read('README.md');
+    expect(readme).toContain('Git 历史中仍可取回');
+    expect(readme).not.toContain('已完成历史清理');
+    expect(readme).not.toContain('原站素材已从历史移除');
   });
 });
 
