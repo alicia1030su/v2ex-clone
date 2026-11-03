@@ -198,8 +198,20 @@ jobs:
             fi
           done
           # 3) deploy/ 内不得有明文口令
-          if grep -rnE '(PASSWORD|SECRET)=[^$[:space:]]{8,}' deploy/ --include='*.sh' --include='*.ps1' --include='*.yml' 2>/dev/null | grep -v 'example\|CHANGE_ME\|PLACEHOLDER'; then
+          #    键名允许驼峰/下划线（dbPassword、POSTGRES_PASSWORD、my_secret_key 都要覆盖），
+          #    但凡整行出现 $ 变量引用（${VAR} / $VAR / $(cmd)）或为空值/占位符，均视为安全。
+          #    判定逻辑经本地双向验证：能捕获 dbPassword="SuperSecret123!" 这类字面量，
+          #    同时不误报 --requirepass ${REDIS_PASSWORD:?} 这类变量引用。
+          KEY_RE='([A-Za-z_][A-Za-z0-9_]*)?(pass(word|wd)?|pwd|secret|token|api[_-]?key|credential)([A-Za-z0-9_]*)[[:space:]]*[:=][[:space:]]*(.*)$'
+          hits="$(grep -rniE "$KEY_RE" deploy/ \
+                   --include='*.sh' --include='*.ps1' --include='*.yml' --include='*.yaml' 2>/dev/null \
+                 | grep -vE '\$[A-Za-z_{(]' \
+                 | grep -vE 'Get-RandomHex|CHANGE_ME|PLACEHOLDER|example|EXAMPLE|Get-AdminPassword|random|Random' \
+                 | grep -vE '[:=][[:space:]]*(""|'"''"'|)$' \
+                 | grep . || true)"
+          if [ -n "$hits" ]; then
             echo "::error::deploy/ 中存在疑似硬编码口令"
+            echo "$hits"
             fail=1
           fi
           # 4) .env 系列文件不得入库（.env.example 除外）
