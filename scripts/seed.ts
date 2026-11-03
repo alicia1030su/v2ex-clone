@@ -3,6 +3,13 @@
  * 使用真实数据库插入，不是内存假数据。
  *
  * 运行: npm run db:seed
+ *
+ * 语义（P0-1 / P0-2）：
+ *  - **只初始化，不修改**。已存在的账号不会被覆盖口令与角色；
+ *    口令与角色的变更只能走 scripts/admin-cli.ts（需授权令牌 + 审计）。
+ *  - **首次初始化标记**。脚本会在 kv_store 表写入 initialized 标记，
+ *    供容器入口脚本判断「这个库是否已经初始化过」，
+ *    从而保证重新部署不会再次写入演示数据、污染用户数据。
  */
 import 'dotenv/config';
 import { config } from 'dotenv';
@@ -17,6 +24,9 @@ if (process.env.ENV_FILE) {
 }
 config({ path: '.env.local', quiet: true });
 config({ path: '.env', quiet: true });
+
+/** 首次初始化标记的 key（存放在 kv_store 表） */
+export const INIT_MARKER_KEY = 'seed:initialized';
 
 /**
  * 节点树 —— [name, title, categoryName, parentName?]
@@ -66,48 +76,64 @@ const CATEGORIES: [string, string, number][] = [
 type SeedUser = {
   username: string;
   email: string;
-  password: string;
   role: 'admin' | 'moderator' | 'user';
+  /**
+   * 仅在**需要创建**该账号时才解析口令。
+   *
+   * 惰性求值是必需的：seed 采用「只初始化、不修改」语义，
+   * 已存在的账号不应因为缺少 SEED_ADMIN_PASSWORD 而让脚本失败 ——
+   * 生产环境重新部署时通常不会再注入初始口令。
+   */
+  resolvePassword: () => string;
 };
 
 /**
- * 管理员账号来自环境变量，不再硬编码默认口令。
+ * 管理员账号的身份来自环境变量；口令只在**创建时**才需要。
  *
  * 安全要求：
- *  - 生产环境（APP_RUNTIME_ENV=production 或 NODE_ENV=production）必须显式提供
- *    SEED_ADMIN_PASSWORD，否则直接报错退出，绝不使用弱默认口令。
+ *  - 生产环境（APP_RUNTIME_ENV=production 或 NODE_ENV=production）创建管理员时
+ *    必须显式提供 SEED_ADMIN_PASSWORD，否则直接报错退出，绝不使用弱默认口令。
  *  - 非生产环境若未提供，则生成一次性随机口令并打印到控制台（仅本次运行可见）。
+ *  - **已存在的管理员不会被修改**，因此不触发口令解析。
  */
 function resolveAdminUser(): SeedUser {
   const username = process.env.SEED_ADMIN_USERNAME?.trim() || 'admin';
   const email = process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@example.com';
-  const explicit = process.env.SEED_ADMIN_PASSWORD;
 
-  const isProduction =
-    process.env.APP_RUNTIME_ENV === 'production' || process.env.NODE_ENV === 'production';
+  return {
+    username,
+    email,
+    role: 'admin',
+    resolvePassword: () => {
+      const explicit = process.env.SEED_ADMIN_PASSWORD;
 
-  if (explicit && explicit.length >= 12) {
-    return { username, email, password: explicit, role: 'admin' };
-  }
+      const isProduction =
+        process.env.APP_RUNTIME_ENV === 'production' || process.env.NODE_ENV === 'production';
 
-  if (explicit && explicit.length > 0) {
-    throw new Error(
-      'SEED_ADMIN_PASSWORD 长度不足 12 位。请设置一个足够强的管理员密码，或删除该变量让脚本生成随机口令。',
-    );
-  }
+      if (explicit && explicit.length >= 12) {
+        return explicit;
+      }
 
-  if (isProduction) {
-    throw new Error(
-      '生产环境必须显式设置 SEED_ADMIN_PASSWORD（≥12 位）。拒绝使用弱默认口令创建管理员。',
-    );
-  }
+      if (explicit && explicit.length > 0) {
+        throw new Error(
+          'SEED_ADMIN_PASSWORD 长度不足 12 位。请设置一个足够强的管理员密码，或删除该变量让脚本生成随机口令。',
+        );
+      }
 
-  // 非生产环境：生成一次性随机口令
-  const generated = `A9!${randomBytes(12).toString('base64url')}`;
-  console.warn(
-    `\n⚠ 未设置 SEED_ADMIN_PASSWORD，已为管理员 "${username}" 生成一次性随机口令：\n   ${generated}\n   该口令仅本次运行显示，请立即保存。\n`,
-  );
-  return { username, email, password: generated, role: 'admin' };
+      if (isProduction) {
+        throw new Error(
+          '生产环境必须显式设置 SEED_ADMIN_PASSWORD（≥12 位）。拒绝使用弱默认口令创建管理员。',
+        );
+      }
+
+      // 非生产环境：生成一次性随机口令
+      const generated = `A9!${randomBytes(12).toString('base64url')}`;
+      console.warn(
+        `\n⚠ 未设置 SEED_ADMIN_PASSWORD，已为管理员 "${username}" 生成一次性随机口令：\n   ${generated}\n   该口令仅本次运行显示，请立即保存。\n`,
+      );
+      return generated;
+    },
+  };
 }
 
 /**
@@ -121,16 +147,19 @@ function resolveDemoUsers(): SeedUser[] {
     process.env.APP_RUNTIME_ENV === 'production' || process.env.NODE_ENV === 'production';
   if (isProduction) return [];
 
-  const password = process.env.SEED_DEMO_PASSWORD || `demo-${randomBytes(6).toString('base64url')}`;
-  if (!process.env.SEED_DEMO_PASSWORD) {
-    console.warn(`\n⚠ 演示账号统一口令：${password}（仅本次运行显示）\n`);
-  }
+  const resolvePassword = () => {
+    const password = process.env.SEED_DEMO_PASSWORD || `demo-${randomBytes(6).toString('base64url')}`;
+    if (!process.env.SEED_DEMO_PASSWORD) {
+      console.warn(`\n⚠ 演示账号统一口令：${password}（仅本次运行显示）\n`);
+    }
+    return password;
+  };
 
   return [
-    { username: 'lisi', email: 'lisi@example.com', password, role: 'user' },
-    { username: 'wangwu', email: 'wangwu@example.com', password, role: 'user' },
-    { username: 'zhaoliu', email: 'zhaoliu@example.com', password, role: 'user' },
-    { username: 'moderator', email: 'mod@example.com', password, role: 'moderator' },
+    { username: 'lisi', email: 'lisi@example.com', role: 'user', resolvePassword },
+    { username: 'wangwu', email: 'wangwu@example.com', role: 'user', resolvePassword },
+    { username: 'zhaoliu', email: 'zhaoliu@example.com', role: 'user', resolvePassword },
+    { username: 'moderator', email: 'mod@example.com', role: 'moderator', resolvePassword },
   ];
 }
 
@@ -217,6 +246,21 @@ const REPLY_SEEDS = [
 async function main() {
   console.log('▶ 开始 seed');
 
+  // 0. 首次初始化标记检查
+  //    若已初始化过，说明这是「重新部署」而非「首次部署」，
+  //    此时应当完全跳过，避免写入演示数据污染用户数据。
+  const marker = await db
+    .select()
+    .from(schema.kvStore)
+    .where(eq(schema.kvStore.key, INIT_MARKER_KEY))
+    .limit(1);
+  if (marker[0]?.value === 'true') {
+    console.log('  该数据库已完成初始化 —— 跳过 seed（不触碰任何已有数据）');
+    console.log('✓ seed 完成（跳过）');
+    await pgSql.end();
+    return;
+  }
+
   // 1. 分类
   const categoryIds = new Map<string, number>();
   for (const [name, title, sort] of CATEGORIES) {
@@ -239,6 +283,8 @@ async function main() {
 
   // 2. 用户
   const userIds = new Map<string, number>();
+  /** 已存在、因而**未被修改**的账号名 */
+  const skippedUsers: string[] = [];
   const seedUsers: SeedUser[] = [resolveAdminUser(), ...resolveDemoUsers()];
   for (const u of seedUsers) {
     const existing = await db
@@ -247,14 +293,18 @@ async function main() {
       .where(eq(schema.users.username, u.username))
       .limit(1);
     if (existing[0]) {
-      // 已存在的账号：同步口令与角色。
-      // 否则「改了 SEED_*_PASSWORD 后重跑 seed」不会生效，
-      // 环境变量与数据库状态会长期不一致（E2E 登录必然失败）。
-      await db
-        .update(schema.users)
-        .set({ passwordHash: hashPassword(u.password), role: u.role })
-        .where(eq(schema.users.id, existing[0].id));
+      // 已存在的账号：**只读取，不修改**。
+      //
+      // 安全要求：seed 是「首次初始化」，不是「状态同步」。
+      // 早期版本会在此处覆盖 passwordHash 与 role，导致：
+      //   1. 重新部署容器时管理员口令被环境变量重置 —— 属于凭据被静默篡改；
+      //   2. 用户自行改密后被 seed 改回 —— 改密功能形同虚设；
+      //   3. 任何被提权为 admin 的账号会在下次启动时降级回 user。
+      //
+      // 口令与角色的变更只能走独立的授权流程：scripts/admin-cli.ts
+      // （需要显式授权令牌 + 审计日志）。
       userIds.set(u.username, existing[0].id);
+      skippedUsers.push(u.username);
       continue;
     }
     const [row] = await db
@@ -262,7 +312,7 @@ async function main() {
       .values({
         username: u.username,
         email: u.email,
-        passwordHash: hashPassword(u.password),
+        passwordHash: hashPassword(u.resolvePassword()),
         role: u.role,
         balance: 1000,
       })
@@ -270,9 +320,26 @@ async function main() {
     userIds.set(u.username, row.id);
   }
   console.log(`  用户: ${userIds.size}`);
+  if (skippedUsers.length > 0) {
+    console.log(`  已存在未修改: ${skippedUsers.join(', ')}`);
+    console.log(
+      '  （seed 不会覆盖已有账号的口令与角色；变更请用 npm run admin -- <子命令>）',
+    );
+  }
 
-  // 演示账号可能未创建（SEED_DEMO_USERS=0 或生产环境），作者回退到管理员
-  const fallbackAuthor = userIds.get('admin')!;
+  // 演示账号可能未创建（SEED_DEMO_USERS=0 或生产环境），作者回退到管理员。
+  //
+  // 注意：必须用**实际的管理员用户名**，不能写死 'admin'。
+  // 管理员名来自 SEED_ADMIN_USERNAME，写死会导致管理员改名后
+  // fallbackAuthor 变成 undefined，进而触发 topics.author_id 的 NOT NULL 违约。
+  const adminUsername = process.env.SEED_ADMIN_USERNAME?.trim() || 'admin';
+  const fallbackAuthor = userIds.get(adminUsername);
+  if (fallbackAuthor === undefined) {
+    throw new Error(
+      `管理员账号 "${adminUsername}" 未能解析到 user id —— ` +
+        'seed 无法确定主题作者。请确认该账号是否已存在，以及 SEED_ADMIN_USERNAME 是否与实际一致。',
+    );
+  }
   const authorIdOf = (name: string): number => userIds.get(name) ?? fallbackAuthor;
 
   // 3. 节点
@@ -373,6 +440,18 @@ async function main() {
     .insert(schema.collections)
     .values({ userId: lisiId, target: 'node', nodeId: nodeIds.get('programmer')! })
     .onConflictDoNothing();
+
+  // 7. 写入首次初始化标记
+  //    放在最后：只有前面的数据都成功写入后才打标记。
+  //    若中途失败，下次启动会重新执行 seed；因所有写入都是幂等的，
+  //    重跑不会产生重复数据。
+  await db
+    .insert(schema.kvStore)
+    .values({ key: INIT_MARKER_KEY, value: 'true' })
+    .onConflictDoUpdate({
+      target: schema.kvStore.key,
+      set: { value: 'true' },
+    });
 
   console.log('✓ seed 完成');
   await pgSql.end();

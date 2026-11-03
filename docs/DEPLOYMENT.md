@@ -68,7 +68,19 @@ docker compose logs -f app
 open http://localhost:3000
 ```
 
-容器启动时会自动执行：`drizzle-kit migrate` → `seed` → `next start`。
+容器启动时会**自动执行三个阶段**（见 `scripts/docker-entrypoint.sh`）：
+
+| 阶段 | 动作 | 幂等性 | 说明 |
+|---|---|---|---|
+| 1/3 | `drizzle-kit migrate` | ✅ 每次都执行 | 只做增量迁移，已应用的迁移不会重复执行 |
+| 2/3 | 首次初始化（seed） | ✅ **仅执行一次** | 由 `kv_store` 的初始化标记守卫；已初始化的库直接跳过 |
+| 3/3 | `next start` | — | 启动应用服务 |
+
+> **重新部署不会污染数据。**
+> 阶段 2 带初始化标记，只在数据库首次初始化时写入演示数据。
+> 后续的 `docker compose up` / `restart` / 重新部署都只执行迁移，
+> **不会**重置管理员口令，**不会**重复写入演示主题。
+
 数据库与 Redis 均配置了 healthcheck，app 服务会等待两者健康后再启动。
 
 停止 / 清理：
@@ -77,6 +89,25 @@ open http://localhost:3000
 docker compose down            # 停止，保留数据卷
 docker compose down -v         # 停止并删除数据卷（会丢失数据）
 ```
+
+### 2.1 端口暴露策略
+
+默认的 `docker-compose.yml` **不向宿主机暴露** PostgreSQL 与 Redis 端口，
+两者只在 compose 内部网络（`v2ex-net`）内可达：
+
+```bash
+# 验证：默认配置下 postgres / redis 段没有 published 字段
+docker compose config | grep -A 20 '^  postgres:' | grep published   # 无输出
+```
+
+需要本地直连数据库做调试时，显式叠加 override 文件：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d
+```
+
+> override 文件里的端口绑定到 `127.0.0.1`（而非 `0.0.0.0`），
+> 即使开启映射，也只有本机能连。**严禁在生产环境使用该文件。**
 
 ## 3. 本地开发（不使用 Docker）
 
@@ -131,17 +162,45 @@ psql "$DATABASE_URL" -c "select id, hash, created_at from drizzle.__drizzle_migr
 
 ## 5. 初始账号
 
-`npm run db:seed` / 容器启动时自动创建：
+`npm run db:seed` / 容器启动时的首次初始化会创建：
 
 | 角色 | 用户名 | 密码 | 来源 |
 |---|---|---|---|
-| 管理员 | `admin` | `SEED_ADMIN_PASSWORD`（默认 `admin12345`） | 环境变量 |
-| 普通用户 | `lisi` | `password123` | seed 脚本 |
-| 普通用户 | `wangwu` | `password123` | seed 脚本 |
-| 普通用户 | `zhaoliu` | `password123` | seed 脚本 |
-| 版主 | `moderator` | `password123` | seed 脚本 |
+| 管理员 | `admin` | `SEED_ADMIN_PASSWORD`（生产必填，≥12 位） | 环境变量 |
+| 普通用户 | `lisi` | `SEED_DEMO_PASSWORD`（未设置则随机生成并打印） | 环境变量 |
+| 普通用户 | `wangwu` | 同上 | 环境变量 |
+| 普通用户 | `zhaoliu` | 同上 | 环境变量 |
+| 版主 | `moderator` | 同上 | 环境变量 |
 
 > **生产部署后请立即修改这些密码**，并删除不需要的演示账号。
+
+### 5.1 seed 只初始化、不修改
+
+seed 采用**只创建、不修改**语义：账号已存在时**不会**覆盖它的口令与角色。
+这是刻意的安全设计 —— 否则重新部署容器就会静默重置管理员口令、
+用户自行改密的成果也会被抹掉。
+
+口令与角色的变更必须走**独立的授权流程**：
+
+```bash
+# 需要先配置 ADMIN_CLI_TOKEN（运维专用的随机令牌）
+export ADMIN_CLI_TOKEN=$(openssl rand -base64 32)
+
+npm run admin -- set-password --username lisi \
+  --password 'NewPassw0rd!' --reason '用户申诉后重置'
+
+npm run admin -- set-role --username lisi \
+  --role moderator --reason '任命为版主'
+
+npm run admin -- list-admins        # 只读，列出管理员与版主
+```
+
+该流程的约束：
+
+- 未配置 `ADMIN_CLI_TOKEN` 时**一律拒绝**执行变更；
+- `--reason` 必填，每次变更都写入 `moderation_logs` 审计表；
+- 拒绝降级最后一个 admin（避免把系统锁死）；
+- 生产环境禁止修改演示账号的角色。
 
 ## 6. 反向代理（Nginx）
 

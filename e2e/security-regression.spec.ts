@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { USER_A, USER_B, apiPost, getCsrfToken, login, uniqueName } from './helpers';
+import {
+  USER_A,
+  USER_B,
+  apiPost,
+  clearRateLimits,
+  getCsrfToken,
+  login,
+  uniqueName,
+} from './helpers';
 
 /**
  * 安全缺陷回归测试
@@ -150,6 +158,13 @@ test.describe('P1-10 注册限流双维度', () => {
 });
 
 test.describe('P1-11 回复接口 redirect 验证', () => {
+  // 回复接口有速率限制（默认 20 次 / 窗口）。
+  // 本文件前面的用例会消耗回复配额，若不清理，
+  // 这里的用例会拿到 429 而不是预期的 redirect 校验结果。
+  test.beforeEach(async ({ page }) => {
+    await clearRateLimits(page);
+  });
+
   test('外部 redirect 被规范化为站内路径', async ({ page }) => {
     await login(page, USER_B.username, USER_B.password);
 

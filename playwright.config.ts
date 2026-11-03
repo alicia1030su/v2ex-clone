@@ -31,8 +31,11 @@ export default defineConfig({
     video: 'off',
     locale: 'zh-CN',
     viewport: { width: 1280, height: 900 },
-    // 使用系统已安装的 Edge，避免 chromium 下载依赖
-    channel: process.env.BROWSER_CHANNEL ?? 'msedge',
+    // 浏览器渠道：
+    //  - CI / Linux 上用 Playwright 自带的 chromium
+    //  - 本机 Windows 默认用已安装的系统 Edge，避免额外下载浏览器
+    // 可用 BROWSER_CHANNEL 环境变量覆盖。
+    channel: process.env.BROWSER_CHANNEL || (process.env.CI ? 'chromium' : 'msedge'),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

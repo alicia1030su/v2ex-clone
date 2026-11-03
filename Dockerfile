@@ -30,7 +30,10 @@ ENV APP_RUNTIME_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# public/ 可能为空目录（Git 不跟踪空目录），COPY 空目录会失败。
+# 这里用「先建目录再复制」的方式，保证该目录在镜像中一定存在。
+RUN mkdir -p /app/public
+COPY --from=builder --chown=nextjs:nodejs /app/public/ /app/public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
@@ -42,5 +45,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 USER nextjs
 EXPOSE 3000
 
-# 启动时依次执行：迁移 → 种子数据 → 启动服务
-CMD ["sh", "-c", "npx drizzle-kit migrate && npx tsx scripts/seed.ts && node node_modules/next/dist/bin/next start -p 3000"]
+# 启动入口：分离「迁移 / 首次初始化 / 应用启动」三个阶段。
+# 详见 scripts/docker-entrypoint.sh。
+ENTRYPOINT ["sh", "/app/scripts/docker-entrypoint.sh"]
+CMD ["all"]

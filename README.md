@@ -40,9 +40,43 @@
 | RSS / JSON Feed 生成器 | ❌ 未实现 | 仅复刻入口位置与图标 |
 | 邮件找回密码流程 | ❌ 未实现 | 页面与入口已复刻 |
 | 第三方登录（Google / Solana） | ❌ 未实现 | 需外部凭据；UI 以禁用态呈现 |
-| Docker Compose 实测 | ❌ 未验证 | 本机未安装 Docker，配置按官方镜像编写 |
+| Docker Compose 部署 | ✅ 已验证 | 镜像构建 + compose 启动 + 重启不污染数据，见 CI `docker` job |
 
 完整对照见 [`docs/FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md)。
+
+### 完成度声明（可验证的口径）
+
+上表的「✅ 完成」指**功能已实现且有自动化测试覆盖**，不是「看起来能用」。
+可验证的口径如下：
+
+| 指标 | 数值 | 验证方式 |
+|---|---|---|
+| 单元测试 | **36** 个用例全部通过 | `npm run test:unit` |
+| E2E 测试 | **67** 个用例全部通过 | `npm run test:e2e` |
+| 视觉对比 | 3 视口 × 10 页面 = 30 组 | `docs/VISUAL_DIFF_REPORT.md` |
+| 端到端验证 | 类型检查 → 构建 → 干净库迁移 → seed → 单元 → E2E | `scripts/verify.sh` |
+| CI | 单元 / E2E / Docker 构建与启动三个 job | `.github/workflows/ci.yml` |
+
+**尚不具备生产就绪条件**，具体差距：
+
+- 缺少完整的端到端加密邮件找回密码流程（页面已复刻，邮件发送未接）；
+- 投票、感谢、关注流的**交互**尚未接通（数据表与计数已就绪）；
+- 主题编辑 / 删除仅有软删除字段，后台操作界面未做；
+- 积分排行榜与每日登录加分未实现；
+- RSS / JSON Feed 只有入口位置，没有真正的生成器；
+- **Redis 路径尚未在真实 Redis 上验证过** —— 本地与 CI 走的是 PostgreSQL 降级路径
+  （语义等价，但性能与边界行为差异未验证）；
+- 未做过压力测试与长时间运行稳定性验证。
+
+### 已知的安全边界
+
+- `seed` 脚本**只初始化、不修改**已有账号。改密与角色变更必须走
+  `npm run admin -- set-password|set-role`（需 `ADMIN_CLI_TOKEN` 授权令牌，
+  并写入审计日志）。
+- 容器启动分三阶段：迁移 → **首次**初始化（仅一次）→ 启动应用。
+  重新部署不会重置管理员口令，也不会重复写入演示数据。
+- Docker Compose 默认**不向宿主机暴露** PostgreSQL / Redis 端口；
+  本地直连调试请显式叠加 `docker-compose.debug.yml`。
 
 ---
 
@@ -90,12 +124,32 @@ npm run dev                     # http://localhost:3000
 # 完整验证流程（类型检查 → 构建 → 干净库迁移 → seed → 单元测试 → E2E）
 ./scripts/verify.sh
 
+# 跳过 E2E
+./scripts/verify.sh --skip-e2e
+
 # 单独运行
-npm run test:unit                # vitest：28 项安全逻辑单元测试
+npm run test:unit                # vitest：36 项单元测试
 LOCAL_BASE=http://localhost:3000 npm run test:e2e   # playwright：67 项 E2E
 ```
 
-当前状态：**单元测试 28/28 通过 · E2E 67/67 通过（零跳过）**
+当前状态：**单元测试 36/36 通过 · E2E 67/67 通过（零跳过）**
+
+`scripts/verify.sh` 是**跨平台**的：Node 与数据库操作均不依赖特定机器的路径，
+Windows / Linux / macOS 上行为一致。它会：
+
+1. 在**专用验证库**（默认 `v2ex_verify`）上重建数据库并跑全部迁移；
+2. 拒绝在非验证库上执行破坏性操作（库名必须匹配 `*_verify` / `*_test` / `*_ci`）；
+3. 启动被测服务前先清空端口占用，避免打到残留的旧实例。
+
+首次运行前需要一个可用的 PostgreSQL：
+
+```bash
+# 复制隔离测试配置并按需修改 DATABASE_URL
+cp .env.example .env.test
+```
+
+CI（`.github/workflows/ci.yml`）用 GitHub Actions 的 **service container**
+提供隔离的 PostgreSQL 与 Redis，跑三个 job：单元测试、E2E、Docker 构建与启动验证。
 
 验证方式包含**克隆副本独立验证**：把仓库克隆到全新目录，从零执行
 `npm ci` → 类型检查 → 构建 → 干净库迁移 → seed → 单元测试 → E2E，全部通过。
@@ -201,3 +255,34 @@ node tools/visual/diff-multi.mjs
 > 采集到的一手证据（原站 HTML / CSS / JS / 参考截图）保存在本机
 > `docs/evidence/` 下，**不纳入版本控制**（见 `.gitignore`），
 > 以避免分发原站受保护素材的镜像副本。
+
+---
+
+## 开源发布
+
+本项目采用 [MIT 许可证](LICENSE)。
+
+发布前需注意：
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 许可证 | ✅ MIT | 见 [`LICENSE`](LICENSE)，含商标声明与第三方内容声明 |
+| 商标 | ✅ 已声明 | MIT **不**授予 V2EX 商标使用许可；不得暗示官方背书 |
+| 原站素材 | ✅ 已清理 | 原站 HTML/CSS/JS 副本与参考截图不入库；清理方案见 `docs/HISTORY_CLEANUP_PLAN.md` |
+| 凭据 | ✅ 无默认口令 | `.env.example` 不提供任何可用默认值；`docker-compose.yml` 缺变量即启动失败 |
+| 贡献指南 | ⚠️ 未提供 | 目前单人维护；接受 PR 但无正式流程 |
+| 行为准则 | ⚠️ 未提供 | 目前单人维护 |
+| 变更日志 | ⚠️ 未提供 | 变更记录在 `docs/PROGRESS.md` 与 Git 提交历史中 |
+
+### 仓库可见性
+
+当前仓库为 **private**。改为 public 属于面向外部的操作，
+需在**完成历史清理**（见 `docs/HISTORY_CLEANUP_PLAN.md`）之后再单独授权执行。
+
+### 贡献
+
+欢迎提交 PR。提交前请确保：
+
+```bash
+./scripts/verify.sh    # 类型检查 → 构建 → 干净库迁移 → seed → 单元 → E2E 全绿
+```
