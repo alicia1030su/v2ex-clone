@@ -79,9 +79,10 @@ describe('数据库客户端惰性初始化（P0-4）', () => {
 
   it('没有 DATABASE_URL 时真正调用数据库 API 才报错（错误信息可读）', () => {
     const script = `
-      import { db, schema } from './src/db/index.ts';
+      import { db } from './src/db/index.ts';
       try {
-        await db.select().from(schema.users).limit(1);
+        // 用不依赖业务表的查询 —— CI 的 unit job 不跑迁移
+        await db.execute('select 1');
         console.log('UNEXPECTED_SUCCESS');
       } catch (e) {
         console.log('EXPECTED_ERROR:' + (e && e.message ? e.message : String(e)));
@@ -115,9 +116,11 @@ describe('数据库客户端惰性初始化（P0-4）', () => {
 
   it('生产模式下反复查询复用同一个连接池', () => {
     const script = `
-      import { db, sql, schema } from './src/db/index.ts';
+      import { db, sql } from './src/db/index.ts';
+      // 用不依赖任何业务表的查询（select 1）——
+      // CI 的 unit job 不跑迁移，业务表不存在会导致误报失败。
       for (let i = 0; i < 5; i++) {
-        await db.select({ id: schema.users.id }).from(schema.users).limit(1);
+        await db.execute('select 1');
       }
       const g = globalThis;
       console.log('CACHED_SQL:' + (g.__v2exSql ? 'yes' : 'no'));

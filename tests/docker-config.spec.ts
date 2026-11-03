@@ -134,6 +134,22 @@ describe('Dockerfile 启动阶段分离（P0-2）', () => {
     const seed = read('scripts/seed.ts');
     expect(seed).toContain('resolvePassword');
   });
+
+  it('seed 写入了初始化标记（保证重新部署不重复初始化）', () => {
+    const seed = read('scripts/seed.ts');
+    expect(seed).toContain('INIT_MARKER_KEY');
+    // 标记必须在写入数据**之后**设置（失败时不打标记，下次会重试）
+    const markerWrite = seed.indexOf('.insert(schema.kvStore)');
+    const topicWrite = seed.indexOf('.insert(schema.topics)');
+    expect(markerWrite).toBeGreaterThan(-1);
+    expect(topicWrite).toBeGreaterThan(-1);
+    expect(markerWrite).toBeGreaterThan(topicWrite);
+  });
+
+  it('seed 同步楼层计数表（避免楼层号漂移导致 500）', () => {
+    const seed = read('scripts/seed.ts');
+    expect(seed).toContain('floorCounters');
+  });
 });
 
 describe('docker-compose 默认不暴露数据库端口（P0-3）', () => {
@@ -197,6 +213,29 @@ describe('public/ 目录存在且被 Git 跟踪（P0-4）', () => {
   it('Dockerfile 先建目录再复制，兼容空目录', () => {
     const dockerfile = read('Dockerfile');
     expect(dockerfile).toMatch(/mkdir -p \/app\/public/);
+  });
+
+  it('Dockerfile 拷入 seed/admin-cli 运行所需的 src/db 与 password 模块', () => {
+    const dockerfile = read('Dockerfile');
+    // 缺 src/db 时容器启动会报：
+    //   Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/app/src/db/index'
+    expect(dockerfile).toMatch(/COPY .*\/app\/src\/db \.\/src\/db/);
+    // 只拷真正用到的 lib 模块 —— 整目录拷贝会带进 server-only 模块
+    expect(dockerfile).toMatch(/COPY .*\/app\/src\/lib\/password\.ts/);
+    // 不得整目录拷贝 src/lib
+    expect(dockerfile).not.toMatch(/COPY .*\/app\/src\/lib \.\/src\/lib/);
+  });
+
+  it('Dockerfile 拷贝了运行期脚本依赖的全部文件', () => {
+    const dockerfile = read('Dockerfile');
+    for (const needed of [
+      '/app/drizzle ',
+      '/app/scripts ',
+      '/app/drizzle.config.ts',
+      '/app/package.json',
+    ]) {
+      expect(dockerfile, `应拷贝 ${needed.trim()}`).toContain(needed);
+    }
   });
 });
 

@@ -41,6 +41,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+# seed.ts 与 admin-cli.ts 需要 src/db（schema 与客户端），必须一并拷入。
+# 缺了它容器启动时会出现：
+#   Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/app/src/db/index'
+COPY --from=builder --chown=nextjs:nodejs /app/src/db ./src/db
+# 只拷 seed / admin-cli 真正用到的 lib 模块。
+# 整目录拷贝会把带 `import 'server-only'` 的模块也带进去 —— 那在纯 Node
+# 环境下会抛错，反而让容器里的运维脚本无法运行。
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/password.ts ./src/lib/password.ts
 
 USER nextjs
 EXPOSE 3000
