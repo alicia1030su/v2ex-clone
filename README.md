@@ -268,16 +268,26 @@ node tools/visual/diff-multi.mjs
 |---|---|---|
 | 许可证 | ✅ MIT | 见 [`LICENSE`](LICENSE)，含商标声明与第三方内容声明 |
 | 商标 | ✅ 已声明 | MIT **不**授予 V2EX 商标使用许可；不得暗示官方背书 |
-| 原站素材 | ✅ 已清理 | 原站 HTML/CSS/JS 副本与参考截图不入库；清理方案见 `docs/HISTORY_CLEANUP_PLAN.md` |
+| 原站素材 | ⚠️ **部分清理** | 参考截图已移出当前版本；48 个原站 HTML/CSS/JS 副本仍在初始提交的历史里，清理方案见 `docs/HISTORY_CLEANUP_PLAN.md`（需授权执行） |
 | 凭据 | ✅ 无默认口令 | `.env.example` 不提供任何可用默认值；`docker-compose.yml` 缺变量即启动失败 |
 | 贡献指南 | ⚠️ 未提供 | 目前单人维护；接受 PR 但无正式流程 |
 | 行为准则 | ⚠️ 未提供 | 目前单人维护 |
 | 变更日志 | ⚠️ 未提供 | 变更记录在 `docs/PROGRESS.md` 与 Git 提交历史中 |
 
-### 仓库可见性
+### 仓库可见性与历史清理
 
-当前仓库为 **private**。改为 public 属于面向外部的操作，
-需在**完成历史清理**（见 `docs/HISTORY_CLEANUP_PLAN.md`）之后再单独授权执行。
+当前仓库为 **public**。
+
+⚠️ **已知未清理项**：初始提交 `75c9508` 中仍保留 **48 个原站 HTML/CSS/JS 副本**。
+公开仓库下任何人都能通过 `git show 75c9508:docs/evidence/html/index.html` 取回它们。
+
+- 原站**参考截图**（30 个 `ref-*.png`）已从当前版本移除 —— 顺带修复了一个
+  `.gitignore` 规则从未命中的缺陷（`*` 不跨越目录分隔符）；
+- 原站**源码副本**（48 个）仍在历史中，彻底清理需要重写 Git 历史 ——
+  方案已制定并在副本上完整演练验证，见 `docs/HISTORY_CLEANUP_PLAN.md`。
+  该操作不可逆，需单独授权后执行。
+
+在历史清理完成之前，请勿将本仓库用于任何需要「不含第三方素材」的场合。
 
 ### 贡献
 

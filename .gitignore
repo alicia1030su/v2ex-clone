@@ -22,15 +22,24 @@ dist/
 # 这些是**原站受保护素材的镜像**，仅用于本机分析：
 #   - 原站页面 HTML（docs/evidence/html/）
 #   - 原站组合 CSS / JS（docs/evidence/assets/）
-#   - 原站参考截图（docs/evidence/screenshots/ref-*.png）
+#   - 原站参考截图（docs/evidence/screenshots/<视口>/ref-*.png）
 #   - 差异热力图（docs/evidence/visual/diff-*.png）
 #
 # 按"不复制未获授权的第三方私有源码/商标素材"的要求，
 # 这些文件不进入 Git 仓库。本机分析时可由 tools/recon/fetch.sh 重新采集。
+#
+# 注意 `**/` 的必要性（曾经的真实缺陷）：
+#   原规则写作 `docs/evidence/screenshots/ref-*.png`，
+#   而实际文件在**子目录**里（desktop-1280 / desktop-1920 / mobile-375）。
+#   gitignore 的 `*` **不跨越目录分隔符**，所以那条规则从未命中过 ——
+#   30 个原站参考截图一直被 Git 跟踪。
+#   `docs/evidence/screenshots/**/ref-*.png` 才能覆盖任意深度的视口子目录。
 docs/evidence/html/
 docs/evidence/assets/
+docs/evidence/screenshots/**/ref-*.png
 docs/evidence/screenshots/ref-*.png
 docs/evidence/visual/diff-*.png
+docs/evidence/visual/**/diff-*.png
 
 # 本地验证用环境文件（含测试口令，不入库）
 .env.prod-verify

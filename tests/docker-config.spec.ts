@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { repoRoot } from './helpers/local-bin';
@@ -358,5 +359,45 @@ describe('开源发布条件（P0-7）', () => {
     const plan = read('docs/HISTORY_CLEANUP_PLAN.md');
     expect(plan).toContain('git filter-repo');
     expect(plan).toContain('需单独授权');
+  });
+});
+
+describe('原站素材不入库（P0-6 关键不变量）', () => {
+  /** 读取 Git 实际跟踪的文件列表 */
+  const tracked = execFileSync('git', ['ls-files'], {
+    encoding: 'utf8',
+    cwd: repoRoot,
+  })
+    .split(/\r?\n/)
+    .filter(Boolean);
+
+  it('版本控制中没有任何原站 HTML/CSS/JS 副本', () => {
+    const hits = tracked.filter((f) => /^docs\/evidence\/(html|assets)\//.test(f));
+    expect(hits, `原站源码副本仍在版本控制中: ${hits.join(', ')}`).toHaveLength(0);
+  });
+
+  it('版本控制中没有任何原站参考截图（ref-*.png）', () => {
+    const hits = tracked.filter((f) => /(^|\/)ref-[^/]*\.png$/.test(f));
+    expect(hits, `原站参考截图仍在版本控制中: ${hits.join(', ')}`).toHaveLength(0);
+  });
+
+  it('我方自己产出的截图（local-*.png）仍然保留', () => {
+    const hits = tracked.filter((f) => /(^|\/)local-[^/]*\.png$/.test(f));
+    expect(hits.length, '我方产出的截图应保留在版本控制中').toBeGreaterThan(0);
+  });
+
+  it('.gitignore 的规则覆盖视口子目录（曾经的真实缺陷）', () => {
+    // 原规则写作 docs/evidence/screenshots/ref-*.png，
+    // 而实际文件在 desktop-1280 / desktop-1920 / mobile-375 子目录里。
+    // gitignore 的 * 不跨越目录分隔符 → 那条规则从未命中过，
+    // 30 个原站参考截图一直被 Git 跟踪。
+    const ignore = read('.gitignore');
+    expect(ignore).toContain('docs/evidence/screenshots/**/ref-*.png');
+  });
+
+  it('.gitignore 仍然忽略原站 HTML/CSS/JS 目录', () => {
+    const ignore = read('.gitignore');
+    expect(ignore).toContain('docs/evidence/html/');
+    expect(ignore).toContain('docs/evidence/assets/');
   });
 });

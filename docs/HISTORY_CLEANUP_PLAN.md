@@ -65,7 +65,7 @@ f797bfd V2EX 高保真全栈复刻：逆向调查 + 实现 + 视觉还原 + E2E 
 | 类别 | 数量 | 内容 | 是否仍在 HEAD 文件树 | 是否仅存在于历史 |
 |---|---|---|---|---|
 | **A 类** | 48 | 原站页面 HTML（46）+ 组合 CSS/JS（2） | ❌ 已移除 | ✅ **仅在 `75c9508`** |
-| **B 类** | 30 | 原站参考截图 `ref-*.png` | ✅ 仍在 | ✅ 历史 + HEAD |
+| **B 类** | 30 | 原站参考截图 `ref-*.png` | ❌ 已移除（本 PR） | ✅ 历史 + HEAD |
 | **C 类** | 0 | 差异热力图 `diff-*.png` | — | 已在 `b6230fc` 移除 |
 
 A 类明细（`docs/evidence/html/*.html` 46 个 + `docs/evidence/assets/combo.css`、`combo.js`）。
@@ -87,12 +87,52 @@ ae15715（ENV_FILE 修复） 75 个 evidence 文件
 在 `b6230fc` 已被 `git rm --cached` 移出文件树。
 B 类（30 个原站截图）**当前 HEAD 仍在文件树里**，是本轮需要一并处理的。
 
-### 2.3 仓库当前的其他状态
+### 2.3 新发现：`.gitignore` 规则从未命中（已在本 PR 修复）
+
+`.gitignore` 里写的是：
+
+```
+docs/evidence/screenshots/ref-*.png
+```
+
+但实际文件在**子目录**里（`desktop-1280/`、`desktop-1920/`、`mobile-375/`）。
+gitignore 的 `*` **不跨越目录分隔符**，所以这条规则从未命中 ——
+**30 个原站参考截图一直被 Git 跟踪**。
+
+已修正为 `docs/evidence/screenshots/**/ref-*.png`（覆盖任意深度），
+并用 `git rm --cached` 把这 30 个文件移出版本控制（本机文件保留，
+供继续做视觉比对分析）。
+
+> 这也解释了为什么 `.gitignore` 看起来"该做的都做了"，实际却仍有素材入库。
+> 本 PR 新增了回归测试，直接读 `git ls-files` 断言：
+> 版本控制中不含任何 `ref-*.png` 与原站 HTML/CSS/JS。
+
+### 2.4 仓库可见性：已被改为 public
+
+⚠️ **重要**：本轮复审开始时，仓库已是 `public`（匿名可访问），
+而上一轮复审的记录是 `private`。
+
+我在**所有会话记录**中检索了可见性变更命令：
+- 仓库创建时用的是 `gh repo create v2ex-clone --private`；
+- 没有任何 `gh repo edit --visibility public` 的实际调用。
+
+因此该变更是**在会话之外**发生的（GitHub 网页界面，或其他工具）。
+
+影响：仓库已公开，而 B 类原站截图当时仍在 HEAD —— 这正是需要尽快
+执行历史清理的原因。本 PR 已先移除 B 类（降低当前暴露面），
+但 A 类（48 个原站 HTML/CSS/JS）仍在 `75c9508` 的历史里，
+公开仓库下任何人执行 `git show 75c9508:docs/evidence/html/index.html`
+都能取回。
+
+**结论：历史清理的优先级因为公开化而显著上升。**
+具体执行仍需你单独授权。
+
+### 2.5 仓库当前的其他状态
 
 | 项 | 值 |
 |---|---|
 | 远端 | `https://github.com/alicia1030su/v2ex-clone` |
-| 可见性 | `private` |
+| 可见性 | **`public`**（已公开，见 §2.4） |
 | 分支 | 仅 `master`（4 个提交） |
 | Release | 无 |
 | Tag | 无 |
