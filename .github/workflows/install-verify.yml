@@ -343,12 +343,29 @@ jobs:
         shell: powershell
         run: |
           $inst = "${{ runner.temp }}\inst"
-          # Capture every stream: install.ps1 reports with Write-Host,
-          # which goes to the Information stream (3) and is NOT captured by
-          # a plain 2>&1 | Out-String pipeline.
-          $r = (& powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" 2>&1 3>&1 | Out-String)
-          $code = $LASTEXITCODE
+          # Redirect the script output to FILES instead of relying on
+          # PowerShell stream capture.
+          # Why: install.ps1 reports with Write-Host (Information stream),
+          # which a plain `2>&1 | Out-String` pipeline does NOT capture,
+          # and its `exit 1` can end the child process before the pipe
+          # is flushed. Start-Process redirection captures the host stdout,
+          # which includes Write-Host output, and -PassThru gives the
+          # exit code.
+          $outFile = Join-Path $inst 'install-stdout.txt'
+          $errFile = Join-Path $inst 'install-stderr.txt'
+          $proc = Start-Process -FilePath 'powershell' `
+            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $inst 'install.ps1')) `
+            -RedirectStandardOutput $outFile `
+            -RedirectStandardError $errFile `
+            -NoNewWindow -Wait -PassThru
+          $code = $proc.ExitCode
+          $r = ''
+          if (Test-Path $outFile) { $r = (Get-Content $outFile -Raw) }
+          if ((Test-Path $errFile) -and (Get-Item $errFile).Length -gt 0) {
+            $r = $r + [Environment]::NewLine + (Get-Content $errFile -Raw)
+          }
           Write-Output ("  exit code: " + $code)
+          Write-Output ("  captured length: " + $r.Length)
           Write-Output "  ----- output -----"
           Write-Output $r
           # IMPORTANT: this run block must stay pure ASCII.
