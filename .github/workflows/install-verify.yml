@@ -346,20 +346,21 @@ jobs:
           $r = & powershell -NoProfile -ExecutionPolicy Bypass -File "$inst\install.ps1" 2>&1 | Out-String
           Write-Output "  ----- output -----"
           Write-Output $r
-          # Detection notes (both were real bugs in earlier revisions):
-          #   1. -notmatch is case-SENSITIVE; the script prints "docker" or
-          #      "Docker" depending on which check failed.
-          #   2. The script's messages are in Chinese, so an English-only
-          #      failure-signal pattern never matches.
-          # Signal = docker mentioned (case-insensitive) AND a failure marker
-          # (Chinese or English). Verified against 5 sample outputs.
+          # IMPORTANT: this run block must stay pure ASCII.
+          # GitHub Actions writes `run:` blocks to a temporary UTF-8
+          # **BOM-less** .ps1 file; Windows PowerShell 5.1 then reads it
+          # using the system ANSI code page, which corrupts non-ASCII
+          # characters and breaks parsing entirely.
+          # (Same root cause as the missing UTF-8 BOM in deploy/install.ps1.)
+          #
+          # So the failure signal is checked by **exit code** plus a
+          # case-insensitive ASCII keyword, never by matching the Chinese
+          # error text.
           $hasDocker = $r -imatch 'docker'
-          $hasFail = ($r -match '错误|失败|未检测到|未安装|未运行') -or `
-                     ($r -imatch 'not detected|not installed|not running|fail|error|denied')
-          if ($hasDocker -and $hasFail) {
-            Write-Output "  [OK] clear docker-related error shown"
+          if ($LASTEXITCODE -ne 0 -and $hasDocker) {
+            Write-Output "  [OK] clear docker-related error shown (exit $LASTEXITCODE)"
           } else {
-            Write-Output "  [FAIL] no clear docker-related error"
+            Write-Output "  [FAIL] no clear docker-related error (exit $LASTEXITCODE)"
             exit 1
           }
 
