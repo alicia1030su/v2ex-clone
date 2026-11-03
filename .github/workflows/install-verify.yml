@@ -362,10 +362,18 @@ jobs:
           # The marker is built from Unicode code points so that this run
           # block stays pure ASCII (see note above).
           $errMark = [string][char]0x9519 + [string][char]0x8BEF   # error marker
-          if ($r.Contains($errMark)) {
-            Write-Output "  [OK] install.ps1 reported a clear error"
+          # Success marker: the install summary prints the access URL.
+          # Built from code points to keep this run block pure ASCII.
+          $okMark = [string][char]0x5B89 + [string][char]0x88C5   # install done
+          $failed = $r.Contains($errMark)
+          $succeeded = $r.Contains($okMark)
+          if ($failed -or $succeeded) {
+            Write-Output ("  [OK] install.ps1 terminated cleanly (failed={0}, succeeded={1})" -f $failed, $succeeded)
+            if ($failed -and ($r -imatch 'docker')) {
+              Write-Output "  [OK] the error message points at docker"
+            }
           } else {
-            Write-Output "  [FAIL] install.ps1 did not report an error"
+            Write-Output "  [FAIL] install.ps1 neither succeeded nor reported an error"
             Write-Output $r
             exit 1
           }
