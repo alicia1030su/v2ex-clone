@@ -261,18 +261,25 @@ jobs:
       - name: 记录依赖树
         run: npm ls --depth=0 > npm-ls.txt 2>&1 || true
 
-      - name: 秘密扫描（gitleaks，扫描当前工作区）
+      - name: 秘密扫描（gitleaks，扫描 Git 跟踪的文件）
         run: |
           set -euo pipefail
           # 直接调用 CLI，而不是用 gitleaks/gitleaks-action。
           #
-          # 原因（实测 v3.0.0 的 src/gitleaks.js）：该 Action 的命令是**硬编码**的，
+          # 原因一（实测 v3.0.0 的 src/gitleaks.js）：该 Action 的命令是**硬编码**的，
           # 它**不读 `args` 输入** —— 实际执行的是：
           #   gitleaks detect --redact -v --exit-code=2 --report-format=sarif ...
           #   --log-opts=--no-merges --first-parent <base>^..<head>
           # 也就是说它**必定扫描 git 历史**，无法通过 action 参数改成扫工作区。
           #
-          # 为什么必须扫工作区而不是历史（实测结论）：
+          # 原因二（实测 2026-11-03 这次真实运行的日志）：
+          #   tag push 事件的 payload 里 commits 数组是**空的**，
+          #   Action 走到 `if (eventJSON.commits.length === 0)` 分支，
+          #   打印 "No commits to scan" 后 **process.exit(0)** ——
+          #   扫描**一步都没跑**，却返回成功。
+          #   这是最危险的一种失败：秘密扫描看起来通过了，实际上什么都没检查。
+          #
+          # 为什么必须避开 git 历史（实测结论）：
           #   仓库历史里曾提交过原站 HTML 素材副本（docs/evidence/html/），
           #   其中含 Google AdSense 账号 ca-pub-5060390720525238、
           #   Solana 代币地址 9raUVuzeWUk53co63M4WXLWPWE4Xc6Lpn7RS9dnkpump 等
@@ -281,8 +288,7 @@ jobs:
           #   模拟全历史扫描，实测命中 **274 条** —— 必然让流水线失败，
           #   而它们既不是本项目的凭据，也不是真实泄露。
           #
-          #   这些素材在当前 commit 中已不再被 Git 跟踪，
-          #   所以扫描**当前工作区**既覆盖了真正需要保护的东西，又不被历史噪声卡死。
+          #   这些素材在当前 commit 中已不再被 Git 跟踪。
           #
           #   若将来要恢复全历史扫描，正确做法是先用 gitleaks 生成 baseline
           #   （gitleaks detect --generate-config）并把 baseline 提交入库，
@@ -295,7 +301,28 @@ jobs:
           chmod +x /tmp/gitleaks
           /tmp/gitleaks version
 
-          # --no-git：把仓库当普通目录扫描，只看当前工作区内容
+          # 只把**Git 跟踪的文件**复制到独立目录再扫描。
+          #
+          # 为什么不直接 `--no-git --source .`：
+          #   --no-git 模式会 walk 整个目录树（只跳过 .git/），**不认 .gitignore**，
+          #   会把 .next/（112MB 构建产物）、test-results/（48MB 截图）一起扫进去 ——
+          #   又慢又会引入构建产物里的噪声。
+          #
+          # 为什么不用 `git ls-files -z | xargs -0 gitleaks ...`：
+          #   gitleaks 一次只能接一个 --source 目录。
+          #   复制到独立目录后用 --no-git 扫，语义就精确等于「扫描 Git 跟踪的文件」。
+          rm -rf /tmp/gitleaks-scan && mkdir -p /tmp/gitleaks-scan
+          # -z 处理含空格/换行的路径；--others 排除未跟踪文件；
+          # -z 让 xargs 能正确分隔 NUL 分隔的路径
+          git ls-files -z | tar --null -T - -cf - | tar -xf - -C /tmp/gitleaks-scan
+          FILE_COUNT="$(find /tmp/gitleaks-scan -type f | wc -l | tr -d ' ')"
+          echo "待扫描的 Git 跟踪文件数：$FILE_COUNT"
+          if [ "$FILE_COUNT" -lt 1 ]; then
+            echo "::error::没有取到任何 Git 跟踪文件，扫描无法进行（中止，避免假通过）"
+            exit 1
+          fi
+
+          # --no-git：把上一步的目录当普通目录扫描
           # --exit-code=1：发现泄露即失败
           # --redact：报告里不打印明文
           set +e
@@ -306,7 +333,7 @@ jobs:
             --exit-code=1 \
             --report-format=json \
             --report-path=gitleaks-report.json \
-            --source . 2>&1 | tee gitleaks-output.txt
+            --source /tmp/gitleaks-scan 2>&1 | tee gitleaks-output.txt
           GL_EXIT=${PIPESTATUS[0]}
           set -e
           echo "gitleaks 退出码：$GL_EXIT"
