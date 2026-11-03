@@ -294,12 +294,32 @@ jobs:
           #   （gitleaks detect --generate-config）并把 baseline 提交入库，
           #   而不是放宽规则或加忽略。
           GITLEAKS_VERSION=8.18.4
+          # 资产名是 linux_x64（不是 linux_amd64 —— 官方用 Go 的 GOARCH 命名）。
+          # 写错会得到 404，curl -f 会直接以退出码 22 中止流水线。
           curl -sSfL --retry 3 --max-time 120 \
             -o /tmp/gitleaks.tar.gz \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_amd64.tar.gz"
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          # 校验官方 checksum，防止下载到被篡改的二进制
+          curl -sSfL --retry 3 --max-time 120 \
+            -o /tmp/gitleaks-checksums.txt \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          cd /tmp
+          # 只校验 linux_x64 那一条（checksums 文件里的路径名与 tar.gz 内一致）
+          EXPECTED="$(grep "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks-checksums.txt | awk '{print $1}')"
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::checksums 文件里找不到 linux_x64 的条目"
+            exit 1
+          fi
+          ACTUAL="$(sha256sum gitleaks.tar.gz | awk '{print $1}')"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::gitleaks 二进制校验和不匹配（期望 $EXPECTED，实际 $ACTUAL）"
+            exit 1
+          fi
+          echo "✓ gitleaks 二进制 checksum 校验通过"
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           chmod +x /tmp/gitleaks
           /tmp/gitleaks version
+          cd "$GITHUB_WORKSPACE"
 
           # 只把**Git 跟踪的文件**复制到独立目录再扫描。
           #
