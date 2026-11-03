@@ -323,14 +323,25 @@ done
 # 步骤 2：拉取镜像并启动
 # ---------------------------------------------------------------------------
 info "拉取镜像（首次需要下载，请耐心等待）..."
-if ! docker compose pull; then
-  warn "docker compose pull 失败。"
+# 拉取失败**不一定**是致命错误：
+#   - 镜像可能已在本机存在（离线安装 / 内网镜像仓库 / 预置镜像）
+#   - 某些环境无法访问 ghcr.io，但本地已有同 tag 镜像
+# 因此先尝试拉取；失败时检查本地是否已有该镜像，有则继续，没有才中止。
+IMAGE_REF="$(read_env_value V2EX_IMAGE)"
+IMAGE_REF="${IMAGE_REF:-$DEFAULT_IMAGE}"
+if docker compose pull; then
+  ok "镜像拉取完成"
+elif docker image inspect "$IMAGE_REF" >/dev/null 2>&1; then
+  warn "拉取失败，但本机已存在镜像 ${IMAGE_REF}，继续使用本地镜像。"
+  warn "如需更新到最新版本，请检查网络后执行 'docker compose pull'。"
+  ok "使用本机已有镜像：${IMAGE_REF}"
+else
+  warn "docker compose pull 失败，且本机没有镜像 ${IMAGE_REF}。"
   warn "常见原因：网络无法访问 ghcr.io。可改用国内镜像源，或先手动执行："
-  warn "  docker pull ${DEFAULT_IMAGE}"
+  warn "  docker pull ${IMAGE_REF}"
   warn "拉取成功后重新运行本脚本即可。"
   die "镜像拉取失败，安装中止。"
 fi
-ok "镜像拉取完成"
 
 info "启动容器..."
 if ! docker compose up -d; then
