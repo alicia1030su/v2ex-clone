@@ -44,6 +44,34 @@ ok()   { printf '%s[成功]%s %s\n' "$C_GRN" "$C_RST" "$*"; }
 warn() { printf '%s[警告]%s %s\n' "$C_YLW" "$C_RST" "$*" >&2; }
 die()  { printf '%s[错误]%s %s\n' "$C_RED" "$C_RST" "$*" >&2; exit 1; }
 
+# restrict_to_owner <文件>
+#
+# 把文件权限限制为「仅当前用户可读写」。
+#
+# 注意：**Windows 上 chmod 是空操作** —— NTFS 不支持 POSIX 权限位，
+# 即使 `chmod 600` 成功返回，文件对同机其他用户依然可读（实测仍显示 644）。
+# 因此 Windows 下改用 icacls 移除继承的 ACL 并只授予当前用户完全控制。
+restrict_to_owner() {
+  _f="$1"
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW* | MSYS* | CYGWIN* | Windows_NT)
+      if command -v icacls >/dev/null 2>&1; then
+        # 转成 Windows 原生路径（Git Bash 下 /c/... 形式 icacls 不认）
+        _winpath="$(cygpath -w "$_f" 2>/dev/null || echo "$_f")"
+        # 移除继承的权限，再只授予当前用户完全控制
+        MSYS_NO_PATHCONV=1 icacls "$_winpath" /inheritance:r >/dev/null 2>&1 || true
+        MSYS_NO_PATHCONV=1 icacls "$_winpath" /grant:r "$(whoami 2>/dev/null || echo '*'):(F)" >/dev/null 2>&1 || true
+        return 0
+      fi
+      warn "无法调用 icacls，${_f} 的访问权限未被收紧；建议安装后立即修改管理员密码。"
+      ;;
+    *)
+      chmod 600 "$_f" 2>/dev/null \
+        || warn "无法把 ${_f} 权限设为 600，请手动执行：chmod 600 ${_f}"
+      ;;
+  esac
+}
+
 # ---------------------------------------------------------------------------
 # 步骤 0：前置条件检查
 # ---------------------------------------------------------------------------
@@ -246,7 +274,7 @@ if [ ! -f "$ENV_FILE" ]; then
   set_env_value V2EX_IMAGE "$DEFAULT_IMAGE"
   unset POSTGRES_PASSWORD_NEW REDIS_PASSWORD_NEW SESSION_SECRET_NEW
 
-  chmod 600 "$ENV_FILE" 2>/dev/null || warn "无法把 .env 权限设为 600，请手动执行：chmod 600 .env"
+  restrict_to_owner "$ENV_FILE"
 
   # 管理员凭据单独落盘（600），便于用户后续查看；明确告知路径。
   umask 077
@@ -260,7 +288,8 @@ if [ ! -f "$ENV_FILE" ]; then
     printf '管理员邮箱: %s\n' "$(read_env_value SEED_ADMIN_EMAIL)"
     printf '管理员初始密码: %s\n' "$ADMIN_PASSWORD_NEW"
   } > "$CRED_FILE"
-  chmod 600 "$CRED_FILE" 2>/dev/null || true
+  # 设置仅当前用户可读（Linux 用 chmod；Windows 用 icacls —— 见 restrict_to_owner）
+  restrict_to_owner "$CRED_FILE"
   umask 022
 
   ok "已生成 .env（权限 600）与随机口令"
