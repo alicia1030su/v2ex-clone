@@ -1,9 +1,9 @@
-# V2EX Clone v0.0.1 — 详细安装与运维文档
+# V2EX Clone v0.0.2 — 详细安装与运维文档
 
 > **⚠️ 免责声明**
 > 本项目与 V2EX 官方**无任何关联**，是独立技术研究项目，未获官方授权。
 > "V2EX" 是 V2EX 及其权利人的商标，本项目不主张任何商标使用权。
-> v0.0.1 为**早期开发预览版**，可能存在缺陷，不建议用于生产环境。
+> v0.0.2 为**早期开发预览版**，可能存在缺陷，不建议用于生产环境。
 
 本文档比 `README.md` 更完整，覆盖前置条件、逐步安装、验证、配置说明、
 端口、安全建议、升级、卸载与常见错误。
@@ -71,7 +71,7 @@ docker info          # 守护进程在运行
 ### 2.1 解压
 
 ```bash
-unzip v2ex-clone-v0.0.1-deploy.zip -d v2ex-clone-deploy
+unzip v2ex-clone-v0.0.2-deploy.zip -d v2ex-clone-deploy
 cd v2ex-clone-deploy
 ```
 
@@ -142,7 +142,7 @@ docker compose ps
 
 ```
 NAME           IMAGE                                        STATUS
-v2ex-app       ghcr.io/alicia1030su/v2ex-clone:v0.0.1        Up (healthy)
+v2ex-app       ghcr.io/alicia1030su/v2ex-clone:v0.0.2        Up (healthy)
 v2ex-postgres  postgres:17-alpine                           Up (healthy)
 v2ex-redis     redis:7-alpine                               Up (healthy)
 ```
@@ -189,7 +189,7 @@ docker compose exec redis redis-cli -a "$(grep '^REDIS_PASSWORD=' .env | cut -d=
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `V2EX_IMAGE` | `ghcr.io/alicia1030su/v2ex-clone:v0.0.1` | 应用镜像。改成本地镜像名可离线安装 |
+| `V2EX_IMAGE` | `ghcr.io/alicia1030su/v2ex-clone:v0.0.2` | 应用镜像。改成本地镜像名可离线安装 |
 | `COMPOSE_PROJECT_NAME` | `v2ex` | Compose 项目名。固定后数据卷名稳定，备份/恢复脚本能精确定位 |
 | `APP_PORT` | `3000` | 宿主机映射端口。改端口**必须**同步改下面两项 |
 | `APP_URL` | `http://localhost:3000` | 对外访问地址。会话 Cookie 的 `secure` 标记依赖正确的主机名 |
@@ -389,7 +389,7 @@ docker system prune -a   # 清理无用镜像与构建缓存（**不影响数据
 
 **回滚**：把 `.env` 里的 `V2EX_IMAGE` 改回旧 tag，再跑 `./update.sh`。
 
-> ⚠️ v0.0.1 处于预览阶段，**迁移脚本不保证向后兼容**。
+> ⚠️ v0.0.2 处于预览阶段，**迁移脚本不保证向后兼容**。
 > 预览版本之间的升级请务必先备份。
 
 ---

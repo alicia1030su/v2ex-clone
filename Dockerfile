@@ -35,7 +35,6 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 RUN mkdir -p /app/public
 COPY --from=builder --chown=nextjs:nodejs /app/public/ /app/public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
@@ -49,6 +48,34 @@ COPY --from=builder --chown=nextjs:nodejs /app/src/db ./src/db
 # 整目录拷贝会把带 `import 'server-only'` 的模块也带进去 —— 那在纯 Node
 # 环境下会抛错，反而让容器里的运维脚本无法运行。
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib/password.ts ./src/lib/password.ts
+
+# ---------------------------------------------------------------------------
+# 生产依赖（2026-11-04 重做）
+#
+# 修复前的真实缺陷：runner 层直接 `COPY --from=builder /app/node_modules`，
+# 把**整个** node_modules（含全部 devDependencies）搬进了最终镜像 ——
+# 本机实测 node_modules 共 530 MB，其中：
+#   @playwright/test + vitest + typescript + @types/* + pixelmatch + pngjs
+#   全部是**测试期工具**，生产运行时一个都用不到。
+# 此外 devDependencies 里还带着 GHSA-67mh-4wv8-2f99 的受影响版本
+# （@esbuild-kit/core-utils → esbuild 0.18.20），等于把漏洞版本一起发了出去。
+#
+# 现在的做法：runner 层用 `npm ci --omit=dev` 按依赖图装**生产依赖**。
+#
+# 关键前提：drizzle-kit 与 tsx 已从 devDependencies **上移到 dependencies**
+# —— 它们不是测试工具，而是容器启动的真实运行时依赖：
+#   - drizzle-kit：entrypoint 阶段 1「迁移」（node node_modules/drizzle-kit/bin.cjs migrate）
+#   - tsx：entrypoint 阶段 2「首次初始化」（node node_modules/tsx/dist/cli.mjs scripts/seed.ts）
+# 漏掉任何一个，容器都起不来。
+#
+# 为什么不整目录 COPY builder 的 node_modules：那会把测试工具链一起带上，
+# 既 bloating 镜像又把漏洞版本带进生产。npm ci --omit=dev 是按依赖图裁剪的，
+# 只会装真正需要的闭包。
+# ---------------------------------------------------------------------------
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund \
+ && npm cache clean --force \
+ && rm -rf /root/.npm
 
 USER nextjs
 EXPOSE 3000

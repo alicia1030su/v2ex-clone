@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.1 — 一键安装脚本（Linux / macOS）
+# V2EX Clone v0.0.2 — 一键安装脚本（Linux / macOS）
 #
 # 用法：
 #   chmod +x install.sh && ./install.sh
@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_VERSION="0.0.1"
-DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.1"
+DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.2"
 ENV_FILE="$SCRIPT_DIR/.env"
 ENV_TEMPLATE="$SCRIPT_DIR/.env.example"
 CRED_FILE="$SCRIPT_DIR/INSTALL_CREDENTIALS.txt"

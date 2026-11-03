@@ -1,5 +1,5 @@
 ﻿# ---------------------------------------------------------------------------
-# V2EX Clone v0.0.1 — 一键安装脚本（Windows PowerShell）
+# V2EX Clone v0.0.2 — 一键安装脚本（Windows PowerShell）
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 # --- 常量 ------------------------------------------------------------------
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppVersion     = '0.0.1'
-$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.1'
+$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.2'
 $EnvFile        = Join-Path $ScriptDir '.env'
 $EnvTemplate    = Join-Path $ScriptDir '.env.example'
 $CredFile       = Join-Path $ScriptDir 'INSTALL_CREDENTIALS.txt'

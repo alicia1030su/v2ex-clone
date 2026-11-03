@@ -5,12 +5,18 @@
 > 本项目与 V2EX 官方**无任何关联**，是独立技术研究项目，未获官方授权，
 > 不是 V2EX 官方产品，不代表任何形式的官方背书。
 >
-> **v0.0.1 是开发预览版（Pre-release）**，功能尚未完备，**未经生产环境验证**，
+> **v0.0.2 是开发预览版（Pre-release）**，功能尚未完备，**未经生产环境验证**，
 > **不建议用于生产环境**。界面与原站存在差异，**不保证与 V2EX 完全一致**。
 
-本文档面向 **v0.0.1** 发布版的部署。
+本文档面向 **v0.0.2** 发布版的部署。
 只想**跑起来看看**请直接看 [`INSTALL.md`](INSTALL.md)；
 想**长期运维**请继续往下读。
+
+> **从 v0.0.1 升级？** 请看 [`UPGRADE-v0.0.2.md`](UPGRADE-v0.0.2.md) ——
+> 它专门覆盖升级步骤、回滚说明与已知问题。
+>
+> **镜像地址**：`ghcr.io/alicia1030su/v2ex-clone:v0.0.2`
+> （v0.0.1 的镜像 `...:v0.0.1` 仍可拉取，**不会被覆盖**）
 
 ---
 
@@ -100,14 +106,52 @@ TEST_ENV_ISOLATED: '0'
 ### 3.1 用发行包（推荐）
 
 ```bash
-unzip v2ex-clone-v0.0.1-deploy.zip -d v2ex-clone-deploy
+unzip v2ex-clone-v0.0.2-deploy.zip -d v2ex-clone-deploy
 cd v2ex-clone-deploy
 chmod +x install.sh start.sh stop.sh update.sh backup.sh restore.sh
 ./install.sh
 ```
 
 脚本会自动生成 `.env`（含随机口令，权限 600）、
-拉取镜像 `ghcr.io/alicia1030su/v2ex-clone:v0.0.1`、启动容器并等待健康检查。
+拉取镜像 `ghcr.io/alicia1030su/v2ex-clone:v0.0.2`、启动容器并等待健康检查。
+
+### 3.1.1 GHCR 可见性说明
+
+发行包从 **GitHub Container Registry** 拉取预构建镜像。
+镜像地址与可见性：
+
+| 项 | 值 |
+|---|---|
+| 仓库 | `ghcr.io/alicia1030su/v2ex-clone` |
+| v0.0.2 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.2` |
+| v0.0.1 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.1`（**保留，不覆盖**） |
+| 可见性 | **Public** —— 可匿名 `docker pull`，无需 GitHub 登录 |
+
+**如果 `docker pull` 报 `denied` / `unauthorized`：**
+
+```bash
+docker pull ghcr.io/alicia1030su/v2ex-clone:v0.0.2
+# Error response from daemon: denied: requested access to the resource is denied
+```
+
+说明该 GHCR 包**没有开放匿名拉取**。三种处理方式：
+
+1. **（推荐）** 把该包设为 public：
+   仓库 → **Packages** → 找到 `v2ex-clone` → **Package settings** →
+   **Change visibility** → **Public**。
+2. **登录后拉取**：`docker login ghcr.io`（需要对该包有读权限的账号）。
+3. **完全绕开 GHCR**：用源码仓库本地构建，不需要访问 GHCR ——
+   ```bash
+   git clone https://github.com/alicia1030su/v2ex-clone.git
+   cd v2ex-clone && cp .env.example .env
+   # 填好 .env 后
+   docker compose up -d --build
+   ```
+
+> **为什么可见性会变**：GHCR 包的可见性默认**链接**到所属仓库的可见性。
+> 若仓库关联关系变化，或包被单独设为 private，匿名拉取会**静默失效**。
+> 发布流水线的 `verify-release` job 内含**匿名 `docker pull` 实测**，
+> 失败即让发布失败并回退为 draft —— 所以正式发布的版本一定是可匿名拉取的。
 
 ### 3.2 用源码仓库
 
@@ -239,7 +283,7 @@ npm run db:migrate                       # 应用未执行的迁移
 psql "$DATABASE_URL" -c "select id, hash, created_at from drizzle.__drizzle_migrations;"
 ```
 
-> ⚠️ **v0.0.1 是预览版，迁移脚本不保证向后兼容。**
+> ⚠️ **v0.0.2 是预览版，迁移脚本不保证向后兼容。**
 > 预览版本之间的升级请务必先备份（见第 8 节）。
 
 ---
@@ -478,7 +522,7 @@ docker inspect v2ex-app --format '{{.State.Health.Status}}'
 | 容器重启次数 | `docker inspect --format '{{.RestartCount}}'` | 持续增长说明应用崩溃循环 |
 | 数据卷磁盘占用 | `docker system df` | 接近上限时告警 |
 
-### 10.4 v0.0.1 的监控限制
+### 10.4 v0.0.2 的监控限制
 
 **本版本没有内置监控端点、指标导出（Prometheus）或告警集成。**
 上面的指标都需要你自己通过 `docker compose logs` + 数据库查询 + 宿主机监控来采集。
@@ -500,21 +544,27 @@ docker compose up -d          # 就地重建容器，数据卷保留
 发行包提供了封装好的版本：
 
 ```bash
-sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.0|' .env
+sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.1|' .env
 ./update.sh
 ```
+
+> 从 v0.0.2 回滚到 v0.0.1 的完整步骤（含备份、验证、Windows 版本）见
+> [`UPGRADE-v0.0.2.md`](UPGRADE-v0.0.2.md) §5。
 
 ### 11.2 ⚠️ 容器 tag 不可移动
 
 **同一个 tag 一旦发布就不应重新指向另一个镜像。**
 
 - tag 是**不可变**的，这是容器生态的基本约定；
-- 如果把 `v0.0.1` 重新指向一个不同的镜像，回滚时会拉到**错误的镜像**，
+- 如果把 `v0.0.2` 重新指向一个不同的镜像，回滚时会拉到**错误的镜像**，
   且问题排查会变得极其困难；
+- **本项目已发布版本的 tag 与资产一律不覆盖**：
+  `v0.0.1` 与 `v0.0.2` 都保持原样。修正缺陷的路径是**发布下一个版本**
+  （如 `v0.0.3`），而不是重推既有 tag；
 - 需要精确回滚时，用 **digest** 而非 tag：
 
 ```bash
-docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/alicia1030su/v2ex-clone:v0.0.1
+docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/alicia1030su/v2ex-clone:v0.0.2
 # ghcr.io/alicia1030su/v2ex-clone@sha256:abcd1234...
 
 # 把 .env 改成 digest 形式
@@ -608,8 +658,8 @@ sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.0|' .en
 
 | # | 限制 | 说明 | 应对 |
 |---|---|---|---|
-| 1 | **GHCR 匿名拉取需包为 public** | 若 `docker pull ghcr.io/alicia1030su/v2ex-clone:v0.0.1` 报 `denied` / `unauthorized`，说明该 GHCR 包**未开放匿名拉取** | 把该包设为 public；或改用「源码仓库 + 本地构建」方式（`docker compose up -d --build`），不需要访问 GHCR |
-| 2 | **未经生产环境验证** | v0.0.1 仅在开发机与 CI 隔离容器中验证过。**未做**压力测试、**未做**长时间运行稳定性验证 | 先在预发环境跑一段时间，监控到位后再上生产 |
+| 1 | **GHCR 匿名拉取需包为 public** | 若 `docker pull ghcr.io/alicia1030su/v2ex-clone:v0.0.2` 报 `denied` / `unauthorized`，说明该 GHCR 包**未开放匿名拉取** | 把该包设为 public；或改用「源码仓库 + 本地构建」方式（`docker compose up -d --build`），不需要访问 GHCR |
+| 2 | **未经生产环境验证** | v0.0.2 仅在开发机与 CI 隔离容器中验证过。**未做**压力测试、**未做**长时间运行稳定性验证 | 先在预发环境跑一段时间，监控到位后再上生产 |
 | 3 | **Redis 路径未做长期观测** | CI 用真实 Redis 验证了清空限流路径，但未观测长时间运行的内存增长与键空间膨胀 | 保持 Redis 运行，监控其内存占用 |
 | 4 | **Docker Compose 未做长时间运行验证** | CI 验证了「构建 → 启动 → 健康检查 → 重启不污染数据」，但未验证长期运行的资源占用与日志膨胀 | 监控容器内存与日志大小 |
 | 5 | **没有内置监控与指标导出** | 无 Prometheus `/metrics`、无告警集成 | 用宿主机监控 + 日志采集自行补齐 |
@@ -618,6 +668,9 @@ sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.0|' .en
 | 8 | **预览版迁移不保证向后兼容** | v0.0.x 之间的迁移可能破坏数据兼容性 | 升级前必备份；生产建议固定 digest，回滚前先确认迁移兼容性 |
 | 9 | **未实现的功能较多** | 见 [`README.md`](../README.md) 的「未实现」表 | 按需在源码分支自行补齐 |
 | 10 | **原站素材的 Git 历史清理未执行** | 当前 HEAD 的文件树中已无原站 HTML / CSS / JS 与参考截图，**但 Git 历史中仍可取回** | 历史改写不可逆，**尚未获授权执行**；方案与演练记录为仓库维护者内部记录，未公开 |
+| 11 | **生产镜像不含测试工具链** | v0.0.2 起，生产镜像按 `npm ci --omit=dev` 安装依赖，**不包含** `vitest` / `@playwright/test` / `typescript` | 这是**预期行为**。测试请在源码仓库或 CI 里跑，不要在生产容器里跑 |
+| 12 | **镜像体积与非 root 运行本机未实测** | 开发环境**没有 Docker**，镜像体积数值与 `USER nextjs` 的实际运行效果无法在本地验证 | 由 CI 的 `docker` job 与发布流水线的 `build-image` job 在真实 Docker 环境构建并启动时验证；发布门槛见 [`RELEASE_GATE_v0.0.2.md`](RELEASE_GATE_v0.0.2.md) D7 / D8 |
+| 13 | **Windows 只有 `install.ps1`** | 发行包中 `backup.sh` / `restore.sh` / `update.sh` / `start.sh` / `stop.sh` **均无** `.ps1` 对应版本 | Windows 用户按 [`UPGRADE-v0.0.2.md`](UPGRADE-v0.0.2.md) §3.2 / §5.4 的手工步骤操作，或使用 WSL / Git Bash |
 
 ---
 

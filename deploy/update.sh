@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.1 — 升级脚本
+# V2EX Clone v0.0.2 — 升级脚本
 #
 # 用法：./update.sh
 #
@@ -35,7 +35,7 @@ docker compose version >/dev/null 2>&1 || die "未检测到 Docker Compose v2。
 [ -f "$ENV_FILE" ] || die "未找到 .env 配置。请先运行 ./install.sh。"
 
 IMAGE_NAME="$(sed -n 's/^V2EX_IMAGE=//p' "$ENV_FILE" | tail -n 1)"
-IMAGE_NAME="${IMAGE_NAME:-ghcr.io/alicia1030su/v2ex-clone:v0.0.1}"
+IMAGE_NAME="${IMAGE_NAME:-ghcr.io/alicia1030su/v2ex-clone:v0.0.2}"
 APP_PORT="$(sed -n 's/^APP_PORT=//p' "$ENV_FILE" | tail -n 1)"
 APP_PORT="${APP_PORT:-3000}"
 APP_URL="$(sed -n 's/^APP_URL=//p' "$ENV_FILE" | tail -n 1)"

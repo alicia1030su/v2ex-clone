@@ -1,6 +1,6 @@
 {
   "name": "v2ex-clone",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "V2EX 高保真全栈复刻工程 —— 独立技术研究项目，与 V2EX 官方无关联",
   "license": "MIT",
   "keywords": [
@@ -43,6 +43,7 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
     "dotenv": "^18.0.9",
+    "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.4",
     "ioredis": "^6.0.0",
     "jose": "^6.2.15",
@@ -54,6 +55,7 @@
     "react-dom": "^19.3.1",
     "sanitize-html": "^2.18.1",
     "server-only": "^0.0.1",
+    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -63,10 +65,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/sanitize-html": "^2.16.2",
-    "drizzle-kit": "^0.31.11",
     "pixelmatch": "^8.0.0",
     "pngjs": "^7.0.0",
-    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
   },
