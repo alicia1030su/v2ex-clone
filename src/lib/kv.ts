@@ -21,6 +21,15 @@ interface KV {
   del(key: string): Promise<void>;
   incrWindow(key: string, windowSeconds: number): Promise<CounterResult>;
   ping(): Promise<boolean>;
+  /**
+   * 清空全部键（调试端点用）。
+   *
+   * 限流计数器的键空间随实现而变：
+   *  - Redis 实现 → 存在 Redis 里
+   *  - PostgreSQL 降级实现 → 存在 rate_limit_buckets 与 kv_store 表里
+   * 只清其中一边会导致「清空限流」在另一种后端下静默失效。
+   */
+  clearAll(): Promise<void>;
 }
 
 class RedisKV implements KV {
@@ -57,6 +66,11 @@ class RedisKV implements KV {
     } catch {
       return false;
     }
+  }
+
+  async clearAll() {
+    // 清空整个库。Redis 实例与其它用途共享，用 FLUSHDB 保证彻底。
+    await this.client.flushdb();
   }
 }
 
@@ -126,6 +140,12 @@ class PgKV implements KV {
     } catch {
       return false;
     }
+  }
+
+  async clearAll() {
+    // 限流计数器与通用 KV 都在数据库里，两张表都要清。
+    await db.execute(sql`DELETE FROM rate_limit_buckets`);
+    await db.execute(sql`DELETE FROM kv_store`);
   }
 }
 
