@@ -796,11 +796,28 @@ jobs:
           set -euo pipefail
           cd deploy
           docker compose --env-file .env ps
-          # app 应通过 healthcheck（deploy/docker-compose.yml 已定义）
-          APP_HEALTH="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app)"
+          # app 应通过 healthcheck（deploy/docker-compose.yml 已定义）。
+          #
+          # 注意：**必须轮询等待**，不能只查一次。
+          # 上一版一次性读取 health 状态时，容器还处于 'starting'
+          #（healthcheck 的 start_period 尚未结束），于是误判失败 ——
+          # 而此时应用其实已经 Ready（日志里有 Ready in xxxms）。
+          APP_HEALTH=""
+          for i in $(seq 1 40); do
+            APP_HEALTH="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)"
+            if [ "$APP_HEALTH" = "healthy" ]; then
+              break
+            fi
+            if [ "$APP_HEALTH" = "unhealthy" ] || [ "$APP_HEALTH" = "exited" ] || [ "$APP_HEALTH" = "none" ]; then
+              echo "::error::app 容器状态异常（$APP_HEALTH），第 $i 次探测即失败"
+              docker compose --env-file .env logs --tail=100
+              exit 1
+            fi
+            sleep 3
+          done
           echo "app healthcheck = $APP_HEALTH"
           if [ "$APP_HEALTH" != "healthy" ]; then
-            echo "::error::app 容器未通过健康检查（$APP_HEALTH）"
+            echo "::error::app 容器在 120 秒内未变为 healthy（当前 $APP_HEALTH）"
             docker compose --env-file .env logs --tail=100
             exit 1
           fi
