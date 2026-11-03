@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# ---------------------------------------------------------------------------
+# V2EX Clone v0.0.1 — 恢复脚本
+#
+# 用法：
+#   ./restore.sh                                  # 恢复最新一次备份
+#   ./restore.sh backups/v2ex-20260101-120000.sql.gz
+#
+# 警告：恢复会**覆盖当前数据库中的同名表**。
+#       生产环境请先停服再恢复（./stop.sh）。
+# ---------------------------------------------------------------------------
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+ENV_FILE="$SCRIPT_DIR/.env"
+BACKUP_DIR="$SCRIPT_DIR/backups"
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  C_RED=$'\033[31m'; C_GRN=$'\033[32m'; C_BLU=$'\033[34m'; C_RST=$'\033[0m'
+else
+  C_RED=''; C_GRN=''; C_BLU=''; C_RST=''
+fi
+info() { printf '%s[信息]%s %s\n' "$C_BLU" "$C_RST" "$*"; }
+ok()   { printf '%s[成功]%s %s\n' "$C_GRN" "$C_RST" "$*"; }
+warn() { printf '%s[警告]%s %s\n' "$C_RED" "$C_RST" "$*" >&2; }
+die()  { printf '%s[错误]%s %s\n' "$C_RED" "$C_RST" "$*" >&2; exit 1; }
+
+command -v docker >/dev/null 2>&1 || die "未检测到 docker 命令。"
+docker compose version >/dev/null 2>&1 || die "未检测到 Docker Compose v2。"
+[ -f "$ENV_FILE" ] || die "未找到 .env 配置。"
+
+read_env_value() {
+  local key="$1"
+  sed -n "s/^${key}=//p" "$ENV_FILE" | tail -n 1
+}
+POSTGRES_USER="$(read_env_value POSTGRES_USER)"
+POSTGRES_USER="${POSTGRES_USER:-v2ex}"
+POSTGRES_DB="$(read_env_value POSTGRES_DB)"
+POSTGRES_DB="${POSTGRES_DB:-v2ex}"
+
+# --- 选择备份文件 ---------------------------------------------------------
+if [ $# -ge 1 ]; then
+  DUMP_FILE="$1"
+else
+  DUMP_FILE="$(ls -1t "$BACKUP_DIR"/v2ex-*.sql.gz 2>/dev/null | head -n 1 || true)"
+  [ -n "$DUMP_FILE" ] || die "在 ${BACKUP_DIR} 下没有找到备份文件。请先运行 ./backup.sh，或显式指定：./restore.sh <文件>"
+  info "未指定文件，使用最新的备份：${DUMP_FILE}"
+fi
+[ -f "$DUMP_FILE" ] || die "备份文件不存在：${DUMP_FILE}"
+
+# --- 恢复前确认 ------------------------------------------------------------
+printf '即将把 %s 恢复到数据库 %s（用户 %s）。\n' "$DUMP_FILE" "$POSTGRES_DB" "$POSTGRES_USER"
+printf '该操作会覆盖现有数据。确认继续？[y/N] '
+read -r reply
+case "$reply" in
+  y|Y|yes|YES) ;;
+  *) die "已取消。" ;;
+esac
+
+info "恢复到数据库..."
+# psql 默认在事务中执行，单条 --single-transaction 保证要么全成功要么全回滚。
+if gzip -dc "$DUMP_FILE" \
+    | docker compose exec -T postgres psql \
+        --username="$POSTGRES_USER" \
+        --dbname="$POSTGRES_DB" \
+        --single-transaction \
+        --quiet; then
+  ok "恢复完成"
+  printf '\n'
+  info "重启应用以加载恢复后的数据：./start.sh"
+else
+  die "恢复失败。请检查备份文件是否完整。"
+fi

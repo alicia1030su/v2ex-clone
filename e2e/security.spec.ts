@@ -82,9 +82,14 @@ test.describe('安全性', () => {
       page.click('button[type="submit"]'),
     ]);
     expect(page.url()).not.toContain('evil.example.com');
-    // 重定向后必须仍在本站（localhost），而非外部站点
-    const host = new URL(page.url()).host;
-    expect(host).toContain('localhost');
+    // 重定向后必须仍在本站，而非外部站点。
+    // 断言基准取自实际配置的 baseURL（LOCAL_BASE），不能写死 'localhost' ——
+    // 否则换用 127.0.0.1 或其他地址访问时会误报。
+    const baseHost = new URL(page.url()).host;
+    const expectedHost = new URL(
+      process.env.LOCAL_BASE || 'http://localhost:3000',
+    ).host;
+    expect(baseHost).toBe(expectedHost);
   });
 
   test('回复接口无法引用不存在的主题（防注入/越权）', async ({ page }) => {

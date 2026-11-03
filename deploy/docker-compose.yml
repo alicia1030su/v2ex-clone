@@ -1,0 +1,145 @@
+# ---------------------------------------------------------------------------
+# V2EX Clone v0.0.1 — 发行版 Docker Compose 配置
+#
+# 与仓库根目录的 docker-compose.yml 的差异：
+#   1. app 服务使用**预构建镜像**（ghcr.io），不在用户机器上本地构建。
+#      需要本地构建请用仓库根目录的 docker-compose.yml。
+#   2. app 服务增加 healthcheck，供 install.sh / start.sh / update.sh 等待就绪。
+#   3. 通过 env_file 一次性加载 .env（install.sh 自动生成）。
+#
+# 安全约定（与仓库根配置保持一致）：
+#   - 所有凭据均无默认值。未在 .env 中设置的必需变量会让容器直接启动失败，
+#     避免以弱口令运行实例。
+#   - **默认不向宿主机暴露 PostgreSQL 与 Redis 端口**。
+#     数据库与缓存只在 compose 内部网络（v2ex-net）可达，
+#     宿主机上的任何进程都无法直连它们。
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: v2ex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    # 默认不对宿主机暴露端口。
+    networks:
+      - v2ex-net
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:?} -d ${POSTGRES_DB:?}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: v2ex-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      --appendonly yes
+    # 默认不对宿主机暴露端口。
+    networks:
+      - v2ex-net
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'redis-cli',
+          '-a',
+          '${REDIS_PASSWORD:?}',
+          'ping',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    # 发行版：直接拉取预构建镜像，不在用户机器上构建。
+    # 想改用本地构建，把下面两行换成：
+    #   build:
+    #     context: ..
+    #     dockerfile: Dockerfile
+    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.1}
+    container_name: v2ex-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 一次性加载安装脚本生成的 .env。
+    # 注意：该文件由 install.sh 生成，包含真实凭据，**不要提交到版本库**。
+    # .env 同时也是 Compose 的变量插值来源（${VAR} 会自动从它取值）。
+    # 所有脚本都会先确保 .env 存在，缺失时给出明确报错而不是静默启动。
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      APP_RUNTIME_ENV: ${APP_RUNTIME_ENV:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@example.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-0}
+      RATE_LIMIT_LOGIN_MAX: ${RATE_LIMIT_LOGIN_MAX:-10}
+      RATE_LIMIT_POST_MAX: ${RATE_LIMIT_POST_MAX:-5}
+      RATE_LIMIT_REPLY_MAX: ${RATE_LIMIT_REPLY_MAX:-20}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      RATE_LIMIT_REPLY_WINDOW_SECONDS: ${RATE_LIMIT_REPLY_WINDOW_SECONDS:-120}
+      RATE_LIMIT_CREATE_NODE_MAX: ${RATE_LIMIT_CREATE_NODE_MAX:-10}
+      RATE_LIMIT_CREATE_NODE_WINDOW_SECONDS: ${RATE_LIMIT_CREATE_NODE_WINDOW_SECONDS:-60}
+      RATE_LIMIT_REGISTER_MAX: ${RATE_LIMIT_REGISTER_MAX:-5}
+      RATE_LIMIT_REGISTER_IP_MAX: ${RATE_LIMIT_REGISTER_IP_MAX:-20}
+      RATE_LIMIT_REGISTER_WINDOW_SECONDS: ${RATE_LIMIT_REGISTER_WINDOW_SECONDS:-300}
+      # 生产环境强制关闭调试端点与验证码绕过
+      ENABLE_DEBUG_ENDPOINTS: '0'
+      DEBUG_ENDPOINT_TOKEN: ''
+      DISABLE_CAPTCHA: '0'
+      TEST_ENV_ISOLATED: '0'
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    networks:
+      - v2ex-net
+    healthcheck:
+      # 镜像内没有 curl / wget，用镜像自带的 node 做 HTTP 探活。
+      # 探的是根路径：它是 force-dynamic 的 Server Component，
+      # 能同时验证「Next.js 已就绪」与「数据库可查询」，比静态资源更有意义。
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');const r=http.get({host:'127.0.0.1',port:3000,path:'/',timeout:8000},res=>{res.resume();process.exit(res.statusCode&&res.statusCode<500?0:1)});r.on('error',()=>process.exit(1));r.on('timeout',()=>{r.destroy();process.exit(1)});",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # 首次启动要跑数据库迁移 + 首次初始化，给足冷启动时间。
+      start_period: 90s
+
+volumes:
+  postgres-data:
+  redis-data:
+
+# 内部网络：数据库与缓存只在这张网内可达，不对宿主机暴露。
+networks:
+  v2ex-net:
+    driver: bridge

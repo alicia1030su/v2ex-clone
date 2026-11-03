@@ -1,86 +1,182 @@
 # DEPLOYMENT — 部署文档
 
+> **⚠️ 独立非官方项目**
+>
+> 本项目与 V2EX 官方**无任何关联**，是独立技术研究项目，未获官方授权，
+> 不是 V2EX 官方产品，不代表任何形式的官方背书。
+>
+> **v0.0.1 是开发预览版（Pre-release）**，功能尚未完备，**未经生产环境验证**，
+> **不建议用于生产环境**。界面与原站存在差异，**不保证与 V2EX 完全一致**。
+
+本文档面向 **v0.0.1** 发布版的部署。
+只想**跑起来看看**请直接看 [`INSTALL.md`](INSTALL.md)；
+想**长期运维**请继续往下读。
+
+---
+
 ## 1. 环境要求
 
 | 组件 | 版本 | 说明 |
 |---|---|---|
-| Node.js | `^22.23.4` \| `^24.22.1` \| `>=26.12.1` | 与 REA（`rea-agents`）的 engines 要求一致 |
-| PostgreSQL | 17+ | |
-| Redis | 7+ | **可选**。缺失时自动降级到 PostgreSQL（语义等价） |
-| Docker / Docker Compose | v2 | 用于一键部署 |
+| Node.js | `^22.23.4` \| `^24.22.1` \| `>=26.12.1` | 本地开发与自建镜像构建时需要 |
+| PostgreSQL | 17+ | 必需 |
+| Redis | 7+ | **可选**。缺失时自动降级到 PostgreSQL（语义等价，性能略低） |
+| Docker / Docker Compose | Engine 20.10+ / Compose **v2** | 用于一键部署；compose 文件使用 Compose spec 语法，**不支持 v1** |
+| 可用磁盘 | ≥ 2 GB | 镜像约 400 MB，数据库与日志持续增长 |
+| 可用内存 | ≥ 2 GB | 三个容器同时运行 |
 
-## 2. 快速开始（Docker Compose）
+---
+
+## 2. 环境分层
+
+不同运行时环境下，**安全开关的生效范围不同**。
+这是本项目最容易被误配、也最需要说清楚的一块。
+
+判定逻辑集中在 `src/lib/runtime-flags.ts`。
+
+### 2.1 四种环境
+
+| `APP_RUNTIME_ENV` | 用途 | 验证码 | `DISABLE_CAPTCHA` | 调试端点 | `TEST_ENV_ISOLATED` |
+|---|---|---|---|---|---|
+| `production` | 生产 | **强制启用** | **忽略** | 需显式开启 + 令牌 | 忽略 |
+| `staging` | 预发 | **强制启用** | **忽略** | 需显式开启 + 令牌 | 忽略 |
+| `test` | 测试 | 可被跳过 | 仅当 `TEST_ENV_ISOLATED=1` 时生效 | 需显式开启 + 令牌 | 生效 |
+| `development` | 本地开发 | 默认启用 | **忽略** | 需显式开启 + 令牌 | 忽略 |
+
+### 2.2 各环境**允许**的开关
+
+| 开关 | `development` | `test`（+ `TEST_ENV_ISOLATED=1`） | `staging` | `production` |
+|---|---|---|---|---|
+| `DISABLE_CAPTCHA=1` | ❌ 忽略 | ✅ 生效 | ❌ 忽略 | ❌ 忽略 |
+| `ENABLE_DEBUG_ENDPOINTS=1` | ✅ 生效 | ✅ 生效 | ✅ 生效 | ✅ 生效（**但发行包的 compose 强制写死为 `'0'`**） |
+| `TEST_ENV_ISOLATED=1` | ❌ 无效 | ✅ 生效 | ❌ 忽略 | ❌ 忽略 |
+| `DEBUG_ENDPOINT_TOKEN` | 可选 | 调试端点必需 | 调试端点必需 | 调试端点必需 |
+
+### 2.3 各环境**禁止**的开关
+
+**在 `production` 与 `staging` 下，以下配置一律无效**（即使误配也不会降级安全性）：
+
+- `DISABLE_CAPTCHA=1` —— 验证码**仍然强制**渲染与校验。
+  这不是靠文档约定，而是代码里 `isCaptchaDisabled()` 先判 `getRuntimeEnv() !== 'test'` 就返回 `false`。
+  已通过**独立的生产模式实例**实测验证：
+  `APP_RUNTIME_ENV=production` 且故意保留 `DISABLE_CAPTCHA=1` 时，
+  缺失验证码的登录仍被 **400** 拒绝。
+- `TEST_ENV_ISOLATED=1` —— 隔离测试环境的标记在非 `test` 环境无意义。
+- `DEBUG_ENDPOINT_TOKEN` 未配置 —— 调试端点**一律返回 404**，
+  即使 `ENABLE_DEBUG_ENDPOINTS=1`。（令牌用恒定时间比较。）
+
+### 2.4 发行包的实际行为
+
+发行包的 `docker-compose.yml` 在 app 服务的 `environment` 里**硬编码**：
+
+```yaml
+ENABLE_DEBUG_ENDPOINTS: '0'
+DEBUG_ENDPOINT_TOKEN: ''
+DISABLE_CAPTCHA: '0'
+TEST_ENV_ISOLATED: '0'
+```
+
+也就是说 —— **即使你在 `.env` 里写了这些变量，也进不到容器**。
+这是发行包与源码仓库 compose 的一处刻意差异：**发行包从设计上就不给调试开关留口子**。
+
+> 如果你需要调试端点，只能用**源码仓库**的 compose 配置自行构建镜像，
+> 并**只在隔离环境**这么做。
+
+### 2.5 演示账号的环境约束
+
+| `APP_RUNTIME_ENV` | `SEED_DEMO_USERS=1` 的效果 |
+|---|---|
+| `production` | **强制不创建**演示账号（`lisi` / `wangwu` / `zhaoliu` / `moderator`） |
+| `staging` / `test` / `development` | 创建演示账号 |
+
+发行包的 `.env.example` 默认 `SEED_DEMO_USERS=0` —— **保持它为 0**。
+
+---
+
+## 3. 快速开始（Docker Compose）
+
+完整步骤见 [`INSTALL.md`](INSTALL.md)。这里只列最快路径。
+
+### 3.1 用发行包（推荐）
 
 ```bash
-# 1. 克隆并进入目录
+unzip v2ex-clone-v0.0.1-deploy.zip -d v2ex-clone-deploy
+cd v2ex-clone-deploy
+chmod +x install.sh start.sh stop.sh update.sh backup.sh restore.sh
+./install.sh
+```
+
+脚本会自动生成 `.env`（含随机口令，权限 600）、
+拉取镜像 `ghcr.io/alicia1030su/v2ex-clone:v0.0.1`、启动容器并等待健康检查。
+
+### 3.2 用源码仓库
+
+```bash
+git clone https://github.com/alicia1030su/v2ex-clone.git
 cd v2ex-clone
-
-# 2. 准备环境变量
 cp .env.example .env
-```
-
-编辑 `.env`，**至少修改**以下两项：
-
-```bash
-# 必改：会话签名密钥，至少 32 位随机字符
-SESSION_SECRET=$(openssl rand -base64 48)
-
-# 必改：初始管理员密码
-SEED_ADMIN_PASSWORD=<你的强密码>
-```
-
-完整 `.env` 可用变量：
-
-```bash
-POSTGRES_USER=v2ex
-POSTGRES_PASSWORD=v2ex_password
-POSTGRES_DB=v2ex
-POSTGRES_PORT=5432
-
-REDIS_PASSWORD=v2ex_redis_password
-REDIS_PORT=6379
-
-APP_PORT=3000
-APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-SESSION_SECRET=change-me-to-a-long-random-string-at-least-32-chars
-
-SEED_ADMIN_USERNAME=admin
-SEED_ADMIN_EMAIL=admin@example.com
-SEED_ADMIN_PASSWORD=admin12345
-
-RATE_LIMIT_LOGIN_MAX=10
-RATE_LIMIT_POST_MAX=5
-RATE_LIMIT_REPLY_MAX=20
-RATE_LIMIT_WINDOW_SECONDS=60
-```
-
-```bash
-# 3. 构建并启动
+# 至少设置：POSTGRES_PASSWORD / REDIS_PASSWORD / SESSION_SECRET / SEED_ADMIN_PASSWORD
 docker compose up -d --build
-
-# 4. 查看状态
-docker compose ps
-docker compose logs -f app
-
-# 5. 访问
-open http://localhost:3000
 ```
 
-容器启动时会自动执行：`drizzle-kit migrate` → `seed` → `next start`。
+> `docker-compose.yml` 中所有凭据**无默认值** —— 未设置时容器会直接启动失败，
+> 而不是带着弱口令运行。
+> 源码仓库的 compose 用**本地构建**（`build:`），发行包的 compose 用**预构建镜像**（`image:`）。
+
+### 3.3 容器启动的三个阶段
+
+容器启动时会**自动执行三个阶段**（见 `scripts/docker-entrypoint.sh`）：
+
+| 阶段 | 动作 | 幂等性 | 说明 |
+|---|---|---|---|
+| 1/3 | `drizzle-kit migrate` | ✅ 每次都执行 | 只做增量迁移，已应用的迁移不会重复执行 |
+| 2/3 | 首次初始化（seed） | ✅ **仅执行一次** | 由 `kv_store` 的初始化标记守卫；已初始化的库直接跳过 |
+| 3/3 | `next start` | — | 启动应用服务 |
+
+> **重新部署不会污染数据。**
+> 阶段 2 带初始化标记，只在数据库首次初始化时写入演示数据。
+> 后续的 `docker compose up` / `restart` / 重新部署都只执行迁移，
+> **不会**重置管理员口令，**不会**重复写入演示主题。
+
 数据库与 Redis 均配置了 healthcheck，app 服务会等待两者健康后再启动。
+发行包的 app 服务**额外**有 healthcheck（用镜像内的 `node` 探测 `/`），
+`docker compose ps` 会显示 `Up (healthy)`。
+
+### 3.4 端口暴露策略
+
+发行包与源码仓库的 compose **默认都不向宿主机暴露** PostgreSQL 与 Redis 端口，
+两者只在 compose 内部网络（`v2ex-net`）内可达：
+
+```bash
+# 验证：默认配置下 postgres / redis 段没有 published 字段
+docker compose config | grep -A 20 '^  postgres:' | grep published   # 无输出
+docker compose config | grep -A 20 '^  redis:' | grep published      # 无输出
+```
+
+需要本地直连数据库做调试时，**不要改生产用的 compose 文件**，用一次性容器：
+
+```bash
+docker run --rm -it --network v2ex_v2ex-net \
+  -e PGPASSWORD="$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2)" \
+  postgres:17-alpine psql -h postgres -U v2ex -d v2ex
+```
+
+> 源码仓库另有 `docker-compose.debug.yml`，它会把端口绑定到 `127.0.0.1`（而非 `0.0.0.0`），
+> 即使开启映射也只有本机能连。**严禁在生产环境使用该文件**，
+> 且它**不在发行包内**。
 
 停止 / 清理：
 
 ```bash
 docker compose down            # 停止，保留数据卷
-docker compose down -v         # 停止并删除数据卷（会丢失数据）
+docker compose down -v         # 停止并删除数据卷（⚠️ 会丢失数据）
 ```
 
-## 3. 本地开发（不使用 Docker）
+---
 
-### 3.1 启动依赖
+## 4. 本地开发（不使用 Docker）
+
+### 4.1 启动依赖
 
 ```bash
 # PostgreSQL（示例用 Docker 起一个）
@@ -93,7 +189,7 @@ docker run -d --name v2ex-redis \
   -p 6379:6379 redis:7-alpine redis-server --requirepass v2ex_redis_password
 ```
 
-### 3.2 应用
+### 4.2 应用
 
 ```bash
 npm install
@@ -106,14 +202,28 @@ npm run db:seed                   # 写入初始分类/节点/用户/主题
 npm run dev                       # 开发模式 http://localhost:3000
 ```
 
-### 3.3 生产构建
+### 4.3 生产构建
 
 ```bash
 npm run build
 npm run start                     # 生产模式
 ```
 
-## 4. 数据库迁移
+### 4.4 验证
+
+```bash
+./scripts/verify.sh               # 类型检查 → 构建 → 干净库迁移 → seed → 单元测试 → E2E
+./scripts/verify.sh --skip-e2e    # 跳过 E2E
+```
+
+`verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），
+进程管理区分 Windows（`taskkill`）与 POSIX（`kill`）。
+它只在**专用验证库**（默认 `v2ex_verify`）上操作，
+并拒绝在非验证库（库名必须匹配 `*_verify` / `*_test` / `*_ci`）上执行破坏性操作。
+
+---
+
+## 5. 数据库迁移
 
 ```bash
 npm run db:generate -- --name=add_xxx   # 生成迁移（写入 drizzle/）
@@ -121,7 +231,7 @@ npm run db:migrate                       # 应用未执行的迁移
 ```
 
 迁移文件位于 `drizzle/`，由 `drizzle-kit` 按 `drizzle/meta/_journal.json` 顺序执行。
-生产环境在容器启动时自动执行 `drizzle-kit migrate`。
+生产环境在容器启动时自动执行 `drizzle-kit migrate`（幂等）。
 
 查看状态：
 
@@ -129,21 +239,71 @@ npm run db:migrate                       # 应用未执行的迁移
 psql "$DATABASE_URL" -c "select id, hash, created_at from drizzle.__drizzle_migrations;"
 ```
 
-## 5. 初始账号
+> ⚠️ **v0.0.1 是预览版，迁移脚本不保证向后兼容。**
+> 预览版本之间的升级请务必先备份（见第 8 节）。
 
-`npm run db:seed` / 容器启动时自动创建：
+---
+
+## 6. 初始账号
+
+`npm run db:seed` / 容器启动时的首次初始化会创建：
 
 | 角色 | 用户名 | 密码 | 来源 |
 |---|---|---|---|
-| 管理员 | `admin` | `SEED_ADMIN_PASSWORD`（默认 `admin12345`） | 环境变量 |
-| 普通用户 | `lisi` | `password123` | seed 脚本 |
-| 普通用户 | `wangwu` | `password123` | seed 脚本 |
-| 普通用户 | `zhaoliu` | `password123` | seed 脚本 |
-| 版主 | `moderator` | `password123` | seed 脚本 |
+| 管理员 | `admin` | `SEED_ADMIN_PASSWORD`（生产必填，≥12 位） | 环境变量 |
+| 普通用户 | `lisi` | `SEED_DEMO_PASSWORD`（未设置则随机生成并打印） | 环境变量 |
+| 普通用户 | `wangwu` | 同上 | 环境变量 |
+| 普通用户 | `zhaoliu` | 同上 | 环境变量 |
+| 版主 | `moderator` | 同上 | 环境变量 |
 
-> **生产部署后请立即修改这些密码**，并删除不需要的演示账号。
+> **生产环境不会创建演示账号**（`APP_RUNTIME_ENV=production` 时强制禁用），
+> 也不会接受缺失或过弱的管理员口令 —— seed 会直接报错退出。
+>
+> **生产部署后请立即修改管理员密码**，并删除不需要的演示账号。
 
-## 6. 反向代理（Nginx）
+### 6.1 seed 只初始化、不修改
+
+seed 采用**只创建、不修改**语义：账号已存在时**不会**覆盖它的口令与角色。
+这是刻意的安全设计 —— 否则重新部署容器就会静默重置管理员口令、
+用户自行改密的成果也会被抹掉。
+
+口令与角色的变更必须走**独立的授权流程**：
+
+```bash
+# 需要先配置 ADMIN_CLI_TOKEN（运维专用的随机令牌）
+export ADMIN_CLI_TOKEN=$(openssl rand -base64 32)
+
+npm run admin -- set-password --username lisi \
+  --password 'NewPassw0rd!' --reason '用户申诉后重置'
+
+npm run admin -- set-role --username lisi \
+  --role moderator --reason '任命为版主'
+
+npm run admin -- list-admins        # 只读，列出管理员与版主
+```
+
+该流程的约束：
+
+- 未配置 `ADMIN_CLI_TOKEN` 时**一律拒绝**执行变更；
+- 令牌**只从环境变量读取**，不接受 `--token` 命令行参数
+  （命令行参数会出现在进程列表与 shell 历史里）；
+- `--reason` 必填，每次变更都写入 `moderation_logs` 审计表；
+- 拒绝降级最后一个 admin（避免把系统锁死）；
+- 生产环境禁止修改演示账号的角色；
+- `set-password` 的口令长度下限是 **8 位**（与注册接口一致），
+  注意这与 `SEED_ADMIN_PASSWORD` 的 **≥12 位** 阈值不同。
+
+> 在发行包的容器里执行：
+>
+> ```bash
+> docker compose exec -e ADMIN_CLI_TOKEN=<运维令牌> app \
+>   node node_modules/tsx/dist/cli.mjs scripts/admin-cli.ts \
+>   set-password --username admin --password '<新口令>' --reason '运维重置'
+> ```
+
+---
+
+## 7. 反向代理（Nginx）
 
 ```nginx
 server {
@@ -172,36 +332,141 @@ server {
 certbot --nginx -d forum.example.com
 ```
 
-## 7. 安全检查清单
+启用 HTTPS 后，把 `.env` 中的 `APP_URL` / `NEXT_PUBLIC_APP_URL` 改成
+`https://forum.example.com` 并重启应用 —— 会话 Cookie 的 `secure` 标记依赖正确的主机名。
 
-上线前逐项确认：
+---
 
-- [ ] `SESSION_SECRET` 已改为随机强密钥（≥32 字符）
-- [ ] `SEED_ADMIN_PASSWORD` 已修改
-- [ ] `SEED_ADMIN_EMAIL` 已改为真实邮箱
-- [ ] `APP_RUNTIME_ENV=production`（决定安全开关的生效范围）
-- [ ] `DISABLE_CAPTCHA` 未设置或为 `0`（生产环境即使误设为 `1` 也会被忽略，
-      但仍建议清除以免误解）
-- [ ] `ENABLE_DEBUG_ENDPOINTS` 未设置或为 `0`
-- [ ] `TEST_ENV_ISOLATED` 未设置或为 `0`
-- [ ] `DEBUG_ENDPOINT_TOKEN` 未设置（未设置时调试端点一律 404）
-- [ ] PostgreSQL 端口未暴露到公网（仅内部网络）
-- [ ] Redis 已设置密码，且未暴露到公网
-- [ ] 已启用 HTTPS
-- [ ] `X-Forwarded-For` 正确透传
-- [ ] 已定期备份数据库（`pg_dump`）
+## 8. 密钥管理
 
-## 8. 备份与恢复
+### 8.1 原则
+
+| 原则 | 说明 |
+|---|---|
+| **`.env` 不入库** | 仓库的 `.gitignore` 已排除 `.env` / `.env.local` / `.env.test` / `.env.*.local` / `.env.*.test` |
+| **模板无凭据** | `.env.example` 不提供任何可用的默认口令；所有敏感项默认为空 |
+| **缺失即失败** | `docker-compose.yml` 中必需变量用 `${VAR:?message}` 语法，缺失时容器直接启动失败，**而不是**带着弱口令运行 |
+| **镜像不含密钥** | `.dockerignore` 排除 `.env*`；密钥只在运行时注入，不进镜像层 |
+| **生产用 secrets manager** | 云上用 Secrets Manager / Vault / K8s Secret；裸机用权限 600 的 `.env` + 专用运维账号 |
+
+### 8.2 密钥清单
+
+| 变量 | 泄露后果 | 轮换方式 |
+|---|---|---|
+| `SESSION_SECRET` | **会话可被伪造** | 重置后所有会话失效，用户需重新登录 |
+| `POSTGRES_PASSWORD` | 数据库完全失守 | `ALTER USER v2ex WITH PASSWORD '...'`；见下方注意事项 |
+| `REDIS_PASSWORD` | 缓存与限流计数可被篡改 | 需删 Redis 卷重建（Redis 只是缓存，核心数据在 PostgreSQL） |
+| `SEED_ADMIN_PASSWORD` | 初始管理员账号失守 | 只在**首次初始化**时生效；已存在的账号必须用 `admin-cli.ts` 改 |
+| `ADMIN_CLI_TOKEN` | 可越权改密 / 改角色 | 重新生成即可（旧令牌立即失效） |
+| `DEBUG_ENDPOINT_TOKEN` | 可访问调试端点（清限流、查楼层） | 重新生成即可 |
+
+> **轮换 `POSTGRES_PASSWORD` 的注意事项**：PostgreSQL 的初始口令只对**空数据目录**生效。
+> 数据卷已存在时，改 `.env` 不会改变数据库里的实际口令，必须显式 `ALTER USER`：
+
+> ```bash
+> docker compose exec postgres psql -U v2ex -d postgres \
+>   -c "ALTER USER v2ex WITH PASSWORD '新口令';"
+> ```
+
+### 8.3 不要做的事
+
+- ❌ 不要把 `.env` 提交到 Git（哪怕是 private 仓库 —— 密钥会进 Git 历史）
+- ❌ 不要把 `.env` 写进 Dockerfile 或 `docker-compose.yml` 的默认值
+- ❌ 不要在命令行里传口令（`docker exec ... --password xxx` 会进 shell 历史与进程列表）
+- ❌ 不要把 `ADMIN_CLI_TOKEN` 当成密码用 —— 它是**授权令牌**，不是用户口令
+- ❌ 不要在 CI 日志里 `echo` 任何密钥
+
+---
+
+## 9. 数据库备份策略与恢复演练
+
+### 9.1 备份策略
+
+| 项 | 建议 |
+|---|---|
+| 频率 | 每天一次自动备份；升级 / 迁移前额外手动备份一次 |
+| 保留 | 至少 7 个日备份 + 4 个周备份 |
+| **异地** | **必须**把备份复制到另一台机器或对象存储。**同盘备份不是备份** |
+| 加密 | 备份含用户数据与凭据，异地存放前应加密 |
+| 权限 | 备份目录 `700`，`.env` 备份 `600` |
+| 监控 | 备份任务失败要**告警**，不是靠人肉发现 |
+
+发行包提供的脚本：
+
+```bash
+./backup.sh
+# 产出：backups/v2ex-20261103-120000.sql.gz（数据库逻辑备份）
+#       backups/.env-20261103-120000（配置备份，权限 600）
+```
+
+### 9.2 恢复演练
+
+**没有演练过的备份不算备份。** 建议每季度做一次完整演练：
+
+```bash
+# 1. 在一台一次性机器上（或临时目录）准备环境
+cp .env.example .env       # 填入与生产不同的口令
+
+# 2. 只起数据库（不起 app），避免写入竞争
+docker compose up -d postgres
+
+# 3. 恢复演练
+./restore.sh backups/v2ex-20261103-120000.sql.gz
+
+# 4. 核对关键数据量
+docker compose exec postgres psql -U v2ex -d v2ex -c \
+  "select count(*) from users; select count(*) from topics; select count(*) from replies;"
+```
+
+演练要确认：
+
+- [ ] 恢复过程**无报错**退出（`psql --single-transaction`，要么全成功要么全回滚）
+- [ ] 表数量 = 18
+- [ ] `users` / `topics` / `replies` 的行数与备份时一致
+- [ ] 恢复后应用能正常启动并登录
+
+### 9.3 手动备份 / 恢复
 
 ```bash
 # 备份
-docker compose exec postgres pg_dump -U v2ex v2ex | gzip > v2ex-$(date +%F).sql.gz
+docker compose exec -T postgres pg_dump \
+  --username=v2ex --dbname=v2ex --no-owner --no-acl \
+  | gzip -9 > v2ex-$(date +%F).sql.gz
 
 # 恢复
-gunzip -c v2ex-2026-11-02.sql.gz | docker compose exec -T postgres psql -U v2ex -d v2ex
+gunzip -c v2ex-2026-11-03.sql.gz \
+  | docker compose exec -T postgres psql \
+      --username=v2ex --dbname=v2ex --single-transaction
 ```
 
-## 9. 监控要点
+---
+
+## 10. 监控与日志
+
+### 10.1 日志
+
+```bash
+docker compose logs -f app            # 应用实时日志
+docker compose logs -f postgres       # 数据库实时日志
+docker compose logs --tail=200 app     # 最后 200 行
+docker compose logs --since=1h app     # 最近 1 小时
+docker compose logs --since="2026-11-03T00:00:00" app   # 指定时间点之后
+```
+
+### 10.2 健康检查
+
+| 服务 | 检查方式 | 预期状态 |
+|---|---|---|
+| `postgres` | `pg_isready -U <user> -d <db>` | `Up (healthy)` |
+| `redis` | `redis-cli -a <pass> ping` | `Up (healthy)` |
+| `app`（仅发行包） | 镜像内 `node` 探测 `/`，statusCode < 500 视为健康 | `Up (healthy)` |
+
+```bash
+docker compose ps                          # 一次性查看
+docker inspect v2ex-app --format '{{.State.Health.Status}}'
+```
+
+### 10.3 建议监控的指标
 
 | 指标 | 来源 | 告警建议 |
 |---|---|---|
@@ -210,20 +475,184 @@ gunzip -c v2ex-2026-11-02.sql.gz | docker compose exec -T postgres psql -U v2ex 
 | `rate_limit_buckets` 行数 | 数据库 | 持续增长说明有大量唯一键被限流 |
 | `login_attempts` 失败率 | 数据库 | 失败率突增说明存在爆破尝试 |
 | `floor_counters` 与 `replies` 一致性 | 数据库 | 不一致说明楼层分配器异常 |
+| 容器重启次数 | `docker inspect --format '{{.RestartCount}}'` | 持续增长说明应用崩溃循环 |
+| 数据卷磁盘占用 | `docker system df` | 接近上限时告警 |
 
-## 10. 常见问题
+### 10.4 v0.0.1 的监控限制
+
+**本版本没有内置监控端点、指标导出（Prometheus）或告警集成。**
+上面的指标都需要你自己通过 `docker compose logs` + 数据库查询 + 宿主机监控来采集。
+健康检查端点可用（`docker compose ps`），但没有 Prometheus 格式的 `/metrics`。
+
+---
+
+## 11. 回滚方案
+
+### 11.1 应用版本回滚
+
+把 `.env` 里的 `V2EX_IMAGE` 改回**上一个** tag，然后：
+
+```bash
+docker compose pull
+docker compose up -d          # 就地重建容器，数据卷保留
+```
+
+发行包提供了封装好的版本：
+
+```bash
+sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.0|' .env
+./update.sh
+```
+
+### 11.2 ⚠️ 容器 tag 不可移动
+
+**同一个 tag 一旦发布就不应重新指向另一个镜像。**
+
+- tag 是**不可变**的，这是容器生态的基本约定；
+- 如果把 `v0.0.1` 重新指向一个不同的镜像，回滚时会拉到**错误的镜像**，
+  且问题排查会变得极其困难；
+- 需要精确回滚时，用 **digest** 而非 tag：
+
+```bash
+docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/alicia1030su/v2ex-clone:v0.0.1
+# ghcr.io/alicia1030su/v2ex-clone@sha256:abcd1234...
+
+# 把 .env 改成 digest 形式
+sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone@sha256:abcd1234...|' .env
+docker compose pull && docker compose up -d
+```
+
+> 生产环境建议**直接固定到 digest**：`V2EX_IMAGE=ghcr.io/...@sha256:...`。
+> 这样无论 tag 怎么变，拉到的永远是同一个镜像。
+
+### 11.3 数据回滚
+
+应用版本回滚**不会**回滚数据库结构。如果新版本执行了不兼容的迁移：
+
+```bash
+# 1. 先停服
+./stop.sh
+
+# 2. 用迁移前的备份恢复
+./restore.sh backups/v2ex-<升级前时间戳>.sql.gz
+
+# 3. 回到旧镜像
+sed -i 's|^V2EX_IMAGE=.*|V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.0|' .env
+
+# 4. 启动
+./start.sh
+```
+
+> ⚠️ 恢复会**覆盖**备份之后写入的所有数据。
+> 这就是为什么升级前必须先备份 —— **没有备份就没有数据回滚能力**。
+
+### 11.4 ⚠️ 回滚的前提
+
+**回滚方案的有效性依赖于「升级前做了备份」这个前提。**
+没有备份时，唯一能回滚的是**应用代码**，数据只能靠手工修。
+
+---
+
+## 12. 生产部署检查清单
+
+上线前逐项确认：
+
+### 12.1 配置
+
+- [ ] `APP_RUNTIME_ENV=production`
+- [ ] `SEED_DEMO_USERS=0`（不创建演示账号）
+- [ ] `SESSION_SECRET` 已改为随机强密钥（≥32 字符）
+- [ ] `SEED_ADMIN_PASSWORD` 已修改（≥12 位）
+- [ ] `SEED_ADMIN_EMAIL` 已改为真实邮箱
+- [ ] `SEED_ADMIN_USERNAME` 已改为不易猜的名字（可选）
+- [ ] `APP_URL` / `NEXT_PUBLIC_APP_URL` 已改为 `https://你的域名`
+- [ ] `APP_PORT` 若非默认，三处已同步
+
+### 12.2 安全开关
+
+- [ ] `DISABLE_CAPTCHA` 未设置或为 `0`
+- [ ] `ENABLE_DEBUG_ENDPOINTS` 未设置或为 `0`（发行包已硬编码为 `'0'`）
+- [ ] `TEST_ENV_ISOLATED` 未设置或为 `0`
+- [ ] `DEBUG_ENDPOINT_TOKEN` 未设置（未设置时调试端点一律 404）
+- [ ] 容器内实际生效值已用 `docker compose exec app env | grep -E 'DISABLE_CAPTCHA|ENABLE_DEBUG'` 复核
+
+### 12.3 网络
+
+- [ ] PostgreSQL 端口未暴露到公网（仅内部网络）
+- [ ] Redis 已设置密码，且未暴露到公网
+- [ ] 已启用 HTTPS
+- [ ] `X-Forwarded-For` / `X-Real-IP` 正确透传
+- [ ] 宿主机防火墙只放行 80/443 与 SSH
+
+### 12.4 数据
+
+- [ ] 已完成一次 `./backup.sh`
+- [ ] 备份已**复制到另一台机器或对象存储**
+- [ ] 已核对备份可以恢复（至少做过一次恢复演练）
+
+### 12.5 账号
+
+- [ ] 管理员初始密码已在登录后立即修改
+- [ ] 不需要的演示账号已删除
+- [ ] `INSTALL_CREDENTIALS.txt` 已妥善保管或删除
+
+### 12.6 可观测性
+
+- [ ] 日志采集已接入（`docker compose logs -f app`）
+- [ ] 容器重启次数有监控
+- [ ] 磁盘占用有告警阈值
+
+---
+
+## 13. 已知限制
+
+| # | 限制 | 说明 | 应对 |
+|---|---|---|---|
+| 1 | **GHCR 匿名拉取需包为 public** | 若 `docker pull ghcr.io/alicia1030su/v2ex-clone:v0.0.1` 报 `denied` / `unauthorized`，说明该 GHCR 包**未开放匿名拉取** | 把该包设为 public；或改用「源码仓库 + 本地构建」方式（`docker compose up -d --build`），不需要访问 GHCR |
+| 2 | **未经生产环境验证** | v0.0.1 仅在开发机与 CI 隔离容器中验证过。**未做**压力测试、**未做**长时间运行稳定性验证 | 先在预发环境跑一段时间，监控到位后再上生产 |
+| 3 | **Redis 路径未做长期观测** | CI 用真实 Redis 验证了清空限流路径，但未观测长时间运行的内存增长与键空间膨胀 | 保持 Redis 运行，监控其内存占用 |
+| 4 | **Docker Compose 未做长时间运行验证** | CI 验证了「构建 → 启动 → 健康检查 → 重启不污染数据」，但未验证长期运行的资源占用与日志膨胀 | 监控容器内存与日志大小 |
+| 5 | **没有内置监控与指标导出** | 无 Prometheus `/metrics`、无告警集成 | 用宿主机监控 + 日志采集自行补齐 |
+| 6 | **没有内置定时备份** | 备份脚本是手工触发的 | 用 cron / Windows 计划任务定时调用 `./backup.sh`，并对失败告警 |
+| 7 | **没有自动化恢复演练** | 恢复流程是手工的 | 定期按 §9.2 演练 |
+| 8 | **预览版迁移不保证向后兼容** | v0.0.x 之间的迁移可能破坏数据兼容性 | 升级前必备份；生产建议固定 digest，回滚前先确认迁移兼容性 |
+| 9 | **未实现的功能较多** | 见 [`README.md`](../README.md) 的「未实现」表 | 按需在源码分支自行补齐 |
+| 10 | **原站素材的 Git 历史清理未执行** | 当前 HEAD 的文件树中已无原站 HTML / CSS / JS 与参考截图，**但 Git 历史中仍可取回** | 历史改写不可逆，**尚未获授权执行**；方案与演练记录为仓库维护者内部记录，未公开 |
+
+---
+
+## 14. 常见问题
 
 **Q: 启动报 `DATABASE_URL is not set`**
-A: 未创建 `.env.local` 或未安装 `dotenv` 的环境加载。执行 `cp .env.example .env.local` 并确认变量已填写。
+A: 未创建 `.env`（发行包）或 `.env.local`（源码仓库）。执行 `cp .env.example .env` 并确认变量已填写。
+发行包直接跑 `./install.sh` 即可 —— 脚本会生成 `.env`。
 
 **Q: 页面能打开但提示 500**
-A: 检查数据库连接：`docker compose logs app | grep -i error`。首次启动需等待 `drizzle-kit migrate` 完成。
+A: 检查数据库连接：`docker compose logs app | grep -i error`。
+首次启动需等待 `drizzle-kit migrate` 完成。
 
 **Q: 限流太严格，多个用户被一起拦**
-A: 确认反向代理正确透传 `X-Forwarded-For`。登录/注册限流键为 `IP + 用户名`，若 IP 识别错误会退化为按 IP 限流。
+A: 确认反向代理正确透传 `X-Forwarded-For`。登录/注册限流键为 `IP + 用户名`，
+若 IP 识别错误会退化为按 IP 限流。
 
 **Q: Redis 未安装会怎样**
-A: 正常使用。`src/lib/kv.ts` 会自动降级到 PostgreSQL 的 `kv_store` / `rate_limit_buckets`，限流与验证码功能不受影响，仅性能略有损失。
+A: 正常使用。`src/lib/kv.ts` 会自动降级到 PostgreSQL 的 `kv_store` / `rate_limit_buckets`，
+限流与验证码功能不受影响，仅性能略有损失。发行包的 compose 默认**会**启动 Redis。
 
 **Q: 如何重置某个用户的限流**
-A: `DELETE FROM rate_limit_buckets WHERE key LIKE 'ratelimit:%';`
+A: 直接删数据库表（仅在**未配置 Redis** 时有效）：
+
+```sql
+DELETE FROM rate_limit_buckets WHERE key LIKE 'ratelimit:%';
+```
+
+配了 Redis 时必须清 Redis 的键空间 —— 用调试端点（需 `ENABLE_DEBUG_ENDPOINTS=1`
+与 `DEBUG_ENDPOINT_TOKEN`）。发行包硬编码关闭了调试端点，
+所以生产实例上只能重启 Redis 容器（会清空限流计数，但不影响业务数据）：
+
+```bash
+docker compose restart redis
+```
+
+**Q: 改 `.env` 后需要重启吗**
+A: 需要。`./stop.sh && ./start.sh`，或 `docker compose up -d --force-recreate`。

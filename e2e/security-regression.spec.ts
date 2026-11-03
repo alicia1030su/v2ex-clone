@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { USER_A, USER_B, apiPost, getCsrfToken, login, uniqueName } from './helpers';
+import {
+  USER_A,
+  USER_B,
+  apiPost,
+  clearRateLimits,
+  getCsrfToken,
+  login,
+  register,
+  uniqueName,
+} from './helpers';
 
 /**
  * 安全缺陷回归测试
@@ -150,28 +159,51 @@ test.describe('P1-10 注册限流双维度', () => {
 });
 
 test.describe('P1-11 回复接口 redirect 验证', () => {
+  // 回复接口有速率限制（默认 20 次 / 窗口），且**按用户 ID 计数**。
+  //
+  // 这里不用 USER_B（wangwu）：它的回复配额会被别的 spec 文件里的
+  // 「回复限流生效」用例耗尽，导致本组用例间歇性拿到 429。
+  // 改为注册一个本组专用的新账号 —— 配额从零开始，互不干扰。
+  //
+  // beforeEach 仍然清理限流：清掉注册本身消耗的额度，
+  // 以及清理上一个用例可能残留的在途请求。
+  test.beforeEach(async ({ page }) => {
+    await clearRateLimits(page);
+  });
+
   test('外部 redirect 被规范化为站内路径', async ({ page }) => {
-    await login(page, USER_B.username, USER_B.password);
+    const username = uniqueName('redir');
+    await register(page, username);
 
     const res = await apiPost(page, '/api/replies', {
       topicId: 1,
       content: '测试 redirect 规范化',
       redirect: 'https://evil.example.com/steal',
     });
-    expect(res.ok()).toBeTruthy();
+    // 失败时把真实响应打出来 —— 这个用例间歇性失败过，
+    // 没有状态码与响应体就无法判断是限流、鉴权还是业务校验。
+    expect(
+      res.status(),
+      `回复请求失败：status=${res.status()} body=${await res.text()}`,
+    ).toBeLessThan(400);
     const body = await res.json();
     expect(body.redirect).not.toContain('evil.example.com');
     expect(body.redirect.startsWith('/')).toBe(true);
   });
 
   test('协议相对 URL 被拒绝', async ({ page }) => {
-    await login(page, USER_B.username, USER_B.password);
+    const username = uniqueName('redir');
+    await register(page, username);
 
     const res = await apiPost(page, '/api/replies', {
       topicId: 1,
       content: '测试协议相对 URL',
       redirect: '//evil.example.com/',
     });
+    expect(
+      res.status(),
+      `回复请求失败：status=${res.status()} body=${await res.text()}`,
+    ).toBeLessThan(400);
     const body = await res.json();
     expect(body.redirect).not.toContain('evil.example.com');
   });

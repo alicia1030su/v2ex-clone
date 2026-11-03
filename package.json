@@ -1,7 +1,23 @@
 {
   "name": "v2ex-clone",
-  "version": "0.1.0",
-  "description": "",
+  "version": "0.0.1",
+  "description": "V2EX 高保真全栈复刻工程 —— 独立技术研究项目，与 V2EX 官方无关联",
+  "license": "MIT",
+  "keywords": [
+    "forum",
+    "nextjs",
+    "drizzle",
+    "postgresql",
+    "clone"
+  ],
+  "homepage": "https://github.com/alicia1030su/v2ex-clone#readme",
+  "bugs": {
+    "url": "https://github.com/alicia1030su/v2ex-clone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alicia1030su/v2ex-clone.git"
+  },
   "directories": {
     "doc": "docs"
   },
@@ -13,6 +29,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
+    "admin": "tsx scripts/admin-cli.ts",
     "test:e2e": "playwright test",
     "test:unit": "vitest run"
   },
