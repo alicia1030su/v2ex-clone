@@ -64,10 +64,13 @@ env:
   RATE_LIMIT_REPLY_WINDOW_SECONDS: '120'
   RATE_LIMIT_CREATE_NODE_MAX: '10'
   RATE_LIMIT_CREATE_NODE_WINDOW_SECONDS: '60'
-  # 注册限流：注册用例会连续创建多个账号，IP 维度的阈值必须够高，
-  # 否则正常注册也会被 429 拦下（账号维度阈值保持默认，用于验证双维度限流）。
+  # 注册限流：账号维度阈值保持默认（用于验证双维度限流），
+  # IP 维度也用默认值 —— e2e/security-regression.spec.ts 的
+  # 「同一 IP 换用户名批量注册会被 IP 维度限流拦截」用例
+  # 最多尝试 40 次，IP 阈值必须 ≤ 40 才能观察到 429。
+  # 用例之间由 clearRateLimits 清理配额，不会互相干扰。
   RATE_LIMIT_REGISTER_MAX: '5'
-  RATE_LIMIT_REGISTER_IP_MAX: '200'
+  RATE_LIMIT_REGISTER_IP_MAX: '20'
   RATE_LIMIT_REGISTER_WINDOW_SECONDS: '300'
 
 jobs:
