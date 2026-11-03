@@ -23,7 +23,7 @@
 |---|---|---|---|---|---|---|---|
 | P0-01 | `install.ps1` 缺 UTF-8 BOM → Windows PowerShell 5.1 按 ANSI 读取中文脚本，ParseFile 报 12 处语法错误，**Windows 用户 100% 无法安装** | `deploy/install.ps1` | `powershell -NoProfile -Command "[System.Management.Automation.Language.Parser]::ParseFile('deploy/install.ps1',[ref]$null,[ref]$null)"` → 12 处错误 | `1ecfc4a` | ParseFile 直接解析通过（0 错误）；完整流程实测退出码 0 | 已 VERIFIED | **VERIFIED** |
 | P0-02 | Windows 上 `chmod 600` 对 NTFS 是空操作 → 含明文口令的 `.env` 与 `INSTALL_CREDENTIALS.txt` 实测权限仍为 `-rw-r--r--`（其他本机用户可读） | `deploy/install.sh` | 安装后 `ls -l INSTALL_CREDENTIALS.txt` → 644 | `ce6122c`（install.sh）+ `1ecfc4a`（install.ps1） | 安装后 `icacls` 实测 ACL 仅剩 SYSTEM / Administrators / 当前用户 | 已 VERIFIED | **VERIFIED** |
-| P0-03 | 原站 HTML/CSS/JS 副本、参考截图与差异热力图在 **全部远端引用**（master、fix/p0-review-hardening、**v0.0.1 tag**、refs/pull/1/head）中均**可达**，匿名可经 raw.githubusercontent.com 取回（实测 `combo.js` HTTP 200） | Git 历史 `75c9508` | `curl https://raw.githubusercontent.com/alicia1030su/v2ex-clone/75c9508.../combo.js` → 200 | — | 量化：master A=44/B=40/C=10；v0.0.1 A=45/B=40/C=10 | **需主人单独授权**（改写历史 / 移动 tag 均被明令禁止） | **DEFERRED** |
+| P0-03 | 原站 HTML/CSS/JS 副本、参考截图与差异热力图在 **全部远端引用**（master、fix/p0-review-hardening、**v0.0.1 tag**、refs/pull/1/head）中均**可达**，匿名可经 raw.githubusercontent.com 取回（实测 `combo.js` HTTP 200） | Git 历史 `75c9508` | `curl https://raw.githubusercontent.com/alicia1030su/v2ex-clone/75c9508.../combo.js` → 200 | — | 量化：master A=44/B=40/C=10；**v0.0.1 A=45/B=40/C=10（tag 使可达数 +1）**；refs/pull/1/head A=44/B=40/C=10 | **需主人单独授权**（改写历史 / 移动 tag 均被明令禁止） | **DEFERRED** |
 | P0-04 | `postcss@8.4.31`（经 next 15.5.28 间接依赖）4 个 high 漏洞：XSS via Unescaped `</style>`、sourceMappingURL 任意文件读取 | `package-lock.json` | `npm audit --audit-level=high` → high=1 | `0a18978`（overrides → postcss ^8.5.32） | `npm audit --audit-level=high` 退出码 0，high=0 | 已 VERIFIED | **VERIFIED** |
 
 ---
@@ -75,8 +75,34 @@
 
 ---
 
-## 并行审计发现（由 backend-engineer / data-engineer / devops-engineer 补充）
+## 本轮新发现并修复的缺陷（全部有实测证据）
 
-> 本表由并行审计回传后填入。审计仍在进行中。
+| ID | 缺陷 | 位置 | 修复提交 | 测试证据 | 状态 |
+|---|---|---|---|---|---|
+| S-01 | **限流与审计无条件信任可伪造的 `x-forwarded-for`** —— 应用端口直接映射到宿主机，攻击者伪造该头即可完全绕过登录/注册限流 | `src/lib/rate-limit.ts`、`src/app/api/auth/{signup,signin}/route.ts`、`src/lib/auth.ts` | `d1a9882` | 修复前端到端实测：伪造不同 IP 连发 25 次注册**全部 201 通过**；修复后第 21 次返回 **429** | **VERIFIED** |
+| S-02 | `Next.js 15` 用 `??=` 处理 `x-forwarded-for`（客户端传了就不用 socket 真实地址覆盖），middleware **无法区分**真实与伪造值 | `src/middleware.ts` | `d1a9882` | 新增 `tests/client-ip.spec.ts` 8 条 + `tests/middleware-client-ip.spec.ts` | **VERIFIED** |
+| S-03 | `install.sh`/`install.ps1` 强制覆盖 `V2EX_IMAGE`，静默忽略调用方传入值 → CI 无法用本地镜像验证安装 | `deploy/install.sh`、`deploy/install.ps1` | `4e2ce5e` | CI 日志确认 `V2EX_IMAGE: v2ex-clone:install-verify` 被接受 | **VERIFIED** |
+| S-04 | `APP_VERSION`/`$AppVersion` 未同步到 0.0.2，凭据文件抬头版本错误 | `deploy/install.sh`、`deploy/install.ps1` | `4e2ce5e` | 凭据文件内容核对 | **VERIFIED** |
+| S-05 | `docker compose pull` 无条件执行 → 镜像**本地已存在**时（离线安装/内网仓库）安装被阻断 | `deploy/install.sh`、`deploy/install.ps1` | `df6be85` | 本地实测：pull 失败 + image inspect 成功 → 继续安装 | **VERIFIED** |
+| S-06 | `install-verify.yml` 的 Windows job 的 `shell: powershell` run 块含中文 —— GitHub 写成 UTF-8 **无 BOM** 临时 .ps1，Windows 5.1 按 ANSI 读取 → 解析失败（与 install.ps1 缺 BOM 同类） | `.github/workflows/install-verify.yml` | `4e2ce5e` | Windows job 第 4 步「解析检查」从 failure 转为 success | **VERIFIED** |
+| S-07 | down -v 检测把**注释行**与**提示用户手动执行的引导文本**也算进去 | `.github/workflows/install-verify.yml` | `f640a05` | 本地 4 个脚本逐一复核 | **VERIFIED** |
+| S-08 | 缺 Docker 检测用大小写敏感的 `-notmatch 'docker'` 且失败信号只含英文 → GH runner 自带 docker CLI 时误判 | 同上 | `63f7929` → `613207a` → `cd756bd` | 5 个样本输出双向验证（3 正例命中 / 2 反例不误判） | **VERIFIED** |
+| S-09 | `Write-Host` 输出走 Information 流，普通管道捕获不到；`exit 1` 让管道来不及刷出 → 判定永远失败 | 同上 | `cd756bd` | 改用 Start-Process + 文件重定向，捕获长度 976 字节 | **VERIFIED** |
+| S-10 | 幂等检查用 `Get-Content -Raw` 未规范化换行 → CRLF/LF 差异误判「被覆盖」 | 同上 | `78a2573` | 本地连跑两次：长度 2515 → 2515，内容一致 | **VERIFIED** |
+| S-11 | GH windows runner 自带真实 `docker.exe`，PATHEXT 解析 `.EXE` 优先于 `.CMD` → 假 docker shim 失效 | 同上 | `c654d2d` | 改用无扩展名 shim；`which docker` → `/d/a/_temp/inst/docker` | **VERIFIED** |
+| S-12 | shim 未处理 `docker inspect` → 健康检查拿不到 healthy → install.sh 等待 120 秒超时 | 同上 | `d6bd278` | 本地实测 install.sh exit=0 完整跑通 | **VERIFIED** |
+| S-13 | **5 个生产依赖完全未被引用**（jose / dompurify / bcryptjs / nanoid / zod）—— 供应链攻击面与镜像体积的无谓增加 | `package.json` | `0b93eca` | 全仓库搜索 0 引用；移除后 tsc 0 错误、vitest **117/117** | **VERIFIED** |
+| S-14 | `publish-release`/`verify-release` 无 dry_run 闸门 → 勾选「仅验证」仍会真的发 Release | `.github/workflows/release.yml` | devops-engineer 已补 job 级 `if` | 全链路语义核查：两个 job 均有 `if: needs.preflight.outputs.dry_run != 'true'` | **VERIFIED** |
+| S-15 | 发布 tag 触发器为 `'v*'` → 任何能推 tag 的人可触发带 `packages:write`/`contents:write` 的流水线 | `.github/workflows/release.yml` | devops-engineer 已改白名单 | 触发器已为显式白名单 | **VERIFIED** |
+| S-16 | action 版本仍为 node20 线（`checkout@v4` 等）—— GitHub 已于 2026-09-23 移除 node20 运行时，会在**启动阶段**直接失败 | `.github/workflows/{ci,release}.yml` | devops-engineer 已升级 | 全部升级到 node24 版本线，CI 实跑通过 | **VERIFIED** |
+| S-17 | 生产镜像整包 COPY node_modules（530MB，含 devDeps 与 esbuild 0.18.20 漏洞版本） | `Dockerfile` | `19750b9` | `npm ci --omit=dev` 后 73 包 / 429MB；entrypoint 三个必需路径全部存在 | **VERIFIED** |
+| S-18 | `install-verify.yml` 的 Windows 侧 down -v 检测仍是旧版（只改了 Linux 侧） | `.github/workflows/install-verify.yml` | 本轮 | 两侧逻辑已统一，本地 4 脚本复核 | **VERIFIED** |
 
-（待回传）
+## 本轮发现的**环境问题**（非产品缺陷，不计入缺陷数）
+
+| 现象 | 判定 | 处置 |
+|---|---|---|
+| `next build` 偶发 `EPERM: .next\trace` | **环境**：残留 node 进程占用文件句柄 | 杀掉残留进程后重试即成功；**未做任何清理的仓库同样报此错**，与代码无关 |
+| `db-lazy-init.spec.ts` 偶发 ECONNREFUSED | **环境**：本机 PostgreSQL 进程随宿主 shell 回收 | PG 就绪后 117/117 全绿 |
+| Playwright 清空 `test-results` 触发批量删除保护 | **环境**：WorkBuddy 的 safe-delete 保护（>50 文件） | 改用 `mv` 移动而非删除 |
+| `git filter_repo` 演练时 `.next` 被并发清理 | **环境**：多个 agent 并发跑构建 | 改用独立 worktree 目录构建 |

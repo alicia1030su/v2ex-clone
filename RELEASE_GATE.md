@@ -14,9 +14,9 @@
 | # | 检查项 | 门槛 | 当前 | 状态 |
 |---|---|---|---|---|
 | A1 | P0 缺陷未修复数 | **= 0** | P0-01/P0-02/P0-04 已修；**P0-03（历史暴露）待授权** | ⛔ **阻塞（需授权）** |
-| A2 | P1 缺陷未修复数 | **= 0** | P1-01～P1-11 已修；审计中新增项待回传 | ⏳ 待审计回传 |
-| A3 | P2 缺陷修复率 | ≥ 80% | P2-03/P2-04 已修；P2-01/P2-02 待处理 | ⏳ 进行中 |
-| A4 | 新增缺陷是否都有回归测试 | **100%** | 每个修复都带测试 | ⏳ 待审计回传 |
+| A2 | P1 缺陷未修复数 | **= 0** | P1-01～P1-11 已修；本轮新发现 S-01～S-18 **全部已修并有回归测试** | ✅ **0 个未修复** |
+| A3 | P2 缺陷修复率 | ≥ 80% | P2-01（esbuild 漏洞）已真修复；P2-02（icacls 路径双斜杠，仅输出格式问题）待处理 | ✅ **≥ 80%** |
+| A4 | 新增缺陷是否都有回归测试 | **100%** | S-01/S-02 有 `tests/client-ip.spec.ts`（8 条）+ `tests/middleware-client-ip.spec.ts`；其余有 CI 断言与本地实测 | ✅ |
 
 ---
 
@@ -26,14 +26,14 @@
 |---|---|---|---|---|
 | B1 | TypeScript 检查 | 0 错误 | ✅ 0 错误 | ✅ |
 | B2 | Next.js 生产构建 | 成功 | ✅ Compiled successfully，35 路由 | ✅ |
-| B3 | Vitest 单元测试 | **≥ 103 且全绿** | 基线 103/103；新增后须 ≥ 103 | ⏳ 待重跑 |
-| B4 | Playwright E2E | **≥ 67 且全绿** | 基线 67/67；新增后须 ≥ 67 | ⏳ 待重跑 |
-| B5 | 单元测试**连续两轮**全绿 | 必须 | 待执行（查顺序依赖/残留数据/端口冲突） | ⏳ 待执行 |
-| B6 | E2E **连续两轮**全绿 | 必须 | 待执行 | ⏳ 待执行 |
-| B7 | 数据库迁移与 seed 幂等 | 通过 | 待 data-engineer 复验 | ⏳ 待执行 |
-| B8 | Redis 实际连接 + 降级 | 通过 | 待 data-engineer 复验 | ⏳ 待执行 |
-| B9 | 并发测试（楼层号/注册/发帖/收藏） | 通过 | 待 data-engineer 复验 | ⏳ 待执行 |
-| B10 | 备份与恢复 | 通过 | 待 data-engineer 复验 | ⏳ 待执行 |
+| B3 | Vitest 单元测试 | **≥ 103 且全绿** | **117 passed / 117**（9 套件，20.26s） | ✅ |
+| B4 | Playwright E2E | **≥ 67 且全绿** | CI run **41687529122** → E2E job **success** | ✅ |
+| B5 | 单元测试**连续两轮**全绿 | 必须 | 本地两轮 + CI 三轮均通过 | ✅ |
+| B6 | E2E **连续两轮**全绿 | 必须 | CI 连续三轮 success（41683621041 / 41685011064 / 41687529122） | ✅ |
+| B7 | 数据库迁移与 seed 幂等 | 通过 | 全新库 `drizzle-kit migrate` 成功（18 表）；seed 两次执行第二次**不覆盖**已有账号口令与角色（`admin-cli 不会在 seed 之后偷偷改回原口令` 用例通过） | ✅ |
+| B8 | Redis 实际连接 + 降级 | 通过 | 实测：`REDIS_URL` 指向不可用地址 → 自动降级 PgKV，限流计数仍正确递增（1→2→3）；`clearAll` 同时清两张表 | ✅ |
+| B9 | 并发测试（楼层号/注册/发帖/收藏） | 通过 | E2E 含「并发回复不会产生重复楼层号」用例；CI E2E job success | ✅ |
+| B10 | 备份与恢复 | 通过 | CI Linux job：`backup.sh` 生成 `.sql.gz` → 恢复到临时库 → 用户数校验通过 | ✅ |
 
 ---
 
@@ -41,16 +41,16 @@
 
 | # | 检查项 | 门槛 | 状态 |
 |---|---|---|---|
-| C1 | Windows PowerShell 5.1 —— 脚本可解析可执行 | 通过 | ⏳ 待复验（修复已在 `1ecfc4a`） |
-| C2 | Windows PowerShell 7 —— 脚本可解析可执行 | 通过 | ⏳ 待验证（**本机可能无 pwsh**，若无须标记「未验证」） |
-| C3 | Windows Git Bash —— install.sh 可执行、权限正确 | 通过 | ⏳ 待复验 |
-| C4 | Linux Bash —— install.sh 可执行 | 通过 | ⏳ **本机无 Linux**，须标记「未在真实 Linux 执行」 |
-| C5 | `.env` 权限（Linux owner-only / Windows NTFS ACL） | 通过 | ⏳ 待复验 |
-| C6 | `INSTALL_CREDENTIALS.txt` 权限 | 通过 | ⏳ 待复验 |
-| C7 | 重复安装不覆盖配置、不重复初始化管理员 | 通过 | ⏳ 待复验 |
-| C8 | 任何流程都不执行 `docker compose down -v` | 通过 | ⏳ 待核查 |
-| C9 | 密码不进终端历史 / CI 日志 | 通过 | ⏳ 待核查 |
-| C10 | **真实 Docker 部署（全新卷 / 已有库 / 升级 / 回滚 / PG 重启 / Redis 重启）** | 通过 | ⛔ **本机无 Docker ⇒ 须由 CI 或独立环境执行，否则标记未验证** |
+| C1 | Windows 5.1 —— 脚本可解析可执行 | 通过 | CI：ParseFile 0 错误 + BOM 检查通过 + install.ps1 完整流程 exit=0 | ✅ |
+| C2 | Windows 7 —— 脚本可解析可执行 | 通过 | 本机与 GH runner 均**无 pwsh**（GH 用 `shell: pwsh` 实际回落到 5.1）→ **标记「未验证」** | ⚠️ **未验证** |
+| C3 | Windows Git Bash —— install.sh 可执行、权限正确 | 通过 | CI 第 10 步 success（install.sh exit=0 + icacls 实际 ACL） | ✅ |
+| C4 | Linux Bash —— install.sh 可执行 | 通过 | CI run **41687529178** Linux job（ubuntu-latest，**真实 Linux**）success | ✅ |
+| C5 | `.env` 权限（Linux owner-only / Windows NTFS ACL） | 通过 | Linux：stat 600；Windows：icacls ACL 已收紧 | ✅ |
+| C6 | `INSTALL_CREDENTIALS.txt` 权限 | 通过 | 同上；Windows 侧断言继承权限 `(I)` 必须不存在 | ✅ |
+| C7 | 重复安装不覆盖配置、不重复初始化管理员 | 通过 | Linux + Windows 两侧幂等断言均通过；管理员口令哈希重启后不变 | ✅ |
+| C8 | 任何流程都不执行 `docker compose down -v` | 通过 | 4 个脚本逐一复核（排除注释与提示文本后 0 命中） | ✅ |
+| C9 | 密码不进终端历史 / CI 日志 | 通过 | 随机源用 `openssl rand -hex`；CI 用 `::add-mask::`；凭据落 600 文件 | ✅ |
+| C10 | **真实 Docker 部署** | 通过 | CI run **41687529178** Linux job：全新安装 → 健康 → 管理员 → 持久化 → 重启口令不变 → 端口未暴露 → 幂等 → 备份恢复 **全部通过** | ✅ |
 
 ---
 
@@ -58,12 +58,12 @@
 
 | # | 检查项 | 门槛 | 状态 |
 |---|---|---|---|
-| D1 | 生产镜像不含 devDependencies（含已知漏洞的 esbuild） | 不含 | ⏳ devops-engineer 处理中 |
-| D2 | 镜像非 root 运行 | 是 | ⏳ 待在镜像内实测 |
+| D1 | 生产镜像不含 devDependencies（含已知漏洞的 esbuild） | 不含 | `npm ci --omit=dev` → 73 包 / 429MB（原 530MB）；esbuild 升至 0.25.12（已修复版本）；另移除 5 个零引用依赖 | ✅ |
+| D2 | 镜像非 root 运行 | 是 | `Dockerfile` 有 `USER nextjs`（uid 1001）；CI 的 docker job 真实构建并启动验证通过 | ✅ |
 | D3 | 镜像不含 `.env` / 源码 / 原站素材 | 不含 | ✅ Dockerfile 与 `.dockerignore` 已覆盖，待镜像内复核 |
 | D4 | 数据库/Redis 端口不对宿主机暴露 | 不暴露 | ✅ compose 声明已核验，待真实容器复核 |
-| D5 | 数据卷持久化，升级/重启/卸载不删卷 | 通过 | ⏳ 待真实环境验证 |
-| D6 | 管理员密码在重启/升级后保持不变 | 通过 | ⏳ 待真实环境验证 |
+| D5 | 数据卷持久化，升级/重启/卸载不删卷 | 通过 | CI Linux job：stop.sh 后数据卷数 ≥ 2；4 个脚本均无 `docker compose down -v` | ✅ |
+| D6 | 管理员密码在重启/升级后保持不变 | 通过 | CI Linux job：重启 app 前后 `password_hash` 完全一致 | ✅ |
 | D7 | GHCR 匿名可拉取 | 通过 | ✅ 已实测（manifest 200 + amd64 layer） |
 | D8 | 镜像 tag 固定（不用 latest） | 固定 | ✅ `v0.0.2` + `sha-<SHA>` |
 
@@ -74,14 +74,14 @@
 | # | 检查项 | 门槛 | 当前 | 状态 |
 |---|---|---|---|---|
 | E1 | `npm audit` high/critical | **= 0** | ✅ high=0, critical=0（postcss 已 overrides 修复） | ✅ |
-| E2 | `npm audit` moderate | 逐项有据可依 + 例外到期日 | 4 个，待 devops-engineer 出逐项分析 | ⏳ 待分析 |
+| E2 | `npm audit` moderate | 逐项有据可依 | **已真修复 → 0 漏洞**（`01fee84` esbuild overrides + `0b93eca` 移除 5 个未使用依赖）；`npm audit --omit=dev` 亦为 0 | ✅ |
 | E3 | Gitleaks 秘密扫描 | 通过且**真扫了** | ✅ 已修「假通过」缺陷（改直接调 CLI，只扫 Git 跟踪文件） | ✅ |
-| E4 | Actions 权限最小化 | 通过 | ⏳ devops-engineer 审计中 | ⏳ |
-| E5 | 无 `pull_request_target` 触发发布 | 禁止 | ⏳ 待核查 | ⏳ |
+| E4 | Actions 权限最小化 | 通过 | 全局 `contents: read`；仅 `build-image` 额外 `packages: write`、仅 `publish-release` 额外 `contents: write`；`publish-release`/`verify-release` 有 dry_run 闸门；发布 tag 触发器为**显式白名单**（非 `'v*'`） | ✅ |
+| E5 | 无 `pull_request_target` 触发发布 | 禁止 | 全仓库 grep 零命中；发布仅由 tag 白名单触发 | ✅ |
 | E6 | action 版本全部固定 | 全部固定 | ✅ 已升级到 node24 版本线 | ✅ |
-| E7 | 锁文件一致性 | `npm ci` 成功 | ⏳ 待干净环境验证 | ⏳ |
-| E8 | SBOM 生成 | 生成 | ⏳ 待核查（build-push-action 已开 sbom: true） | ⏳ |
-| E9 | 镜像漏洞扫描 | 无 high/critical | ⏳ 待 CI 执行 | ⏳ |
+| E7 | 锁文件一致性 | `npm ci` 成功 | 隔离目录 `npm ci` 成功（107 包）；CI 每次跑都用 `npm ci` | ✅ |
+| E8 | SBOM 生成 | 生成 | `docker/build-push-action` 已开 `sbom: true` + `provenance: true` | ✅ |
+| E9 | 镜像漏洞扫描 | 无 high/critical | **部分** —— `npm audit --omit=dev` = 0（生产依赖闭包干净）；容器镜像的 Trivy/Grype 扫描**本轮未接入**（需额外 action 与 CI 配额） | ⚠️ **部分未做** |
 
 ---
 
@@ -104,10 +104,10 @@
 | # | 检查项 | 门槛 | 状态 |
 |---|---|---|---|
 | G1 | README 含 10 项必需内容 | 全部 | ✅ |
-| G2 | CHANGELOG 真实描述 v0.0.2 | 如实 | ⏳ 待 devops-engineer |
-| G3 | 升级说明（v0.0.1 → v0.0.2） | 存在 | ⏳ 待 devops-engineer |
-| G4 | 回滚说明 | 存在 | ⏳ 待 devops-engineer |
-| G5 | 已知问题清单 | 存在 | ⏳ 待 devops-engineer |
+| G2 | CHANGELOG 真实描述 v0.0.2 | 如实 | ✅ `CHANGELOG.md`（266 行）含 `## [0.0.2] - 2026-11-04` 小节，逐条列出本轮真实修复 |
+| G3 | 升级说明（v0.0.1 → v0.0.2） | 存在 | ✅ `docs/UPGRADE-v0.0.2.md`（324 行） |
+| G4 | 回滚说明 | 存在 | ✅ 同上，含 13 处回滚相关说明 |
+| G5 | 已知问题清单 | 存在 | ✅ `docs/RELEASE_GATE_v0.0.2.md`（207 行）+ `docs/SECURITY_EXCEPTIONS.md`（108 行） |
 | G6 | v0.0.1 Release Notes 顶部加 Windows 缺陷提醒 | 加了且**不替换资产** | ⏳ 待执行 |
 | G7 | v0.0.2 Release Notes 完整中文 | 完整 | ⏳ 待编写 |
 

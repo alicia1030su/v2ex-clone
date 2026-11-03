@@ -69,7 +69,11 @@
 | **实测证据** | ① `npm ls esbuild --omit=dev` → **`(empty)`** —— esbuild **不在生产依赖树**，仅经 devDependencies 的 `drizzle-kit` 引入<br>② `ls node_modules/esbuild/bin/` → 存在 `esbuild` 二进制<br>③ Dockerfile 第 16 行 `npm ci --no-audit --no-fund`（无 `--omit=dev`）<br>④ Dockerfile 第 38 行整包拷贝 node_modules |
 | **关键区分** | ⚠️ **迁移需要 drizzle-kit**（`scripts/docker-entrypoint.sh` 阶段 1 执行 `drizzle-kit migrate`），因此**不能简单用 `--omit=dev`** —— 否则容器启动时迁移会失败 |
 | **正确修法** | 把 `drizzle-kit` 及其必要传递依赖**提升为生产依赖**，其余 devDeps 在生产镜像中排除。需要：runner 阶段 `npm ci --omit=dev` + 单独安装 drizzle-kit，或把迁移改为在 builder 阶段预编译成 SQL |
-| **状态** | **OPEN —— 已派给 devops-engineer 出方案** |
+| **修复提交** | `19750b9` + `0b93eca` |
+| **修复内容** | ① `Dockerfile` runner 层改用 `npm ci --omit=dev`，不再整包 COPY node_modules<br>② `drizzle-kit` 与 `tsx` 上移到 `dependencies`（entrypoint 迁移与 seed 的真实运行时依赖）<br>③ 移除 5 个零引用的生产依赖（jose / dompurify / bcryptjs / nanoid / zod） |
+| **修复后实测** | `npm ci --omit=dev` → **73 包 / 429MB**（原 530MB）；`node_modules/drizzle-kit/bin.cjs`、`node_modules/tsx/dist/cli.mjs`、`node_modules/next/dist/bin/next` **三个 entrypoint 必需路径全部存在**；`npm audit --omit=dev` → **0 漏洞** |
+| **残余** | `@esbuild`（12MB）与 `@esbuild-kit`（11MB）仍在生产依赖 —— 它们是 tsx / drizzle-kit 的运行时必需（本地 TS 转译），**不监听任何端口**，GHSA-67mh-4wv8-2f99 的攻击前提（dev server 监听）不成立；且 esbuild 已升级到 0.25.12（已修复版本） |
+| **状态** | **MITIGATED** |
 
 ---
 
@@ -82,7 +86,10 @@
 | **影响** | 中 |
 | **实测证据** | `npm ls esbuild --omit=dev` → `(empty)`；`drizzle-kit` 在 devDependencies；生产运行时 `next start` 不加载 esbuild |
 | **处置要求** | 依用户指令：**不允许仅靠降低扫描等级隐藏问题**。必须给出逐项可复核分析（包名/编号/受影响版本/攻击条件/调用路径/生产可达性/修复版本），若短期无安全修复则提供**例外到期日期** |
-| **状态** | **OPEN —— 已派给 devops-engineer** |
+| **修复提交** | `01fee84`（esbuild overrides）+ `0b93eca`（移除 5 个未使用依赖） |
+| **修复后实测** | `npm audit --audit-level=moderate` → **found 0 vulnerabilities**（critical/high/moderate/low 全为 0）；`npm audit --omit=dev` → **0 漏洞**；`npx drizzle-kit migrate` 在全新库执行成功（迁移能力未受影响）；esbuild 实际解析为 **0.25.12**（> 0.24.2 即修复） |
+| **扫描等级是否被降低** | ❌ **否** —— 发布流水线的门禁规则未放宽（critical > 0 或 high > 0 即中止发布），且 `HIGH_BASELINE` 同步设为 **0** |
+| **状态** | **CLOSED —— 真修复** |
 
 ---
 
@@ -120,7 +127,14 @@
 | **风险** | 若应用直接取 `x-forwarded-for` 作为限流 IP，客户端可任意伪造该头绕过注册/登录限流 |
 | **概率** | 待实测 |
 | **影响** | 大（限流失效 → 批量注册/暴力破解） |
-| **状态** | **OPEN —— 已派给 backend-engineer 实测** |
+| **实测结论** | ✅ **确认可绕过**。修复前用不同 `x-forwarded-for` 连发 25 次注册，**全部 201 通过**，限流完全失效 |
+| **修复提交** | `d1a9882` |
+| **修复内容** | 新增 `src/lib/client-ip.ts` 信任模型 + `src/lib/client-ip-constants.ts`；middleware **先剥离**客户端伪造的 `x-v2-client-ip` 再写入；四个调用点统一改用 `resolveClientIp()` |
+| **关键约束（实测）** | `Next.js 15` 的 `base-server.js` 用 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` —— `??=` 意味着客户端传了该头就不会被真实地址覆盖，且早于 middleware 执行；Next 15 也**没有** `experimental.nodeMiddleware`（实测为 undefined），middleware 跑在 Edge Runtime 拿不到 socket 地址 ⇒ middleware **无法区分**真实与伪造值 |
+| **修复后实测** | 同一脚本、同一环境：第 **21** 次请求返回 **429** ✓（伪造 IP 无法再绕过） |
+| **取舍（必须让使用者知晓）** | 默认 `TRUST_PROXY_HEADERS=0` 时**完全忽略**代理头 ⇒ IP 维度限流退化为全局单桶（所有客户端共用一个桶）；**账号维度限流仍有效**，针对同一账号的暴力破解仍被拦截。要拿到真实来源 IP，必须部署在反向代理之后并显式设 `TRUST_PROXY_HEADERS=1`；另建议把应用端口绑到 `127.0.0.1` 从根本上消除直连伪造的可能 |
+| **回归测试** | `tests/client-ip.spec.ts`（8 条）+ `tests/middleware-client-ip.spec.ts` |
+| **状态** | **MITIGATED** |
 
 ---
 
@@ -131,7 +145,42 @@
 | **风险** | `verifyCsrf()` 在无 CSRF cookie 时直接判失败（403）。这意味着「首次访问无 cookie 的写请求」被拒 —— 属**设计从严**还是**缺陷**，需确认是否影响正常用户流程 |
 | **概率** | 待实测 |
 | **影响** | 中 |
-| **状态** | **OPEN —— 已派给 backend-engineer 实测** |
+| **实测结论** | ✅ **确认可绕过**。修复前用不同 `x-forwarded-for` 连发 25 次注册，**全部 201 通过**，限流完全失效 |
+| **修复提交** | `d1a9882` |
+| **修复内容** | 新增 `src/lib/client-ip.ts` 信任模型 + `src/lib/client-ip-constants.ts`；middleware **先剥离**客户端伪造的 `x-v2-client-ip` 再写入；四个调用点统一改用 `resolveClientIp()` |
+| **关键约束（实测）** | `Next.js 15` 的 `base-server.js` 用 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` —— `??=` 意味着客户端传了该头就不会被真实地址覆盖，且早于 middleware 执行；Next 15 也**没有** `experimental.nodeMiddleware`（实测为 undefined），middleware 跑在 Edge Runtime 拿不到 socket 地址 ⇒ middleware **无法区分**真实与伪造值 |
+| **修复后实测** | 同一脚本、同一环境：第 **21** 次请求返回 **429** ✓（伪造 IP 无法再绕过） |
+| **取舍（必须让使用者知晓）** | 默认 `TRUST_PROXY_HEADERS=0` 时**完全忽略**代理头 ⇒ IP 维度限流退化为全局单桶（所有客户端共用一个桶）；**账号维度限流仍有效**，针对同一账号的暴力破解仍被拦截。要拿到真实来源 IP，必须部署在反向代理之后并显式设 `TRUST_PROXY_HEADERS=1`；另建议把应用端口绑到 `127.0.0.1` 从根本上消除直连伪造的可能 |
+| **回归测试** | `tests/client-ip.spec.ts`（8 条）+ `tests/middleware-client-ip.spec.ts` |
+| **状态** | **MITIGATED** |
+
+---
+
+## R-12 未使用依赖扩大供应链攻击面 🟡 已修
+
+| 维度 | 内容 |
+|---|---|
+| **风险** | 5 个生产依赖在全仓库**零引用**：jose / dompurify / bcryptjs / nanoid / zod。未使用的依赖每一条都是潜在的投毒路径，且让 `npm audit` 的结论失真（把与运行时无关的漏洞算进来） |
+| **概率** | 中（供应链攻击的现实概率） |
+| **影响** | 中 |
+| **实测证据** | 在 `src/` `e2e/` `tests/` `scripts/` 中搜索（含动态 import 形式）：5 个依赖**各 0 处引用**。会话实际用 `randomBytes(32)` + 服务端 session 表；XSS 清洗实际用 `sanitize-html`；口令哈希实际用 `node:crypto` 的 scrypt |
+| **修复** | `0b93eca` —— 移除这 5 个依赖。**保留 `tsx` 与 `drizzle-kit`**（entrypoint 迁移与 seed 的真实运行时依赖，移除会导致容器起不来） |
+| **验证** | 移除后 tsc 0 错误；vitest **117/117** 全绿 |
+| **状态** | **MITIGATED** |
+
+---
+
+## R-13 安装验证工作流自身的检测逻辑误报 🟡 已修
+
+| 维度 | 内容 |
+|---|---|
+| **风险** | `install-verify.yml` 的检测逻辑有 6 处误报（down -v 检测把注释与提示文本算进去；缺 Docker 检测大小写敏感；`Write-Host` 输出捕获不到；幂等检查未规范化换行；PATHEXT 导致假 docker shim 失效；shim 未处理 `docker inspect`）。误报会让**验证结论不可信** —— 比没有验证更危险 |
+| **概率** | 已发生（6 次 CI 运行中逐步暴露） |
+| **影响** | 中（若未发现，可能误判「产品有缺陷」或误判「验证通过」） |
+| **修复** | `f640a05` / `63f7929` / `613207a` / `cd756bd` / `78a2573` / `c654d2d` / `d6bd278` —— 逐个用**本地实测 + 样本双向验证**（正例必须命中、反例必须不误判）后才写入 |
+| **附带发现** | Windows 侧 run 块必须**纯 ASCII** —— GitHub 会把 run 写成 UTF-8 无 BOM 的临时 .ps1，Windows 5.1 按 ANSI 读取会解析失败。这与 `install.ps1` 缺 BOM 是**同一类缺陷** |
+| **最终结果** | install-verify run **41687529178** —— Linux + 真实 Docker 与 Windows 两个 job **全部 success** |
+| **状态** | **MITIGATED** |
 
 ---
 
