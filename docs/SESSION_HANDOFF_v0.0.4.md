@@ -498,3 +498,61 @@ dotenv 统一加载器重构给 `drizzle.config.ts` 引入了该依赖，但 Doc
 - 55433（v003 证据库）仍未恢复 → 本地 E2E/起应用验证继续暂停。
 - 版本同步（5 载体）→ 测该提交 → 定 SHA → 人工放行 tag → 建不可变 Tag → Draft Release：等 ui2 修复 + CI 全绿后执行。
 - R-01 仍 DEFERRED，等待主人单独授权。
+
+---
+
+# 第 6 轮状态快照（2026-11-05，主理人）—— 最新状态以此为准
+
+## A. 本轮已推送提交（分支 feat/v0.0.4-high-fidelity，PR #5）
+
+| Commit | 内容 |
+|---|---|
+| `827eef7` | fix(ci): docker-verify 安装模拟改走首次安装路径（删不完整的 .env 预置块） |
+| `2773cd1` | fix(ci): 安装模拟前 unset job 级 env —— 修复 compose 插值被 shell 环境变量覆盖（见 B2） |
+
+## B. docker-verify 工作流**首次全绿**（run 41871503684，SHA 2773cd1）
+
+R-16/R-17 九项验证 **completed / success**，九项汇总表全 PASS。安装模拟段实证输出：
+
+```
+app health = healthy
+安装产物口径：POSTGRES_USER=v2ex POSTGRES_DB=v2ex SEED_ADMIN_USERNAME=admin
+管理员账号数 = 1
+```
+
+同 SHA 的「安装验证」工作流亦 completed/success（deploy/ 未变动仍触发，无害）；CI 的 unit 与 Docker job ✅，E2E 在跑（预计仍红 1 条，等 ui2）。另：本次推送 GitHub 事件重复投递，每个工作流出现两个同 SHA run（concurrency 未抵消早跑的那个），两个 docker-verify run 均独立跑绿，无影响。
+
+### B1. `827eef7` 的效果（安装模拟全程跑通）
+
+install.sh 完成、`.env` 600、INSTALL_CREDENTIALS.txt 600、口令 32/32/48/16 位、`V2EX_IMAGE = v2ex-clone:dv`（纯本地镜像）、app healthy——首次安装路径全部真实通过。
+
+### B2. `2773cd1` 修复的根因（真实 CI 抓到的第二类问题：**假绿**）
+
+事故现场（run 41868374546，SHA 827eef7）：安装模拟全程「成功」，但最后 psql 报 `FATAL: database "v2ex" does not exist`。
+
+根因链：
+1. Docker Compose 变量插值优先级为 **shell 环境变量 > .env 文件**；
+2. docker-verify.yml job 级 env（为根 compose 栈准备）含 `POSTGRES_DB=v2ex_dv` 等一整套变量；
+3. install.sh 执行裸 `docker compose up -d`（无 `--env-file`，靠当前目录 .env 插值）→ 安装栈实际使用工作流占位凭据：postgres 初始化出 `v2ex_dv`（`pg_isready` 不校验库是否存在，healthcheck 照样 Healthy）、app 的 `DATABASE_URL` 也插值成 `.../v2ex_dv`（同一来源，内部自洽 → healthy）；
+4. 硬编码的 `psql -d v2ex` 必然 FATAL。
+
+比红灯更危险的是：整个安装模拟被悄悄降级——验的不再是 install.sh 生成的随机口令，凭据文件与库内 seed 实际口令不一致。install-verify.yml 无此组 job 级 env，此前一直真绿，可作对照。ci.yml 的 docker job 为根栈专用（v2ex_ci 全链一致、无 install.sh 模拟），不存在该模式。
+
+修复：跑 install.sh 前 unset 全部会泄漏进 compose 插值的 job 级变量（仅作用于本 step 的 shell；末尾恢复根 compose 用 `--env-file .env.dv`，11 键齐全）；安装后管理员检查改为从 .env 派生 POSTGRES_USER/POSTGRES_DB/SEED_ADMIN_USERNAME，不再硬编码。
+
+## C. 团队成员状态（2026-11-05，压缩恢复后已发状态跟进）
+
+| 成员 | 状态 | 任务 |
+|---|---|---|
+| software-engineer-ui2 | 已催促，等回复 | #418 hydration 根因修复（证据包见第 5 轮 B2）；禁自行起库起服务，验证走 CI |
+| software-architect | 已催促，等回复 | v0.0.4 版本同步只读审计（5 载体清单表） |
+| software-qa-e2e | 已催促，等回复 | 方案 A 库分离（阶段 1 提交情况 + 阶段 2 阻塞点；PG 不重启） |
+| software-engineer-docs | 已催促，等回复 | 证据记录；口径：已修不显 OPEN、未复现不标 FIXED、2773cd1 待 CI 实证后再落文档 |
+| software-engineer-deploy / testenv / dotenv / qa-ci | 空闲/待命 | — |
+
+## D. 待观察 / 待办
+
+- **E2E 仍是唯一红灯**：等 ui2 的 hydration 修复提交推送 → CI e2e job 验收 153/153 全绿。
+- 版本同步（5 载体，architect 审计表）→ 测该提交 → 定 SHA → 人工放行 tag 白名单 → 建不可变 Tag → v0.0.4 Draft Release：等 CI 全绿后执行。
+- 55433（v003 证据库）仍未恢复 → 本地 E2E/起应用验证继续暂停（主人已取消 PG 恢复，**不要重启或重试**）。
+- R-01 仍 DEFERRED，等待主人单独授权。
