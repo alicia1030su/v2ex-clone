@@ -70,9 +70,81 @@ WorkBuddy 的 Bash 工具在**单次调用结束时回收整棵进程树** → `
 
 ---
 
+## 3b. 本轮 PG 中止事件（21:47:25）—— 已恢复，无数据损失
+
+```
+21:47:25.022  日志: 所有的服务器进程被中止; 重新初始化
+21:47:25.198  日志: 数据库系统中断；上一次的启动时间是在 2026-11-04 21:32:50 CST
+21:47:30.773  致命错误: 数据库系统在恢复模式中
+21:48:29.101  日志: checkpoint complete: wrote 2131 buffers; total=4.540 s
+21:48:29.217  日志: 数据库系统准备接受连接
+```
+
+**恢复耗时约 64 秒**（1.4GB 数据目录 fsync 极慢）。
+
+✅ **数据完整性实测通过**（21:50 复核）：
+| 库 | 大小 | 表数 |
+|---|---|---|
+| `v2ex_loadtest` | 890 MB | 26 ✅ |
+| `v2ex_v002_baseline` | 9081 kB | 26 ✅ |
+| `v2ex_v004_audit` | 9737 kB | 26 ✅ |
+| `v2ex_e2e` | 11 MB | 26 ✅ |
+| `v2ex_visual` | 9681 kB | 26 ✅ |
+
+**结论：无任何数据损失，证据库完好。**
+
+### 本次事故暴露的真实问题（已由 `tests/setup.ts` 的探活机制覆盖）
+
+`scripts/seed.ts` 在 PG 恢复期间运行，报的是
+`PostgresError 57P03 cannot_connect_now`（"数据库系统在恢复模式中"）——
+一个**看不懂的错误**，容易被误判为产品缺陷。
+
+而新的 `tests/setup.ts` 里的 `probeDatabase()` 会在测试开始前探活，
+直接报「**PG 未就绪（环境问题）**」并附排查步骤 ——
+这正是本轮 4 次 CI 失败中最需要的判据能力。
+
+### ⚠️ 共享实例的操作纪律（血的教训）
+
+`data-v003` 上的共享实例**会被其他操作中止**（21:47 这次是成员执行了 pg_ctl stop）。
+因此：
+- 单元测试应走**独立实例**（测试环境工程师正在建）
+- 任何人要动共享实例，**先告知主理人**
+- 任何测试跑出 `57P03` → 先查 `pg-v004.log` 是否在恢复，**不要**当作产品缺陷
+
+---
+
+## 3c. 「185 vs 190」之谜 —— 完整真相
+
+**两个数字都是真实的**，且实际上存在**两个不同的 185**：
+
+| 数字 | 来源 | 含义 |
+|---|---|---|
+| **185（作为通过数）** | CI run `41837212170`（本轮） | `185 passed \| 5 skipped (190)` —— 分母是 190 |
+| **185（作为总数）** | CI run `41760677505`（master @ `37710fb4`，14 文件） | `185 passed (185)` —— 当时总数就是 185 |
+
+**结论：v0.0.4 的用例总数始终是 190（15 文件）。**
+185 在当前分支语境下只是 CI 上的通过数（`floor-continuity` 5 条崩溃被跳过）。
+
+**根因链**：
+`floor-continuity.spec.ts` 硬编码读被 gitignore 的 `.env.test` → CI 干净克隆 ENOENT
+→ 5 条 skipped → **unit job 红** → **e2e job 被 `needs: unit` 连带跳过**
+→ **v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**（历史所有 run 的 E2E 状态都是 `skipped`）。
+
+### ⚠️ 本轮已实测推翻的两个推断（留痕，避免后人重犯）
+
+1. **「CREATE DATABASE 38.6s 是数据目录 1.4GB 导致」** —— 错。稳态实测 **2.0~2.3 秒**。
+   真因是 PG 处于 **crash recovery / I/O 积压态**。
+2. **「`scripts/seed.ts` 的 ENV_FILE 因 ESM 导入顺序而失效」** —— 错。
+   实测 ENV_FILE **是生效的**（探针库法验证）。原因是 `src/db/index.ts` 用的是
+   **Proxy + 惰性创建**（v0.0.4 的 P0-4 修复引入），`createClient()` 只在
+   **首次真正查库时**才读 `process.env.DATABASE_URL` —— 那时 dotenv 早已配好。
+   **`override: true` 在那三处不是 bug，而是唯一能让 ENV_FILE 生效的机制。**
+
+---
+
 ## 4. PostgreSQL 测试问题（A / B / C）根因与状态
 
-### 问题 A：环境变量与子进程连接目标错误 —— ✅ 根因已定位
+### 问题 A：环境变量与子进程连接目标错误 —— ✅ 根因已定位，**修复中**
 
 `tests/setup.ts` 的**注释声称**「加载 .env.test（隔离测试数据库）」，但**实际代码只加载 `.env.local` 和 `.env`**：
 
@@ -120,7 +192,37 @@ v2ex_rateclear
 
 ---
 
-## 5. 功能与 UI 缺口现状（本轮已核实）
+## 5. 本轮新发现的真实缺陷（共 5 个，前 3 个已修复）
+
+| # | 缺陷 | 状态 | 证据 |
+|---|---|---|---|
+| 1 | **运行时上传数据被误提交入仓** —— `public/uploads/` 下 18 个 684 字节 E2E 占位图被跟踪进版本库（引入提交 `04b107b`/`1b15f79`/`301a8a5`）。风险性质与 R-01 同类 | ✅ **已修**（`49d66d3`） | `.gitignore` 加 `public/uploads/` 规则 + `git rm --cached` 移出索引（**不改写历史**、不删磁盘文件） |
+| 2 | **`docker-verify.yml` 定义级失败** —— 汇总步骤把三元式写进 `${{ }}`（`${{ job.status == 'success' && echo PASS \|\| echo '见日志' }}`），GitHub 表达式**不支持** `&&`/`\|\|` 三元。症状极具迷惑性：run **0 秒**结束、`total_count=0`、**无任何 job 被创建**，报错仅「This run likely failed because of a workflow file issue」，而 **YAML 本身能正常解析** | ✅ **已修**（`2532f5f`） | CI run `41836244258` |
+| 3 | **`docker-verify.yml` 迁移物路径断言错误** —— drizzle 的 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录；初版混用同一路径断言 → 误判「镜像内缺少」 | ✅ **已修**（`930f29e`） | CI run `41836588637` |
+| 4 | **`docker-verify.yml` app 健康判定口径错误** —— 根目录 `docker-compose.yml` 的 app **无 healthcheck**（只有 `deploy/docker-compose.yml` 才有），`State.Health.Status` **永远返回 `none`**，断言「三容器全 healthy」恒假。CI 日志证明 app 实际完全健康（`✓ Ready in 414ms`） | ✅ **已修**（`300d938`） | CI run `41837202602` |
+| 5 | **CI 上 `floor-continuity.spec.ts` 崩溃** —— 硬编码 `readFileSync('.env.test')`，而 `.env.test` 被 gitignore、从未入仓 → CI 干净克隆里 ENOENT → 5 条 skipped → **CI 红灯**。且它对 `process.env.DATABASE_URL` 要求匹配 `/:55433\//`，使 CI 的 5432 地址永不被采用 | 🔴 **修复中** | CI run `41837212170` |
+
+### 第 5 个缺陷的连锁影响（本轮最重要的发现）
+
+- **CI 的 E2E job 因 `needs: unit` 被连带跳过** → **v0.0.4 的 153 条 E2E 在 CI 上一条都没跑过**。
+  历史 run 显示 `E2E 测试 | skipped` 始终如此。
+- **这解释了「185 vs 190」之谜**：CI 上 = `185 passed | 5 skipped (190)`，本机 = `190 passed`。
+  两个数字**都是真实观测**，差异是环境导致，**不是**「v0.0.3 vs v0.0.4」。
+- **修复后 CI 与本地都应为 `190 passed / 0 skipped`**。
+
+### 4 个 CI 缺陷的共同规律（值得记住）
+
+**症状都是「环境差异」伪装成「产品缺陷」**：
+- YAML 能解析 → 但表达式求值失败
+- 文件明明存在（`ls` 输出证明）→ 但断言查错了路径
+- 容器明明健康（日志证明）→ 但断言读了不存在的字段
+
+**对策**：每条断言失败时，先确认**被观测对象本身是否正常**（用同一份日志/输出交叉验证），
+再判定是产品缺陷还是断言缺陷。本轮 4 次里有 3 次是断言缺陷。
+
+---
+
+## 5b. 功能与 UI 缺口现状（本轮已核实）
 
 | # | 缺口 | 核实结论 | 负责成员 |
 |---|---|---|---|
@@ -139,7 +241,13 @@ v2ex_rateclear
 
 ## 6. 本轮实测基线（**已复核，以此为准**）
 
-> ✅ **185 vs 190 争议已解决：权威基线是 190 条。** 185 是 v0.0.3 的历史数字，v0.0.4 新增了 `tests/floor-continuity.spec.ts`（5 条）后为 190。
+> ✅ **185 vs 190 争议已解决 —— 两个数字都是真实的，差异有确切根因。**
+> **185 是 CI 上的数字**（`185 passed | 5 skipped (190)`），**190 是本机的数字**（`190 passed`）。
+> 差异来自 `tests/floor-continuity.spec.ts` 的 5 条用例在 CI 上崩溃：
+> 它硬编码 `readFileSync('.env.test')`，而 `.env.test` 被 `.gitignore` 忽略、从未入仓，
+> CI 干净克隆里不存在 → `ENOENT` → `beforeAll` 抛错 → 5 条 skipped。
+> 且它对 `process.env.DATABASE_URL` 要求匹配 `/:55433\//`，使 CI 的 5432 地址永远不被采用。
+> **修复后 CI 与本机都应是 190 passed / 0 skipped。**
 
 | 项 | 上一轮记录 | **本轮实测（2026-11-04）** |
 |---|---|---|
@@ -167,11 +275,11 @@ v2ex_rateclear
 | 成员 | Agent ID | 任务 | 状态 |
 |---|---|---|---|
 | 架构师 | `software-architect` | PG 测试环境隔离方案设计 → `docs/TEST_ENV_ISOLATION_v0.0.4.md` | ✅ **已交付**（1679 行，含三次归因勘误留痕、三道护栏、独立实例命令） |
-| 部署工程师 | `software-engineer-deploy` | `deploy/update.sh` + `preflight.sh` + 自检脚本 | ✅ **已交付**（含 stub-docker 自检真实输出） |
-| UI 工程师 | `software-engineer-ui` | 补齐 R-21 / R-24 等 8 项 UI 缺口 | ⚠️ **网络 502 中断，零产出**，已重启为 `software-engineer-ui2` |
-| UI 工程师（重启） | `software-engineer-ui2` | 同上 | 🟡 运行中 |
-| QA/CI | `software-qa-ci` | 远端状态核查 + `docker-verify.yml` + 本地基线复核 | 🟡 运行中 |
-| 测试环境工程师 | `software-engineer-testenv` | 按架构师设计实施 PG 测试环境修复 + 三道护栏 | 🟡 运行中 |
+| 部署工程师 | `software-engineer-deploy` | `deploy/update.sh` + `preflight.sh` + 自检脚本 | ✅ **已交付并已提交**（`b0d68c2`；62 项自检全 PASS） |
+| UI 工程师（重启） | `software-engineer-ui2` | 补齐 R-21 / R-24 等 8 项 UI 缺口 | 🟡 运行中（已产出 `src/lib/nav-links.ts`） |
+| QA/CI | `software-qa-ci` | 远端状态核查 + `docker-verify.yml` + 本地基线复核 | 🟡 运行中（health 断言已改好待提交） |
+| 测试环境工程师 | `software-engineer-testenv` | 按架构师设计实施 PG 测试环境修复 + 三道护栏 | 🟡 运行中（已收到 CI 崩溃实证） |
+| 文档工程师 | `software-engineer-docs` | 统一 11 份交付文档口径 + 登记新缺陷 | 🟡 运行中 |
 
 ### 架构师交付要点（`docs/TEST_ENV_ISOLATION_v0.0.4.md`）
 
@@ -203,39 +311,73 @@ v2ex_rateclear
 | ID | 状态 | 摘要 |
 |---|---|---|
 | R-01 | 🔴 未解决 | 原站 HTML/CSS/JS 经 Git 历史持续暴露。**仅允许只读审计 + 隔离副本演练 + 准备 Support 资料**；未经主人再次明确授权，禁止 force push / 改写远端历史 / 删 Tag / 删 Release / 删仓库 / 改可见性 |
-| R-16 | 🔴 DEFERRED | Docker 容器与安装包未实跑 → 本轮交 QA/CI 落地 `docker-verify.yml`，待推送后 CI 实跑取证 |
+| R-16 | 🔴 DEFERRED | Docker 容器与安装包未实跑 → `docker-verify.yml` 已落地并修复 4 个缺陷，待推送后 CI 实跑取证（首轮已通过第 9 项） |
 | R-17 | 🔴 DEFERRED | Redis 故障恢复 / 缓存失效 / 内存观测未验证 → 同上 |
-| R-18 | 🟡 处理中 | `deploy/update.sh` 不更新 `.env` 的 `V2EX_IMAGE` → 部署工程师修复中 |
+| R-18 | 🟢 已修复 | `deploy/update.sh` 已修复（--version/--image、digest 核对、失败自动回滚、--dry-run 19 处），87 项自检全 PASS |
 | R-19 | 🟡 部分已修 | `release.yml` tag 白名单不含 v0.0.4（**刻意保留人工摩擦，勿自动改**）；Release Notes 已动态化 |
 | R-20 | 🟢 已裁决 | 开发态版本载体保持 0.0.3，`[Unreleased]` 显式记录；最终 SHA 固定后一次性同步 |
-| R-21 | 🔴 OPEN | 四身份 UI 缺口 → UI 工程师处理中 |
-| R-22 | 🟡 已定位 | 单测建库超时 → 架构师出隔离方案 |
+| R-21 | 🟢 已修复 | 四身份 UI 缺口 8 项已补齐（管理员入口/关注/节点申请/通知已读），主理人真实浏览器独立复核 16 项断言全 PASS |
+| R-22 | 🟢 已修复 | 单测环境隔离完成：独立实例 55440 + 护栏（53 项断言）+ 稳态判据；38.6s 归因已三次勘误（见 §3b） |
 | R-23 | 🟢 已修复 | 关注用例静默跳过已修并实跑通过 |
-| R-24 | 🔴 OPEN | 关注无 UI 入口 → UI 工程师处理中 |
+| R-24 | 🟢 已修复 | 关注 UI（FollowButton / following 页）已补齐并实跑通过 |
 
 ---
 
-## 9. GitHub PR 与 CI 状态
+## 9. GitHub PR 与 CI 状态（2026-11-04 21:20 更新）
 
-- 远端**没有** `feat/v0.0.4-high-fidelity` 分支 —— 8 个提交**全部只在本地**
-- 现有 PR：待 QA/CI 核查后确认
-- CI：`ci.yml` 触发条件为 push 到 `master` / `fix/**` / `feat/**` 与 PR 到 `master`，另有 `workflow_dispatch`
-- ⚠️ **CI 无法覆盖本轮改动，直到主理人推送分支**
-- Release：`v0.0.3` Draft 存在（**不得破坏**）；`v0.0.1` / `v0.0.2` 已发布（**不得破坏**）
+| 项 | 状态 |
+|---|---|
+| 远端分支 | ✅ **`feat/v0.0.4-high-fidelity` 已推送**（HEAD `930f29e`） |
+| PR | ✅ **PR #5** → master，OPEN，MERGEABLE。https://github.com/alicia1030su/v2ex-clone/pull/5 |
+| 仓库可见性 | ✅ **PUBLIC**（`gh api` 实测 `visibility: public`, `archived: false`） |
+| 既有 PR | 4 个，全部 MERGED（#1~#4），无 OPEN |
+| Tag | `v0.0.1` / `v0.0.2` / `v0.0.3` 完好，**无 v0.0.4**（符合规约） |
+| Release | `v0.0.3` **Draft 完好**（`draft=true`, `published_at=null`, 2 资产）；`v0.0.1`/`v0.0.2` 已发布未触碰 |
+| master 分支保护 | **未设置**（`GET /branches/master/protection` → 404） |
+| GHCR 包可见性 | 本轮无法核实（token 缺 `read:packages` scope） |
+
+### 本轮修复的两个 CI 真实缺陷（均由主理人发现并修复）
+
+1. **`docker-verify.yml` 定义级失败**：汇总步骤把三元式写进 `${{ }}` 上下文
+   （`${{ job.status == 'success' && echo PASS || echo '见日志' }}`）——
+   GitHub 表达式**不支持** `&&`/`||` 三元（`||` 取默认值是支持的）。
+   症状极具迷惑性：run **0 秒结束**、`total_count=0`、**无任何 job 被创建**，
+   报错仅一句「This run likely failed because of a workflow file issue」，
+   而 YAML 本身**能正常解析**（python yaml 校验通过，1 job / 17 steps）。
+   → 修复：三元判断下沉到 `run:` 块的 shell 层
+2. **`_journal.json` 路径断言错误**：drizzle 的迁移 SQL 在 `/app/drizzle/` 根目录，
+   而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录。
+   初版混在同一列表用同一路径断言 → 被误判「镜像内缺少」而红灯。
+   → 修复：SQL 与 meta 元数据分成两段断言（覆盖面反而更严）
+
+### `docker-verify.yml` 首轮 CI 实测已通过的部分（R-16 第 9 项）
+
+- ✅ `Config.User` 非 root，容器内 `id -u` ≠ 0
+- ✅ 镜像**不含** devDependencies（playwright / vitest / typescript / pixelmatch / pngjs / @types/node 等 8 项）
+- ✅ 镜像**含**运行时必需文件（drizzle-kit / tsx / next）—— 生产镜像确实带它们
+- ✅ 镜像**不含** `.env` / `.env.local` / `.env.test` / `.env.production` / `INSTALL_CREDENTIALS.txt`
+- ✅ 无凭据文件
+- ✅ 迁移 SQL `0000`/`0001`/`0002` 均在镜像内
+- 🔴 其余 8 项待重跑取证（run 41836588637 在第 9 项红灯后中止）
+
+### ⚠️ 未解阻点
+
+- `master` **未设分支保护** —— PR 合并时无强制 CI 门禁，需人工确认 CI 绿灯后再合并
+- GHCR 包可见性本轮无法核实（token 缺 `read:packages` scope）
 
 ---
 
 ## 10. 下一步具体动作
 
-1. ⏳ 等待架构师产出 `docs/TEST_ENV_ISOLATION_v0.0.4.md` → 主理人按其方案实施 PG 隔离
-2. ⏳ 等待部署工程师产出 `deploy/update.sh` 修复 + 自检脚本真实输出
-3. ⏳ 等待 UI 工程师补齐 8 项 UI 缺口 + 真实证据
-4. ⏳ 等待 QA/CI 产出远端核查 + `docker-verify.yml` + 本地基线
-5. ⬜ 实施 PG 隔离方案 → 复跑受阻单测 → 全量 Vitest
-6. ⬜ 全量 Playwright E2E + 四身份 UI 验收
-7. ⬜ 统一所有交付文档口径（185/190、153、视觉分母、迁移结果）
-8. ⬜ 同步版本号 → 最终提交 → 测试该提交 → 定 SHA → 建 Tag
-9. ⬜ 创建 v0.0.4 **Draft** Release（有阻断风险且未授权则只停 Draft）
+1. ✅ 全仓 dotenv 加载语义统一（产品侧单一实现 `src/lib/env-loader.mjs`，父子进程一致）
+2. ✅ PG 隔离 + 护栏 + 单测基线 **190 全绿**（连续 4 轮）+ E2E **153 全绿**（连续 2 轮）
+3. ✅ 185/190 之谜结题：本机 190 全绿；CI 上的 `185 passed | 5 skipped` 是 `floor-continuity` 崩溃所致（已修，769c779）
+4. ✅ UI 缺口 8 项补齐并经主理人真实浏览器独立复核；R-18 升级脚本修复（87 项自检）
+5. 🔄 第 4 轮：修复 CI 真实阻断（护栏 3 未落地，v2ex_ci 在 CI 必被拦死）→ 见文末《第 4 轮状态快照》
+6. 🔄 第 4 轮：忠实 CI 等价全量验证后台跑测中（tsc + ui-verify + vitest CI 场景 + 护栏断言）
+7. ⬜ 提交剩余工作区改动（含 `tests/env/.env.test.example` 模板必须入库）→ 推送 → 观察 CI：unit 转绿、e2e 首跑、docker-verify 全项取证
+8. ⬜ E2E/单测库分离（方案 A：E2E→55433/v2ex_e2e，单测→55440/v2ex_test_base）+ `/nodes/request` hydration #418 修复（UI2 实施中，PG 恢复后才能起服务验证）
+9. ⬜ 版本同步（5 载体）→ 测试该准确提交 → 定 SHA → 人工放行 tag 白名单 → 建不可变 Tag → 创建 v0.0.4 **Draft** Release
 
 ---
 
@@ -262,3 +404,43 @@ v2ex_rateclear
 | 时间 | 记录 |
 |---|---|
 | 2026-11-04 20:27 | 第 3 轮开始。只读核查完成：HEAD `301a8a5`、工作区干净、8 提交未推送、PG 需重启、问题 A 根因定位、UI 缺口核实。建团队 `software-v004-finalize`，派发 4 名成员并行。PG 守护启动并验证存活。 |
+| 2026-11-04 21:20 | 第 3 轮收尾：分支推送 + PR #5；修复 CI 两个真实缺陷（`${{ }}` 三元、journal 路径）；护栏 51 项断言全通过；本机 190 全绿 / E2E 153 全绿；文档口径统一（185 vs 190 之谜结题）。 |
+| 2026-11-04 23:20 | 第 4 轮（跨会话接管续）：PG 两实例下线事件处理（未重启守护，改单次调用内启停）；定位并修复**真正的 CI 阻断**（护栏 3 未落地）；忠实 CI 等价验证跑测中。详见下方快照。 |
+
+---
+
+# 第 4 轮状态快照（2026-11-04 23:20，主理人）—— 最新状态以此为准
+
+## A. 环境事件：两个 PG 实例全部下线
+
+- **实测**：隔离测试实例 `127.0.0.1:55440` 与开发/证据实例 `127.0.0.1:55433` 均无响应（`pg_isready` 逐个确认）。
+- **根因**：主人取消了 PG 守护后台任务，`postgres.exe` 作为该进程树的子进程被连带回收。55440 日志最后停在 `23:07:45`、无正常关闭记录；23:07 时段有一场 race 探针（`tests/helpers/__race5.mts`）的并发 `CREATE/DROP DATABASE` 混战，连接被强行关闭。
+- **处置**：**未重启守护**（遵守主人"不要重启或重试"的指示），改用仓库脚本认可的模式 1「单次调用内 启动 → 跑测 → 清理」。实测确认：**PG 不能跨 Bash 调用存活**（工具在调用结束时回收进程树）——今后任何跑测都必须把 `start-test-pg.sh start` 与测试放在**同一次调用或同一后台任务**里。
+- **55440 已重启并实测稳态**：空库建删往返 **2571ms**（阈值 10000ms），与历史实测 2.0~2.3s 一致；`.env.test` 确认指向 `55440/v2ex_test_base`（符合方案 A）。
+- ⚠️ 55433（含 `v2ex_e2e` 等证据库）**仍未恢复**——E2E 与起应用验证在其恢复前一律暂停。
+
+## B. 本轮定位的真正 CI 阻断（重要，推翻上一轮的误判）
+
+- **上一轮现象**：本地 CI 等价跑测 `13 failed | 2 passed | 101 skipped`，伴随 `ReferenceError: config is not defined`。
+- **真相**：全仓静态排查（tests/、src/、scripts/、drizzle.config.ts 均无裸 `config` 标识符）+ 两个子进程实验（drizzle-kit 配置加载、tsx 探针导入 `src/db`）**全部正常**。该报错是 **PG 被杀的瞬间 vitest 错误格式化器崩溃**（已知缺陷 `code.charCodeAt is not a function`，会掩盖真实错误）产生的乱码——上一轮跑测正好横跨 PG 被杀时刻（23:07）。
+- **真正的阻断**：护栏 3「CI 库名 `v2ex_ci` 不被护栏 2 误伤」只存在于导出函数 `assertCiInstanceOwnership`，而该函数**从未被调用**；globalSetup 走的是 `assertDatabaseAllowed`，它不认 CI 库名。而 CI 的 unit job 只注入 `DATABASE_URL`（→ `v2ex_ci`）、**不**注入 `TEST_DB_ALLOWED_DATABASES` → 新代码推送后 CI 会在建基础库前直接被护栏拦死。
+- **修复**（工作区已改，待提交）：
+  1. `tests/helpers/test-db-guard.ts` 的 `assertDatabaseAllowed` 新增 `if (process.env.CI && CI_DATABASE_NAMES.has(dbName)) return;` —— 判据是 `process.env.CI`（GitHub Actions 恒为 true），本机不放宽；
+  2. `tests/helpers/verify-db-guard.mts` 断言 6 补充「真实 CI 路径」（CI=true 且无 env 注入时必须放行）+ 反向断言（非 CI 无注入时必须仍拒绝），51 → **53 项**。
+- **教训（写进文档警醒后人）**：上一轮本地 CI 等价场景设了 `TEST_DB_ALLOWED_DATABASES=v2ex_ci_sim`，而真实 CI 并不设这个变量——**模拟环境比真实环境宽松，正好把阻断掩盖了**。
+
+## C. 团队成员状态（2026-11-04 23:20）
+
+| 成员 | 状态 | 任务 |
+|---|---|---|
+| software-architect | 因网关空流故障中断 → **已恢复** | v0.0.4 版本同步只读审计（5 载体修改清单 + preflight 断言一致性） |
+| software-qa-e2e | 因集群负载故障中断 → **已恢复** | 方案 A：E2E（55433/v2ex_e2e）与单测（55440/v2ex_test_base）库分离；先改文件提交，全量复跑等主理人通知 |
+| software-engineer-ui2 | 工作中（起服务验证已暂停） | 修 `/nodes/request` hydration #418 真实产品缺陷 |
+| software-engineer-docs | 工作中 | 护栏修复文档 + `docs/evidence/ci/` 证据记录 |
+| software-engineer-testenv / deploy / dotenv / qa-ci | 空闲 | 待命 |
+
+## D. 后台任务与待提交物
+
+- 后台任务 `HpLUcU`：忠实 CI 等价全量验证（PG start → `tsc --noEmit` → `ui-verify.cjs` → vitest CI 场景（CI=true + 55440/v2ex_ci，**不设** TEST_DB_ALLOWED_DATABASES）→ 护栏断言复跑）。
+- **待提交**：`.gitignore`、14 份文档、`tests/**`（含新 helpers 与上述 2 处护栏修复）、`vitest.config.ts`、`scripts/verify.sh`、`scripts/release/preflight.sh`、**`tests/env/.env.test.example`（模板，必须入库）**。
+- **待清理**：`_probe-gs.mts`、`tests/helpers/__race5.mts`（一次性调试探针）。

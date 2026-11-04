@@ -593,12 +593,14 @@ phase  : dev                                       phase  : release
 ### 16.1 Docker / Redis 取证通道（服务 R-16 / R-17）
 
 新建 `.github/workflows/docker-verify.yml`（9 项验证 + 3 个 R-17 专项子任务），
-作为本机无 Docker 时的**替代取证通道**。收尾轮修了它自身的两个缺陷：
+作为本机无 Docker 时的**替代取证通道**。收尾轮修了它自身的**四个**缺陷（全部由真实 CI 跑出来）：
 
 | 缺陷 | 现象 | 根因 | 修复 | 登记 |
 |---|---|---|---|---|
 | **V4-15** 定义级失败 | run 0 秒结束、`total_count=0`、**无任何 job 被创建**，报错仅「This run likely failed because of a workflow file issue」 | GitHub 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持） | 三元判断下沉到 shell 层：`$([ "${{ job.status }}" = 'success' ] && echo PASS \|\| echo FAIL)`；`${{ }}` 只用于传值 | `BUG_REGISTER` V4-15 |
 | **V4-16** 迁移物路径断言错误 | 第 9 项报「✗ 镜像内缺少迁移文件: `_journal.json`」 | drizzle 的 SQL 在 `/app/drizzle/` 根目录，`_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录；初版混用同一路径断言 | SQL 与 meta 分成两段断言，各用正确路径 | `BUG_REGISTER` V4-16 |
+| **V4-18** app 健康判定口径 | 第 2 项红灯 `✗ app 未达 healthy（none）` | 根目录 `docker-compose.yml` 的 **app 服务没有 healthcheck**（只有 `deploy/docker-compose.yml` 才有）⇒ `State.Health.Status` **永远返回 `none`**。⚠️ **CI 日志证明 app 完全健康**（`✓ Ready in 414ms`）—— 是断言读错 | 改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` == 200）；PG/Redis 仍用 health 状态。**HTTP 探活是更强的证据** | `BUG_REGISTER` V4-18 |
+| **V4-19** `[7/9]` 安装包部署必然失败 | 尚未被 CI 触发，但**一定会红** | ① **端口占用**：`install.sh` L163 的端口检查会因根 compose 的 app 容器仍占 3000 而 `die`；② **容器名冲突** | 断言与执行上下文分离 + 新增断言保证不变成外部镜像 | `BUG_REGISTER` V4-19 |
 
 > ⚠️ **V4-15 的排查陷阱**：YAML 本身**能正常解析**（python yaml 校验通过，1 job / 17 steps），
 > 问题只在**表达式求值阶段** —— 这是排查耗时的主要原因。已在工作流内留踩坑注释。

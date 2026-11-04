@@ -137,19 +137,72 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 
 ### 🔴 当前**唯一**的剩余阻断项
 
-> **`tests/floor-continuity.spec.ts` 未修 → `unit` job 持续红灯 → `E2E 测试` job 被 `needs: unit` 连带跳过。**
+> **`tests/floor-continuity.spec.ts` 的修复**在工作区已完成，但**尚未提交** →
+> `unit` job 持续红灯 → `E2E 测试` job 被 `needs: unit` 连带跳过。
 >
-> 后果：**v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条。**
+> 后果：**v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。
 > （`--list` 证明的 153 条至今没有任何一条被真实执行过。）
+>
+> ⚠️ **口径更正（2026-11-04T22:57Z）** —— 见下方「工作区 vs 提交历史」的区分。
+> 简言之：**阻断项是「未提交」，不是「未修复」。**
 
 **已验证的修复方案**（本地纯净检出实跑通过，CI 与本地均 `5 passed`）：
 见 `test-baseline-v0.0.4.md` §0.5。修复后预期 CI 变为：
 `Test Files 15 passed (15)` / `Tests 190 passed (190)` / `E2E 测试` 恢复正常执行。
 
-> 📌 **截至 2026-11-04T21:35Z 的状态复核**：
-> `tests/floor-continuity.spec.ts` 的 `:55433/` 硬门**仍然存在**，
-> 该文件自 `1b15f79` 起**未被任何提交修改过**。
-> 归 `software-engineer-testenv` / `software-architect` 的 T01 范围。
+> 📌 **状态复核 —— 「工作区已修，提交历史未修」（2026-11-04T22:57Z，QA 独立复核）**
+>
+> **我先前的表述有误，现更正。** 我此前说「该文件自 `1b15f79` 起未被任何提交修改过」——
+> 这句话**对提交历史成立，但对工作区不成立**，因而**具有误导性**。
+> 原因：`git log` 只看**已提交**历史，看不到工作区改动。
+>
+> **实测事实**：
+>
+> ```bash
+> $ git log --oneline -3 -- tests/floor-continuity.spec.ts
+> 1b15f79 docs(v0.0.4): 验收证据闭环…          ← 提交历史确实停在 v0.0.3 时期
+>
+> $ git status --short -- tests/
+>  M tests/floor-continuity.spec.ts            ← 但工作区已改
+>  M tests/setup.ts
+>  M tests/admin-cli.spec.ts …（共 12 个已改）
+>  ?? tests/env/                             ← 新增目录
+>  ?? tests/helpers/test-env.ts …（共 9 个新文件）
+>
+> $ git diff --stat -- tests/floor-continuity.spec.ts
+>  1 file changed, 44 insertions(+), 55 deletions(-)
+> ```
+>
+> **代码层面的变化（QA 实测确认）**：`baseDatabaseUrl()` / `testDatabaseUrl()` 两个函数
+> **已被整体删除**，`:55433/` 硬编码门与 `readFileSync('.env.test')` 都已移除
+> （`:55433` 现在**只出现在解释性注释**里，作为「修复前长什么样」的记录）。
+> 改为统一走 `tests/helpers/test-db-lifecycle.ts` 的 `provisionTestDatabase()`
+> 与 `tests/helpers/test-spec-base.ts` 的 `dbUrlFor()` / `adminUrlOf()`。
+>
+> **QA 独立复验（三项，全部通过）**：
+>
+> 1. **工作区里该文件实测全绿**：
+>    ```
+>    [db-child] {"tool":"drizzle-kit","args":["migrate"],"endpoint":"127.0.0.1:55440", …}
+>    [db-phase] {"file":"tests/floor-continuity.spec.ts","db":"v2ex_floorcont_v004",
+>                "endpoint":"127.0.0.1:55440","dropMs":172,"createMs":11848,"migrateMs":4931}
+>     ✓ tests/floor-continuity.spec.ts (5 tests) 38762ms
+>    ```
+> 2. **护栏在 QA 那个危险场景下确实拦截**（QA 直接调 `getResolvedTestEnv()` 验证）：
+>    ```
+>    ✅ GUARD FIRED:
+>      [db-setup] 检测到单元测试试图使用开发实例端点 127.0.0.1:5432（来源：ENV_FILE:.qa-dev-endpoint.env）。
+>        单元测试必须指向**隔离测试实例**（本机默认 127.0.0.1:55440），
+>        绝不允许在开发库上执行 DROP DATABASE / CREATE DATABASE。
+>        启动隔离实例：bash tests/helpers/start-test-pg.sh start
+>    ```
+>    → **我原方案会打开发库的场景，现已被护栏硬拦截** ✅
+> 3. **错误分流已改善**：修复前是 `ENOENT … .env.test`（像代码缺陷），
+>    修复后是「PG 未就绪 … ECONNREFUSED」（明确是环境问题 + 3 步排查指引）。
+>
+> **结论：CI 红灯的唯一原因是「这批 `tests/` 改动未提交」** ——
+> CI 只看提交内容。**不提交 = CI 继续红 = 153 条 E2E 继续被跳过。**
+> 归 `software-engineer-testenv` 的 T01/T02/T03 范围。
 
 ### ✅ 已被真实 CI 证明通过的部分
 
@@ -427,7 +480,7 @@ elif [ "$PHASE" = 'release' ]; then
 
 | # | 项目 | 现状 | 主理人推进动作 |
 |---|---|---|---|
-| **A** | 🔴 **`tests/floor-continuity.spec.ts` 在 CI 必红** | **已实测确认**（run `41836588566`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。**归属 `software-engineer-testenv` 的 T01/T03** | ⚠️ **不要单独打「existsSync」补丁** —— 我原方案已被架构师实测证伪（本地默认路径下会把 **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 DROP/CREATE DATABASE）。**正确做法**：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏）。详见 `test-baseline-v0.0.4.md` §0.5。修完 CI 即恢复：`Test Files 15 passed (15)` / `Tests 190 passed (190)`，**并解锁被跳过的 E2E job** |
+| **A** | 🔴 **`tests/floor-continuity.spec.ts` 在 CI 必红** | **已实测确认**（run `41836588566`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。**修复在工作区已完成（QA 复验 5/5 全绿 + 护栏有效），但 `tests/` 那 12 个改动 + 9 个新文件全部未提交** → **阻断项是「未提交」不是「未修复」**。**归属 `software-engineer-testenv` 的 T01/T02/T03** | ⚠️ **不要单独打「existsSync」补丁** —— 我原方案已被架构师实测证伪（本地默认路径下会把 **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 DROP/CREATE DATABASE）。**正确做法**：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏）。详见 `test-baseline-v0.0.4.md` §0.5。修完 CI 即恢复：`Test Files 15 passed (15)` / `Tests 190 passed (190)`，**并解锁被跳过的 E2E job** |
 | **B** | 🟡 **E2E 153 条在 CI 上从未跑过** | `E2E 测试` job 状态 = **skipped**（`needs: unit` 连带） | 修完 A 后自动恢复执行。核对时看 `153 passed` 且 **0 skipped** |
 | **C** | 🟡 **`release.yml` tag 白名单仍不含 `v0.0.4`** | 刻意摩擦，**未改**（R-19） | **推 tag 之前**人工加 `- 'v0.0.4'`。⚠️ 漏加的后果是**静默失败**（推 tag 不触发任何 job，不报红）—— 详见 §6.1 |
 | **D** | 🟡 **GHCR 包可见性无法核实** | 当前 gh token 缺 `read:packages` scope → `GET /users/alicia1030su/packages` = 403 | 用有该 scope 的 token 核验，或浏览器访问 https://github.com/users/alicia1030su/packages |

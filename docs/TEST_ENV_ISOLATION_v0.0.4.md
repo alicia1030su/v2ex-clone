@@ -210,6 +210,251 @@ function baseDatabaseUrl(): string {
 > ⚠️ **QA 的 190/190 全绿不能证明 CI 侧通过** —— QA 的实跑是**本机**（`ENV_FILE=.env.test` → 55433）。
 > **CI 侧必须独立复验**（T05 验收标准 ②）。这是 Q7 建议登记为独立缺陷的原因。
 
+#### 2.4.1 🔴 已由真实 CI 证实（QA 实测，2026-11-04）
+
+**本节的判断已被真实 CI 完全证实，不再是推测。** QA 用 `git archive HEAD` 导出**纯净检出**
+（= GitHub Actions 看到的 checkout）独立复现，并下载了真实 CI run `41836588566` 的 2567 行日志逐字比对。
+
+**真实 CI 输出**：
+
+```
+ Test Files  1 failed | 14 passed (15)
+      Tests  185 passed | 5 skipped (190)
+Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2ex-clone/.env.test'
+ FAIL  tests/floor-continuity.spec.ts
+```
+
+**预测 5/5 命中**：失败文件、failed 数、skipped 数、ENOENT 路径、E2E 被跳过 —— 全部吻合。
+
+#### 2.4.2 🔴 影响面比预期更广：**v0.0.4 的 153 条 E2E 在 CI 上从未执行过**
+
+实测 CI 的 job 依赖结构（`ci.yml` L153-156）：
+
+```yaml
+  e2e:
+    name: E2E 测试
+    needs: unit          # ← unit 失败 → e2e 直接 skipped
+```
+
+| Job | 真实 CI 结果 |
+|---|---|
+| 类型检查 / 单元测试 | 🔴 **failure**（`floor-continuity` ENOENT） |
+| Docker 构建与启动验证 | ✅ success |
+| **E2E 测试** | ⏭️ **skipped** —— 被 `needs: unit` **连带跳过** |
+
+> **这意味着 v0.0.4 的 153 条 E2E 在 CI 上至今一条都没跑过。**
+> `floor-continuity` 不修 → `unit` 永远红 → `e2e` 永远 skipped → **拿不到任何 CI 侧的 E2E 证据**。
+> **这是 T05「CI 侧独立复验」的硬前置**，也是本缺陷必须优先修的原因。
+
+#### 2.4.3 影响面**只有这 1 个文件**（QA 核查，缩小了排查范围）
+
+QA 核查了全部 15 个 spec 对 `.env.test` 的引用，结论：
+
+| 文件 | 是否真读 `.env.test` | 说明 |
+|---|---|---|
+| `tests/floor-continuity.spec.ts` | ❌ **真读** | `readFileSync(path.join(repoRoot, '.env.test'))` → CI 上 ENOENT |
+| `tests/seed-idempotency.spec.ts` | ✅ **不读** | grep 命中的第 48 行**只是注释**（「清空 ENV_FILE：避免继承 .env.test 的配置」）；实际只用 `process.env.DATABASE_URL`（第 35 行）→ CI 安全 |
+| 其余 13 个 | ✅ 不读 | — |
+
+> **纯净检出全量结果**：`1 failed | 14 passed (15)` / `148 passed`。
+> （唯一另一个失败 `docker-config.spec.ts` 是 QA 纯净检出**没有 `.git` 目录**导致的本地伪影 ——
+> 它执行 `git ls-files` 校验「原站素材不入库」；**Actions 的 checkout 有完整 `.git`，不会失败**。）
+
+#### 2.4.4 ⚠️ 复验时的一个坑：只看 `Tests` 行会误判
+
+真实 CI 输出是 `Tests 185 passed | 5 skipped (190)` ——
+**只看 `Tests` 行会以为「185 条通过」**，实际是 **`1 failed + 5 skipped`**。
+**必须看 `Test Files` 行**（`1 failed | 14 passed (15)`）。
+
+> 这正是 R-23（关注用例静默跳过）修的那类**静默跳过** —— 同一个坑的第二次出现。
+
+#### 2.4.5 🔴 修复方案：**必须与 T01 绑定，不能单独打补丁**
+
+QA 提出的修复（已在纯净检出上实跑验证通过）：
+
+```ts
+function baseDatabaseUrl(): string {
+  const injected = process.env.DATABASE_URL;
+  if (injected) return injected;                    // 优先用环境变量（CI 走这条）
+
+  const testFilePath = path.join(repoRoot, '.env.test');
+  if (existsSync(testFilePath)) {                   // 本地兜底前先判存在
+    const fromTestFile = parseEnvFile(readFileSync(testFilePath, 'utf8')).DATABASE_URL;
+    if (fromTestFile) return fromTestFile;
+  }
+  throw new Error('无法解析隔离测试实例的 DATABASE_URL（环境变量与 .env.test 均缺失）');
+}
+```
+
+QA 的验证结果：
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| **CI**（`DATABASE_URL` 不含 `:55433/`、无 `.env.test`） | 🔴 ENOENT → `1 failed + 5 skipped` | ✅ **`5 passed (5)`** |
+| **本地**（`.env.test` 存在） | ✅ 5 passed | ✅ **`5 passed (5)`**（无回归） |
+| **反证**：`DATABASE_URL` 换成含 `:55433/` 的值 | — | 立刻 `1 passed` → 证明根因就是那个 `:55433/` 硬门 |
+
+> ✅ **QA 的修复本身是正确的**，且**反证**做得很好（证明根因唯一）。
+
+> ⚠️ **【2026-11-04 限定更正】** 本节描述的是**旧实现**的行为。
+> 统一加载器落地后，**shell / CI 注入的 `DATABASE_URL` 现在能赢过 `ENV_FILE`**（§2.4.9 实测验证）——
+> 「命令行 `DATABASE_URL` 完全无效」这句话**只对改造前的 6 个入口成立**。
+> 引用本节时**必须带上这个限定**。
+>
+> 🔴 **但架构师实测发现一个 QA 未覆盖的危险情形：这个补丁单独打会导致本地测试连上开发库！**
+>
+> QA 验证的「本地」场景用的是 **`ENV_FILE=.env.test`**（已设环境变量），走的是第一分支。
+> 但**本地默认路径（不设 `ENV_FILE`）**下，`tests/setup.ts` 会加载 `.env.local` → `DATABASE_URL` = `127.0.0.1:5432/v2ex`，
+> 于是 `injected` **非空** → QA 的修复**直接返回 5432 开发库**！
+>
+> 实测复刻（架构师）：
+> ```
+> 【本地默认路径（无 ENV_FILE）】
+>   当前 setup.ts 解析出 DATABASE_URL = postgres://v2ex:***@127.0.0.1:5432/v2ex
+>   修复前 currentImpl() -> postgres://v2ex:***@127.0.0.1:55433/v2ex_e2e   ✅ 隔离实例
+>   修复后 qaFix()       -> postgres://v2ex:***@127.0.0.1:5432/v2ex         ❌ 开发库！
+> ```
+>
+> 而 `floor-continuity.spec.ts` 的 `beforeAll` 会拿这个 URL 去 **`DROP DATABASE IF EXISTS` + `CREATE DATABASE`**（L107-108）——
+> **在开发库实例上建库**。虽然库名 `v2ex_floorcont_v004` 受护栏保护，但**在开发库上建库本身就该被禁止**。
+>
+> **结论：QA 的修复与 T01 是强依赖关系，必须绑定落地。**
+> 实测验证（情形 D：T01 先落地 + QA 的修复）：
+> ```
+>   setup.ts 解析出 DATABASE_URL = postgres://v2ex:***@127.0.0.1:55433/v2ex_e2e
+>   qaFix() -> postgres://v2ex:***@127.0.0.1:55433/v2ex_e2e   ✅ 隔离实例
+> ```
+>
+> **最终处置**：**不要**在 T03 里单独给 `floor-continuity.spec.ts` 打这个补丁。
+> 它应该**统一使用 T01 的 `tests/helpers/test-env.ts`**（§3.4 的统一解析 + 指纹），
+> 由统一模块保证「shell > ENV_FILE > .env.test > .env.local」的优先级链，
+> 并由 §3.5 的护栏拦住「指向开发库端点」的情况 —— **单一真源，不给单个文件开特例**。
+
+#### 2.4.6 ✅ T01 已落地并通过独立验证（QA + 架构师三方确认）
+
+**T01 已由 `software-engineer-testenv` 实施完成**（工作区），架构师与 QA 分别独立验证：
+
+| 验证项 | 验证者 | 实测结果 |
+|---|---|---|
+| **护栏在 QA 那个危险场景下会拦截** | 架构师 | 用 `ENV_FILE` 指向含 5432 的文件 → `Error: [db-setup] 检测到单元测试试图使用开发实例端点 127.0.0.1:5432` 🛑 **正确拦截** |
+| **CI 模拟不再抛 ENOENT** | 架构师 | `.env.test` 移走 + `DATABASE_URL`=5432 → `Error: [db-setup] PG 未就绪（127.0.0.1:5432）：connect ECONNREFUSED` ✅ **从「像代码缺陷」变成「明确的���境问题」** |
+| **`.env.test` 自动生成安全** | 架构师 | 内容与原文件**逐字节一致**（27 行）；`git check-ignore` 确认被 `.gitignore:16` 覆盖 → **不会入库** |
+| **优先级链正确** | QA + 架构师 | `shell > ENV_FILE > .env.test > .env`；`.env.local` **永不加载**；`ENV_FILE` 只填空位 |
+| **实现完备性** | QA | 优先级链 / 只填空位 / `assertNotDevInstance()` / CI 例外 / 「PG 未就绪」分流 —— **全部到位，且比 QA 的单文件方案更完备** |
+
+> ✅ **§4.6.3 分流表的实际效果得到验证**：同一个测试，修复前报 `ENOENT`（**看起来像代码缺陷**），
+> 修复后报 `PG 未就绪 ... ECONNREFUSED`（**明确是环境问题**，并附 3 步排查指引）。
+
+#### 2.4.7 💡 QA 的一个深刻观察：为什么「去掉硬门」必须与「护栏」同时落地
+
+QA（`software-qa-ci`）指出：
+
+> 「现状的 `:55433/` 硬门虽然形式上丑，但它恰好起到了**拒绝 5432 开发端点**的护栏作用 ——
+> 即使 `.env.local` 被加载，它也会因为端点不匹配而落到 `.env.test`。」
+
+**这揭示了三种状态的区别**：
+
+| 方案 | CI | 开发库安全 | 评价 |
+|---|---|---|---|
+| **现状**（`:55433/` 硬门） | 🔴 挂 | ✅ 安全 | 「安全但 CI 挂」 |
+| **QA 的单文件补丁** | ✅ 过 | 🔴 **可能打开发库** | 「CI 过但危险」 |
+| **T01 统一封装 + 护栏** | ✅ 过 | ✅ 安全 | ✅ **唯一正确的方向** |
+
+> **结论：「去掉硬门」必须和「护栏」同时落地，不能只做前半截。**
+> 这解释了为什么单文件特例方案在 CI 侧能跑通、在本地却会打开发库 ——
+> **它移除了硬门，却没有补上等效的护栏**。
+
+#### 2.4.8 ⚠️ 当前阻断项已从「未修复」变为「未提交」
+
+QA 曾报告「`floor-continuity.spec.ts` 至今未被任何提交修改（`git log` 仍只到 `1b15f79`）」。
+**这句话对提交历史成立，但对工作区不成立** —— 架构师实测：
+
+```
+$ git status --short tests/
+ M tests/floor-continuity.spec.ts          ← 工作区已改（44 insertions / 55 deletions）
+$ git diff --stat tests/floor-continuity.spec.ts
+```
+
+**即**：`tests/` 下 9 个文件已改 + 6 个新文件（含 `tests/env/` 模板）**全部未提交**。
+
+> 🔴 **CI 只看提交** —— **不提交 = CI 继续红 = `e2e` job 继续被 `needs: unit` 连带跳过
+> = v0.0.4 的 153 条 E2E 在 CI 上继续一条都跑不了。**
+> **阻断项已从「代码未修复」变成「改动未提交」。**
+
+#### 2.4.9 ✅✅ 架构升级：统一加载器已落地，**档 1 的问题被根治**（不再需要 Q10）
+
+`software-engineer-dotenv` 落地了 **`src/lib/env-loader.mjs`**（20186 字节，全仓唯一的产品侧加载器）。
+**这让本设计 §3.2.0 的四档分法成为历史** —— 判定被收敛到**一个地方**。
+
+**当前状态（架构师实测）**：
+
+| 入口 | 状态 |
+|---|---|
+| `drizzle.config.ts` | ✅ 引用 `loadProductEnv` |
+| `src/db/index.ts` | ✅ 引用 `loadProductEnv` |
+| `scripts/seed.ts` | ✅ 引用 `loadProductEnv` |
+| `scripts/admin-cli.ts` | ✅ 引用 `loadProductEnv` |
+| `scripts/db-admin.mjs` | ✅ 引用 `loadProductEnv` |
+| `tests/setup.ts` | ✅ 引用 `getResolvedTestEnv`（测试侧解析器） |
+
+**关键判定函数**：`canOverrideByEnvFile(key, context)` —— **分层判定**，四条规则：
+
+| 规则 | 条件 | 结果 | 实测 |
+|---|---|---|---|
+| ① | 测试运行时 | **绝不覆盖** | ✅ 验证 |
+| ② | 非 Next 运行时（process.env 全来自 shell/CI） | **绝不覆盖** | ✅ 验证 |
+| ③ | Next 运行时 + 拿得到 shell 快照 | 该键**不在**快照里 → 可覆盖（在 → 不可覆盖） | ✅ 验证 |
+| ④ | Next 运行时 + 拿不到快照 | 退化为「占位值比对」 | ✅ 验证 |
+
+**判定的可靠依据**：`@next/env` 在加载任何 env 文件**之前**会拍下 `initialEnv = { ...process.env }` ——
+那是 **shell / CI 注入的原样快照**，因此能**精确区分**「shell 注入」与「文件占位」。
+
+> 🧪 **实测验证（架构师独立复核，两个方向都成立）**：
+> ```
+> 场景1（Next 运行时 + shell 注入 DATABASE_URL）
+>   shellSnapshot 有 DATABASE_URL? true
+>   最终 DATABASE_URL = postgres://x/from_SHELL
+>   shell 注入是否赢? ✅ 是
+>
+> 场景2（Next 运行时 + 只有 .env.local 占位 + ENV_FILE）
+>   [Next 占位值] = postgres://v2ex:***@127.0.0.1:5432/v2ex
+>   [loader 结果]  = postgres://x/from_ENVFILE
+>   ENV_FILE 是否赢? ✅ 是（档1 需求达成）
+> ```
+> **两个方向同时成立** —— 这正是我原先认为「互相冲突、只能二选一」的那一对。
+> **统一加载器用 `initialEnv` 快照把二选一变成了二者兼得。**
+
+> ⚠️ **一个必须注意的实现细节**（deploy 已实测并写进代码注释）：
+> 必须用 `createRequire()` **运行时** require `@next/env` ——
+> 静态 `import '@next/env'` 会被 webpack 打包成**另一个模块实例**，其 `initialEnv` 恒为 `undefined`。
+> **架构师实测确认**：`require('@next/env')` 两次得到同一实例（`a === b` 为 true），
+> 而 `await import('@next/env')` 拿到的是**不同的 ESM 命名空间**（`c !== a`，但 `c.default === a`），
+> 且 `c.initialEnv === undefined`。**这正是规则③会退化成规则④的原因** —— 代码里用 `createRequire(path.join(process.cwd(), ...))`
+> 从 cwd 解析，确保拿到的是 Next 自己加载时用的**同一个模块实例**。
+
+#### 2.4.10 🔴 对 §2.4.5 与 Q10 的**限定更正**（deploy 提示，架构师核实后采纳）
+
+§2.4.5 里写的「`override: true` 让命令行 `DATABASE_URL` 失效」——
+**这个结论现在只对「旧实现」成立，必须加限定**：
+
+| 范围 | 现状 |
+|---|---|
+| 旧实现（改造前）的 6 个入口 | `ENV_FILE` 无条件覆盖 shell → 命令行 `DATABASE_URL` 失效 |
+| **现实现**（统一加载器） | **shell / CI 注入的 `DATABASE_URL` 现在能赢过 `ENV_FILE`** ✅ |
+
+> 📌 **所以「命令行 `DATABASE_URL` 在所有地方都无效」这句话在当前代码里已不成立。**
+> 引用 §2.4.5 时**必须带上这个限定**，否则会误导后来者。
+
+**Q10（根治档 1）的结论也随之变化**：
+- Q10 问的是「如何让 `src/db/index.ts` 也接受 shell 优先」——
+- **统一加载器已经做到了**（用 `initialEnv` 快照区分 shell 注入 vs 文件占位）
+- → **Q10 关闭**，**不需要**另设 P2 方案。
+
+> 🎯 **这是本轮最重要的架构结论**：
+> 我原先判断「档 1 与档 2 互相冲突、只能二选一」的结论**是错的**。
+> 真正的解法不是二选一，而是**用更精细的判据**（区分「shell 注入」与「文件占位」）同时满足两者。
+> **四档分法是「在没有统一加载器时的最优解」，统一加载器才是「真解」。**
+
 ### 2.5 问题 B 的基线数据（实测）
 
 | 项 | 实测值 |
@@ -230,6 +475,7 @@ function baseDatabaseUrl(): string {
 ### 2.5.1 QA 全量实测基线（`097c1b9`，供验收对标）
 
 > 来源：**QA（software-qa-ci）**，`ENV_FILE=.env.test`，**未改任何超时阈值**（120s 是既有值）。
+> **基线归属已被 QA 严格证明**（见下方「基线归属证明」）。
 
 | 项 | 实测值 |
 |---|---|
@@ -241,6 +487,20 @@ function baseDatabaseUrl(): string {
 **逐文件耗时（ms）**：`content-lifecycle` 22230 / `admin-cli` 20838 / `seed-idempotency` 16302 /
 `feed-search` 9981 / `db-lazy-init` 7417 / 其余 10 文件合计 ~2100。
 
+#### 基线归属证明（QA 实测，回应架构师的 commit 基线疑问）
+
+架构师曾担心「工作区有并发队友的未提交改动，190 对应的代码状态可能不是 `097c1b9` 的 HEAD」。
+**QA 用三条独立证据证明 190/15 严格对应 `097c1b9`**：
+
+| 证据 | 内容 |
+|---|---|
+| **A. mtime 时序** | 运行窗口 **20:36:39 – 20:40:14**；所有测试输入文件的 mtime **全部早于**该窗口（`tests/*.spec.ts` 最晚 18:18:34、`vitest.config.ts` 18:42:12、`drizzle.config.ts` 11-03 13:06:58）。唯一落在窗口内的是 `deploy/.env.example`（20:36:43） |
+| **B. `deploy/` 不在测试输入路径** | `grep -rn "deploy/" tests/` → **只有一条注释**。`docker-config.spec.ts`（42 条用例）读的是 `docker-compose.yml` / `Dockerfile` / `scripts/*` / `.github/workflows/ci.yml` / `package.json` —— **全在仓库根** |
+| **C. 工作区对测试输入零改动** | `git status --short -- tests/ src/ drizzle/ scripts/seed.ts scripts/verify.sh docker-compose.yml Dockerfile package.json .github/workflows/ci.yml` → **（空）** |
+| **D. 三方交叉校验** | 日志 `Test Files 15 passed (15)` / `Tests 190 passed (190)`；JSON `numTotalTests:190, numPendingTests:0`；逐文件求和 = 190 —— **三方一致**（本轮有 3 条并行 vitest 后台任务，QA 专门做了此校验以排除「数字来自被覆盖的那次运行」） |
+
+> ✅ **结论：190/15 可安全引用为 v0.0.4 基线。**
+
 > ⚠️ **口径警示（QA 实测）**：**静态 grep `it(` 得出 180 是错的** —— 本项目用嵌套 for 循环生成用例，
 > **运行时才是 190**。任何「用例数」口径都必须以**运行时**为准。
 >
@@ -249,6 +509,29 @@ function baseDatabaseUrl(): string {
 > ```bash
 > ENV_FILE=.env.test npx vitest run --reporter=default --reporter=json --outputFile=/tmp/vitest-results.json
 > ```
+
+### 2.5.2 🔴 CI 侧的实测基线（**红的**）—— 修复前的真实状态
+
+QA 下载真实 CI run `41836588566` 的 2567 行日志解析所得：
+
+| Job | 修复前真实 CI 结果 | 修复后预期 |
+|---|---|---|
+| 类型检查 / 单元测试 | 🔴 **failure** | ✅ success |
+| Docker 构建与启动验证 | ✅ success | ✅ success |
+| **E2E 测试** | ⏭️ **skipped**（被 `needs: unit` 连带） | ✅ **success** |
+
+**修复前的 CI 输出（逐字）**：
+```
+ Test Files  1 failed | 14 passed (15)
+      Tests  185 passed | 5 skipped (190)
+Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2ex-clone/.env.test'
+ FAIL  tests/floor-continuity.spec.ts
+```
+
+> 🔴 **三个必须记住的结论**：
+> ① `floor-continuity` 的 CI 崩溃**已被真实 CI 证实**，不再是推测；
+> ② **153 条 E2E 在 CI 上从未执行过**（`e2e: needs: unit` 连带跳过）；
+> ③ **只看 `Tests` 行会误判**（`185 passed | 5 skipped` 实际是 `1 failed + 5 skipped`）—— 必须看 `Test Files` 行。
 
 ### 2.6 问题 C 的基线（实测）
 
@@ -275,6 +558,7 @@ ready
 
 1. **单一真源**：环境解析只在一处实现，其余全部引用。不允许第二份 dotenv 加载序列。
 2. **文件不覆盖 shell**：`process.env`（shell / CI 注入）**永远最高优先级**。当前 `ENV_FILE` 的 `override: true` 反转了这一顺序，是问题 A 的技术根。
+   ⚠️ **但落地必须按文件分档**（§3.2.0）—— 6 个加载点的运行时处境不同，一刀切会在 `scripts/seed.ts` 上引入回归。
 3. **子进程继承已规范化的 URL**：父进程算出**唯一** `DATABASE_URL`，子进程只允许继承，不再各自解析。
 4. **默认即安全**：不设任何环境变量时，单元测试必须**连到隔离测试实例**或**明确报错**，绝不能落到开发库。
 
@@ -288,9 +572,161 @@ ready
 | **4** | `.env.local` | **单元测试流程中永不加载** |
 | **5（最低）** | `.env` | 容器 / 生产 |
 
-**关键变更**：`ENV_FILE` 的 `override: true` **被移除**，改为「只填空位」。
+**目标语义**：`ENV_FILE` 只提供「缺省值」，不覆盖已存在的环境变量 ——
 这样「shell 显式设置的 `DATABASE_URL`」永远赢，符合 `scripts/env-dump.mjs` 注释里已经写明的设计意图
 （那段注释描述的正是期望语义，只是实现没有对齐）。
+
+#### 3.2.0 ⚠️ 落地细则：`override: true` 必须**按文件分档**，不能一刀切
+
+> ✅ **【2026-11-04 状态更新】本节已被统一加载器取代，保留作为「演进留痕」。**
+> `software-engineer-dotenv` 落地 `src/lib/env-loader.mjs` 后，
+> **6 个入口的判定已收敛到一处**，四档分法**不再需要人工执行**。
+> 下文的分档分析**仍然有效**（它记录了「为什么不能一刀切」的真实原因），
+> 但**执行方式**变了 —— 由 `canOverrideByEnvFile()` 自动判定，见 §2.4.9。
+>
+> 📌 **一句话总结演进**：
+> **四档分法 = 「没有统一加载器时的最优解」；统一加载器 = 「真解」。**
+> 两者都正确，但后者让档 1 与档 2 **同时成立** —— 而四档分法只能二选一。
+
+> **本节是经 `software-engineer-deploy` 同步后新增的关键修正。**
+> 初稿写的是「统一去掉 `override: true`」—— 这个表述**不够精确**，
+> 因为 6 个加载点的**运行时处境不同**，一刀切会在 `scripts/seed.ts` 上引入回归。
+
+**背景：`override: true` 是历史遗留，不是设计意图。**
+它由 `ae15715`（2026-11-03）引入，提交信息写明理由：
+
+> 「Next.js 在应用代码之前已自动加载 .env / .env.production / .env.local，
+> DATABASE_URL 等变量已被占位；dotenv 默认不覆盖已有值，**不加 override 的话 ENV_FILE 永远不生效**。」
+
+**这个理由只对 Next.js 运行时成立。** 实测验证如下。
+
+**实测 1：drizzle-kit 加载配置时 `process.env` 是干净的**
+
+用一个抛错的假 config 让 drizzle-kit 打印它看到的 env：
+
+```
+ENV_FILE=.env.test npx drizzle-kit generate --config <probe>
+  → PROBE_ENV={"DATABASE_URL":null,"ENV_FILE":".env.test"}
+不设 ENV_FILE
+  → PROBE_ENV={"DATABASE_URL":null,"ENV_FILE":null}
+```
+
+`DATABASE_URL` 是 `null` → **drizzle-kit 不预加载 `.env.local`**。
+
+**实测 2：Next.js 确实预加载**（在 `node_modules/next/dist/compiled/next-server/server.runtime.prod.js` 中找到实际加载逻辑）：
+
+```js
+for (let e of [`.env.${f}.local`, "test"!==f && ".env.local", `.env.${f}`, ".env"].filter(Boolean)) {
+  let t = i.join(a, e);   // 读取并写入 process.env
+  ...
+}
+```
+
+**实测 3：dotenv 两种语义对照（决定性）**
+
+| 场景 | `override: true` | 无 `override` |
+|---|---|---|
+| **shell 已有** `DATABASE_URL` | ENV_FILE **赢**（shell 被压制）← 静默误跑的根源 | **shell 赢** ✅ |
+| **shell 没有** `DATABASE_URL` | ENV_FILE 赢 | ENV_FILE **也赢**（ENV_FILE 先加载） |
+
+> **关键推论**：在「shell 没有 `DATABASE_URL`」的情形下，
+> **去掉 `override: true` 的行为完全不变**（都归 ENV_FILE）。
+> 唯一改变的是「shell 已有」的情形 —— 而那**正是要修的静默误跑**。
+
+**实测 4：`scripts/seed.ts` 的档 3 处置 —— ⚠️ 初稿结论已被推翻并修正**（见下方「档 3 修正」）
+
+**因此三档处置表（落地依据）**：
+
+| 档 | 文件 | 处置 | 依据 |
+|---|---|---|---|
+| **档 1：必须保留 `override`** | `src/db/index.ts` | **保留 `override: true`** | Next.js 运行时确实预加载 `.env.local`（实测 2）。去掉会让 ENV_FILE **真的**失效 |
+| **档 2：安全去除** | `drizzle.config.ts`<br>`tests/setup.ts` | **去掉 `override: true`** | 实测 1（无预加载）+ 实测 3（shell 未设时行为不变，shell 已设时修正为 shell 赢） |
+| **档 3：只需删除自身 override 调用**（**已修正**） | `scripts/seed.ts` | **删掉自己那行 `config({ path: ENV_FILE, override: true })`**（或改为不带 override）；<br>❌ **不要**动 `import 'dotenv/config'` | 见下方「档 3 修正」 |
+| **档 4：不在本次范围** | `scripts/admin-cli.ts`<br>`scripts/db-admin.mjs` | **保持现状**（它们只在 `ENV_FILE` 被显式指定时使用，且由脚本自己控制） | 实测 1 同类（无 `dotenv/config` 预加载） |
+
+#### 档 3 修正（`software-engineer-deploy` 质疑后独立复核，实测确认他是对的）
+
+**初稿的档 3 结论是错的**，我写的是「去掉 `import 'dotenv/config'`，或把 ENV_FILE 的加载提到它之前」。
+**deploy 指出这两个处置在 ESM 下都不成立**，我独立复核后**确认他是对的**：
+
+**问题**：`scripts/seed.ts` 第 16-17 行会 import `../src/db/index`（= 档 1，**保留** `override: true`）：
+
+```ts
+import 'dotenv/config';
+import { config } from 'dotenv';
+import { sql as pgSql } from '../src/db/index';   // ← 档 1
+import { db, schema } from '../src/db';
+```
+
+ESM 的 import **先全部求值、再执行本模块体**。因此 `src/db/index.ts` 的模块体
+（其中那句 `config({ path: ENV_FILE, override: true })`）**在 `seed.ts` 的模块体之前就执行完了**，
+`DATABASE_URL` **早已**被写成 ENV_FILE 的值。
+
+**实测证据（忠实复刻 `seed.ts` 的 import 图，并真实「使用」`pgSql`/`db`/`schema`）**：
+
+```
+--- 场景A：shell 已设 DATABASE_URL=from_SHELL ---
+  [进入 seed.ts 模块体] DATABASE_URL = postgres://x/from_ENVFILE   ← 档 1 抢先了
+  [seed.ts 自己 config(override) 后] = postgres://x/from_ENVFILE
+--- 场景B：shell 未设（.env 里有值）---
+  [进入 seed.ts 模块体] DATABASE_URL = postgres://x/from_ENVFILE
+  [seed.ts 自己 config(override) 后] = postgres://x/from_ENVFILE
+```
+
+**两个直接后果**：
+
+1. ❌ **「把 ENV_FILE 的加载提到 `import 'dotenv/config'` 之前」做不到** ——
+   ESM 的 import 声明会被**提升**到模块顶部，`import 'dotenv/config'` **必然**先于任何语句执行，
+   调换语句顺序无法改变。
+2. ✅ **`seed.ts` 自己那行 `override: true` 是冗余的** ——
+   档 1 已经用 `override: true` 抢先写了**同一个值**，再去 override 一次毫无增益。
+
+**「删掉自身 override」的零回归实测**：
+
+```
+--- 场景A：shell 已设 from_SHELL ---
+  [模块体进入时] = postgres://x/from_ENVFILE
+  [去掉自身 override 后] = postgres://x/from_ENVFILE
+  [行为是否改变] = 未改变 ✅
+  [ENV_FILE 是否仍赢] = 是
+--- 场景B：shell 未设（.env 有值）---
+  [模块体进入时] = postgres://x/from_ENVFILE
+  [去掉自身 override 后] = postgres://x/from_ENVFILE
+  [行为是否改变] = 未改变 ✅
+  [ENV_FILE 是否仍赢] = 是
+```
+
+**两种场景下行为都完全不变** → 档 3 的处置是**零回归**的。
+
+> ⚠️ **必须承认的语义落差**（deploy 指出，架构师认同）：
+> 这样处理后，`seed.ts` 的行为**仍然是「ENV_FILE 赢过 shell」** ——
+> 而这正是 QA 要修的「静默误跑」。
+> **根因是档 1**：`src/db/index.ts` 的 `override: true` 是 Next.js 预加载逼出来的，
+> 它会**连带**让所有 import 它的文件（`seed.ts` / `admin-cli.ts` / 全部测试的服务层）都变成「ENV_FILE 赢」。
+>
+> **因此本设计的取舍是**：
+> - **真正要修的静默误跑是档 2 的两处**（`drizzle.config.ts` 是 QA **实际踩坑**的那个 —— 迁移写进了 `v2ex_e2e`）
+> - **档 1 + 档 3 维持「ENV_FILE 赢」现状** —— 改动面最小、收益最大、零回归
+> - **「彻底修掉档 1 的静默误跑」需要让档 1 也接受 shell 优先**，但那与 Next.js 预加载的事实直接冲突
+>   → **列为 P2 议题**（需另设方案，例如在 Next.js 启动链路上显式清除 `process.env.DATABASE_URL` 再由 `ENV_FILE` 注入）
+>
+> 🧪 **复现时的一个坑（我踩了两次，值得记录）**：
+> 写探针时若只是 `import { sql as pgSql } from './src/db/index'` 而**不实际使用** `pgSql`，
+> **esbuild 会把该 import 当作未使用而消除掉** → `src/db/index.ts` 的模块体**根本不执行** →
+> 探针会得出「档 1 没有抢先」的**错误结论**（我第一次就是这么错的）。
+> **必须真实引用** `pgSql` / `db` / `schema`（真实 `seed.ts` 确实用了它们，见 L254/L260/L269 等），
+> 探针结论才成立。**这是 deploy 的复核比我的初稿更可靠的原因。**
+
+**为什么「档 2 的两处必须一起改」**：若只改 `tests/setup.ts` 而不改 `drizzle.config.ts`，
+会出现「单测连的库」与「迁移连的库」不一致 —— **比现在更糟**。
+
+**没有任何测试依赖「ENV_FILE 必须赢过命令行」**：实测 10 个建库 spec **全部显式清空 `ENV_FILE`**
+（`ENV_FILE: ''`，共 13 处），模式恰恰相反 —— 清空 ENV_FILE 后用自己的 `DATABASE_URL`。
+**所以档 2 的改动不会破坏任何现有测试**，且这批做法正是「父进程规范化 → 子进程继承」的雏形。
+
+> **连带提示（不在本设计范围）**：`scripts/verify.sh` L72~L83 的注释声称
+> 「必须清空 ENV_FILE，否则 .env.test 的 DATABASE_URL 会覆盖 shell 中显式设置的验证库连接串」。
+> 档 2/档 3 落地后，这个 workaround 变成**多余但无害**，但**注释会变成误导**，需同步更新。
 
 #### 3.2.1 QA 独立实测印证了这条裁决（重要外部佐证）
 
@@ -597,14 +1033,26 @@ CI 的 `ci.yml` / `release.yml` 增加一行 env 即可。**不修改任何现�
 
 | 文件 | 动作 | 说明 |
 |---|---|---|
-| `tests/setup.ts` | **改** | 改为调用统一解析模块；不再加载 `.env.local`；写入 `V2EX_DB_FINGERPRINT`；打印脱敏指纹 |
+| `tests/setup.ts` | **改** | 改为调用统一解析模块；不再加载 `.env.local`；写入 `V2EX_DB_FINGERPRINT`；打印脱敏指纹；**去掉 `override: true`**（档 2，§3.2.0） |
 | `tests/helpers/test-env.ts` | **新增** | 统一解析 + 规范化 + 指纹计算 |
-| `tests/helpers/test-db-guard.ts` | **新增** | 白名单断言（端点 + 库名） |
+| `tests/helpers/test-db-guard.ts` | **新增** | 白名单断言（端点 + 库名精确枚举 + 证据库拒绝名单） |
 | `tests/helpers/local-bin.ts` | **改** | `runDrizzleKit` / `runTsx` 增加指纹一致性断言；统一注入子进程 env |
-| `drizzle.config.ts` | **改** | 去掉 `override: true`；改为「先读 `process.env.DATABASE_URL`，为空才读文件」 |
+| `drizzle.config.ts` | **改** | **去掉 `override: true`**（档 2）；改为「先读 `process.env.DATABASE_URL`，为空才读文件」 |
+| `scripts/seed.ts` | **改（档 3）** | **只删掉自己那行 `config({ path: ENV_FILE, override: true })`**（或改不带 override）。❌ **不要**动 `import 'dotenv/config'`，也不要试图「提前加载 ENV_FILE」—— ESM import 提升使 `../src/db/index`（档 1）**先**执行并已用 override 抢先写入 ENV_FILE 的值，自身 override 属**冗余**（§3.2.0「档 3 修正」）。**必须与档 2 一起验证** |
+| `src/db/index.ts` | **不改（档 1）** | Next.js 运行时确实预加载 `.env.local`，这里的 `override: true` **有真实作用，必须保留**。可只补一条注释说明它与其它五处的差异 |
+| `scripts/admin-cli.ts` / `scripts/db-admin.mjs` | **不改（档 4）** | 保持现状；只在 `ENV_FILE` 被显式指定时使用，由脚本自己控制 |
 | `tests/env/.env.test.example` | **新增** | 无密模板（入仓） |
 | `.gitignore` | **可能改** | 确认 `tests/env/` 下生成物被忽略（默认 `.env.test` 规则已覆盖根目录，需确认子目录） |
 | 10 个建库 spec | **改** | 统一改用 `testDatabaseUrl()` helper + 护栏 + 阶段日志 |
+
+> **档位与所有权**：档 2 的 `drizzle.config.ts` + `tests/setup.ts` 属 T01（架构师设计 + 工程师实现）；
+> 档 3 的 `scripts/seed.ts` **建议与 T01 合并成一次改动**（同一批 env 语义文件，分两次改容易打架），
+> 但需确认该文件**不在其它 teammate 的所有权范围内** —— 若已被占用，则拆为独立任务并明确先后顺序。
+>
+> 📌 **档 3 的处置在 `software-engineer-deploy` 复核后已修正**（§3.2.0「档 3 修正」）：
+> `scripts/seed.ts` **只需删掉自己那行 `config({ path: ENV_FILE, override: true })`**，
+> **不要**动 `import 'dotenv/config'` —— 因为它 import 的 `../src/db/index`（档 1）会**先**执行，
+> 已用 override 抢先写入了 ENV_FILE 的值，自身 override 属**冗余**。
 | `tests/floor-continuity.spec.ts` | **改（必须）** | 删除硬编码 `:55433/` 正则与 `.env.test` 读取（CI 崩溃根因） |
 
 ---
@@ -1040,8 +1488,7 @@ DATABASE_URL="postgres://v2ex:***@127.0.0.1:55440/v2ex_test_template" npx drizzl
 | `tests/helpers/test-db-guard.ts` | **新增** | 白名单断言（与 §3.5 同一文件）；**须含 `v2ex_readiness_probe`**（§4.7.1 判据 B） |
 | `tests/helpers/local-bin.ts` | **改** | 子进程 env 注入 + 指纹断言 |
 | 10 个建库 spec | **改** | 统一用 `provisionTestDatabase`；显式 `beforeAll(fn, 120_000)` |
-| `_tools/pgsql/init-test-instance.sh` | **新增** | §4.2 的初始化脚本（**仓库外**，不入库） |
-| `_tools/pgsql/run-unit-tests-v004.sh` | **新增** | §5.2 生命周期脚本 + **§4.7.1 的稳态判据**（**仓库外**，不入库） |
+| `tests/helpers/start-test-pg.sh` | **新增** | §4.2 的初始化脚本 + §5.2 的生命周期 + §4.7.1 的稳态判据（**仓库内**，可版本控制、可 diff 验收） |
 | `tests/env/.env.test.example` | **新增** | 指向 55440 的模板 |
 
 ---
@@ -1077,7 +1524,7 @@ DATABASE_URL="postgres://v2ex:***@127.0.0.1:55440/v2ex_test_template" npx drizzl
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**脚本骨架**（`_tools/pgsql/run-unit-tests-v004.sh`，**仓库外**）：
+**脚本骨架**（`tests/helpers/start-test-pg.sh`，**仓库内**）：
 
 ```bash
 #!/usr/bin/env bash
@@ -1478,30 +1925,49 @@ sequenceDiagram
 > - **T04 的 `vitest.config.ts` 改动从「调阈值」缩为「仅改注释」** —— 阈值**不动**（§4.6.1）。
 > - **S2（模板预置迁移）与 S5（换盘）从 P0 降为 P2**，并入 T07 评估。
 
-### T01 — 隔离配置基座（配置 + 解析 + 护栏 + 模板）
+### T01 — 隔离配置基座（配置 + 解析 + 护栏 + 模板）✅ **已实施并通过独立验证**
 
 | 项 | 内容 |
 |---|---|
 | **依赖** | 无 |
 | **优先级** | **P0** |
 | **责任人** | 架构师（设计已出）+ 工程师（实现） |
-| **修改文件** | `tests/setup.ts`（改）<br>`tests/helpers/test-env.ts`（新增）<br>`tests/helpers/test-db-guard.ts`（新增）<br>`tests/env/.env.test.example`（新增）<br>`drizzle.config.ts`（改）<br>`tests/helpers/local-bin.ts`（改）<br>`.gitignore`（可能改） |
+| **修改文件** | `tests/setup.ts`（改，**档 2**）<br>`tests/helpers/test-env.ts`（新增）<br>`tests/helpers/test-db-guard.ts`（新增）<br>`tests/env/.env.test.example`（新增）<br>`drizzle.config.ts`（改，**档 2**）<br>`scripts/seed.ts`（改，**档 3** —— 需先确认所有权）<br>`tests/helpers/local-bin.ts`（改）<br>`.gitignore`（可能改） |
 | **互斥** | `tests/setup.ts`、`drizzle.config.ts`、`tests/helpers/local-bin.ts` **本任务独占** —— 后续任务不得并行改这三个文件 |
-| **职责** | ① 实现统一的 env 解析（§3.2 优先级：shell > ENV_FILE > .env.test > .env.local > .env，**去掉 `override: true`**）<br>② 实现指纹计算与 `V2EX_DB_FINGERPRINT` 写入<br>③ 实现白名单护栏（端点 + 库名精确枚举 + CI 库名扩展）<br>④ 实现 `.env.test` 缺失时的自动生成（从模板 + 占位符替换）<br>⑤ `local-bin.ts` 注入子进程 env + 指纹一致性断言<br>⑥ **`drizzle.config.ts` 与 `tests/setup.ts` 的加载语义必须一起改**（§3.2.1 —— QA 实测证明两处不一致会打架） |
-| **验收标准** | ① `npm run test:unit` 输出的每行 `[db-target]` 指纹**全部指向 55440**（或 CI 的 5432），**无一条指向 `.env.local` 的开发库**<br>② `tests/setup.ts` 中**不再出现** `config({ path: '.env.local' })`<br>③ 断开 `.env.local` 后单测仍能解析出测试连接串<br>④ 护栏测试：把 `DATABASE_URL` 指向 `127.0.0.1:9999` → 单测**立即抛错**并打印白名单<br>⑤ 护栏测试：把库名改为 `v2ex_v002_baseline` → **立即抛错**<br>⑥ 子进程 `[db-child]` 行的 `endpoint/db/fp` 与父进程 `[db-target]` 行**逐字相同**<br>⑦ **回归 QA 的陷阱**：同时设 `ENV_FILE=.env.test` 与 `DATABASE_URL=<另一个库>` → 迁移必须打到**命令行指定的那个库**（这是 §3.2.1 的直接验收点）<br>⑧ **证据库豁免测试**：`isDeletableTestDatabase('v2ex_v004_audit')` 必须返回 **`false`**（§3.5 的误伤修正点）<br>⑨ **逐库遍历断言**：对 `PROTECTED_DB_NAMES` 里的 **14 个库名**逐个断言 `isDeletableTestDatabase()` 均为 `false` |
-| **不做** | 不改任何 spec；不改 `vitest.config.ts` |
+| **职责** | ① 实现统一的 env 解析（§3.2 优先级：shell > ENV_FILE > .env.test > .env.local > .env）<br>② **按 §3.2.0 的四档处置 `override: true`**：<br>　　- **档 2**：`tests/setup.ts` + `drizzle.config.ts` → **去掉** `override: true`<br>　　- **档 3**：`scripts/seed.ts` → **只删掉自己那行 `config({ path: ENV_FILE, override: true })`**（或改不带 override）；❌ **不要**动 `import 'dotenv/config'`（§3.2.0「档 3 修正」：ESM import 提升使档 1 已抢先，自身 override 是冗余）<br>　　- **档 1**：`src/db/index.ts` → **保留** `override: true`（Next.js 预加载使它有真实作用），只补注释<br>　　- **档 4**：`scripts/admin-cli.ts` / `scripts/db-admin.mjs` → **不改**<br>③ 实现指纹计算与 `V2EX_DB_FINGERPRINT` 写入<br>④ 实现白名单护栏（端点 + 库名精确枚举 + **证据库拒绝名单** + CI 库名扩展）<br>⑤ 实现 `.env.test` 缺失时的自动生成（从模板 + 占位符替换）<br>⑥ `local-bin.ts` 注入子进程 env + 指纹一致性断言 |
+| **验收标准** | ① `npm run test:unit` 输出的每行 `[db-target]` 指纹**全部指向 55440**（或 CI 的 5432），**无一条指向 `.env.local` 的开发库**<br>② `tests/setup.ts` 中**不再出现** `config({ path: '.env.local' })`<br>③ 断开 `.env.local` 后单测仍能解析出测试连接串<br>④ 护栏测试：把 `DATABASE_URL` 指向 `127.0.0.1:9999` → 单测**立即抛错**并打印白名单<br>⑤ 护栏测试：把库名改为 `v2ex_v002_baseline` → **立即抛错**<br>⑥ 子进程 `[db-child]` 行的 `endpoint/db/fp` 与父进程 `[db-target]` 行**逐字相同**<br>⑦ **回归 QA 的陷阱**：同时设 `ENV_FILE=.env.test` 与 `DATABASE_URL=<另一个库>` → 迁移必须打到**命令行指定的那个库**（§3.2.1 的直接验收点）<br>⑧ **证据库豁免测试**：`isDeletableTestDatabase('v2ex_v004_audit')` 必须返回 **`false`**（§3.5 的误伤修正点）<br>⑨ **逐库遍历断言**：对 `PROTECTED_DB_NAMES` 里的 **14 个库名**逐个断言 `isDeletableTestDatabase()` 均为 `false`<br>⑩ **档位回归**：`ENV_FILE=.env.test` 且**不设** `DATABASE_URL` 时，迁移仍打到 `.env.test` 的库（§3.2.0 实测 3 的「shell 未设」情形，行为必须不变）<br>⑪ **档 3 回归**：`scripts/seed.ts` 在 `ENV_FILE` 存在时**仍然**使用 ENV_FILE 的值（§3.2.0「档 3 修正」实测：两种场景下行为均**未改变** —— 档 1 已抢先，自身 override 冗余）<br>⑫ **档 1 不回归**：`src/db/index.ts` 的 `override: true` **仍在**（`git diff` 中该文件若无改动即为通过） |
+| **不做** | 不改任何 spec；不改 `vitest.config.ts`；**不改 `src/db/index.ts` 的 `override`** |
 
-### T02 — 独立测试实例（初始化 + 生命周期托管）
+### T02 — 独立测试实例（初始化 + 生命周期托管）✅ **已实施**
+
+> **实施说明**：`software-engineer-testenv` 把生命周期脚本放在了 **`tests/helpers/start-test-pg.sh`（仓库内）**，
+> 而非我原设计的 `_tools/pgsql/`（仓库外）。**这个选择更合理** ——
+> 仓库内可被版本控制，验收能靠 `git diff`，且新克隆仓库自带。
+> **设计已据此调整**（§5.2 的路径与 §8.2 互斥矩阵）。
+> ⚠️ **副作用已核查（架构师实测）**：
+> - **最终运行时镜像不含 `tests/`** —— `Dockerfile` 的 runner 阶段只 COPY 了指定目录（`public/` / `.next` / `package.json` / `drizzle` / `scripts` / `src/db` 等），**不含 `tests/`**；
+> - **发行包不含 `tests/`** —— `deploy/` 的打包逻辑未包含 `tests`，`git ls-files tests/helpers/` 目前只有 `local-bin.ts`；
+> - **builder 层镜像含 `tests/`** —— `COPY . .` 会带入，但 builder 层**不产出交付物**。
+>
+> 🔴 **但有一处需要修**（架构师实测发现）：
+> `tests/helpers/start-test-pg.sh` L47 有**硬编码的本机绝对路径作为 fallback**：
+> ```bash
+> BASE="${V2EX_PG_BASE:-C:/Users/TYMO001/WorkBuddy/ai}"
+> ```
+> 换机器后若未设 `V2EX_PG_BASE`，会指向**不存在的路径**且报错信息难以理解。
+> **建议**：fallback 改为**从脚本自身位置推导**（`$(dirname "$0")/../../..`），
+> 或在检测到路径不存在时给出明确提示「请设置 `V2EX_PG_BASE` 指向本机 PostgreSQL 目录」。
+> → 已列为 **T02 验收 ⑫**。
 
 | 项 | 内容 |
 |---|---|
 | **依赖** | T01 |
 | **优先级** | **P0** |
 | **责任人** | 工程师（实现）/ 部署工程师（验证） |
-| **修改文件** | `_tools/pgsql/init-test-instance.sh`（新增，**仓库外**）<br>`_tools/pgsql/run-unit-tests-v004.sh`（新增，**仓库外**）<br>`tests/helpers/test-db-lifecycle.ts`（新增） |
-| **互斥** | `tests/helpers/test-db-lifecycle.ts` 本任务独占；`_tools/pgsql/*.sh` 与任何其他任务**无共享文件** |
+| **修改文件** | `tests/helpers/start-test-pg.sh`（新增，**仓库内** —— 含初始化 + 生命周期 + 稳态判据）<br>`tests/helpers/test-db-lifecycle.ts`（新增） |
+| **互斥** | `tests/helpers/test-db-lifecycle.ts` 与 `tests/helpers/start-test-pg.sh` 本任务独占（T06 后续接手后者） |
 | **职责** | ① 实现 §4.2 的 `initdb` 全流程（`--pwfile`、`-E UTF8`、中文 locale、`--data-checksums`、防误伤 `data-v003` 的 `case` 守卫）<br>② 实现 §5.2 的生命周期托管脚本（端口占用检查 → 幂等启动 → vitest → 白名单清理 → 停止）<br>③ 实现 `provisionTestDatabase()`（DROP → CREATE → migrate，**逐阶段计时** + JSON 日志）<br>④ 在 55440 上跑一次 `initdb`，验证实例可启动、可建库<br>⑤ **落地 §4.7.1 判据 B（空库建删往返）** —— 探针库名 `v2ex_readiness_probe` 需同时加入护栏白名单 |
-| **验收标准** | ① `data-test-v004` 创建成功，`PG_VERSION=17`<br>② `psql -p 55440 -c "show data_directory"` 指向 `data-test-v004`，**不是** `data-v003`<br>③ `psql -p 55440 -c "select count(*) from pg_database"` = **3**（空实例）<br>④ 新库 `server_encoding=UTF8` + `lc_collate=Chinese (Simplified)_China.936`（与现有实例**同构**）<br>⑤ `pg_trgm` 在新实例中可安装<br>⑥ 脚本**拒绝**把 `PGDATA` 指向 `data-v003`（用假路径试跑，退出码非 0）<br>⑦ 端口被陌生进程占用时脚本 **exit 1 且不 kill 任何进程**<br>⑧ 清理脚本执行后，55440 上**只剩** `postgres`/`template0`/`template1`；**55433 上 24 个库一个不少**（清理前后 `pg_database` 列表比对）<br>⑨ **空库建删往返实测 < 10_000 ms**（稳态基线 2.0~2.3s，主理人实测）<br>⑩ **定位口径校验**：脚本输出中**不得**出现「性能修复」类表述 —— 独立实例的价值是**隔离性 + 可复现性**<br>⑪ **清理误伤回归**：脚本跑完后，**55433 上的 `v2ex_v004_audit` 必须仍然存在**（§3.5 误伤修正点的端到端验证） |
+| **验收标准** | ① `data-test-v004` 创建成功，`PG_VERSION=17`<br>② `psql -p 55440 -c "show data_directory"` 指向 `data-test-v004`，**不是** `data-v003`<br>③ `psql -p 55440 -c "select count(*) from pg_database"` = **3**（空实例）<br>④ 新库 `server_encoding=UTF8` + `lc_collate=Chinese (Simplified)_China.936`（与现有实例**同构**）<br>⑤ `pg_trgm` 在新实例中可安装<br>⑥ 脚本**拒绝**把 `PGDATA` 指向 `data-v003`（用假路径试跑，退出码非 0）<br>⑦ 端口被陌生进程占用时脚本 **exit 1 且不 kill 任何进程**<br>⑧ 清理脚本执行后，55440 上**只剩** `postgres`/`template0`/`template1`；**55433 上 24 个库一个不少**（清理前后 `pg_database` 列表比对）<br>⑨ **空库建删往返实测 < 10_000 ms**（稳态基线 2.0~2.3s，主理人实测）<br>⑩ **定位口径校验**：脚本输出中**不得**出现「性能修复」类表述 —— 独立实例的价值是**隔离性 + 可复现性**<br>⑪ **清理误伤回归**：脚本跑完后，**55433 上的 `v2ex_v004_audit` 必须仍然存在**（§3.5 误伤修正点的端到端验证）<br>⑫ 🔴 **无本机绝对路径**：`tests/helpers/start-test-pg.sh` 的 `BASE` fallback 不得硬编码 `C:/Users/<用户名>/...` —— 改为从脚本自身位置推导，或在路径不存在时明确提示「请设置 `V2EX_PG_BASE` 指向本机 PostgreSQL 目录」
 | **不做** | 不碰 `data-v003`；不删除 `v2ex_loadtest`；**不声称解决了 38.6s** |
 
 ### T03 — 规格迁移到统一生命周期（10 个建库文件）
@@ -1513,8 +1979,8 @@ sequenceDiagram
 | **责任人** | 工程师 |
 | **修改文件** | `tests/admin-cli.spec.ts`<br>`tests/admin-permissions.spec.ts`<br>`tests/content-lifecycle.spec.ts`<br>`tests/credits-concurrency.spec.ts`<br>`tests/feed-search.spec.ts`<br>`tests/floor-continuity.spec.ts`<br>`tests/floor-counter.spec.ts`<br>`tests/password-reset.spec.ts`<br>`tests/rate-limit-clear.spec.ts`<br>`tests/seed-idempotency.spec.ts` |
 | **互斥** | 这 10 个文件**本任务独占**，其它任务不得并行改 |
-| **职责** | ① 每个文件统一改用 `provisionTestDatabase()` + `assertSafeTestTarget()`<br>② `beforeAll(fn, 120_000)` 显式超时；`afterAll(fn, 60_000)`<br>③ 统一从 helper 取连接串，**删除各文件内重复的 `testDatabaseUrl()` 实现**<br>④ **`tests/floor-continuity.spec.ts` 必须删除硬编码的 `/55433/` 正则与 `.env.test` 直接读取**（§2.4 的 CI 崩溃根因）<br>⑤ 5 个直接改 `process.env.DATABASE_URL` 的文件（admin-permissions / content-lifecycle / credits-concurrency / feed-search / password-reset）改为**统一入口**，避免跨文件污染 |
-| **验收标准** | ① 10 个文件全部输出 `[db-phase]` JSON 行，字段齐全（`file/db/endpoint/dropMs/createMs/migrateMs/totalMs`）<br>② 在 **55440** 上跑通，`dropMs+createMs+migrateMs` **每个文件均 < 15_000 ms**<br>③ **`tests/floor-continuity.spec.ts` 在 CI 环境下不再抛 ENOENT**（用「删掉 `.env.test` + `DATABASE_URL` 指向 5432」的场景复现验证）<br>④ **单测全绿且 0 skipped；用例数 = 190**（QA 在 `097c1b9` 实测的权威基线：`numTotalTests: 190`）<br>⚠️ **口径提醒**：QA 实测**静态 grep `it(` 得出 180 是错的** —— 本项目用嵌套 for 循环生成用例，**运行时才是 190**<br>⑤ 10 个文件**没有一处**残留 `DROP DATABASE` 的裸 SQL（全部经护栏）<br>⑥ 全量总耗时 **< 300_000 ms**（QA 基线 215_000 ms） |
+| **职责** | ① 每个文件统一改用 `provisionTestDatabase()` + `assertSafeTestTarget()`<br>② `beforeAll(fn, 120_000)` 显式超时；`afterAll(fn, 60_000)`<br>③ 统一从 helper 取连接串，**删除各文件内重复的 `testDatabaseUrl()` 实现**<br>④ **`tests/floor-continuity.spec.ts` 必须删除硬编码的 `/55433/` 正则与 `.env.test` 直接读取**（§2.4 的 CI 崩溃根因）<br>　　⚠️ **但不要给这个文件单独打 QA 的 `existsSync` 补丁** —— §2.4.5 实测证明：单独打会让**本地默认路径**（不设 `ENV_FILE`）下 `DATABASE_URL` 变成 `.env.local` 的 **5432 开发库**，而该文件的 `beforeAll` 会 `DROP/CREATE DATABASE`（L107-108）→ **在开发库上建库**。**必须统一走 T01 的 `tests/helpers/test-env.ts`**<br>⑤ 5 个直接改 `process.env.DATABASE_URL` 的文件（admin-permissions / content-lifecycle / credits-concurrency / feed-search / password-reset）改为**统一入口**，避免跨文件污染 |
+| **验收标准** | ① 10 个文件全部输出 `[db-phase]` JSON 行，字段齐全（`file/db/endpoint/dropMs/createMs/migrateMs/totalMs`）<br>② 在 **55440** 上跑通，`dropMs+createMs+migrateMs` **每个文件均 < 15_000 ms**<br>③ **`tests/floor-continuity.spec.ts` 在 CI 环境下不再抛 ENOENT**（用「删掉 `.env.test` + `DATABASE_URL` 指向 5432」的场景复现验证）<br>④ **单测全绿且 0 skipped；用例数 = 190**（QA 在 `097c1b9` 实测的权威基线：`numTotalTests: 190`）<br>⚠️ **口径提醒**：QA 实测**静态 grep `it(` 得出 180 是错的** —— 本项目用嵌套 for 循环生成用例，**运行时才是 190**<br>⑤ 10 个文件**没有一处**残留 `DROP DATABASE` 的裸 SQL（全部经护栏）<br>⑥ 全量总耗时 **< 300_000 ms**（QA 基线 215_000 ms）<br>⑦ 🔴 **防「开发库建库」回归**：**不设 `ENV_FILE`** 时跑全量 → `[db-target]` 指纹**必须全部指向隔离实例**（55440/55433），**无一条指向 5432**。这是 §2.4.5 实测出的最危险回归点<br>⑧ 🔴 **CI 侧复验**：真实 CI 必须变成 `Test Files 15 passed (15)` / `Tests 190 passed (190)`，且 **`e2e` job 从 skipped 恢复为 success**（§2.4.2 —— 这是 153 条 E2E 首次在 CI 上执行） |
 
 ### T04 — 配置注释修正 + CI env 补充（**阈值不动**）
 
@@ -1537,8 +2003,8 @@ sequenceDiagram
 | **责任人** | QA + 工程师 |
 | **修改文件** | `TEST_REPORT.md`（改）<br>`docs/evidence/`（新增单测证据）<br>`docs/TEST_ENV_ISOLATION_v0.0.4.md`（改） |
 | **互斥** | `TEST_REPORT.md` 与 `docs/evidence/` 本任务独占 |
-| **职责** | ① 在 **55440 隔离实例**上跑全量 `vitest run`，记录**逐文件阶段耗时**<br>② 与 QA 在 `097c1b9` 的实测基线（**190 条 / 0 skipped / 3m35s**）比对，确认**无用例被跳过**<br>③ 核对 **CI 侧**同样全绿（重点验证 `floor-continuity.spec.ts` —— 它在 CI 上此前**必崩**）<br>④ 更新 `TEST_REPORT.md` 的单测口径<br>⑤ 把实测数字回填本设计文档 §4.5 / §4.6 / §4.7 |
-| **验收标准** | ① 本机：`vitest run` 退出码 0，**0 skipped**，**用例数 = 190**<br>② CI：`unit` job 绿灯，且**用例数与本机一致**<br>③ 10 个建库文件的 `dropMs+createMs+migrateMs` 全部 **< 15s**，最大值与中位数记录在案<br>④ 全量总耗时 **< 300_000 ms**（QA 基线 215_000 ms）<br>⑤ `TEST_REPORT.md` 的数字与实际输出**逐条对应**<br>⑥ 文档中**无「待实测」残留**（或明确标注为「仍未实测」并说明原因） |
+| **职责** | ① 在 **55440 隔离实例**上跑全量 `vitest run`，记录**逐文件阶段耗时**<br>② 与 QA 在 `097c1b9` 的实测基线（**190 条 / 0 skipped / 3m35s**）比对，确认**无用例被跳过**<br>③ **核对 CI 侧**：`unit` job 绿灯 + **`e2e` job 从 skipped 恢复为 success**（§2.4.2 —— 这是 153 条 E2E 在 CI 上的首次执行，必须拿到证据）<br>④ 更新 `TEST_REPORT.md` 的单测口径<br>⑤ 把实测数字回填本设计文档 §4.5 / §4.6 / §4.7 |
+| **验收标准** | ① 本机：`vitest run` 退出码 0，**0 skipped**，**用例数 = 190**<br>② CI：`unit` job 绿灯，且**用例数与本机一致**<br>②' 🔴 **CI 必须看 `Test Files` 行**（不是 `Tests` 行）：`Test Files 15 passed (15)` / `Tests 190 passed (190)`。<br>⚠️ §2.4.4 实测的坑：修复前的真实 CI 是 `Tests 185 passed \| 5 skipped (190)` —— **只看 Tests 行会误判为「185 条通过」**，实际是 `1 failed + 5 skipped`<br>③ 10 个建库文件的 `dropMs+createMs+migrateMs` 全部 **< 15s**，最大值与中位数记录在案<br>④ 全量总耗时 **< 300_000 ms**（QA 基线 215_000 ms）<br>⑤ 🔴 **`e2e` job 必须从 skipped 变成 success**，且 E2E 实测数 = **153**（`--list` 实测基线）。这是 v0.0.4 的 153 条 E2E **首次在 CI 上执行** —— 此前一直被 `needs: unit` 连带跳过<br>⑥ `TEST_REPORT.md` 的数字与实际输出**逐条对应**<br>⑦ 文档中**无「待实测」残留**（或明确标注为「仍未实测」并说明原因） |
 
 ### T06 — PG 稳态判据与「未就绪 ≠ 超时」分流（P0，**防误判产品缺陷**）
 
@@ -1547,7 +2013,7 @@ sequenceDiagram
 | **依赖** | T02 |
 | **优先级** | **P0**（因第三次勘误而新增并提升） |
 | **责任人** | 工程师（实现）/ 架构师（口径） |
-| **修改文件** | `_tools/pgsql/run-unit-tests-v004.sh`（改 —— 与 T02 同文件，**T02 完成后由本任务接手**）<br>`tests/setup.ts`（改 —— 与 T01 同文件，**T01 完成后由本任务接手**）<br>`tests/helpers/test-db-guard.ts`（改 —— 白名单加 `v2ex_readiness_probe`） |
+| **修改文件** | `tests/helpers/start-test-pg.sh`（改 —— 与 T02 同文件，**T02 完成后由本任务接手**）<br>`tests/setup.ts`（改 —— 与 T01 同文件，**T01 完成后由本任务接手**）<br>`tests/helpers/test-db-guard.ts`（改 —— 白名单加 `v2ex_readiness_probe`） |
 | **互斥** | ⚠️ **依赖 T01/T02 已完成**；本任务接手上述三个文件的**二次修改**权 |
 | **职责** | ① 落地 §4.7.1 **判据 A**（日志静态检查：recovery / `syncing data directory` 痕迹）<br>② 落地 §4.7.1 **判据 B**（空库建删往返，阈值 10_000 ms）—— **脚本级**，在 vitest 之前执行<br>③ 落地 §4.7.1 **判据 C**（`tests/setup.ts` 内的 `select 1` 轻量探活，3s 超时）<br>④ 落地 §4.7.1 **判据 D**（阶段日志自证：`createMs` 连续 2s 量级 = 稳态；突然 30s+ = 进入积压态，**该文件其余耗时数字不可采信**）<br>⑤ 实现 §4.6.3 的**分流表**：把「PG 未就绪」与「真超时」区分开，**未就绪时脚本拒绝开始测试**，且**不记为测试失败** |
 | **验收标准** | ① 探针库 `v2ex_readiness_probe` 能建能删，且**能被护栏放行**（加进精确枚举）<br>② 探针耗时 **< 10_000 ms**（稳态实测 2.0~2.3s）→ 正常放行<br>③ **模拟未就绪**：人为制造积压（如同时压测占满 I/O）→ 脚本**拒绝开始测试**并打印明确原因，**退出码 ≠ 0 但不产生「用例失败」记录**<br>④ `tests/setup.ts` 探活失败时，错误信息是「**PG 未就绪**」而不是一堆连接错误堆栈<br>⑤ 复用现有 55433 实例时，recovery 检测能正确识别并等待<br>⑥ **文案校验**：全部输出**不得**把未就绪描述为「测试超时」或「产品缺陷」 |
@@ -1587,7 +2053,7 @@ graph TD
 | `tests/helpers/local-bin.ts` | **T01** | 全部子进程 spawn 的唯一出口 |
 | `tests/helpers/test-db-lifecycle.ts` | **T02** | 阶段日志的唯一出口 |
 | `tests/helpers/test-db-guard.ts` | **T01** → **T06** 接手 | T06 加 `v2ex_readiness_probe` |
-| `_tools/pgsql/*.sh` | **T02** → **T06** 接手 | 仓库外脚本；T06 加稳态判据 |
+| `tests/helpers/start-test-pg.sh` | **T02** → **T06** 接手 | **仓库内**脚本；T06 加稳态判据 |
 | 10 个建库 spec | **T03** → **T07** 可能微调 | T01/T02/T04 不得并行改 |
 | `vitest.config.ts` | **T04** | **仅注释**，零阈值变化 |
 | `.github/workflows/*.yml` | **T04** | 只加 env |
@@ -1604,7 +2070,8 @@ graph TD
 
 | 决策点 | 选择 | 被否决的方案 | 理由 |
 |---|---|---|---|
-| env 加载优先级 | shell > ENV_FILE > `.env.test` > `.env.local` > `.env`，**`ENV_FILE` 去掉 `override`** | 保留 `override: true` | 现有 `override` 反转了「shell 优先」语义，是问题 A 的技术根；`scripts/env-dump.mjs` 的注释已写明期望语义，实现未对齐。**QA 独立实测印证**（§3.2.1：命令行 `DATABASE_URL` 被静默忽略） |
+| env 加载优先级 | shell > ENV_FILE > `.env.test` > `.env.local` > `.env` | 保留 `override: true` | 现有 `override` 反转了「shell 优先」语义，是问题 A 的技术根；`scripts/env-dump.mjs` 的注释已写明期望语义，实现未对齐。**QA 独立实测印证**（§3.2.1：命令行 `DATABASE_URL` 被静默忽略） |
+| **`override: true` 的处置** | **按文件分四档**（§3.2.0）：<br>档 1 `src/db/index.ts` **保留**<br>档 2 `drizzle.config.ts` + `tests/setup.ts` **去掉**<br>档 3 `scripts/seed.ts` **只删自身 override 调用**（不动 `dotenv/config`）<br>档 4 `admin-cli.ts` / `db-admin.mjs` **不改** | ~~统一去掉 `override: true`~~（初稿口径，**过于粗糙**）<br>~~档 3 = 去掉 `dotenv/config` 或提前加载~~（第二稿口径，**被 deploy 复核推翻**） | ⚠️「统一去掉」在 `scripts/seed.ts` 上会**引入回归**。而 `src/db/index.ts` 的 override **必须保留** —— Next.js 运行时确实预加载 `.env.local`（实测找到加载代码）。<br>⚠️ 档 3 的第二稿结论也被推翻：`seed.ts` import 了 `../src/db/index`（档 1），**ESM import 提升使档 1 的模块体先执行** → 档 1 已用 override 抢先写入 ENV_FILE 的值 → `seed.ts` 自身的 override 是**冗余**的；「提前加载」在 ESM 下**做不到**（import 声明被提升）。**两稿分档都是 `software-engineer-deploy` 同步/质疑后补正的** |
 | `.env.test` 处置 | **入仓无密模板 + 本地自动生成** | CI 全注入 / 带密入库 / 不解决 | 只有模板方案能让**新克隆仓库开箱可跑**，且模板本身就是变量清单文档 |
 | 护栏形态 | **端点白名单 + 库名「精确枚举 + 证据库拒绝名单」双层**（两道） | 只做端点白名单；<br>~~库名前缀正则~~ | 端点白名单挡不住「5432 上的开发库」；库名判定**跨端点生效**。<br>⚠️ **前缀正则被实测否决**：主理人给出的 `^v2ex_(test|v003|v004|...)` 会命中 **`v2ex_v004_audit`**（升级审计证据库）—— 前缀通配把「版本号前缀」误当成「测试库命名空间」。改为精确枚举 + 14 个证据库的显式拒绝名单 |
 | CI 是否放行 5432 | **放行**（端点白名单含 `localhost:5432`），但**库名仍受精确枚举约束** | CI 用不同端口 | CI 的 service container 端口固定 5432；真正的防线是库名枚举 |
@@ -1633,6 +2100,7 @@ graph TD
 | **Q7** | **是否需要把 `floor-continuity.spec.ts` 的 CI 崩溃作为独立缺陷登记**（进 `BUG_REGISTER.md`）？ | **建议登记**。这是本次新发现的、**已入库代码**中的确定性 CI 缺陷；且 QA 的 190/190 全绿是**本机**跑的，**不能**证明 CI 侧通过 | 影响 T05 是否同步 `BUG_REGISTER.md` / `RISK_REGISTER.md` |
 | **Q8** | **【新增】是否接受「独立实例的定位是隔离性而非性能」这一改写？** | **强烈建议接受**。上一轮把独立实例（或超时上调）包装成「性能修复」，是**第三次误判的根源**。若继续用「性能修复」叙事，后续会话会再次尝试「换盘 / 调 fsync」等无效动作 | 影响 §4.1 / §4.4 / T02 验收标准 ⑩ 的**文案口径** |
 | **Q9** | **【新增】T07（共享 globalSetup 优化建库开销）是否要做？** QA 数据：5 个文件重复「建库 + migrate」占 97% 耗时，全量 3m35s。 | **建议做，但排在 P2**。预估可降到 ~1m 以内；**先评估收益与断言风险，再决定实施或记录「不做理由」** | 影响 T07 是否启动 |
+| **Q10** | ~~档 1（`src/db/index.ts`）的静默误跑要不要根治？~~ **✅ 已关闭（2026-11-04）** | **统一加载器 `src/lib/env-loader.mjs` 已根治** —— 用 `@next/env` 的 `initialEnv` 快照精确区分「shell 注入」与「文件占位」，使档 1 与档 2 **同时成立**（架构师实测双向验证，见 §2.4.9）。**不需要**另设 P2 方案 | **已无影响** |
 
 ---
 
@@ -1648,6 +2116,10 @@ graph TD
 | `initdb` locale 行为 | `initdb --locale=<x>`（**无效 locale 时 initdb 在建目录前即退出**；有一次成功创建了探测目录，已 `rm -rf` 清理） | 临时目录，已清理 |
 | env 解析复刻 | `_scratch/simulate-setup.mjs` + 仓库内临时 `.mjs`（已删） | 否 |
 | CI 崩溃复刻 | 仓库内临时 `.mjs` + 伪造 repo 路径（已删） | 否 |
+| **dotenv `override` 语义四组合实测** | 临时 env 文件 + 仓库内临时 `.mjs`（已删，Temp 目录已清） | 临时文件，已清理 |
+| **drizzle-kit 是否预加载 env** | 抛错的假 config 文件探针（已删） | 否（未连接数据库） |
+| **Next.js env 预加载实现** | `node_modules/next/dist/compiled/next-server/server.runtime.prod.js` 源码核查 | 否 |
+| **`scripts/seed.ts` 加载顺序实测** | 仓库内临时 `.mjs`（已删） | 否 |
 | PG 日志 checkpoint 计时 | `grep -a "checkpoint complete" pg-v003.log` | 否 |
 | **crash recovery 时间线** | `grep -a "syncing data directory\|redo\|自动恢复" pg-v003.log` | 否 |
 | `pg_stat_checkpointer` / `pg_stat_bgwriter` | 只读系统视图查询 | 否 |
@@ -1662,10 +2134,15 @@ graph TD
 | 稳态 `CREATE DATABASE` = **2083 ms**；`DROP+CREATE` 三次 = **2277 / 1978 / 2243 ms** | **主理人**（2026-11-04 20:33-20:34，`data-v003` 实例，PG 稳态运行） | §0.1 第 3 轮勘误的**核心依据**；§4.6.2 验收基线 |
 | 稳态 checkpoint `total=0.053s / 0.158s` | **主理人**（同上） | 同上 |
 | 全量单测 **190/190 全绿，0 skipped，3m35s**，53/53 套件通过 | **QA（software-qa-ci）**（`097c1b9`，`ENV_FILE=.env.test`，未改任何超时阈值） | §4.1.1 耗时分布；§4.6.2 验收基线；T03 验收标准（190 条口径） |
-| 逐文件耗时分布（content-lifecycle 22230ms / admin-cli 20838ms / seed-idempotency 16302ms / feed-search 9981ms / db-lazy-init 7417ms / 其余 10 文件合计 ~2100ms） | **QA**（同上） | §4.1.1；T07 优化点的依据 |
+| **190/15 基线归属证明**（mtime 时序 / `deploy/` 不在测试输入路径 / 工作区零改动 / 三方交叉校验） | **QA** | §2.5.1 —— 回应架构师的 commit 基线疑问 |
+| **真实 CI run `41836588566`** 的 2567 行日志：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` / ENOENT 路径 / `e2e` job skipped | **QA**（下载真实 CI 日志解析） | §2.4.1~§2.4.4 —— **CI 崩溃已被真实 CI 证实**；T05 验收标准 ②' 的判读依据 |
+| 纯净检出复现：`git archive HEAD` 导出 → `1 failed \| 14 passed (15)` / `148 passed` | **QA** | §2.4.1 —— 独立于真实 CI 的第二条证据 |
+| 修复方案在纯净检出上的实跑验证（CI 5 passed / 本地 5 passed / 反证 `:55433/` 硬门） | **QA** | §2.4.5 —— 修复方案本身正确 |
+| 逐文件耗时分布（content-lifecycle 22230ms / admin-cli 20838ms / seed-idempotency 16302ms / feed-search 9981ms / db-lazy-init 7417ms / 其余 10 文件合计 ~2100ms） | **QA** | §4.1.1；T07 优化点的依据 |
 | `override: true` 使命令行 `DATABASE_URL` 失效（迁移跑到 `v2ex_e2e` 而非指定的 `v2ex_qa_migidem_v004`） | **QA**（独立踩坑并留证） | §3.2.1 —— 本节裁决的**独立外部佐证** |
 | `npx vitest run --reporter=basic` 在 Vitest 5.0.5 **失败**（reporter 已移除）；可用 `--reporter=default --reporter=json --outputFile=...` | **QA** | T05 的复验命令口径 |
 | **静态 grep `it(` 得出 180，运行时实为 190**（本项目用嵌套 for 循环生成用例） | **QA** | T03 验收标准的口径警示 |
+| `ci.yml` 的 `e2e: needs: unit` 依赖结构 | **架构师核查**（`ci.yml` L153-156） | §2.4.2 —— 解释 153 条 E2E 为何在 CI 上从未执行 |
 
 > **诚实声明**：架构师**未复现**上表中的 QA 与主理人数据（本轮为只读设计角色，未执行 vitest、未建库）。
 > 引用它们是因为它们**直接决定本设计的取舍**，且**有明确的来源可追溯**。
