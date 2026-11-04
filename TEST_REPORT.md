@@ -54,6 +54,17 @@
 | 软删除主题 —— 普通用户访问 | HTTP 404（不泄露）✅ |
 | 登录后主题页渲染 | 操作栏/赞/锁定/置顶/删除 全部可见 ✅ |
 
+## E2E 测试（GitHub Actions 真实环境）
+
+> run `41751032820` —— ubuntu-latest + PostgreSQL 17 + Redis 7 服务容器。
+
+| 项 | 结果 |
+|---|---|
+| E2E 用例 | **67 passed**（0 failed / 0 skipped） |
+| 单元测试 | **185 passed**（14 套件） |
+| Docker 构建与启动验证 | ✅ success |
+| 整个 workflow | ✅ **success** |
+
 ## 并发压力验证
 
 > 真实 `next start` + 真实 PostgreSQL，多个并发 curl 请求打同一端点，
