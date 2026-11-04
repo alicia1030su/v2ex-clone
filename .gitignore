@@ -66,7 +66,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-logs/
+# 只忽略**根目录**的 logs/ —— 写成 `logs/` 会匹配任意层级的同名目录，
+# 曾误伤 src/app/api/admin/logs/（导致后台日志端点从未进入版本库，
+# 生产环境 404）。加前导斜杠限定在根目录。
+/logs/
 *.log
 
 # 编辑器 / 系统

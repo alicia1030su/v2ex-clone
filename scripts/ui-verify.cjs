@@ -49,22 +49,51 @@ function normalize(p) {
     .replace(/\[(\w+)\]/g, '*');
 }
 
-/** 收集前端的所有 fetch / csrfFetch 调用 */
+/**
+ * 判断一行是否为注释。
+ *
+ * 必须排除注释 —— 组件文件头常有「API 清单」注释表格，
+ * 里面的 URL 字符串不是真实调用，误判会让校验长期误报
+ * （CI 上曾因此把 `/api/admin/logs?action=&targetType=&targetId=` 当成真实调用）。
+ */
+function isCommentLine(line) {
+  const t = line.trim();
+  if (!t) return true;
+  return (
+    t.startsWith('//') ||
+    t.startsWith('*') ||
+    t.startsWith('/*') ||
+    t.startsWith('*/') ||
+    t.startsWith('<!--')
+  );
+}
+
+/** 收集前端的所有 fetch / csrfFetch 调用（跳过注释行） */
 const calls = [];
 for (const f of files) {
   const rel = path.relative(ROOT, f).replace(/\\/g, '/');
   if (rel.startsWith('src/app/api/')) continue; // 排除后端自身
   const src = fs.readFileSync(f, 'utf8');
-  const re = /(csrfFetch|fetch)\(\s*[`'"]([^`'"]+)[`'"]/g;
-  let mm;
-  while ((mm = re.exec(src))) {
-    const fn = mm[1];
-    const url = mm[2];
-    // 推断方法：取 fetch( 之后到 URL 之前/之后的 method
-    const tail = src.slice(mm.index, mm.index + 400);
-    const methodMatch = tail.match(/method:\s*'(\w+)'/);
-    const method = methodMatch ? methodMatch[1] : 'GET';
-    calls.push({ file: rel, fn, method, url });
+
+  // 逐行扫描 —— 跳过注释行
+  const lines = src.split('\n');
+  let offset = 0;
+  for (const line of lines) {
+    const lineStart = offset;
+    offset += line.length + 1;
+    if (isCommentLine(line)) continue;
+
+    const re = /(csrfFetch|fetch)\(\s*[`'"]([^`'"]+)[`'"]/g;
+    let mm;
+    while ((mm = re.exec(line)) !== null) {
+      const fn = mm[1];
+      const url = mm[2];
+      // 推断方法：取 fetch( 之后的 400 字符内的 method
+      const tail = src.slice(lineStart + mm.index, lineStart + mm.index + 400);
+      const methodMatch = tail.match(/method:\s*['"](\w+)['"]/);
+      const method = methodMatch ? methodMatch[1] : 'GET';
+      calls.push({ file: rel, fn, method, url });
+    }
   }
 }
 
@@ -95,7 +124,11 @@ if (missing.length === 0) {
 
 console.log(`✗ ${missing.length} 个前端调用没有对应的后端路由：\n`);
 for (const m of missing) {
-  console.log(`  ${m.method} ${m.url}`);
+  // 报告归一化后的路径 —— 原始模板串里的 ${...} 对读者没有意义
+  console.log(`  ${m.method} ${normalize(m.url)}`);
   console.log(`     来自 ${m.file}`);
+  if (m.url !== normalize(m.url)) {
+    console.log(`     原始：${m.url}`);
+  }
 }
 process.exit(1);
