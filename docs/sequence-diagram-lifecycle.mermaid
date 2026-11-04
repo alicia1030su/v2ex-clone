@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    participant WB as WorkBuddy Bash 工具
+    participant Script as run-unit-tests-v004.sh
+    participant PM as PgInstanceManager
+    participant PG as postgres.exe<br/>(55440)
+    participant Vitest as vitest
+    participant Clean as cleanupTestDatabases
+
+    WB->>Script: 一次调用（全部操作在此完成）
+    Script->>PM: 检查端口占用
+    PM-->>Script: 空闲 / 残留（自有）/ 占用（陌生→exit 1）
+    Script->>PM: pg_ctl start -w
+    PM->>PG: 启动（数据目录 data-test-v004）
+    PG-->>PM: ready
+    Script->>Vitest: npx vitest run（env 已规范化）
+    Vitest->>PG: 建库 / 迁移 / 断言
+    PG-->>Vitest: 结果
+    Vitest-->>Script: 退出码
+    Script->>Clean: DROP 命中正则的测试库
+    Clean->>PG: DROP DATABASE ... WITH (FORCE)
+    Script->>PM: pg_ctl stop -m fast
+    Script-->>WB: 退出码（= vitest 退出码）
+    Note over WB,PG: Bash 调用结束 → 进程树回收<br/>但此时 PG 已主动停止，无残留

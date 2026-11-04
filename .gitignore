@@ -61,6 +61,20 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts.bak
 
+# 运行时用户上传目录（v0.0.4 新发现的真实缺陷）
+#
+# 背景：`public/uploads/` 下的头像文件是**运行时用户数据**。
+# E2E 测试跑一轮就会生成一批 684 字节的占位图，
+# 而此前该目录**完全没有被 .gitignore 覆盖** —— 结果 18 个测试占位图
+# 被 `git add .` 误提交进版本库（引入提交：04b107b / 1b15f79 / 301a8a5），
+# 并会随发布包一起分发。
+#
+# 风险性质：与 R-01（原站素材经 Git 历史持续暴露）同类 ——
+# 运行时数据进入公开发布物。本轮已 `git rm --cached` 移出索引（不改写历史）。
+#
+# 注：Docker 部署时 uploads 目录由容器卷挂载提供，不依赖仓库内文件。
+public/uploads/
+
 # 日志
 npm-debug.log*
 yarn-debug.log*

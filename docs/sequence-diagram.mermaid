@@ -1,0 +1,76 @@
+sequenceDiagram
+    autonumber
+    participant Bash as Bash 调用<br/>(run-unit-tests-v004.sh)
+    participant PM as PgInstanceManager
+    participant Guard as TestDbGuard
+    participant Setup as tests/setup.ts
+    participant Res as TestEnvResolver
+    participant Spec as tests/*.spec.ts
+    participant Life as TestDbLifecycle
+    participant LocalBin as LocalBinRunner
+    participant Admin as postgres<br/>(admin 连接)
+    participant Kit as drizzle-kit<br/>(子进程)
+    participant Seed as scripts/seed.ts<br/>(子进程)
+
+    Bash->>PM: ensureRunning(55440)
+    PM->>PM: netstat 查端口占用
+    alt 端口被陌生进程占用
+        PM-->>Bash: throw（不 kill 陌生进程）
+    else 残留自有实例
+        PM->>PM: pg_ctl -m fast stop
+    end
+    PM->>PM: pg_ctl start -w + pg_isready
+    PM->>PM: 检查日志是否有 recovery 痕迹
+    PM->>Admin: 空库建删往返（稳态判据）
+    Admin-->>PM: t_probe（稳态 ≈2s）
+    alt t_probe > 10s（PG 未就绪/积压）
+        PM-->>Bash: throw「PG 未进入稳态，拒绝开始测试」
+        Note over PM,Bash: 环境问题 ≠ 产品缺陷，不记为测试失败
+    end
+    PM-->>Bash: alive=true, ready=true
+
+    Bash->>Setup: vitest run（子进程继承 env）
+    Setup->>Res: resolve({required:true})
+    Res->>Res: 读 process.env（最高优先级）
+    Res->>Res: 读 .env.test（缺失则从模板生成）
+    Res-->>Setup: ResolvedTestEnv{url,endpoint,fingerprint}
+    Note over Res: 绝不读 .env.local
+    Setup->>Setup: process.env.DATABASE_URL = url<br/>V2EX_DB_FINGERPRINT = fingerprint
+    Setup->>Admin: select 1（探活，3s 超时）
+    Admin-->>Setup: ok（实例存活）
+    Setup-->>Spec: 环境就绪
+
+    Spec->>Guard: assertSafeTestTarget(adminUrl, TEST_DB)
+    Guard->>Guard: 端点在白名单？库名在精确枚举？
+    alt 不匹配
+        Guard-->>Spec: throw（中止，不发出任何 SQL）
+    end
+
+    Spec->>Life: provisionTestDatabase({db, migrate, seed?})
+    Life->>Guard: assertSafeTestTarget（再确认）
+    Life->>Admin: DROP DATABASE IF EXISTS <db>
+    Admin-->>Life: t_drop
+    Life->>Admin: CREATE DATABASE <db>
+    Admin-->>Life: t_create
+    Life->>LocalBin: runDrizzleKit(['migrate'], childEnv)
+    LocalBin->>LocalBin: 校验子进程指纹 == 父进程指纹
+    alt 指纹不一致
+        LocalBin-->>Life: throw
+    end
+    LocalBin->>Kit: execFileSync(node, drizzle-kit, migrate, env)
+    Kit-->>LocalBin: exit 0
+    LocalBin-->>Life: t_migrate
+    opt 需要 seed
+        Life->>LocalBin: runTsx('scripts/seed.ts', childEnv)
+        LocalBin->>Seed: execFileSync(node, tsx, seed.ts, env)
+        Seed-->>LocalBin: exit 0
+        LocalBin-->>Life: t_seed
+    end
+    Life-->>Spec: DbPhaseTiming
+    Life-->>Bash: [db-phase] {dropMs,createMs,migrateMs,totalMs}
+
+    Spec->>Admin: 关闭连接 + DROP DATABASE <db>
+    Bash->>PM: cleanupTestDatabases(^v2ex_(test|v003_|v004|...))
+    PM->>Admin: 仅删除命中正则的库
+    Note over PM: v2ex_loadtest / v2ex_v002_baseline 不在正则内
+    Bash->>PM: stopInstance(fast)
