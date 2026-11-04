@@ -72,20 +72,20 @@ Listing tests:
   [chromium] › v004-account-admin.spec.ts:120:3 › v0.0.4 积分与签到 › 积分规则在页面上有说明（独立实现，非原站数值）
   [chromium] › v004-account-admin.spec.ts:131:3 › v0.0.4 通知 › 通知：他人回复后收到通知，标记已读后未读数归零
   [chromium] › v004-account-admin.spec.ts:180:3 › v0.0.4 通知 › 通知：未登录访问被拒
-  [chromium] › v004-account-admin.spec.ts:191:3 › v0.0.4 关注 › 关注：关注后出现在关注列表，取消后移除，重复关注幂等
-  [chromium] › v004-account-admin.spec.ts:239:3 › v0.0.4 头像与资料 › 资料编辑：修改后页面与 API 均体现新值
-  [chromium] › v004-account-admin.spec.ts:262:3 › v0.0.4 头像与资料 › 头像上传：非法文件被拒绝
-  [chromium] › v004-account-admin.spec.ts:283:3 › v0.0.4 头像与资料 › 头像上传：合法 PNG 被接受
-  [chromium] › v004-account-admin.spec.ts:315:3 › v0.0.4 后台管理 › 后台：普通用户被拒（403），管理员可访问
-  [chromium] › v004-account-admin.spec.ts:338:3 › v0.0.4 后台管理 › 后台：管理员页面可打开且展示真实数据
-  [chromium] › v004-account-admin.spec.ts:344:3 › v0.0.4 后台管理 › 后台：封禁用户后其会话失效，解封后恢复
-  [chromium] › v004-account-admin.spec.ts:387:3 › v0.0.4 后台管理 › 后台：角色变更生效，且不能自我降级
-  [chromium] › v004-account-admin.spec.ts:408:3 › v0.0.4 后台管理 › 后台：系统配置返回时凭据已脱敏
-  [chromium] › v004-account-admin.spec.ts:432:3 › v0.0.4 节点申请与审批 › 普通用户申请节点，管理员批准后节点真实存在
-  [chromium] › v004-account-admin.spec.ts:474:3 › v0.0.4 节点申请与审批 › 普通用户不能审核节点申请
-  [chromium] › v004-account-admin.spec.ts:485:3 › v0.0.4 Feed 与搜索 › 三种 Feed 格式正确且内容非空
-  [chromium] › v004-account-admin.spec.ts:500:3 › v0.0.4 Feed 与搜索 › JSON Feed 符合规范结构
-  [chromium] › v004-account-admin.spec.ts:508:3 › v0.0.4 Feed 与搜索 › 搜索：关键词能命中且分页上限被钳制
+  [chromium] › v004-account-admin.spec.ts:191:3 › v0.0.4 关注 › 关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层，UI 无入口）
+  [chromium] › v004-account-admin.spec.ts:256:3 › v0.0.4 头像与资料 › 资料编辑：修改后页面与 API 均体现新值
+  [chromium] › v004-account-admin.spec.ts:279:3 › v0.0.4 头像与资料 › 头像上传：非法文件被拒绝
+  [chromium] › v004-account-admin.spec.ts:300:3 › v0.0.4 头像与资料 › 头像上传：合法 PNG 被接受
+  [chromium] › v004-account-admin.spec.ts:332:3 › v0.0.4 后台管理 › 后台：普通用户被拒（403），管理员可访问
+  [chromium] › v004-account-admin.spec.ts:355:3 › v0.0.4 后台管理 › 后台：管理员页面可打开且展示真实数据
+  [chromium] › v004-account-admin.spec.ts:361:3 › v0.0.4 后台管理 › 后台：封禁用户后其会话失效，解封后恢复
+  [chromium] › v004-account-admin.spec.ts:404:3 › v0.0.4 后台管理 › 后台：角色变更生效，且不能自我降级
+  [chromium] › v004-account-admin.spec.ts:425:3 › v0.0.4 后台管理 › 后台：系统配置返回时凭据已脱敏
+  [chromium] › v004-account-admin.spec.ts:449:3 › v0.0.4 节点申请与审批 › 普通用户申请节点，管理员批准后节点真实存在
+  [chromium] › v004-account-admin.spec.ts:491:3 › v0.0.4 节点申请与审批 › 普通用户不能审核节点申请
+  [chromium] › v004-account-admin.spec.ts:502:3 › v0.0.4 Feed 与搜索 › 三种 Feed 格式正确且内容非空
+  [chromium] › v004-account-admin.spec.ts:517:3 › v0.0.4 Feed 与搜索 › JSON Feed 符合规范结构
+  [chromium] › v004-account-admin.spec.ts:525:3 › v0.0.4 Feed 与搜索 › 搜索：关键词能命中且分页上限被钳制
   [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（含统计）：GET /api/nodes 返回 200 且是合法 JSON
   [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（分类过滤）：GET /api/nodes?categoryId=1 返回 200 且是合法 JSON
   [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（子节点过滤）：GET /api/nodes?parentId=1 返回 200 且是合法 JSON

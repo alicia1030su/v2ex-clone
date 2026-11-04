@@ -1,5 +1,10 @@
 # 全量 E2E 复验结果（v0.0.4，最终提交态）
 
+> ✅ **最终权威结论（修复后重跑）：153 passed / 0 skipped / 0 failed（10.0m，exit=0）**
+> 命令同上；日志 `C:/Users/TYMO001/AppData/Local/Temp/e2e-after-fix.log`。
+> 关注用例修复后不再被跳过，153 条全部真实执行并通过。
+> **下文 §「真实输出」是修复前的第一轮结果，作为历史证据保留，不回写。**
+
 > 时间：2026-11-04 · 服务：`http://localhost:3021`（隔离库 `v2ex_e2e_v004`）
 > 命令：`ENV_FILE=.../v004e2e.env LOCAL_BASE=http://localhost:3021 BROWSER_CHANNEL=chromium npx playwright test --reporter=list`
 > 环境：`retries: 0`、`fullyParallel: false`、单 project（chromium 1280×900）
@@ -64,3 +69,19 @@ ENV_FILE=... LOCAL_BASE=http://localhost:3021 BROWSER_CHANNEL=chromium \
 **注意**：上面的 `152 passed / 1 skipped` 是**修复前**的全量运行结果，作为历史证据保留；
 修复后该用例已不再被跳过。全量 E2E 未在修复后重跑（单条已实跑通过），
 因此**不宣称「153 条全部通过」**。
+
+---
+
+## 最终权威结果（修复后重跑，2026-11-04）
+
+```
+ENV_FILE=... LOCAL_BASE=http://localhost:3021 BROWSER_CHANNEL=chromium npx playwright test --reporter=list
+→ 153 passed (10.0m)      playwright exit=0
+```
+
+- `--list` 枚举 **153 条 / 11 文件**，运行时 **153 通过 / 0 跳过 / 0 失败**，两者一致。
+- 关注用例（修复 R-23 后）已真实执行三条断言并通过，不再静默跳过。
+- 四身份 UI 8 条、端点冒烟 31 条（29 个 GET 路由 + 2 条格式断言）全部通过。
+- 管理员「封禁 → 解封」真实点击流（13.6s）、版主主题管理点击流（10.9s）通过。
+- 注意：R-24（关注功能无 UI 入口）与 R-21（管理员无 `/admin` 入口）是**产品缺口**，
+  不是测试失败；相关用例已如实标注为「UI 缺口实证」，不作为功能已实现的证据。
