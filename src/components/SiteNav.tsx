@@ -26,6 +26,9 @@ export default async function SiteNav() {
                 <Link href="/bookmarks" className="top">
                   收藏
                 </Link>
+                <Link href="/leaderboard" className="top">
+                  积分
+                </Link>
                 <Link href={`/member/${user.username}`} className="top">
                   {user.username}
                 </Link>

@@ -31,6 +31,9 @@ export default async function SettingsPage() {
               <a href="/bookmarks" className="top">
                 收藏
               </a>
+              <a href="/leaderboard" className="top">
+                积分
+              </a>
               <a href={`/member/${user.username}`} className="top">
                 {user.username}
               </a>

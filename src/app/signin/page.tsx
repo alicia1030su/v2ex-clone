@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; reset?: string }>;
 }) {
   const user = await getSessionUser();
   if (user) redirect('/');
@@ -113,6 +113,13 @@ export default async function SignInPage({
                 <a href="/">V2EX</a> <span className="chevron">&nbsp;›&nbsp;</span> 登录 &nbsp;
                 <li className="fa fa-lock" />
               </div>
+              {params.reset === '1' ? (
+                <div className="cell">
+                  <div className="toast" style={{ position: 'static', boxShadow: 'none' }}>
+                    密码已重置，请使用新密码登录。
+                  </div>
+                </div>
+              ) : null}
               <SignInForm
                 next={params.next ?? '/'}
                 error={params.error}
