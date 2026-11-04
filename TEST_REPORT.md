@@ -1,5 +1,23 @@
 # 测试报告（TEST_REPORT）
 
+> ⚠️ **状态覆盖声明（v0.0.4，2026-11-04）**：本文件主体是 **v0.0.3 的历史快照**，
+> 下方表格里的「E2E 67 passed」「视觉 64 项 / 96.9% / 90.6%」「负载测试未执行」
+> 均为当时数字，**不得作为 v0.0.4 验收依据**。v0.0.4 的最新证据如下：
+>
+> | 项 | v0.0.4 实测 | 证据 |
+> |---|---|---|
+> | 单元测试 | 185 条（`vitest.config.ts` 已设 `fileParallelism: false`） | `npx vitest run` |
+> | 真实浏览器 E2E | `playwright test --list` 实测 **153 条 / 11 文件**（原有 67 + v004 四文件 78 + 四身份 UI 8）；第四阶段收尾时 144 条全绿已实跑，新增 7 条本轮复验中，**全量 153 条最终结论以本轮复验输出为准，不预先声明** | `e2e/v004-*.spec.ts` 四文件 + 原有 6 文件 |
+> | 视觉对照 | 4 视口 × 17 页面 = 68 条；40 对比 / 28 无对照；严格口径桌面 Δx=0 **52/52** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md`、`docs/evidence/visual/geometry-summary.json` |
+> | 负载测试 | **已执行**：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求、13 场景 | `scripts/loadtest/README.md`、`tools/loadtest/bench.mjs`、`docs/evidence/loadtest/bench-result.json` |
+> | 升级/恢复验证 | 见 `docs/UPGRADE_RECOVERY_v0.0.4.md` | 第六阶段 |
+> | 验收清单 | 见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md`（唯一权威验收依据） | 第十一阶段 |
+>
+> 视觉的 `96.9% / 90.6%` 是 **v0.0.3 的历史口径**（分母 84，且把「两侧都不存在」也计为一致），
+> 与 v0.0.4 的严格口径（分母 52）不可直接比较 —— 三套口径的完整说明见
+> `tools/visual/summarize-visual-diff.py` 的 `geometry-summary.json`。
+> 本轮**不声明任何「相似率」百分比**。
+
 > 本报告的每个数字都来自**真实运行**。
 > 未执行的项明确标注为「未执行」并说明原因，不做推测性声明。
 

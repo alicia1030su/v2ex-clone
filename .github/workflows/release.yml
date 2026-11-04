@@ -1171,8 +1171,9 @@ jobs:
 
       - name: 生成中文 Release Notes
         run: |
+          VERSION="${{ needs.preflight.outputs.version }}"
           cat > release-notes.md <<'NOTES'
-          ## v0.0.1 — 开发预览版（Pre-release）
+          ## __VERSION__ — 开发预览版（Pre-release）
 
           > ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**
           > 功能尚未完备，**不保证与 V2EX 完全一致**，**不建议直接用于生产环境**。
@@ -1214,16 +1215,16 @@ jobs:
 
           **Linux / macOS**
           ```bash
-          unzip v2ex-clone-v0.0.1-deploy.zip
-          cd v2ex-clone-v0.0.1-deploy/deploy
+          unzip v2ex-clone-__VERSION__-deploy.zip
+          cd v2ex-clone-__VERSION__-deploy/deploy
           chmod +x install.sh
           ./install.sh
           ```
 
           **Windows（PowerShell）**
           ```powershell
-          Expand-Archive -Path v2ex-clone-v0.0.1-deploy.zip -DestinationPath .
-          cd v2ex-clone-v0.0.1-deploy\deploy
+          Expand-Archive -Path v2ex-clone-__VERSION__-deploy.zip -DestinationPath .
+          cd v2ex-clone-__VERSION__-deploy\deploy
           powershell -ExecutionPolicy Bypass -File .\install.ps1
           ```
 
@@ -1241,7 +1242,7 @@ jobs:
           ### 镜像
 
           ```
-          ghcr.io/alicia1030su/v2ex-clone:v0.0.1
+          ghcr.io/alicia1030su/v2ex-clone:__VERSION__
           ```
 
           ### 安全提示
@@ -1255,6 +1256,8 @@ jobs:
 
           MIT（附商标声明与第三方内容声明），详见安装包内的 `LICENSE`。
           NOTES
+          sed -i "s|__VERSION__|${VERSION}|g" release-notes.md
+          echo "Release Notes 已按版本 ${VERSION} 生成"
 
       - name: 创建 Release（先 draft）
         env:
@@ -1410,8 +1413,13 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION"
           # 用 CI 自带凭据拉取 —— 验证「镜像确实已推送成功」。
           # 注意：**匿名**可拉取取决于仓库 Packages 的 visibility 设置，
-          # 而那是仓库级配置，不在代码控制范围内（GHCR 首次发布默认为 private），
-          # 因此这里只做提示，不作为发布成败的判据。
+          # 而那是仓库级配置，不在代码控制范围内，因此这里只做提示，
+          # 不作为发布成败的判据。
+          #
+          # ⚠️ v0.0.4 更正：v0.0.3 曾写「GHCR 首次发布默认为 private」——
+          # 该结论基于「匿名第 1 步 401 即判 private」的不完整测试，是错的。
+          # 按完整 Bearer 协议实测三个历史版本均匿名 HTTP 200（公开可拉取）。
+          # 详见 docs/SECURITY_EXCEPTIONS.md E-10。
           if docker pull "$IMAGE"; then
             echo "✓ 镜像拉取成功：$IMAGE"
             docker image inspect "$IMAGE" --format 'Digest: {{index .RepoDigests 0}}'

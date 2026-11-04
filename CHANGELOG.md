@@ -8,6 +8,76 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [Unreleased] — v0.0.4 开发分支（尚未发布）
+
+> **版本号决策（主理人裁决，2026-11-04）**：`package.json`、`deploy/VERSION`、
+> `README.md`、`FEATURE_MATRIX.md`、`RELEASE_GATE.md`、`TEST_REPORT.md` **仍统一为
+> `0.0.3`，本轮刻意不提前升级**。
+>
+> 理由：任务书明令「v0.0.4 期间禁止提前创建最终 Tag，同一版本号不得反复删建或移动 Tag」。
+> 在**最终 SHA 固定之前**把版本载体升到 `0.0.4`，会造成「版本号已是 0.0.4、却没有
+> 对应 Tag 与 Release」的中间态，且一旦后续改动 SHA 又要改版本号 —— 这正是被禁止的
+> 「同一版本号反复移动」。
+>
+> 因此采用：`[Unreleased]` 段落累积变更 → 合并并固定最终 SHA → **一次性**把版本载体、
+> Tag、Draft Release 同步到 v0.0.4。此决策由主理人负责，在
+> `docs/RELEASE_PROCESS_v0.0.4.md` 中固化为发布门禁。
+>
+> 本小节只记录**本轮实际做过并验证过的事**。
+
+### 修复的真实缺陷（8 项，均由真实浏览器 E2E / 真实压测发现）
+
+| ID | 级别 | 缺陷 | 验证方式 |
+|---|---|---|---|
+| B-01 | 阻断 | `GET /api/nodes` 生产构建必然 500（原生 SQL 用 `FROM nodes n` 起别名，WHERE 仍由 drizzle 生成 `"nodes"."status"` → PG 42P01） | `e2e/v004-api-contract.spec.ts` 端点冒烟 + `e2e/v004-endpoint-smoke.spec.ts` 全 GET 不 5xx |
+| B-02 | 阻断 | `GET /api/topics/[id]` 500（条件片段写成普通字符串被 drizzle 绑定成 `$2` 占位符 → PG 42601） | 同上 + `bench-result.json` 主题详情 API 4810 请求无 5xx |
+| B-03 | 严重 | 分页参数 `limit`/`offset` 从未从路由透传到服务层 | `v004-api-contract.spec.ts`「分页参数生效」+ `e2e/pagination.spec.ts` |
+| B-04 | 严重 | 「编辑主题」是假按钮（服务端组件无法向客户端组件传函数，`onEdit` 永远 undefined） | `v004-content-interaction.spec.ts` 完整 UI 链路：点击→模态框→填值→保存→展示→刷新 |
+| B-05 | 严重 | 回复楼层跳号（`allocateFloor` 双重 `+1`；路由 `floor + attempt` 偏移使实际楼层与计数表脱节） | 修复后连发 6 条得 `41..46` 严格连续；`tests/floor-continuity.spec.ts` 断言严格 `1..n` |
+| B-06 | 一般 | 注册赠送积分绕开账本（直接写 `balance: 1000`，破坏「余额 == 账本累计」不变式） | 新注册用户 `balance=1000 / ledger_sum=1000 / rows=1`，账本链 `before=0→after=1000→before=1000→after=1002` 首尾相接 |
+| B-07 | 一般 | `/hot` 独立页面缺失（v0.0.3 只有首页侧栏） | 新增 `src/app/hot/page.tsx` 与 `src/app/recent/page.tsx`；压测「热门排序」230 请求 0 错误 |
+| B-08 | 严重 | 积分排行榜相关子查询 N+1（每作者执行一次，EXPLAIN 实测 **241.98 秒**） | 改「三个独立聚合 + JOIN」→ 0.74 秒；`0002` 索引后 0.46 秒；压测 p50 1.23 秒（并发 10） |
+
+### 性能优化（EXPLAIN ANALYZE + 真实压测实测，10 万主题 / 100 万回复）
+
+| 端点 | 优化前 | 优化后 | 手段 |
+|---|---|---|---|
+| 搜索 API | 3207ms | **41ms** | `pg_trgm` GIN 三值索引（ILIKE 前导通配符无法用 B-tree） |
+| 节点列表 API | 1543ms | **67ms** | 相关子查询 → 聚合 JOIN；`topics.last_reply_at` 已是汇总字段，无需 join 100 万 replies |
+| 排行榜 API | 超时（>30s） | **~1.2s**（并发 10） | 见 B-08 |
+
+### 新增迁移
+
+- `drizzle/0002_v004_perf_indexes.sql`：5 个 btree + 2 个条件性 pg_trgm GIN 索引；
+  `CREATE EXTENSION` 用 DO 块捕获权限不足（跳过索引而不让迁移失败）；
+  全部 `IF NOT EXISTS`，连跑 3 次幂等，全新库迁移实测通过。
+
+### 测试与证据
+
+- 新增 **77 条真实浏览器 E2E**（内容互动 10 / 账户后台 19 / API 契约 17 / 端点冒烟 31）；
+  完整回归 `playwright test --list` 实测 **153 条 / 11 文件**（原有 67 + v004 四文件 78 + 四身份 UI 8）；
+  其中第四阶段收尾时的 **144 条全绿**已实跑，新增 7 条四身份 UI 由 QA 本轮实跑复验中 ——
+  **全量 153 条的最终全绿结论以本轮复验输出为准，不预先声明**；单元 **185 条**。
+- 视觉对照矩阵：4 视口 × 17 页面 = 68 条，40 条完成对比、28 条如实标注无原站对照。
+  桌面/平板严格口径几何 Δx=0 **52/52 (100%)**、Δw=0 48/52；移动 375 为**有意的响应式重排**。
+  口径说明与可复核证据见 `tools/visual/summarize-visual-diff.py` 与
+  `docs/evidence/visual/geometry-summary.json`。
+- 压测数据集：`scripts/loadtest/seed-large.ts` 生成 351 万行（10000 用户 / 1000 节点 /
+  100000 主题 / 1000000 回复），3m4s，确定性指纹可复现；`tools/loadtest/bench.mjs`
+  13 场景 / 24785 请求，并发发帖与回复各 50 请求 **0 错误**。
+- GHCR 镜像按 **Docker Registry Bearer Token 完整三步协议** 实测为**公开可拉取**
+  （v0.0.3 的 E-10「private」结论基于「首次 401 即判 private」的不完整测试，已更正）。
+
+### 不包含（未实现，如实标注）
+
+- Docker 容器实跑 / Redis 故障恢复 / 真实 SMTP 投递 —— 本机无 Docker、未配 Redis/SMTP，
+  仅做静态核查。
+- 原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照 —— 无权访问他人账号，不拿游客态冒充。
+- 远端 Git 历史改写 —— 仅在隔离副本演练成功（`docs/HISTORY_CLEANUP_DRILL_v0.0.4.md`），
+  状态 **DEFERRED，待主人单独授权**；仓库保持 Public。
+
+---
+
 ## [0.0.3] - 2026-11-04
 
 > 早期开发预览版（Pre-release）。功能尚未完备，**不建议用于生产环境**。

@@ -1,5 +1,17 @@
 # v0.0.2 发布门槛检查单（RELEASE_GATE）
 
+> ⚠️ **状态覆盖声明（v0.0.4，2026-11-04）**：本文件是 **v0.0.2 的历史门禁**，
+> B3「≥103 单元」/ B4「≥67 E2E」等门槛**不适用于 v0.0.4**。
+> v0.0.4 的实测为**单元 `vitest list` 静态 180 条 / `vitest run` 运行时 190 条**、
+> E2E **`playwright test --list` 实测 153 条 / 11 文件**，门禁以
+> `docs/RELEASE_PROCESS_v0.0.4.md`（发布流程 + 发布前检查单）与
+> `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md`（验收 Go/No-Go 判定表）为准。
+>
+> v0.0.4 新增的门槛要点：禁止提前创建最终 Tag、同一版本号不得反复删建或移动 Tag、
+> 固定最终 SHA 后才能创建 Tag 与 Draft Release、远端核验；
+> **不动 v0.0.3 的 Tag 与 Release**；未经主人单独授权不得公开发布有阻断风险的 Release。
+> 下方历史表格保留作为版本演进记录，不删除、不改写。
+
 > 项目：V2EX Clone
 > 目标版本：v0.0.2（开发预览版 / Pre-release）
 > 建表时间：2026-11-04

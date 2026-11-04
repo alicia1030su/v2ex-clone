@@ -1,7 +1,7 @@
 # 风险登记表（RISK_REGISTER）
 
 > 项目：V2EX Clone
-> 本轮：全项目缺陷清零与安全加固（v0.0.2）
+> 本轮：全项目缺陷清零与安全加固（v0.0.4）
 > 建表时间：2026-11-04
 > 维护者：代码审计负责人（主理人）
 
@@ -42,8 +42,9 @@
 | **影响** | 大（安装完全不可用） |
 | **实测结论** | ✅ **不成立**。用匿名 token 请求 `ghcr.io/v2/alicia1030su/v2ex-clone/manifests/v0.0.1` → **HTTP 200**，且返回 OCI index 含 `linux/amd64` layer（digest `sha256:34c11a72...`）。包已自动关联仓库并继承 public 可见性 |
 | **残余风险** | 包的可见性依赖 GitHub 的"链接仓库即继承"规则。若将来仓库关联变更或包被单独设为 private，匿名拉取会静默失效 |
-| **缓解** | 发布流水线的 `verify-release` job 内含**匿名 `docker pull` 实测**，失败即让发布失败并回退为 draft。已验证该步骤在 run 41665521879 中通过 |
-| **状态** | **MITIGATED**（有自动化守护） |
+| **v0.0.4 修正（E-10 复核后）** | v0.0.3 曾把「匿名请求 manifest 返回 401」判为 private，**这是错的**：Docker Registry V2 的公开包第 1 步同样返回 401，必须走完「401 → 换匿名 token → 带 token 重试 → **200**」三步。本轮按完整协议实测，v0.0.1 / v0.0.2 / v0.0.3 **全部 HTTP 200** ⇒ 镜像公开可拉取，`docs/SECURITY_EXCEPTIONS.md` E-10 已改写 |
+| **缓解（当前实现）** | `release.yml` 的 `verify-release`：① **带凭据 `docker pull` 作为发布成败判据**（失败即 `exit 1`）；② 匿名 Bearer 三步探测**仅作提示**（`::notice::`），不作为判据 —— 包可见性是仓库级配置，不由代码控制；③ 匿名探测已改为完整 Bearer 流程，不再只看首次 401 |
+| **状态** | **MITIGATED**（有自动化守护，且 2026-11-04 已按完整协议复核） |
 
 ---
 
@@ -140,21 +141,21 @@
 
 ---
 
-## R-09 CSRF 首次访问的严格性 🟡 待核查
+## R-09 CSRF 首次访问的严格性 🟢 已复核（设计从严，不影响正常流程）
 
 | 维度 | 内容 |
 |---|---|
-| **风险** | `verifyCsrf()` 在无 CSRF cookie 时直接判失败（403）。这意味着「首次访问无 cookie 的写请求」被拒 —— 属**设计从严**还是**缺陷**，需确认是否影响正常用户流程 |
-| **概率** | 待实测 |
-| **影响** | 中 |
-| **实测结论** | ✅ **确认可绕过**。修复前用不同 `x-forwarded-for` 连发 25 次注册，**全部 201 通过**，限流完全失效 |
-| **修复提交** | `d1a9882` |
-| **修复内容** | 新增 `src/lib/client-ip.ts` 信任模型 + `src/lib/client-ip-constants.ts`；middleware **先剥离**客户端伪造的 `x-v2-client-ip` 再写入；四个调用点统一改用 `resolveClientIp()` |
-| **关键约束（实测）** | `Next.js 15` 的 `base-server.js` 用 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` —— `??=` 意味着客户端传了该头就不会被真实地址覆盖，且早于 middleware 执行；Next 15 也**没有** `experimental.nodeMiddleware`（实测为 undefined），middleware 跑在 Edge Runtime 拿不到 socket 地址 ⇒ middleware **无法区分**真实与伪造值 |
-| **修复后实测** | 同一脚本、同一环境：第 **21** 次请求返回 **429** ✓（伪造 IP 无法再绕过） |
-| **取舍（必须让使用者知晓）** | 默认 `TRUST_PROXY_HEADERS=0` 时**完全忽略**代理头 ⇒ IP 维度限流退化为全局单桶（所有客户端共用一个桶）；**账号维度限流仍有效**，针对同一账号的暴力破解仍被拦截。要拿到真实来源 IP，必须部署在反向代理之后并显式设 `TRUST_PROXY_HEADERS=1`；另建议把应用端口绑到 `127.0.0.1` 从根本上消除直连伪造的可能 |
-| **回归测试** | `tests/client-ip.spec.ts`（8 条）+ `tests/middleware-client-ip.spec.ts` |
-| **状态** | **MITIGATED** |
+| **风险** | `verifyCsrf()` 在无 CSRF cookie 时直接判失败（403）。「首次访问无 cookie 的写请求」被拒 —— 属**设计从严**还是**缺陷**，需确认是否影响正常用户流程 |
+| **概率** | 仅影响「不经过任何页面 GET、直接构造 POST」的客户端；真实浏览器用户不会发生 |
+| **影响** | 中（若为缺陷会导致正常注册/登录失败） |
+| **v0.0.4 实测结论（2026-11-04，本地 3021 隔离环境）** | ① 无任何 cookie 直接 `POST /api/auth/signup` → **403** `{"ok":false,"error":"CSRF 校验失败，请刷新页面后重试"}`；② 有 cookie 但 `x-csrf-token: deadbeef` → **403**；③ 先 `GET /` 拿到 `v2_csrf`（64 位 hex），再带正确 token POST → **201** `{"ok":true,"redirect":"/"}` |
+| **机制** | `src/middleware.ts` 在**首次 GET 响应**就下发 `v2_csrf` cookie（`CSRF_MAX_AGE` 14 天，可读，供 JS 放入请求头）；`src/lib/csrf.ts` 的 `verifyCsrf()` 用 `timingSafeEqual` 比对 cookie 与请求头/表单字段。攻击者受同源策略限制读不到该 cookie ⇒ 双提交模式成立 |
+| **判定** | ✅ **不是缺陷，是设计从严**。任何真实用户都会先加载页面（GET）拿到 cookie，再发起写请求；E2E 144 条（含注册/登录/发帖/回复全链路）验证了这条路径全部可用。「无 cookie 的裸 POST」被拒是正确的防护行为 |
+| **取舍（须让使用者知晓）** | 非浏览器客户端（curl / 脚本 / 第三方集成）**必须**先 GET 一次拿 cookie 与 token，不能直接 POST。这是显式 CSRF 防护的必然代价，README 与 API 文档应说明 |
+| **回归证据** | `e2e/` 全部写操作用例均先 `page.goto()` 取 cookie；`e2e/helpers.ts` 的 `getCsrfToken()`；本轮三场景 curl 实测输出 |
+| **状态** | **VERIFIED**（v0.0.4 重新评估并实测；原登记错置内容已彻底替换） |
+
+> ⚠️ **登记勘误**：v0.0.3 的 R-09 曾整段误贴为 R-08「`x-forwarded-for` 伪造绕过限流 / `d1a9882` / `client-ip.ts`」的内容，与 CSRF 无关，却标为 MITIGATED —— 等于该风险**实际从未被评估**。v0.0.4 验收核查（D-03）发现后已按实测重写。
 
 ---
 
@@ -217,7 +218,7 @@
 | 头像未自动裁剪 | 未安装 `sharp`，当前保存原图 | magic number 校验与大小上限仍生效；`processAvatar` 已预留 sharp 分支 | 🟡 已声明 |
 | 积分规则为独立实现 | 额度数值**无法从公开信息确证原站真实值** | 全部做成可配置环境变量；代码与文档均标注「独立替代实现」 | 🟡 已声明 |
 | 窄屏响应式为独立实现 | 原站桌面版 `min-width:600px`，原站移动版是**独立站点**（无证据可比对） | 已在 `docs/VISUAL_DIFF_REPORT.md` 明确标注 | 🟡 已声明 |
-| 负载测试未执行 | 未做吞吐量压测 | 并发正确性已由并发单元测试与并发 HTTP 验证覆盖（30 并发扣费、12 并发回复） | 🟡 已声明 |
+| 长时间稳定性 /  soak 测试未做（v0.0.4 已执行 **20 秒 × 并发 10、13 场景 / 24785 请求**的吞吐量压测，见 `docs/evidence/loadtest/`） | 未做长时间稳定性（soak）与容量衰减观测 | 并发正确性已由并发单元测试、并发 HTTP 验证（30 并发扣费、12 并发回复）与压测写场景（50 并发发帖/回复 0 错误）覆盖 | 🟡 已声明 |
 
 ## R-15 v0.0.3 的并发与一致性风险 🟢 已闭环
 
@@ -230,3 +231,27 @@
 | 重置令牌重放 | `UPDATE ... WHERE used_at IS NULL` 原子消费 | ✅ 8 并发只 1 个成功 |
 | 账本被篡改 | 只 INSERT + balanceBefore/After 快照 | ✅ 自洽性校验通过 |
 
+---
+
+## R-16 ~ R-22：v0.0.4 新增风险（主理人汇编，2026-11-04）
+
+> 来源：第六/八阶段部署验证（devops-engineer）、第二轮验收核查与四身份 UI 实测（qa-engineer）、
+> 真实压测证据核查。**凡「未验证」项均如实标注，不以静态核查冒充实跑。**
+
+| ID | 风险 | 概率 | 影响 | 应对 / 状态 |
+|---|---|---|---|---|
+| **R-16** | Docker 容器与安装包**未实跑**：本机 `docker NOT FOUND`，容器启动、健康检查、数据卷持久化、`USER nextjs`、容器内迁移、CPU/内存均无法验证 | 高 | 大（正式发布后可能装不上） | 🔴 **DEFERRED**：必须在 CI（含 Docker service）或带 Docker 的机器完成「独立构建 → 部署验证 → 安装包验证」；`docs/UPGRADE_RECOVERY_v0.0.4.md` 已给命令清单。**正式 Release 前必须闭环** |
+| **R-17** | Redis 故障恢复 / 缓存失效 / 内存观测**未验证**：压测环境未配 Redis | 中 | 中 | 🔴 **DEFERRED**：需带 Redis 的环境注入故障并观测；当前仅源码静态核查 |
+| **R-18** | 升级路径断点：`deploy/update.sh` 不更新 `.env` 里的 `V2EX_IMAGE`，用户从 v0.0.3 升级后仍拉旧镜像 | 高 | 大（升级后功能不变） | 🟡 **文档已补、代码待实跑**：`deploy/INSTALL.md` §8 已明确写出「升级前必须手工修改 `.env` 的 `V2EX_IMAGE`，否则 `update.sh` 只会重拉旧 tag」并给出完整步骤；**刻意不修改 `update.sh` 行为**（本机无 Docker，无法对改动后的升级脚本做真实容器验证）。正式发布前需在带 Docker 的环境补齐自动 tag 同步并实跑验证；`preflight --phase=release` 应检查此项 |
+| **R-19** | `release.yml` tag 白名单不含 `v0.0.4`，且 Release Notes 曾硬编码 `v0.0.1` | 高 | 大（发布流水线不触发 / 说明写错版本） | 🟡 **部分已修**：Release Notes 已改动态版本（6 处实跑验证 0 残留）；白名单按「刻意的摩擦」保留，**发布时人工加入**并写入 `RELEASE_PROCESS` 门禁 |
+| **R-20** | 版本载体全部为 `0.0.3`，验收时易被误判为「版本不一致」 | 高 | 中（对外解释成本） | 🟢 **已裁决**：开发态刻意保持 0.0.3，`CHANGELOG.md` `[Unreleased]` 显式记录决策；`preflight` 改 `--phase=dev` / `--phase=release` 双模式区分。**与 devops 的 N-01「🔴 阻断」结论冲突，主理人裁决以本条为准** |
+| **R-21** | 四身份 UI 验收缺口：管理员导航栏**完全无 `/admin` 入口**、版主「锁定/置顶」UI 无按钮且 API 返回「无权限」、部分管理操作仅 API 层 | 高 | 中（权限边界与可用性） | 🔴 **OPEN**：`docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §第二轮如实记录；需产品决策是「补 UI」还是「明确仅 API + 文档说明」。**不得把 API 断言当作 UI 验收已通过** |
+| **R-22** | 单测 `beforeAll` 建库超时：`CREATE DATABASE` 在本机实测单次 **38.6 秒**，超过 `vitest.config.ts` 的 `hookTimeout: 30_000` → 4 个自建库测试文件 hook 超时、28 条用例被跳过 | 高 | 中（本地复验假失败） | 🟡 **已定位，未修复**：实测 `DROP DATABASE` 1.2s / **`CREATE DATABASE` 38.6s** / `drizzle-kit migrate` 5.4s，故瓶颈在建库而非迁移；单独跑 `seed-idempotency` 同样 32.5s 超时，**排除并行竞争**。⚠️ 归因勘误：先前曾误判为「`.env.local` → 5432 污染」或「并行 PG 负载」，但用 `ENV_FILE`（`override: true`）指向 55433 后**仍超时**，两假设均被实测推翻。建议把 `hookTimeout` 提到 120s 或让自建库的测试用 `beforeAll(..., 120_000)`；**本轮未改**（QA 与 devops 并行用库，避免干扰），留待独占环境复验 |
+
+### 风险裁决记录（决策与权衡）
+
+| 冲突点 | devops 结论 | QA 结论 | **主理人裁决** | 理由 |
+|---|---|---|---|---|
+| 版本载体 0.0.3 是否为阻断项 | N-01：🔴 阻断，发布前必须全量同步 | P2：可升到 0.0.4 或显式记录决策 | **开发态保持 0.0.3，显式记录决策** | 任务书明令禁止提前创建最终 Tag、禁止同一版本号反复移动；在最终 SHA 固定前升版本会造成「版本 0.0.4 但无 Tag」的中间态。`[Unreleased]` 累积 → 固定 SHA → 一次性同步 |
+| 是否可进入 Draft Release | B-01~B-05 建议停在 Draft | 有条件可以 | **可以进入 Draft，但不得公开发布** | 功能与安全条件已满足；R-01 维持 DEFERRED、R-16/R-17/R-18/R-21 作为 Draft Notes 已知限制披露；正式 Release 需另行授权 |
+| 几何量测「52 条」是否可作放行依据 | — | D-01：不可复核，不得作为依据 | **已闭环，可用** | 脚本入仓 `tools/visual/summarize-visual-diff.py` + 机器证据 `geometry-summary.json`，三套口径（严格 52/52、历史 64/84、v0.0.3 96.9%）全部可复算 |

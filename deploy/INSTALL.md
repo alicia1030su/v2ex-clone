@@ -387,10 +387,34 @@ docker system prune -a   # 清理无用镜像与构建缓存（**不影响数据
 
 容器启动时会自动执行数据库迁移（幂等，可重复运行）。
 
-**回滚**：把 `.env` 里的 `V2EX_IMAGE` 改回旧 tag，再跑 `./update.sh`。
+  **回滚**：把 `.env` 里的 `V2EX_IMAGE` 改回旧 tag，再跑 `./update.sh`。
 
-> ⚠️ v0.0.3 处于预览阶段，**迁移脚本不保证向后兼容**。
-> 预览版本之间的升级请务必先备份。
+  > ⚠️ **升级到新版本前，必须先修改 `.env` 里的 `V2EX_IMAGE`**（已知限制，v0.0.4 标注）
+  >
+  > `update.sh` 从 `.env` 读取 `V2EX_IMAGE`，随后执行 `docker compose pull`。
+  > 它**不会自动把 tag 改成新版本** —— 如果 `.env` 仍是
+  > `V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.3`，直接跑 `./update.sh`
+  > 只会重新拉取 **v0.0.3** 镜像，看起来「升级成功」但版本根本没变。
+  >
+  > 正确做法：
+  >
+  > ```bash
+  > ./backup.sh                       # 1. 先备份（务必）
+  > # 2. 编辑 .env，把镜像 tag 改成目标版本，例如：
+  > #    V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.4
+  > ./update.sh                       # 3. 再升级
+  > ```
+  >
+  > 升级后用 `docker image inspect` 的 digest 对比确认镜像确实变了
+  > （`update.sh` 会打印升级前后的 digest 与 Image ID）。
+  >
+  > **状态**：`update.sh` 的自动 tag 同步逻辑尚未实装 —— 本机无 Docker，
+  > 无法对改动后的升级脚本做真实容器验证，因此本轮**刻意不修改脚本行为**，
+  > 只在此明确告知手工步骤。该缺口登记为 `RISK_REGISTER.md` R-18（OPEN），
+  > 正式发布前必须在带 Docker 的环境补齐并实跑验证。
+
+  > ⚠️ v0.0.3 / v0.0.4 均处于预览阶段，**迁移脚本不保证向后兼容**。
+  > 预览版本之间的升级请务必先备份。
 
 ---
 

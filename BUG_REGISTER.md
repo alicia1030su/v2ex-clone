@@ -2,6 +2,7 @@
 
 > 项目：V2EX Clone
 > 本轮：全项目缺陷清零与安全加固（v0.0.2）
+> **v0.0.4 补充登记见文末「v0.0.4 新发现并修复的缺陷」小节**
 > 建表时间：2026-11-04
 > 维护者：代码审计负责人（主理人）
 
@@ -140,3 +141,39 @@
 | `db-lazy-init.spec.ts` 偶发 ECONNREFUSED | **环境**：本机 PostgreSQL 进程随宿主 shell 回收 | PG 就绪后 117/117 全绿 |
 | Playwright 清空 `test-results` 触发批量删除保护 | **环境**：WorkBuddy 的 safe-delete 保护（>50 文件） | 改用 `mv` 移动而非删除 |
 | `git filter_repo` 演练时 `.next` 被并发清理 | **环境**：多个 agent 并发跑构建 | 改用独立 worktree 目录构建 |
+
+---
+
+## v0.0.4 新发现并修复的缺陷
+
+> 均由**真实浏览器 E2E** 或 **100 万回复规模真实压测**发现，非静态审计推测。
+> 状态图例同上；`FIXED` 表示已修复且有回归用例，`VERIFIED` 表示另有独立实测复核。
+> 详细验证方式见 `CHANGELOG.md` 的 `[Unreleased]` 段落与
+> `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §5。
+
+| ID | 级别 | 缺陷 | 位置 | 发现方式 | 回归证据 | 状态 |
+|---|---|---|---|---|---|---|
+| V4-01 | 阻断 | `GET /api/nodes` 必然 500（PG 42P01，表别名与 drizzle 条件冲突） | `src/lib/node-service.ts` | 端点冒烟 E2E（v0.0.3 无任何测试调用该端点） | `e2e/v004-api-contract.spec.ts` + `e2e/v004-endpoint-smoke.spec.ts` | **VERIFIED** |
+| V4-02 | 阻断 | `GET /api/topics/[id]` 必然 500（PG 42601，SQL 片段被当参数绑定） | `src/app/api/topics/[id]/route.ts` | 端点冒烟 E2E | 同上 + 压测 4810 请求无 5xx | **VERIFIED** |
+| V4-03 | 严重 | 分页 `limit`/`offset` 未透传，形同虚设 | `src/app/api/nodes/route.ts` | API 契约 E2E | `v004-api-contract.spec.ts`「分页参数生效」、`e2e/pagination.spec.ts` | **VERIFIED** |
+| V4-04 | 严重 | 「编辑主题」假按钮（点击无反应） | `src/components/TopicActions.tsx` | 真实浏览器 UI E2E | `v004-content-interaction.spec.ts` 编辑模态框全链路 | **VERIFIED** |
+| V4-05 | 严重 | 回复楼层跳号（连发 5 条得 26/24/22/20/18） | `src/server/floor.ts`、`src/app/api/replies/route.ts` | 100 万回复压测 + HTTP 复现 | `tests/floor-continuity.spec.ts`（严格 `1..n`）、修复后实测 41..46 连续 | **VERIFIED** |
+| V4-06 | 一般 | 注册赠送积分绕开账本，破坏账本不变式 | `src/app/api/auth/signup/route.ts` | 压测后全库一致性校验（5 个用户 ledger_rows=0 而 balance=1000） | 新用户 balance=1000 / ledger_sum=1000 / rows=1；账本链首尾相接 | **VERIFIED** |
+| V4-07 | 一般 | `/hot` 独立页面缺失 | `src/app/` | 视觉对照矩阵 + 压测 404 | `visual-diff-multi.json` 4 视口 hot 条目；压测 230 请求 0 错误 | **FIXED** |
+| V4-08 | 严重 | 排行榜相关子查询 N+1（EXPLAIN 241.98 秒） | `src/lib/credit-service.ts` | 压测 `/api/leaderboard` 超时 | `drizzle/0002_v004_perf_indexes.sql` + 三个独立聚合改写 | **VERIFIED** |
+| V4-09 | 严重 | 搜索 `ILIKE '%..%'` 前导通配符全表扫描（803ms） | `src/app/api/search/route.ts` | 压测 3207ms | `topics_title_trgm_idx` / `topics_content_trgm_idx` → 0.064ms | **VERIFIED** |
+| V4-10 | 一般 | 节点列表逐节点相关子查询（411ms） | `src/lib/node-service.ts` | 压测 1543ms | 改用 `topics.last_reply_at` 汇总字段聚合 → 40.6ms | **VERIFIED** |
+| V4-11 | 一般 | 视觉原站路径映射错误（`/go/go` 误当节点列表页；`/my/*` 实测 404） | `tools/visual/capture-multi.mjs` | 原站路径逐个探测 | 4 视口 × 17 页面重新采集，如实标注 `no-auth-reference` | **FIXED** |
+| V4-12 | 一般 | GHCR 可见性误判（首次 401 即判 private） | `docs/SECURITY_EXCEPTIONS.md` E-10、`.github/workflows/release.yml` | 完整 Bearer 协议复核 | 匿名换 token → 带 token 重试 v0.0.1/2/3 全部 HTTP 200 | **VERIFIED** |
+| V4-13 | 一般 | `RISK_REGISTER` R-09 整段错置（CSRF 风险实际从未评估） | `RISK_REGISTER.md` | 验收核查 D-03 | 三场景 curl 实测：无 cookie 403 / token 错 403 / 正常流程 201 | **VERIFIED** |
+
+### 测试基础设施缺陷（同样真实，影响结论可信度）
+
+| ID | 问题 | 修复 |
+|---|---|---|
+| V4-T1 | 单元测试并行执行时多个文件同时 `DROP/CREATE DATABASE` + 跑迁移，`afterAll` hook 超时 | `vitest.config.ts` 设 `fileParallelism: false`（串行换来稳定可复现） |
+| V4-T2 | 第二个用户与主页面共享 browser context → 已登录访问 `/signup` 被重定向到首页 | `e2e/helpers.ts` / 各 spec 改用独立 `browser.newContext()` |
+| V4-T3 | `register()` 漏填必填 `email` → 注册静默失败 | `e2e/helpers.ts` 补 `page.fill('#email', ...)` |
+| V4-T4 | 客户端组件表单在 hydration 前 `fill`/点击 → 超时 | helpers 统一 `waitForLoadState('networkidle')` + 等输入框可见 |
+| V4-T5 | `uniqueName()` 随机空间过小，跨轮次碰撞导致复用旧会话 | 改「时间戳 + 进程内计数器 + 6 位随机」 |
+| V4-T6 | 视觉汇总脚本在仓库外，「52 条」分母不可复核 | 入仓 `tools/visual/summarize-visual-diff.py` + 产出 `geometry-summary.json`（三套口径机器可读） |

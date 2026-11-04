@@ -1,0 +1,129 @@
+{
+  "generatedBy": "tools/visual/summarize-visual-diff.py",
+  "generatedAt": "2026-11-04T07:25:15.033Z",
+  "method": {
+    "strict": "只比较 reference 与 local 两侧都有 x/w 的可比锚点（主口径）",
+    "loose": "把两侧都不存在的锚点也视为一致（v0.0.3 历史口径）",
+    "tolerancePx": 1,
+    "whyTwoDenominators": "每视口 84 行 = 52 行可比 + 18 行两侧都无元素 + 12 行只有滚动尺寸 + 2 行单侧缺失；报告里的 52 是有效锚点数，不是页面数，也不是 84 行的全部。"
+  },
+  "perViewport": {
+    "desktop-1280": {
+      "viewport": "desktop-1280",
+      "source": "docs/evidence/visual/layout-measurements-desktop-1280.json",
+      "totalRows": 84,
+      "categories": {
+        "comparable": 52,
+        "no_geometry": 12,
+        "both_absent": 18,
+        "only_reference": 2
+      },
+      "strict": {
+        "counted": 52,
+        "skipped": 32,
+        "dxZero": 52,
+        "dwZero": 48,
+        "dxZeroPct": 100.0,
+        "dwZeroPct": 92.31
+      },
+      "loose": {
+        "counted": 84,
+        "dxZero": 64,
+        "dxZeroPct": 76.19,
+        "note": "52 个可比锚点 + 12 个两侧都无 x 键的 dict = 64/84；这是 QA 核查与 v0.0.3 历史报告复算出的口径。"
+      },
+      "legacy": {
+        "note": "TEST_REPORT.md / FEATURE_AUDIT #50 的 96.9% / 90.6% 来自 2026-11-02 的 layout-measurements.json（84 行、Δx=0 62、Δw=0 59）与另一套分母，无法由当前 4 视口 JSON 精确复算；不纳入本报告口径，仅作为历史基线注明。"
+      }
+    },
+    "desktop-1920": {
+      "viewport": "desktop-1920",
+      "source": "docs/evidence/visual/layout-measurements-desktop-1920.json",
+      "totalRows": 84,
+      "categories": {
+        "comparable": 52,
+        "no_geometry": 12,
+        "both_absent": 18,
+        "only_reference": 2
+      },
+      "strict": {
+        "counted": 52,
+        "skipped": 32,
+        "dxZero": 52,
+        "dwZero": 48,
+        "dxZeroPct": 100.0,
+        "dwZeroPct": 92.31
+      },
+      "loose": {
+        "counted": 84,
+        "dxZero": 64,
+        "dxZeroPct": 76.19,
+        "note": "52 个可比锚点 + 12 个两侧都无 x 键的 dict = 64/84；这是 QA 核查与 v0.0.3 历史报告复算出的口径。"
+      },
+      "legacy": {
+        "note": "TEST_REPORT.md / FEATURE_AUDIT #50 的 96.9% / 90.6% 来自 2026-11-02 的 layout-measurements.json（84 行、Δx=0 62、Δw=0 59）与另一套分母，无法由当前 4 视口 JSON 精确复算；不纳入本报告口径，仅作为历史基线注明。"
+      }
+    },
+    "tablet-768": {
+      "viewport": "tablet-768",
+      "source": "docs/evidence/visual/layout-measurements-tablet-768.json",
+      "totalRows": 84,
+      "categories": {
+        "comparable": 52,
+        "no_geometry": 12,
+        "both_absent": 18,
+        "only_reference": 2
+      },
+      "strict": {
+        "counted": 52,
+        "skipped": 32,
+        "dxZero": 52,
+        "dwZero": 48,
+        "dxZeroPct": 100.0,
+        "dwZeroPct": 92.31
+      },
+      "loose": {
+        "counted": 84,
+        "dxZero": 64,
+        "dxZeroPct": 76.19,
+        "note": "52 个可比锚点 + 12 个两侧都无 x 键的 dict = 64/84；这是 QA 核查与 v0.0.3 历史报告复算出的口径。"
+      },
+      "legacy": {
+        "note": "TEST_REPORT.md / FEATURE_AUDIT #50 的 96.9% / 90.6% 来自 2026-11-02 的 layout-measurements.json（84 行、Δx=0 62、Δw=0 59）与另一套分母，无法由当前 4 视口 JSON 精确复算；不纳入本报告口径，仅作为历史基线注明。"
+      }
+    },
+    "mobile-375": {
+      "viewport": "mobile-375",
+      "source": "docs/evidence/visual/layout-measurements-mobile-375.json",
+      "totalRows": 84,
+      "categories": {
+        "comparable": 52,
+        "no_geometry": 12,
+        "both_absent": 18,
+        "only_reference": 2
+      },
+      "strict": {
+        "counted": 52,
+        "skipped": 32,
+        "dxZero": 10,
+        "dwZero": 26,
+        "dxZeroPct": 19.23,
+        "dwZeroPct": 50.0
+      },
+      "loose": {
+        "counted": 84,
+        "dxZero": 22,
+        "dxZeroPct": 26.19,
+        "note": "52 个可比锚点 + 12 个两侧都无 x 键的 dict = 64/84；这是 QA 核查与 v0.0.3 历史报告复算出的口径。"
+      },
+      "legacy": {
+        "note": "TEST_REPORT.md / FEATURE_AUDIT #50 的 96.9% / 90.6% 来自 2026-11-02 的 layout-measurements.json（84 行、Δx=0 62、Δw=0 59）与另一套分母，无法由当前 4 视口 JSON 精确复算；不纳入本报告口径，仅作为历史基线注明。"
+      }
+    }
+  },
+  "diffReport": {
+    "source": "docs/evidence/visual/visual-diff-multi.json",
+    "compared": 40,
+    "skipped": 28
+  }
+}

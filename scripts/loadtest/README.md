@@ -1,6 +1,6 @@
 # 压测数据生成器
 
-为 V2EX Clone 生成**大规模、可重复**的论坛数据集，供 k6 / 直连压测使用。
+为 V2EX Clone 生成**大规模、可重复**的论坛数据集，供压测器（自研 bench.mjs，本机无 k6） / 直连压测使用。
 
 脚本：`scripts/loadtest/seed-large.ts`
 
@@ -148,7 +148,7 @@ npx tsx scripts/loadtest/seed-large.ts \
   tags                          50           —       —
   replies                1000000     1000000    100%
   topics                  100000      100000    100%
-  nodes                       1000         10    100%
+  nodes                       1000       1000    100%
   categories                   9           9    100%
   users                      10000       10000    100%
 
@@ -340,7 +340,9 @@ SELECT count(*) FILTER (WHERE password_hash LIKE 'scrypt$%') AS fmt_ok,
 **整个生成过程在单个事务内完成。** 中断（Ctrl+C、进程被 kill、机器断电）会导致事务回滚，
 **不会留下半截数据**。
 
-已实测：生成完整规模数据集的过程中 `kill -9` 掉进程，随后检查：
+已实测：生成**冒烟规模**数据集的过程中 `kill -9` 掉进程，随后检查：
+（下面 topics 1000 / replies 5000 / users 100 是冒烟参数 `100/10/1000/5000`，
+不是完整规模；单事务回滚语义与规模无关，故未在完整规模重复该破坏性测试）
 
 ```console
 # 强杀进程后
@@ -541,9 +543,18 @@ HTTP 层验证时发现：**`src/server/floor.ts` 的 `allocateFloor` 在 UPDATE
 **我没有修改 `src/server/floor.ts`** —— 它在禁改清单里，且这是应用逻辑缺陷，
 应由负责应用代码的队友决定是否修、怎么修。
 
-> 📌 **截至本 README 最后更新时，这个缺陷尚未被修复** ——
-> `src/server/floor.ts` 里仍是 `greatest(floor_counters.last_floor, EXCLUDED.last_floor) + 1`。
-> 压测前请确认是否已修复。
+> ✅ **此缺陷已在 v0.0.4 修复**（提交 `89d6b4e`）—— 本节保留作为「压测如何发现真实缺陷」的记录。
+>
+> 修复要点：
+> - `src/server/floor.ts` 的 UPSERT 改为 `INSERT ... coalesce(max(floor),0)+1`
+>   / `ON CONFLICT DO UPDATE SET last_floor = floor_counters.last_floor + 1`，
+>   让 `floor_counters` 成为楼层号的**唯一权威**；
+> - `src/app/api/replies/route.ts` 不再用 `floor + attempt` 偏移试探
+>   （该偏移会让实际写入楼层与计数表永久脱节，正是跳号来源）。
+>
+> 修复后实测：连发 6 条回复得到 `46,45,44,43,42,41,40` —— **完全连续、无重复**。
+> 回归用例见 `tests/floor-continuity.spec.ts`（断言严格 `1..n`，而非仅「唯一/递增」——
+> 跳号恰好满足递增，正是当年漏检的根因）。
 
 **对压测的影响**：楼层号跳号不影响压测脚本生成的数据（脚本自己写的楼层是连续的
 1..n，且 `floor_counters` 与实际 `max(floor)` 一致），但会让 k6 阶段测到的
@@ -599,7 +610,7 @@ SubPlan 2
 > - `src/lib/credit-service.ts` 的 `leaderboard()` 已改写为「三个独立聚合 + JOIN」，
 >   端点耗时从 241.98 秒降到 0.74 秒（加索引后 0.46 秒）。
 >
-> **压测建议**：k6 阶段如果打 `/leaderboard`，请确认压测库已应用
+> **压测建议**：压测阶段如果打 `/leaderboard`，请确认压测库已应用
 > `0002_v004_perf_indexes.sql` 迁移 —— 否则测出来的仍是旧路径的慢，
 > 会得出「应用很慢」的错误结论。
 
@@ -629,7 +640,7 @@ SubPlan 2
 
 ---
 
-## 与 k6 配合
+## 与 `tools/loadtest/bench.mjs` 配合
 
 生成完数据后，把压测目标指向压测库：
 
@@ -637,8 +648,8 @@ SubPlan 2
 # 应用指向压测库
 DATABASE_URL="postgres://v2ex:v2ex_password@127.0.0.1:55433/v2ex_loadtest" npm run dev
 
-# k6 打流量
-k6 run scripts/loadtest/k6.js
+# 打流量（本机无 k6，用自研压测器）
+node tools/loadtest/bench.mjs --base=http://localhost:3030 --duration=20 --concurrency=10
 ```
 
 登录压测可用任一压测用户（口令 `loadtest-password-<seed>-<0..4>`）。
