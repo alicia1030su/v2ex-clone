@@ -75,7 +75,36 @@
 
 ---
 
-## 本轮新发现并修复的缺陷（全部有实测证据）
+## v0.0.3 本轮新发现并修复的缺陷（全部有实测证据）
+
+| ID | 缺陷 | 位置 | 修复提交 | 测试证据 | 状态 |
+|---|---|---|---|---|---|
+| V3-01 | **限流信任边界被绕过** —— `middleware` 无条件读 `x-forwarded-for` 写入内部头，伪造值被「洗白」成可信头，导致登录/注册限流完全可绕过 | `src/middleware.ts` | `d1a9882` | 修复前：25 次伪造 IP 全部 201 通过；修复后：第 21 次返回 **429** | **VERIFIED** |
+| V3-02 | **Next.js 15 的 `??=` 陷阱** —— `req.headers['x-forwarded-for'] ??= socket.remoteAddress`，客户端传了该头就不用真实地址覆盖，且早于 middleware 执行 | `src/middleware.ts` | `d1a9882` | 新增 `tests/client-ip.spec.ts` 8 条 + `tests/middleware-client-ip.spec.ts` 6 条 | **VERIFIED** |
+| V3-03 | **`install.sh`/`install.ps1` 强制覆盖 `V2EX_IMAGE`** —— 静默忽略调用方传入的镜像地址，导致 CI 无法用本地镜像验证安装 | `deploy/install.sh`、`deploy/install.ps1` | `4e2ce5e` | CI 日志确认 `V2EX_IMAGE: v2ex-clone:install-verify` 被接受 | **VERIFIED** |
+| V3-04 | **`APP_VERSION`/`$AppVersion` 未同步到 0.0.2** —— 凭据文件抬头版本错误 | `deploy/install.sh`、`deploy/install.ps1` | `4e2ce5e` | 凭据文件内容核对 | **VERIFIED** |
+| V3-05 | **`docker compose pull` 无条件执行** —— 镜像本地已存在时（离线安装/内网仓库）安装被阻断 | `deploy/install.sh`、`deploy/install.ps1` | `df6be85` | 本地实测：pull 失败 + image inspect 成功 → 继续安装 | **VERIFIED** |
+| V3-06 | **`shell: powershell` 的 run 块含中文** —— GitHub 写成 UTF-8 **无 BOM** 临时 .ps1，Windows 5.1 按 ANSI 读取 → 解析失败（与 install.ps1 缺 BOM 同类） | `.github/workflows/install-verify.yml` | `4e2ce5e` | Windows job「解析检查」从 failure 转为 success | **VERIFIED** |
+| V3-07 | **down -v 检测把注释行与「提示用户手动执行」的引导文本也算进去** | 同上 | `f640a05` | 本地 4 个脚本逐一复核 | **VERIFIED** |
+| V3-08 | **缺 Docker 检测用大小写敏感的 `-notmatch 'docker'`** —— GH runner 自带 docker CLI 时误判 | 同上 | `63f7929`→`613207a`→`cd756bd` | 5 个样本输出双向验证 | **VERIFIED** |
+| V3-09 | **`Write-Host` 走 Information 流，普通管道捕获不到**；`exit 1` 让管道来不及刷出 → 判定永远失败 | 同上 | `cd756bd` | 改用 Start-Process + 文件重定向，捕获长度 976 字节 | **VERIFIED** |
+| V3-10 | **幂等检查未规范化换行** —— CRLF/LF 差异误判「配置被覆盖」 | 同上 | `78a2573` | 本地连跑两次：长度 2515 → 2515，内容一致 | **VERIFIED** |
+| V3-11 | **PATHEXT 顺序 `.COM;.EXE;.BAT;.CMD`** —— Windows 上 `.EXE` 优先于 `.CMD`，假 docker shim 失效 | 同上 | `c654d2d` | 改用无扩展名 shim；`which docker` → `/d/a/_temp/inst/docker` | **VERIFIED** |
+| V3-12 | **shim 未处理 `docker inspect`** → 健康检查拿不到 healthy → install.sh 等待 120 秒超时 | 同上 | `d6bd278` | 本地实测 install.sh exit=0 完整跑通 | **VERIFIED** |
+| V3-13 | **5 个生产依赖完全未被引用**（jose/dompurify/bcryptjs/nanoid/zod）—— 白白扩大供应链攻击面 | `package.json` | `0b93eca` | 全仓库搜索 0 引用；移除后 tsc 0 错误、vitest **185/185** | **VERIFIED** |
+| V3-14 | **生产镜像整包 COPY node_modules**（530MB，含 devDeps 与 esbuild 0.18.20 漏洞版本） | `Dockerfile` | `19750b9` | `npm ci --omit=dev` 后 73 包 / 429MB；entrypoint 三个必需路径全部存在 | **VERIFIED** |
+| V3-15 | **`publish-release`/`verify-release` 无 dry_run 闸门** —— 勾选「仅验证」仍会真的发 Release | `.github/workflows/release.yml` | devops 修复 | 全链路语义核查：两个 job 均有 `if: needs.preflight.outputs.dry_run != 'true'` | **VERIFIED** |
+| V3-16 | **发布 tag 触发器为 `'v*'`** —— 任何能推 tag 的人可触发带写权限的流水线 | 同上 | devops 修复 | 触发器已为显式白名单 | **VERIFIED** |
+| V3-17 | **action 版本仍为 node20 线** —— GitHub 已移除 node20 运行时，会在启动阶段直接失败 | `.github/workflows/{ci,release}.yml` | devops 修复 | 全部升级到 node24 版本线，CI 实跑通过 | **VERIFIED** |
+| V3-18 | **`listReplies` 未过滤软删除的回复** —— 已删除内容会通过普通页面泄露 | `src/server/queries.ts` | `e4a89ec` | 软删除主题：未登录与普通用户访问均 **404** | **VERIFIED** |
+| V3-19 | **`.fa` 图标类被设为 `float:left`** —— 与原站 `combo.css` 的 `inline-block` 不一致，破坏 FontAwesome 字体的基线与行高 | `src/app/globals.css` | `0313959` | 与原站 combo.css 逐条比对 | **VERIFIED** |
+| V3-20 | **零 `@media` 断点** —— 375px 视口下 `.content` 的 `min-width:600px` 导致横向滚动，移动端不可用 | `src/app/globals.css` | `0313959` | 三视口几何量测；375 视口本地不再溢出 | **VERIFIED** |
+| V3-21 | **窄屏下 `#Rightbar` 浮动挤偏 `#Main`** —— 实测 Δx=100px | `src/app/globals.css` | `0313959` | 改用 flex `order` 后置；375 视口 Δy 从 928 降到 20 | **VERIFIED** |
+| V3-22 | **迁移脚本无幂等保护** —— `CREATE TYPE`/`ADD CONSTRAINT` 重跑即失败 | `drizzle/0001_striped_magdalene.sql` | `b4c0a12` | 连续应用 3 次全部 exit=0，26 表 / 38 约束 | **VERIFIED** |
+| V3-23 | **测试与 `@/db` 全局连接池库不一致** —— 服务层写 A 库、断言读 B 库，外键约束失败 | 5 个 v0.0.3 测试文件 | `0ae8c08` | 修正后 185/185 全绿 | **VERIFIED** |
+| V3-24 | **邮件脱敏断言与实现脱节** —— 实现改进后测试期望值过时 | `tests/password-reset.spec.ts` | `0ae8c08` | 断言改为验证「不泄漏原字符」这一性质 | **VERIFIED** |
+
+## v0.0.2 本轮新发现并修复的缺陷（全部有实测证据）
 
 | ID | 缺陷 | 位置 | 修复提交 | 测试证据 | 状态 |
 |---|---|---|---|---|---|

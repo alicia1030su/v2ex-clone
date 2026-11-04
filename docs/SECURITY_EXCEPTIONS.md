@@ -96,6 +96,52 @@
 
 ---
 
+## E-06 v0.0.3 邮件真实投递未验证 ⚠️ **已声明**
+
+**风险**：SMTP 客户端（`src/lib/smtp-client.ts`）与重置令牌流程已实现并通过测试，
+但**未在真实 SMTP 服务器上验证过送达**。
+
+**缓解**：
+- 未配置 SMTP 时，`sendMail` 返回 `{ sent: false, reason }`，
+  API 层如实透传，**不假装已发送**
+- 测试环境（`APP_RUNTIME_ENV=test`）只写本地 outbox，**绝不向真实第三方发信**
+- 收件人脱敏存储（`email_logs` 不保存完整邮箱）
+
+**复核方式**：配置真实 SMTP 后调用 `POST /api/auth/forgot-password`，
+检查邮箱是否收到、`email_logs.delivered` 是否为 true。
+
+---
+
+## E-07 v0.0.3 积分规则为独立实现 ⚠️ **已声明**
+
+**风险**：积分额度数值**无法从公开信息确证原站真实规则**。
+可观察依据只有 `users.balance` 字段注释与 `credit_ledger` 枚举类型。
+
+**缓解**：全部额度做成环境变量（`TOPIC_CREDITS`/`REPLY_CREDITS`/`CHECKIN_CREDITS` 等），
+代码注释、FEATURE_MATRIX、CHANGELOG、README 均标注「独立替代实现」。
+
+---
+
+## E-08 v0.0.3 窄屏响应式为独立实现 ⚠️ **已声明**
+
+**风险**：原站桌面版 `.content` 有 `min-width:600px`，在 375px 视口必然横向滚动；
+原站的移动版是**独立站点**，本次未获取其证据。
+
+**缓解**：本项目改为响应式重排（主区占满、侧栏后置），
+在 `docs/VISUAL_DIFF_REPORT.md` 明确标注为独立替代实现，不声称与原站移动版一致。
+
+---
+
+## E-09 v0.0.3 头像未自动裁剪 ⚠️ **已声明**
+
+**风险**：未安装 `sharp`，头像不做裁剪缩放，当前保存原图。
+
+**缓解**：magic number 嗅探（不信任 MIME 声明）、大小上限、
+服务端生成随机存储路径（防路径穿越与覆盖）均已实现并生效；
+`processAvatar` 已预留 sharp 分支，装上即生效。
+
+---
+
 ## 复核指引
 
 到期日到期时，本表任一条目若仍为 `DEFERRED` / `ACCEPTED`：

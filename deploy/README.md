@@ -1,4 +1,4 @@
-# V2EX Clone v0.0.2 — 一键部署包
+# V2EX Clone v0.0.3 — 一键部署包
 
 > **⚠️ 重要声明**
 >
@@ -23,7 +23,7 @@
 
 ## 版本状态
 
-**v0.0.2 是早期开发预览版（Pre-release）。**
+**v0.0.3 是早期开发预览版（Pre-release）。**
 
 - 它**不是**稳定版，可能存在功能缺陷、UI 瑕疵与数据边界问题
 - 数据库迁移脚本在预览阶段可能调整，升级时不保证向后兼容
@@ -152,7 +152,7 @@ sed -i 's|^NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=http://localhost:8080|' .e
 可自行配置镜像加速器，或手动拉取后改用本地镜像：
 
 ```bash
-docker pull <你的镜像仓库>/v2ex-clone:v0.0.2
+docker pull <你的镜像仓库>/v2ex-clone:v0.0.3
 # 然后把 .env 里的 V2EX_IMAGE 改成该镜像名
 ```
 
@@ -225,7 +225,7 @@ ioredis、bcryptjs、jose、marked、zod 等开源组件，各自遵循其原始
 
 <div align="center">
 
-**V2EX Clone v0.0.2** — 独立技术研究项目 · 早期开发预览版
+**V2EX Clone v0.0.3** — 独立技术研究项目 · 早期开发预览版
 
 *Not affiliated with, endorsed by, or associated with V2EX.*
 

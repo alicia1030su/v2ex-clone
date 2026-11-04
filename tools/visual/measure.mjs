@@ -17,8 +17,14 @@ const PROXY = process.env.V2_PROXY ?? 'http://127.0.0.1:10001';
 const LOCAL_BASE = process.env.LOCAL_BASE ?? 'http://localhost:3000';
 const ORIGIN_BASE = 'https://www.v2ex.com';
 const CHANNEL = process.env.BROWSER_CHANNEL ?? 'msedge';
+/** 是否使用系统安装的浏览器（msedge/chrome）；未安装则回退到 Playwright 自带 Chromium */
+const USE_SYSTEM_BROWSER = process.env.BROWSER_CHANNEL !== 'chromium';
 
-const VIEWPORT = { width: 1280, height: 900 };
+const VIEWPORT = {
+  width: Number(process.env.VIEWPORT_WIDTH ?? 1280),
+  height: Number(process.env.VIEWPORT_HEIGHT ?? 900),
+};
+const VIEWPORT_LABEL = process.env.VIEWPORT_LABEL ?? `${VIEWPORT.width}x${VIEWPORT.height}`;
 
 const PAGES = [
   { name: 'home', origin: '/', local: '/' },
@@ -107,7 +113,7 @@ async function measurePage(page, url) {
 async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   const browser = await chromium.launch({
-    channel: CHANNEL,
+    ...(USE_SYSTEM_BROWSER ? { channel: CHANNEL } : {}),
     args: [`--proxy-server=${PROXY}`],
   });
   const ctx = await browser.newContext({
@@ -176,7 +182,7 @@ async function main() {
   }
 
   await browser.close();
-  const outFile = path.join(OUT_DIR, 'layout-measurements.json');
+  const outFile = path.join(OUT_DIR, `layout-measurements-${VIEWPORT_LABEL}.json`);
   await writeFile(
     outFile,
     JSON.stringify({ viewport: VIEWPORT, generatedAt: new Date().toISOString(), report }, null, 2),

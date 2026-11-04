@@ -1,15 +1,23 @@
 import Link from 'next/link';
-import StaticPage from '@/components/StaticPage';
+import Wrapper from '@/components/Wrapper';
+import ForgotPasswordForm from '@/components/ForgotPasswordForm';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = { title: 'V2EX › 找回密码' };
 
+/**
+ * 找回密码页（v0.0.3）
+ *
+ * 服务端只渲染页面骨架，表单本身是客户端组件
+ * （见 src/components/ForgotPasswordForm.tsx），调用
+ * `POST /api/auth/forgot-password` 申请重置链接。
+ *
+ * 邮件里的链接指向 `/reset-password?token=xxx`。
+ */
 export default function ForgotPage() {
   return (
-    <StaticPage
-      title="找回密码"
-      breadcrumb="找回密码"
+    <Wrapper
       rightbar={
         <div className="box">
           <div className="cell">
@@ -19,38 +27,33 @@ export default function ForgotPage() {
               先看看 <Link href="/faq">FAQ</Link>，常见问题都有说明。
             </span>
           </div>
+          <div className="cell">
+            <strong>仍记得密码？</strong>
+            <div className="sep5" />
+            <span className="fade">
+              可直接在 <Link href="/settings">个人设置</Link> 中修改。
+            </span>
+          </div>
         </div>
       }
     >
-      <h1>找回密码</h1>
+      <div className="box">
+        <div className="header">
+          <Link href="/">V2EX</Link> <span className="chevron">&nbsp;›&nbsp;</span> 找回密码
+        </div>
 
-      <p>
-        本演示环境未接入邮件服务，因此不提供自助重置密码功能。
-      </p>
+        <div className="cell">
+          填写你注册时使用的邮箱，我们会发送一条包含重置链接的邮件。
+          链接默认在 60 分钟后失效。
+        </div>
 
-      <h2>可用的替代方案</h2>
-      <ul>
-        <li>
-          如果你记得当前密码，可直接在 <Link href="/settings">个人设置</Link> 中修改。
-        </li>
-        <li>
-          如果你拥有管理员账号，可由管理员在管理后台重置该账号密码。
-        </li>
-        <li>
-          忘记密码且无法联系管理员时，只能重新注册一个新账号。
-        </li>
-      </ul>
+        <ForgotPasswordForm />
 
-      <h2>为什么不做邮件重置</h2>
-      <p>
-        邮件重置需要配置 SMTP 服务并在服务端保存邮件发送凭据，
-        这超出了本复刻工程的范围。生产部署时可直接接入标准邮件服务商实现该流程。
-      </p>
-
-      <hr />
-      <p className="f12 fade">
-        本页为独立复刻项目的说明文档，非 V2EX 官方内容。
-      </p>
-    </StaticPage>
+        <div className="cell f12 gray">
+          未收到邮件？先检查垃圾邮件目录；也可以确认该邮箱是否确实用于注册。
+          重置成功后将需要使用新密码重新登录。
+        </div>
+      </div>
+    </Wrapper>
   );
 }

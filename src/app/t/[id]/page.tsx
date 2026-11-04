@@ -11,6 +11,9 @@ import Wrapper from '@/components/Wrapper';
 import PageNav from '@/components/PageNav';
 import CollectButton from '@/components/CollectButton';
 import { readCsrfToken } from '@/lib/csrf';
+import TopicActions from '@/components/TopicActions';
+import ReplyItem from '@/components/ReplyItem';
+import { canModifyOwnContent } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +57,23 @@ export default async function TopicPage({
   const repliesWithHtml = await Promise.all(
     replies.map(async (r) => ({ ...r, html: await renderMarkdown(r.content) })),
   );
+
+  // v0.0.3：当前用户的投票与感谢状态（用于操作栏的初始状态）
+  const myVoteRows = user
+    ? await db
+        .select({ direction: schema.votes.direction })
+        .from(schema.votes)
+        .where(and(eq(schema.votes.userId, user.id), eq(schema.votes.topicId, topicId)))
+        .limit(1)
+    : [];
+  const myThanksRows = user
+    ? await db
+        .select({ replyId: schema.thanks.replyId })
+        .from(schema.thanks)
+        .where(eq(schema.thanks.userId, user.id))
+        .limit(1000)
+    : [];
+  const myThanks = new Set(myThanksRows.map((r) => r.replyId));
 
   const tags = await db
     .select({ name: schema.tags.name })
@@ -136,6 +156,27 @@ export default async function TopicPage({
                 </Link>
               ))}
             </div>
+
+          {/* v0.0.3：主题操作栏（投票 / 编辑 / 删除 / 锁定 / 置顶） */}
+          <div className="cell">
+            <TopicActions
+              topic={{
+                topicId: topic.id,
+                locked: topic.locked,
+                pinned: topic.pinned,
+                deleted: topic.deletedAt !== null,
+                edited: topic.editCount > 0,
+                editCount: topic.editCount,
+                votes: topic.votes,
+                myVote: myVoteRows[0]?.direction ?? null,
+                canEdit: canModifyOwnContent(user, topic.authorId),
+                canDelete: canModifyOwnContent(user, topic.authorId),
+                canModerate:
+                  user?.role === 'moderator' || user?.role === 'admin',
+              }}
+              user={user ? { id: user.id, role: user.role } : null}
+            />
+          </div>
             <span className="gray">
               {replyTotal} 条回复 &nbsp;<strong className="snow">•</strong> &nbsp;
               {fullTimestamp(topic.lastReplyAt)}
@@ -190,6 +231,27 @@ export default async function TopicPage({
                     ) : null}
                     <div className="sep5" />
                     <div className="reply_content markdown_body" dangerouslySetInnerHTML={{ __html: r.html }} />
+                    {/* v0.0.3：回复操作（感谢 / 编辑 / 删除） */}
+                    <div className="sep5">
+                      <ReplyItem
+                        reply={{
+                          id: r.id,
+                          floor: r.floor,
+                          content: r.content,
+                          thanks: r.thanks,
+                          edited: r.editCount > 0,
+                          editCount: r.editCount,
+                          deleted: r.deletedAt !== null,
+                          quoteId: r.quoteId,
+                          authorId: r.userId,
+                          authorName: r.username,
+                          createdAt: relativeTime(r.createdAt),
+                        }}
+                        user={user ? { id: user.id, role: user.role } : null}
+                        thanked={myThanks.has(r.id)}
+                        topicLocked={topic.locked}
+                      />
+                    </div>
                   </td>
                 </tr>
               </table>

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, ilike, or, sql, count, inArray } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql, count, inArray, isNull } from 'drizzle-orm';
 import { db, schema } from '@/db';
 
 /** 每页主题数量 —— 原站观察：首页与节点页每页 20 条主题 */
@@ -229,15 +229,34 @@ export async function getTopicById(id: number) {
   return rows[0] ?? null;
 }
 
-export async function listReplies(topicId: number, page = 1, perPage = REPLIES_PER_PAGE) {
+/**
+ * 列出主题的回复（分页）。
+ *
+ * v0.0.3：**默认过滤掉软删除的回复** —— 已删除内容不得通过普通页面泄露。
+ * 管理员/作者可通过 includeDeleted 显式查看（带删除标记）。
+ */
+export async function listReplies(
+  topicId: number,
+  page = 1,
+  perPage = REPLIES_PER_PAGE,
+  opts: { includeDeleted?: boolean } = {},
+) {
   const offset = (Math.max(1, page) - 1) * perPage;
+  const conditions = [eq(schema.replies.topicId, topicId)];
+  if (!opts.includeDeleted) {
+    conditions.push(isNull(schema.replies.deletedAt));
+  }
   const rows = await db
     .select({
       id: schema.replies.id,
       floor: schema.replies.floor,
       content: schema.replies.content,
       thanks: schema.replies.thanks,
+      quoteId: schema.replies.quoteId,
       createdAt: schema.replies.createdAt,
+      editedAt: schema.replies.editedAt,
+      editCount: schema.replies.editCount,
+      deletedAt: schema.replies.deletedAt,
       userId: schema.users.id,
       username: schema.users.username,
       avatar: schema.users.avatar,
@@ -245,7 +264,7 @@ export async function listReplies(topicId: number, page = 1, perPage = REPLIES_P
     })
     .from(schema.replies)
     .innerJoin(schema.users, eq(schema.users.id, schema.replies.authorId))
-    .where(eq(schema.replies.topicId, topicId))
+    .where(and(...conditions))
     .orderBy(schema.replies.floor)
     .limit(perPage)
     .offset(offset);
