@@ -69,7 +69,7 @@ v0.0.1 → v0.0.3 的发版过程暴露了三类问题，v0.0.4 必须用流程�
 |---|---|---|---|
 | ① 校验 | `ci.yml: unit` → `npx tsc --noEmit`、`node scripts/ui-verify.cjs` | 0 类型错误；API 契约全匹配（基线 72 路由 / 30 调用） | 红灯，`needs` 阻断后续 |
 | ② 代码审查 | PR review / 主理人终审 | 审查通过、无未决评论 | 不合并不建 Tag |
-| ③ 完整自动化测试 | `ci.yml`（单元 + E2E + Docker 真实构建/启动）；`release.yml: unit-tests` / `e2e-tests` | 单元 **185**、E2E **`--list` 实测 153 条 / 11 文件** 全绿（**由 team-lead 任务 #1 全量复验后写入 `TEST_REPORT.md`**）；迁移幂等 | 红灯，禁止进入构建阶段 |
+| ③ 完整自动化测试 | `ci.yml`（单元 + E2E + Docker 真实构建/启动）；`release.yml: unit-tests` / `e2e-tests` | 单元 **190 条 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）、E2E **153 条 / 11 文件**（153 passed / 0 failed / 0 skipped，连续 2 轮全绿，4.5m/轮）—— **均已写入 `TEST_REPORT.md`**；迁移幂等。🔴 **CI 现状红灯**：`floor-continuity` 在 CI 崩溃 ⇒ `e2e` job 连带跳过（**V4-17 / R-26，本轮修复中**） | 红灯，禁止进入构建阶段 |
 | ④ 独立构建 | `release.yml: code-checks`（`tsc` + `npm run build`）；`build-image`（`docker build`） | 构建成功；镜像不含 `.env` / `docs/evidence`；`dry_run=true` 时只 `load` 不 `push` | 红灯并上传报告 |
 | ⑤ Docker 部署验证 | `release.yml: deploy-verify`（真实 compose 启动 → healthy → 管理员创建 → 注册探针 → 重启持久化 → 端口不暴露）；`install-verify.yml` 的 Linux 真实 Docker job | 全通过、日志上传 | 红灯，`cancel-in-progress: false` 保证不中途取消 |
 | ⑥ 安全扫描 | `release.yml: security-scan` | `npm audit` critical/high = 0；gitleaks 只扫 Git 跟踪文件（避免假通过）；发布包内容检查（无 `.env` / 凭据 / 原站素材） | 红灯；报告作为 artifact 保留 7 天 |
@@ -95,7 +95,7 @@ v0.0.1 → v0.0.3 的发版过程暴露了三类问题，v0.0.4 必须用流程�
    │
    ├─ 1. 功能完成（v0.0.4 全部修复项 + 回归用例）
    ├─ 2. 代码审查（PR review / 主理人终审）
-   ├─ 3. 完整自动化测试（单元 / E2E 连续复验全绿（E2E 以 `playwright test --list` 实测 153 条为准）；迁移幂等实跑）
+   ├─ 3. 完整自动化测试（单元 / E2E 连续复验全绿（单元 190 条 / 15 文件、E2E 153 条 / 11 文件，均为 v0.0.4 实测权威值）；迁移幂等实跑）
    ├─ 4. 独立构建（干净克隆：tsc / next build / docker build，不依赖开发机产物）
    ├─ 5. Docker 部署验证（真实 compose 启动 + 健康 + 重启持久化 + 端口不暴露）
    ├─ 6. 安全扫描（npm audit / gitleaks / 发布包内容检查）
@@ -164,6 +164,61 @@ git push origin refs/tags/v0.0.4                    # 唯一一次推送，之�
 | **发布产物版本标识**：annotated Tag `v0.0.4`、Draft Release 标题与 tag、GHCR 镜像 `v0.0.4` / `sha-<SHA>`、安装包文件名与 SHA256SUMS | **不改文件 → 不改 SHA** | 第 10 步最终 SHA 固定之后一次性同步 |
 
 > ⚠️ 若把「改版本载体文件」放在固定 SHA **之后**，必然产生新 commit 使 SHA 变化，与 R6「Tag 必须指向固定的最终 SHA」直接冲突。因此「固定最终 SHA」指的是**版本同步提交完成后的 HEAD**；此后不再有任何代码改动。这条澄清不改变裁决意图（不提前升级、不产生中间态），只保证流程可执行。
+
+### 5.4 版本载体清单（**8 项，全部逐条可复核**）
+
+> 用途：第 9 步「版本同步提交」时**一次性**把这 8 项改为 `v0.0.4`，**在此之前一律不得改任何一项**。
+> 每项都附**取数/复核命令**，任何人一条命令即可确认当前状态。
+
+| # | 版本载体 | 当前值（2026-11-04 实测） | 复核命令 | 改法 |
+|---|---|---|---|---|
+| **1** | `package.json` 的 `version` | `0.0.3` | `grep '"version"' package.json` | → `0.0.4` |
+| **2** | `deploy/VERSION`（单行纯文本） | `0.0.3` | `cat deploy/VERSION` | → `0.0.4` |
+| **3** | `README.md` 版本区 | `v0.0.3` | `grep -n '当前版本' README.md` | → `v0.0.4`（**版本表 + 版本历史 + 顶部提示块**三处一起改） |
+| **4** | `FEATURE_MATRIX.md` 生成时间行 | `v0.0.3 开发分支` | `grep -n '生成时间' FEATURE_MATRIX.md` | → `v0.0.4`（并删掉「版本载体刻意保持 0.0.3」的说明） |
+| **5** | `RELEASE_GATE.md` 标题与目标版本 | `v0.0.2 发布门槛检查单` / 目标版本 `v0.0.2` | `head -1 RELEASE_GATE.md` | → `v0.0.4`（标题、目标版本、§0 速览三处一起改） |
+| **6** | `TEST_REPORT.md` 版本标识 | `0.0.3` 口径 | `grep -n '0\.0\.3' TEST_REPORT.md` | → `v0.0.4` |
+| **7** | `.github/workflows/release.yml` 的 **tag 白名单** | 仅含 `- 'v0.0.2'` / `- 'v0.0.3'` | `grep -A6 'tags:' .github/workflows/release.yml` | ⚠️ **人工放行**（见下） |
+| **8** | `.github/workflows/install-verify.yml` | **无版本硬编码** —— 已核实：仅 2 处 `0.0.x` 出现在**注释**里（L7「v0.0.1 暴露的两个 Windows 缺陷」、L503「not-yet-published v0.0.2 image」），**均为历史叙述**，不是版本判断逻辑 | `grep -nE '0\.0\.[0-9]' .github/workflows/install-verify.yml` | **无需改动** —— 该工作流用**本地镜像 tag** `V2EX_IMAGE: v2ex-clone:install-verify`（L85），**不依赖发布版本号** |
+
+#### 关于第 7 项（tag 白名单）—— **人工放行，不会自动**
+
+`release.yml` 的 `on.push.tags` 是**显式白名单**（当前仅 `v0.0.2` / `v0.0.3`）而非 `'v*'` —— 这是**刻意的摩擦**（R-19），
+防止任意 tag 触发带 `packages: write` / `contents: write` 的发布流水线。
+因此它**不会自动加入 `v0.0.4`，也没有脚本会替你加**。
+
+- **发布时由主理人在白名单中手工增加一行 `- 'v0.0.4'`**（随「版本同步提交」一起合入，或在第 7 步单独合入）。
+- `preflight --phase=release` 会校验该项，**缺失即 FAIL**（推 tag 将不触发任何 job）。
+- 开发态该缺失只报 `[INFO] 发布时需人工加入白名单`，**不判 FAIL**。
+- ⚠️ **本文件不代替人工操作** —— 文档里写「已加」不等于仓库里加了。
+
+#### 关于第 8 项（install-verify.yml）—— **已核实无需改动**
+
+该工作流**按本地镜像 tag 验证脚本逻辑**，与发布版本号解耦。**这与「按 tag 取版本」不同**，
+但结论相同：**无需改动**。⚠️ 两处注释里的 `v0.0.1` / `v0.0.2` 是历史叙述，不是版本断言 ——
+如需一并更新措辞，属 QA/CI 成员的文件，**本轮未改**。
+
+### 5.5 版本同步的**强制执行顺序**（8 步，**不可颠倒**）
+
+> ⚠️ **顺序错了就作废**：提前建 Tag、反复删建或移动同一 Tag、在第 2 步之前先改任何版本载体 ——
+> 三者**均被明令禁止**。
+
+| 步 | 动作 | 约束 |
+|---|---|---|
+| **1** | 全部开发与测试完成 | 含本轮全部缺陷修复、UI 缺口补齐、CI 红灯清零 |
+| **2** | **一次性**把 §5.4 的 **6 个代码内版本载体**（第 1~6 项）改为 `0.0.4` | ⚠️ **一次性** —— 不允许分多次改；**在此之前一步都不许改** |
+| **3** | **提交**这次版本同步 | 该提交**并入最终代码提交**，**不单独成为最终 SHA** |
+| **4** | **测试该准确提交** | 跑完整 Vitest + Playwright —— ⚠️ **必须是改完版本号之后的那次提交**，不是改之前的 |
+| **5** | 合并并确定最终 SHA | 此后**不再有任何代码改动** |
+| **6** | 创建不可变 Tag `v0.0.4` | annotated，指向第 5 步的 SHA；**绝不删建/移动** |
+| **7** | **手动**把 `v0.0.4` 加入 `release.yml` 的 tag 白名单 | ⚠️ **人工放行**（R-19 刻意的摩擦），**不会自动加**；`preflight --phase=release` 校验缺失即 FAIL |
+| **8** | 触发发布流水线 → 创建 **Draft** Release | 有阻断风险且未获授权时**只能停在 Draft**；`publish` 输入默认 `false` |
+
+> ⚠️ **第 2 步 vs 第 7 步的分工**：第 2 步改的是**代码内载体**（改文件 → 会改 SHA），
+> 必须落在最终 SHA **之内**；第 7 步改的是 **tag 白名单**（同样是文件 → 也会改 SHA），
+> 因此它**必须在第 5 步确定最终 SHA 之前完成**，或者作为第 3 步的一部分一并提交 ——
+> **绝不能放在第 5 步之后**，否则会产生新的 commit 使 Tag 指向的 SHA 失效（R6 冲突）。
+> ⚠️ **第 7 步的 `preflight --phase=release` 校验**，因此也必须在最终 SHA 固定**之前**跑通。
 
 **`release.yml` tag 白名单必须人工加入 `v0.0.4`（明确写出）**：
 
@@ -236,7 +291,8 @@ inputs:
 - **不可变性**：Tag 一旦推送不动；Release 资产一旦生成不替换（如需修文案，只改 notes 文本，不换资产 —— 这是 v0.0.1 已验证过的做法）；镜像 `v0.0.4` tag 不覆盖，另打 `sha-<SHA>` 便于精确回滚。
 - **数据库与发布顺序**：`0002` 全是 `CREATE … IF NOT EXISTS`，无破坏性 DDL（升级报告 §6.3 实跑数据指纹不变）。因此**允许先迁移后发代码**，且**回滚代码无需回滚数据库**；旧代码不依赖新索引，只是变慢。
 - **升级路径（用户侧）**：`./backup.sh` → **手工修改 `.env` 的 `V2EX_IMAGE` 为 `v0.0.4`** → `./update.sh` → 等待 healthy → 核验 7 个索引与 `pg_trgm`（SQL 见升级报告 §2.3）→ 核验 `password_hash` 与主题数不变。
-  > 这一步**长期必要、不会因 G-VER-01 而消失**：G-VER-01 同步的是发行包里的**默认值**，而老用户 `.env` 是首次安装时写入并被幂等逻辑保护、不会自动覆盖的。`deploy/INSTALL.md` §8 已补此说明与完整命令（B-05 已缓解）；`update.sh` 的自动 tag 同步逻辑尚未实装且已如实声明（本机无 Docker 无法做真实容器验证，故刻意不改脚本行为）。
+  > ⚠️ **收尾轮更新（R-18 已修）**：`deploy/update.sh` 已重写（提交 `b0d68c2`），新增 `./update.sh --version vX.Y.Z` 路径 —— **自动改写 `.env` 的 `V2EX_IMAGE` 为目标镜像**，并补齐**失败自动回滚**（镜像 + `.env` 双恢复）、**备份失败中止**、**非法版本号拒绝**、**镜像未变化时告警中止（退出码 3）**。**不指定 `--version` 时仍沿用 `.env` 中的旧镜像（向后兼容路径）**，因此上面的手工步骤**仍然必须执行**。
+  > 自检：`bash scripts/release/verify-update-script.sh` → **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker）。⚠️ **残余**：真实容器级升级仍需带 Docker 的环境复跑（并入 R-16 重跑批次）。
 - **回滚**：见 §8。
 
 ---
@@ -291,8 +347,10 @@ inputs:
 - [ ] 代码审查通过，无未决评论
 - [ ] `npx tsc --noEmit` 零错误
 - [ ] `npm run build` 成功
-- [ ] 单元测试 **185/185** 全绿（**由 team-lead 任务 #1 全量复验后写入 `TEST_REPORT.md`**；该文件顶部已有「状态覆盖声明」，v0.0.3 历史数字不得作为 v0.0.4 依据）
-- [ ] E2E 全绿（以 `playwright test --list` 实测 **153 条 / 11 文件**为准，口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`）（**由 team-lead 任务 #1 全量复验后写入 `TEST_REPORT.md`**）
+- [x] 单元测试 **190/190** 全绿（**15 个文件，190 passed / 0 failed / 0 skipped，连续 4 轮全绿**，每轮约 170~210 秒）—— 已写入 `TEST_REPORT.md`「v0.0.4 单元测试（权威口径）」小节
+  - ⚠️ **「185」有两个来源**：**v0.0.3 历史总数**（master @ `37710fb4`）与 **CI 的通过数**（`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。**v0.0.4 的用例总数始终是 190。**
+  - 🔴 **CI 侧未通过**：`tests/floor-continuity.spec.ts` 在 CI 崩溃 ⇒ `unit` job 红 ⇒ **`e2e` job 被 `needs: unit` 连带跳过** ⇒ **153 条 E2E 在 CI 上从未跑过一条**（run `41837212170` 实测）。**修复中，待 CI 复验**（V4-17 / R-26）
+- [x] E2E 全绿（**153 条 / 11 文件**，153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮）—— 已写入 `TEST_REPORT.md`「v0.0.4 真实浏览器 E2E（权威口径）」小节。口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`
 - [ ] **口径区分（防止把专项当全量）**：qa-engineer 第二轮是**专项实跑** —— `tests/floor-continuity.spec.ts` 5/5、`e2e/v004-four-roles-ui.spec.ts` 8/8（连续三轮，最新 `expected=8, skipped=0, unexpected=0, flaky=0`）、`npx tsc --noEmit` EXIT=0。**全量判定只认 team-lead 任务 #1 写入 `TEST_REPORT.md` 的结果**；qa-engineer 无权修改 `TEST_REPORT.md`（其所有权仅 3 个文件）
   - [x] `test-list-v0.0.4.txt` 已由主理人重新 `npx playwright test --list` 生成并更新为 **153**（含 `v004-four-roles-ui.spec.ts:292` 的 DOM 实证用例）；正式发布前仍须再跑一次 `--list` 固定口径（端点冒烟用例数随 GET 路由数浮动）
 - [ ] **测试环境注入**：`tests/setup.ts` 默认加载 `.env.local`，其 `DATABASE_URL` 指向 **5432**（本机无实例）；裸跑 vitest（未注入 `ENV_FILE` / `DATABASE_URL`）时 15 个单测文件中 11 个会连 5432 失败（实证 `ECONNREFUSED 127.0.0.1:5432`）。CI / 本地全量复验**必须注入 `ENV_FILE`**（如 `.env.test`，指向隔离实例 55433）。**`preflight.sh` 本身不触发任何测试**（只做只读存在性检查与 `bash -n`），不受此项影响
@@ -372,7 +430,7 @@ inputs:
 | **B-02** | 发行版 10+ 处版本字面量仍为 `0.0.3`（N-01） | 🟢 开发态非缺陷 / 🔴 发布态门禁 | ✅ **开发态预期（INFO）**；⏳ **发布态须清零** | 主理人裁决：开发阶段刻意保持 `0.0.3`（`CHANGELOG.md [Unreleased]`）。由 **G-VER-01** 在**第 9 步固定最终 SHA 时一次性同步**，随后 `--phase=release` 必须 FAIL=0。若不同步 ⇒ 安装包拉 v0.0.3 镜像，0002 不生效（见 §5.3） |
 | **B-03** | `release.yml` tag 白名单无 `v0.0.4`（N-03） | 🔧 **工程阻断项（保留）**｜🟢 dev 预期 / 🔴 release 门禁 | ⏳ **发布态尚未解除**；开发态预期（INFO） | 白名单是**刻意的摩擦**，不会自动加。由主理人在 G-VER-01 的版本同步提交中手工加入 `- 'v0.0.4'`（§5.3）；`--phase=release` 缺失即 FAIL。不加入 ⇒ 推 tag 不触发任何 job |
 | **B-04** | `release.yml` 内置 Release Notes 硬编码 `v0.0.1`（N-03） | 🔧 **工程阻断项（保留，防回归）**｜🔴 流水线 | ✅ **已修复，但门禁项保留** | 主理人已改为 `## __VERSION__ — 开发预览版` 占位符 + `sed -i "s\|__VERSION__\|${VERSION}\|g"` 动态注入（`VERSION` 取 `needs.preflight.outputs.version`，全文件 16 处动态引用）。本地实跑：6 处替换、0 残留、YAML 合法。preflight 已改为检查动态版本，两种模式均报 **PASS** |
-| **B-05** | `deploy/update.sh` 未引导改镜像 tag，v0.0.3 用户无法升级（N-04） | 🔧 **工程阻断项（保留）**｜🟠 高 | 🟡 **已缓解但未解除** | `deploy/INSTALL.md` §8 升级流程（L392–417）已补：「升级到新版本前必须先修改 `.env` 里的 `V2EX_IMAGE`」+ 完整命令 + 回滚 + digest 核验，并如实声明「`update.sh` 自动 tag 同步逻辑未实装（本机无 Docker 无法对改动后的脚本做真实容器验证，故刻意不修改脚本行为）」。残余风险：用户仍须**手工**改 `.env`，未改则看似升级成功实则仍是 v0.0.3 |
+| **B-05** | `deploy/update.sh` 未引导改镜像 tag，v0.0.3 用户无法升级（N-04） | 🔧 **工程阻断项（保留）**｜🟠 高 | 🟢 **已修并验证（收尾轮）** | 提交 `b0d68c2` 重写 `deploy/update.sh`（+688 行）：新增 `--version vX.Y.Z` 自动改写 `.env` 的 `V2EX_IMAGE` + **失败自动回滚**（镜像与 `.env` 双恢复）+ 备份失败中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）。**自检 62 项断言全 PASS / 0 FAIL**。⚠️ 残余：不带 `--version` 时仍沿用 `.env` 旧镜像（向后兼容），故 `deploy/INSTALL.md` §8 的「先改 `.env` 再 `./update.sh`」说明**仍需保留**；真实容器级升级待带 Docker 的环境复跑 |
 | **B-06** | 容器级回滚演练未做（本机无 Docker） | 🟠 高 | ⚠️ **未验证** | 由 `install-verify.yml` Linux 真实 Docker job 补做并登记 run id |
 | **B-07** | `install-verify.yml` 未在 v0.0.4 重跑 | 🟠 高 | ⚠️ **未验证** | 发布前重跑全绿 |
 | **B-08** | 0002 的 `pg_trgm` 权限不足会静默跳过 trigram 索引（N-05） | 🟡 中 | ⚠️ **未监控** | 发布后核验 `pg_extension` + 7 索引；长期补告警 |
@@ -388,7 +446,7 @@ inputs:
 - **按主理人要求，B-02～B-05 中只有「版本一致性」（B-02）按裁决降级为开发态预期；B-03 / B-04 / B-05 一律保留为工程阻断项并如实带进最终报告**：
   - **B-03 白名单**：开发态 INFO、**发布态尚未解除**（须由主理人人工加入 `- 'v0.0.4'`，`--phase=release` 缺失即 FAIL）；
   - **B-04 Release Notes**：**已修复**（`__VERSION__` + `sed` 动态注入）但**门禁项保留以防回归** —— preflight 两种模式都持续校验「无 `v0.0.1` 硬编码 + 动态版本注入存在」，现报 PASS；
-  - **B-05 `update.sh` 升级**：`deploy/INSTALL.md` §8 已补手工改 `.env` 的说明，**但残余风险未解除** —— 用户仍须手工改 `V2EX_IMAGE`，`update.sh` 自动 tag 同步逻辑未实装（本机无 Docker 无法做真实容器验证，故刻意未改脚本行为），未改则「看似升级成功、实则仍是 v0.0.3」。
+  - **B-05 `update.sh` 升级**：✅ **收尾轮已修（R-18）** —— `deploy/update.sh` 已重写（`b0d68c2`），新增 `./update.sh --version vX.Y.Z` **自动改写 `.env` 的 `V2EX_IMAGE`** + **失败自动回滚**（镜像与 `.env` 双恢复）+ 备份失败中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）；`bash scripts/release/verify-update-script.sh` → **62 项断言全 PASS / 0 FAIL**。⚠️ **残余**：不带 `--version` 时是**向后兼容路径**（沿用 `.env` 旧镜像），故 `deploy/INSTALL.md` §8 的「先改 `.env` 再 `./update.sh`」说明**仍需保留**；**真实容器级升级仍需带 Docker 的环境复跑**。
 - **即使工程门禁全部清零，只要 B-01 仍为 DEFERRED，v0.0.4 Release 也只能停在 Draft，不得公开发布。**
 
 ---
@@ -492,7 +550,7 @@ phase  : dev                                       phase  : release
 [PASS]  deploy/ 必需文件检查完成（14 项）；install.ps1 BOM=EF BB BF；6 个 .sh bash -n 通过；
         无被跟踪 .env；.dockerignore 保留 !drizzle/*.sql；entrypoint 执行 migrate
 [PASS]  TEST_REPORT.md / 第六阶段报告 / 第八阶段文档均存在
-           单元基线 185 条 / E2E 以 playwright test --list 实测 153 条为准
+           单元基线 190 条 / 15 文件 / E2E 153 条 / 11 文件（均为 v0.0.4 实测权威值）
 [BLOCK] RISK_REGISTER R-01 仍为 DEFERRED —— 需主人单独授权；未授权前 Release 只能停在 Draft
 
 --- 7. 汇总 ---
@@ -524,7 +582,80 @@ phase  : dev                                       phase  : release
 5. **容器级回滚演练与 `install-verify.yml` 重跑的 run id**：因本机无 Docker，需主理人在 CI 侧补做并回填发布记录。（B-06/B-07）
 6. **是否接入容器镜像漏洞扫描（Trivy/Grype）与预算告警**：`RELEASE_GATE.md` E9 仍为「部分未做」，本轮未变更。
 7. **可观测性建设**（集中日志 / 指标告警 / 值班与复盘）是否纳入 v0.0.5 范围：本轮仅给出最小应急闭环。
-8. **CHANGELOG / README / FEATURE_MATRIX / RELEASE_GATE / TEST_REPORT 版本一致性**：属 G-VER-01 范围，需主理人在「版本同步提交」中一并核对（C 组检查单）。另：qa-engineer 指出 `RELEASE_GATE.md` 仍是 v0.0.2 门槛（B3 ≥103 单元 / B4 ≥67 E2E），与 v0.0.4 实测 185 / `--list` 153 不匹配 —— **v0.0.4 门禁以 `TEST_REPORT.md` 实测与 `preflight.sh` 双模式为准，RELEASE_GATE.md 的旧阈值仅作历史基线，不得作为 v0.0.4 判据**（该文件不在我的所有权边界内，仅在此标注）。
+8. **CHANGELOG / README / FEATURE_MATRIX / RELEASE_GATE / TEST_REPORT 版本一致性**：属 G-VER-01 范围，需主理人在「版本同步提交」中一并核对（C 组检查单）。另：qa-engineer 指出 `RELEASE_GATE.md` 仍是 v0.0.2 门槛（B3 ≥103 单元 / B4 ≥67 E2E），与 v0.0.4 实测 **190 / 153** 不匹配（收尾轮已在 `RELEASE_GATE.md` 顶部补 v0.0.4 门禁速览） —— **v0.0.4 门禁以 `TEST_REPORT.md` 实测与 `preflight.sh` 双模式为准，RELEASE_GATE.md 的旧阈值仅作历史基线，不得作为 v0.0.4 判据**（该文件不在我的所有权边界内，仅在此标注）。
+
+---
+
+## 16. 收尾轮（2026-11-04）新增的取证通道与已闭环项
+
+> 本节记录 v0.0.4 收尾轮对发布流程的实质影响。**只记录本轮实测过的内容。**
+
+### 16.1 Docker / Redis 取证通道（服务 R-16 / R-17）
+
+新建 `.github/workflows/docker-verify.yml`（9 项验证 + 3 个 R-17 专项子任务），
+作为本机无 Docker 时的**替代取证通道**。收尾轮修了它自身的两个缺陷：
+
+| 缺陷 | 现象 | 根因 | 修复 | 登记 |
+|---|---|---|---|---|
+| **V4-15** 定义级失败 | run 0 秒结束、`total_count=0`、**无任何 job 被创建**，报错仅「This run likely failed because of a workflow file issue」 | GitHub 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持） | 三元判断下沉到 shell 层：`$([ "${{ job.status }}" = 'success' ] && echo PASS \|\| echo FAIL)`；`${{ }}` 只用于传值 | `BUG_REGISTER` V4-15 |
+| **V4-16** 迁移物路径断言错误 | 第 9 项报「✗ 镜像内缺少迁移文件: `_journal.json`」 | drizzle 的 SQL 在 `/app/drizzle/` 根目录，`_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录；初版混用同一路径断言 | SQL 与 meta 分成两段断言，各用正确路径 | `BUG_REGISTER` V4-16 |
+
+> ⚠️ **V4-15 的排查陷阱**：YAML 本身**能正常解析**（python yaml 校验通过，1 job / 17 steps），
+> 问题只在**表达式求值阶段** —— 这是排查耗时的主要原因。已在工作流内留踩坑注释。
+
+**首轮 CI 实跑已通过第 9 项「镜像内容与权限检查」的 6 个子断言**：
+非 root（`Config.User` 非 root 且容器内 `id -u` ≠ 0）、8 项 devDependency 未检出、
+3 个运行时文件已检出、5 个 env/凭据文件未检出、迁移 SQL 完整、镜像体积打印。
+
+**⚠️ 其余项（1~8）与 `[R-17a/b/c]` 尚未实跑** ⇒ R-16 / R-17 状态为
+🟡「**取证通道就绪 · 部分项已通过 · 其余待重跑**」，**不是已闭环**。
+
+### 16.2 升级脚本（R-18 已修并验证）
+
+| 项 | 内容 |
+|---|---|
+| 修复提交 | `b0d68c2`（`deploy/update.sh` +688 行） |
+| 新增能力 | `--version vX.Y.Z` **自动改写 `.env` 的 `V2EX_IMAGE`**；**失败自动回滚**（镜像 + `.env` 双恢复）；备份失败中止升级；非法版本号拒绝；镜像未变化时告警中止（退出码 3） |
+| 自检脚本 | `scripts/release/verify-update-script.sh`（749 行）—— **不依赖 Docker**：`mktemp -d` 沙箱 + 假 `.env` + 真实 `backup.sh` 副本 + docker stub，跑**真实的** `update.sh` |
+| 实测结果 | **62 项断言全 PASS / 0 FAIL**（收尾轮独立复跑确认） |
+| 硬约束 | 绝不执行真实 Docker 命令；绝不触碰仓库真实文件（自检末尾有校验和断言） |
+| ⚠️ 残余 | **不带 `--version` 时是向后兼容路径**（沿用 `.env` 旧镜像）⇒ `INSTALL.md` §8 的手工步骤**仍需保留**；**真实容器级升级**仍需带 Docker 的环境复跑 |
+
+### 16.4 🔴 CI 单元测试红灯（V4-17 / R-26）—— **本轮修复中**
+
+> **实测证据**（CI run `41837212170`，HEAD `930f29e`）：
+> ```
+>  Test Files  1 failed | 14 passed (15)
+>       Tests  185 passed | 5 skipped (190)
+> Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2ex-clone/.env.test'
+>  FAIL  tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT）
+> ```
+>
+> ⚠️ **注意这个形态**：是 `1 failed + 5 skipped`，**不是「少了几条」**。
+> **分母是 190，与本机实测的 190 一致** —— 也就是说 **v0.0.4 的用例总数始终是 190**，
+> 185 只是 **CI 上的通过数**（`floor-continuity` 5 条崩溃被跳过）。
+> **核对 CI 时必须看 `Test Files` 行，不能只看 `Tests` 行** —— 这正是 R-23 那类静默跳过。
+>
+> **根因**：`tests/floor-continuity.spec.ts` 的 `baseDatabaseUrl()` ① 硬编码
+> `readFileSync(path.join(repoRoot, '.env.test'))`，而 `.env.test` **被 `.gitignore` 排除**
+> ⇒ **CI 检出里根本没有这个文件**；② 对 `process.env.DATABASE_URL` 有 `:55433/` 端口白名单，
+> 而 CI 的 `DATABASE_URL` 是 `localhost:5432` ⇒ **即使环境变量已注入也不会被采用**。
+> 两条路都走不通 ⇒ ENOENT 崩溃。
+>
+> **影响面**：① `unit` job 红灯 → **PR 无法合并**；② `e2e` job 被 `needs: unit` **连带跳过**
+> → **v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**；③ 掩盖了「楼层连续性」这条关键回归的 CI 覆盖
+> —— 而它正是 B-05 楼层跳号缺陷（`allocateFloor` 双重 `+1`）的守护用例。
+>
+> **修复方向已实跑验证**（`docs/evidence/ci/test-baseline-v0.0.4.md` §0.5，在纯净 CI 检出 `/tmp/ci-sim` 上双向验证）：
+> 去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断 ⇒ **CI 条件与本地条件均 `5 passed`**。
+> **状态：本轮修复中（测试环境工程师负责），待 CI 复验为 `Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped 并解锁 `e2e` job。**
+> ⚠️ **未经 CI 复验不标 FIXED。**
+
+### 16.3 版本库卫生（R-25）
+
+E2E 生成的 18 个头像占位 PNG 曾被 Git 跟踪。已 `.gitignore` 加规则 + `git rm --cached` 移出索引
+（**不改写历史、不删磁盘文件**）。`git ls-files "public/uploads/*"` → **0 条**。
+⚠️ **残余**：18 个占位图**仍在 Git 历史**里，彻底消除需授权改写历史。
 
 ---
 

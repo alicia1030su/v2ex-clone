@@ -10,9 +10,9 @@
 
 ## [Unreleased] — v0.0.4 开发分支（尚未发布）
 
-> **版本号决策（主理人裁决，2026-11-04）**：`package.json`、`deploy/VERSION`、
+> ⚠️ **版本号尚未同步（主理人裁决，2026-11-04）**：`package.json`、`deploy/VERSION`、
 > `README.md`、`FEATURE_MATRIX.md`、`RELEASE_GATE.md`、`TEST_REPORT.md` **仍统一为
-> `0.0.3`，本轮刻意不提前升级**。
+> `0.0.3`，本轮刻意不提前升级**。**本文件出现「v0.0.4」只代表开发分支，不代表已发布的版本号。**
 >
 > 理由：任务书明令「v0.0.4 期间禁止提前创建最终 Tag，同一版本号不得反复删建或移动 Tag」。
 > 在**最终 SHA 固定之前**把版本载体升到 `0.0.4`，会造成「版本号已是 0.0.4、却没有
@@ -21,11 +21,12 @@
 >
 > 因此采用：`[Unreleased]` 段落累积变更 → 合并并固定最终 SHA → **一次性**把版本载体、
 > Tag、Draft Release 同步到 v0.0.4。此决策由主理人负责，在
-> `docs/RELEASE_PROCESS_v0.0.4.md` 中固化为发布门禁。
+> `docs/RELEASE_PROCESS_v0.0.4.md` 中固化为发布门禁（门禁 G-VER-01，第 9 步）。
+> 登记见 `RISK_REGISTER.md` **R-20**（已裁决：开发态保持 0.0.3）。
 >
 > 本小节只记录**本轮实际做过并验证过的事**。
 
-### 修复的真实缺陷（8 项，均由真实浏览器 E2E / 真实压测发现）
+### 一、修复的真实缺陷（12 项，均由真实浏览器 E2E / 真实压测 / 版本库核查 / CI 实跑发现）
 
 | ID | 级别 | 缺陷 | 验证方式 |
 |---|---|---|---|
@@ -37,8 +38,12 @@
 | B-06 | 一般 | 注册赠送积分绕开账本（直接写 `balance: 1000`，破坏「余额 == 账本累计」不变式） | 新注册用户 `balance=1000 / ledger_sum=1000 / rows=1`，账本链 `before=0→after=1000→before=1000→after=1002` 首尾相接 |
 | B-07 | 一般 | `/hot` 独立页面缺失（v0.0.3 只有首页侧栏） | 新增 `src/app/hot/page.tsx` 与 `src/app/recent/page.tsx`；压测「热门排序」230 请求 0 错误 |
 | B-08 | 严重 | 积分排行榜相关子查询 N+1（每作者执行一次，EXPLAIN 实测 **241.98 秒**） | 改「三个独立聚合 + JOIN」→ 0.74 秒；`0002` 索引后 0.46 秒；压测 p50 1.23 秒（并发 10） |
+| **B-09** | 严重 | **运行时上传数据被误提交入仓** —— E2E 跑出的 **18 个头像占位 PNG**（每个 684 字节）被 Git 跟踪，进入公开发布物。**风险性质与 R-01 同类**（运行时数据进入公开发布物） | 提交 `49d66d3`：`.gitignore` 加 `public/uploads/` 规则 + `git rm --cached` 移出索引（**不改写历史、不删磁盘文件**）；验证 `git ls-files "public/uploads/*"` → **0 条**。引入提交逐一定位：`04b107b`（16 个）/ `1b15f79`（1 个）/ `301a8a5`（1 个）。登记 `BUG_REGISTER` V4-14 / `RISK_REGISTER` R-25 |
+| **B-10** | 严重 | **`docker-verify.yml` 定义级失败** —— 工作流在定义阶段就失败，**一个 job 都没被创建**（run 0 秒结束、`total_count=0`、报错仅「This run likely failed because of a workflow file issue」）。根因：GitHub 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持） | 提交 `2532f5f`：三元判断下沉到 shell 层，`${{ }}` 只用于传值。**陷阱**：YAML 本身能正常解析（1 job / 17 steps），问题只在表达式求值阶段 ⇒ 排查耗时。登记 `BUG_REGISTER` V4-15 |
+| **B-12** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元 `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过 ⇒ 整个 CI 红灯，**v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。根因：硬编码 `readFileSync('.env.test')`（该文件被 gitignore，CI 检出里不存在）+ `:55433/` 端口白名单（CI 的 `DATABASE_URL` 是 5432） | 🔴 **本轮修复中，待 CI 复验** —— 实测 run `41837212170`：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`（**分母 190 正确**）。登记 `BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26 |
+| **B-11** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项误报「✗ 镜像内缺少迁移文件: `_journal.json`」，而同一步骤前面的 `ls` 已证明它存在。根因：drizzle 的 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录，初版混用同一路径断言。**性质：验证脚本自身的错误，不是产品缺陷** | 提交 `930f29e`：SQL 与 meta 分成两段断言，meta 段同时断言 3 个 snapshot + `_journal.json`（覆盖面更严）。登记 `BUG_REGISTER` V4-16 |
 
-### 性能优化（EXPLAIN ANALYZE + 真实压测实测，10 万主题 / 100 万回复）
+### 二、性能优化（EXPLAIN ANALYZE + 真实压测实测，10 万主题 / 100 万回复）
 
 | 端点 | 优化前 | 优化后 | 手段 |
 |---|---|---|---|
@@ -46,35 +51,105 @@
 | 节点列表 API | 1543ms | **67ms** | 相关子查询 → 聚合 JOIN；`topics.last_reply_at` 已是汇总字段，无需 join 100 万 replies |
 | 排行榜 API | 超时（>30s） | **~1.2s**（并发 10） | 见 B-08 |
 
-### 新增迁移
+### 三、新增迁移
 
 - `drizzle/0002_v004_perf_indexes.sql`：5 个 btree + 2 个条件性 pg_trgm GIN 索引；
   `CREATE EXTENSION` 用 DO 块捕获权限不足（跳过索引而不让迁移失败）；
   全部 `IF NOT EXISTS`，连跑 3 次幂等，全新库迁移实测通过。
 
-### 测试与证据
+### 四、新增能力与工程化
 
-  - 新增 E2E：v004 四文件 78 条 + 四身份 UI 8 条；`playwright test --list`
-    实测 **153 条 / 11 文件**（原有 67 + 78 + 8）。
-    修复后全量实跑 **153 passed / 0 skipped / 0 failed（10.0m，exit=0）**；
-    单元 `vitest list` 静态 180 条 / `vitest run` 运行时 190 条（本轮复验中，不预先声明全绿）。
-    口径定义见 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`。
-- 视觉对照矩阵：4 视口 × 17 页面 = 68 条，40 条完成对比、28 条如实标注无原站对照。
-  桌面/平板严格口径几何 Δx=0 **52/52 (100%)**、Δw=0 48/52；移动 375 为**有意的响应式重排**。
-  口径说明与可复核证据见 `tools/visual/summarize-visual-diff.py` 与
-  `docs/evidence/visual/geometry-summary.json`。
-- 压测数据集：`scripts/loadtest/seed-large.ts` 生成 351 万行（10000 用户 / 1000 节点 /
-  100000 主题 / 1000000 回复），3m4s，确定性指纹可复现；`tools/loadtest/bench.mjs`
-  13 场景 / 24785 请求，并发发帖与回复各 50 请求 **0 错误**。
-- GHCR 镜像按 **Docker Registry Bearer Token 完整三步协议** 实测为**公开可拉取**
-  （v0.0.3 的 E-10「private」结论基于「首次 401 即判 private」的不完整测试，已更正）。
+| 项 | 内容 | 证据 |
+|---|---|---|
+| 升级脚本自动同步镜像 tag | 重写 `deploy/update.sh`（+688 行）：自动改写 `.env` 的 `V2EX_IMAGE`、失败回滚、备份失败中止、非法版本号拒绝、镜像未变化时告警中止（退出码 3） | `b0d68c2`；`scripts/release/verify-update-script.sh` **62 项断言全 PASS / 0 FAIL** |
+| 升级脚本沙箱自检 | **不依赖 Docker** 的自检脚本：`mktemp -d` 沙箱 + 假 `deploy/.env` + 真实 `backup.sh` 副本 + 记录调用参数的 docker stub，跑**真实的** `update.sh` 并断言 8 类行为 + 「仓库真实文件未被改动」校验和 | `scripts/release/verify-update-script.sh`（749 行），实测 `PASS=62 FAIL=0` |
+| Docker / Redis 取证通道 | 新建 `.github/workflows/docker-verify.yml`（9 项验证），含 `[R-17a]` Redis 中断恢复、`[R-17b]` PG 中断恢复、`[R-17c]` 缓存失效与内存观测 | `b0d68c2` + `2532f5f` + `930f29e`；**首轮实跑已通过第 9 项的 6 个子断言**（非 root、8 项 devDependency 未检出、3 个运行时文件已检出、5 个 env/凭据文件未检出、迁移 SQL 完整、体积打印） |
+| 发布前只读门禁 | `scripts/release/preflight.sh` 双模式（`--phase=dev` / `--phase=release`）：版本一致性 / 流水线闸门 / 迁移幂等 / 安装包结构四类，**只读、不写、不联网** | `docs/RELEASE_PROCESS_v0.0.4.md` §14 |
+| 视觉汇总脚本入仓 | `tools/visual/summarize-visual-diff.py` + `docs/evidence/visual/geometry-summary.json`（三套口径机器可读，**52/52 可复算**） | `1b15f79` |
 
-### 不包含（未实现，如实标注）
+### 五、测试与证据（**权威口径**）
 
-- Docker 容器实跑 / Redis 故障恢复 / 真实 SMTP 投递 —— 本机无 Docker、未配 Redis/SMTP，
-  仅做静态核查。
-- 原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照 —— 无权访问他人账号，不拿游客态冒充。
-- 远端 Git 历史改写 —— 仅在隔离副本演练成功（`docs/HISTORY_CLEANUP_DRILL_v0.0.4.md`），
+| 项 | 权威值 | 实测命令 / 证据 |
+|---|---|---|
+| **单元测试** | **190 条 / 15 个文件**，**190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（每轮约 170~210 秒） | `ENV_FILE=.env.test npx vitest run`；`docs/evidence/ci/test-baseline-v0.0.4.md` |
+| **单元测试（CI 现状）** | 🔴 **CI 红灯** —— run `41837212170`：`185 passed \| 5 skipped (190)`。**分母 190 正确**，5 条因 `floor-continuity` 崩溃而跳过。**修复中，待 CI 复验** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
+| **真实浏览器 E2E** | **153 条 / 11 个文件**，**153 passed / 0 failed / 0 skipped**，**连续 2 轮全绿**（4.5m/轮） | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`；`docs/evidence/e2e/e2e-full-run-v0.0.4.md` |
+| **升级脚本自检** | **62 项断言全 PASS / 0 FAIL** | `bash scripts/release/verify-update-script.sh` |
+| **视觉对照** | 4 视口 × 17 页面 = **68 条**；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52**、Δw=0 48/52 | `tools/visual/summarize-visual-diff.py` + `docs/evidence/visual/geometry-summary.json` |
+| **负载压测** | 13 场景 / 24785 请求，**0 个 5xx**；数据集 351 万行（10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复） | `scripts/loadtest/seed-large.ts` + `tools/loadtest/bench.mjs` + `bench-result.json` |
+
+#### 5.1 「185 vs 190」口径裁决（**权威值 = 190 条 / 15 文件 / 0 failed / 0 skipped**）
+
+⚠️ **「185」有两个不同来源，绝不可混用**：
+
+| 数字 | 来源 | 含义 | 归属 |
+|---|---|---|---|
+| **190** | 本机连续 4 轮实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 15 passed (15)` / `Tests 190 passed (190)` —— **总数即 190** | ✅ **v0.0.4 权威基线** |
+| **185**（作为**通过数**） | CI run `41837212170`（HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**；5 条因 `floor-continuity` 在 CI 崩溃而跳过 | 🔴 **CI 环境观测值，CI 红灯中**（**B-12 / V4-17 / R-26**） |
+| **185**（作为**总数**） | CI run `41760677505`（master @ `37710fb4`，**14 个** spec 文件） | `Tests 185 passed (185)` —— 当时总数就是 185 | ⏪ **v0.0.3 历史快照**，已过时 |
+
+**结论**：
+1. **v0.0.4 的用例总数始终是 190**（15 个文件）—— CI 的 `185 passed | 5 skipped (190)` **分母就是 190**，
+   **不构成「总数有争议」**。与 v0.0.3 的**总数差异**来自 `tests/floor-continuity.spec.ts`（5 条，提交 `1b15f79` 引入）：
+   `185 (master, 14 文件) + 5 = 190 (当前, 15 文件)`。
+2. **185 不是「v0.0.4 的用例数」** —— 它要么是 CI 上的**通过数**，要么是 **v0.0.3 master 的历史总数**。
+3. 🔴 **当前 CI 是红灯的**（run `41837212170`）：`Test Files 1 failed | 14 passed (15)` /
+   `Tests 185 passed | 5 skipped (190)`。根因是 `tests/floor-continuity.spec.ts` 硬编码
+   `readFileSync('.env.test')` + `:55433/` 端口白名单 —— `.env.test` 被 gitignore ⇒ CI 检出里没有该文件，
+   而 CI 的 `DATABASE_URL` 是 5432 ⇒ 两条路都走不通 ⇒ ENOENT 崩溃 ⇒ 5 条 skipped ⇒
+   `unit` job 红灯 ⇒ **`e2e` job 被 `needs: unit` 连带跳过** ⇒ **v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。
+   **登记 `BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26，状态：本轮修复中，待 CI 复验。**
+4. ⚠️ 静态 grep 得出 **180**（少于 190），因 `admin-permissions.spec.ts` 用嵌套 for 循环生成用例 ——
+   **口径必须取 Vitest 运行时的 `numTotalTests`**。三方交叉校验见 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1 / §0.2。
+5. ⚠️ **核对 CI 必须看 `Test Files` 行，不能只看 `Tests` 行**（`1 failed + 5 skipped` ≠ 「少了几条」）。
+
+#### 5.2 E2E 用例数口径（**153**）
+
+分解：原有 6 文件 67 条 + v004 四文件 78 条 + 四身份 UI 8 条 = **153 条 / 11 文件**。
+历史数字 **144**（`67 + 77`，更早时点）与 **152**（新增 DOM 实证用例之前的时点）各有其时点，均非错误，**当前权威值为 153**。
+⚠️ `v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动 ⇒ **正式发布前须重新 `--list` 固定口径**。
+
+#### 5.3 视觉结论的边界（**不得宣称「像素级复刻完成」**）
+
+- 严格口径 Δx=0 **52/52** 只覆盖**几何位置**一个维度。
+- **六类区分必须分别判定**：几何位置 / 组件宽高 / 视觉样式 / 动态内容 / 缺失组件 / 实际交互。
+  其中组件宽高 Δw=0 仅 **48/52**，动态内容因原站是真实社区数据而本地是 seed 数据**必然不同**，
+  缺失组件与实际交互**未覆盖**（28 条无原站对照）。
+- **分母说明**：68 条中 **40 条有对照、28 条无对照**（`no-auth-reference` 6 个页面 × 4 视口 = 24 条
+  + `no-origin-equivalent` 1 个页面 × 4 视口 = 4 条）。无对照项**不拿游客态冒充**。
+- 移动 375 视口的 Δx=0 仅 10/52，是**有意的响应式重排**（原站桌面版 `min-width:600px` 横向滚动），
+  **不是复刻失败**。
+
+### 六、风险状态（收尾轮实测同步；详见 `RISK_REGISTER.md`）
+
+| ID | 风险 | 收尾轮新状态 |
+|---|---|---|
+| **R-01** | 原站版权素材经 Git 历史持续暴露 | 🔴 **DEFERRED（维持）** —— 只读复核：风险未消除；隔离演练证明方案技术可行且不损坏项目，但与「不得移动已发布 Tag」的约束存在**待主人裁决**的冲突 |
+| **R-16** | Docker 容器与安装包未实跑 | 🟡 **部分项已实证通过，其余待重跑** —— 已通过：`ci.yml` Docker 构建与启动 ✅、`install-verify.yml` Linux 真实 Docker 安装（真跑 `install.sh`、权限 600、容器 healthy、管理员创建、数据持久化、重启后口令不变）✅、Windows 脚本校验 ✅、`docker-verify` [1/9] ✅ 与 [9/9] ✅（6 子断言全过）；**待重跑**：[2/9]~[8/9] |
+| **R-17** | Redis 故障恢复 / 缓存失效 / 内存观测未验证 | 🟡 **部分项已实证通过，其余待重跑** —— 已通过：`install-verify.yml` Linux 真实 Docker 安装（真实 compose 起 PG+Redis、容器 healthy、持久化与重启口令不变）✅；**待重跑**：`[R-17a/b/c]` 三项专项 |
+| **R-18** | 升级路径断点（`update.sh` 不更新镜像 tag） | 🟢 **已修并验证** —— `b0d68c2`；62 项自检断言全 PASS |
+| **R-19** | `release.yml` tag 白名单不含 `v0.0.4` | 🟡 **部分已修（维持）** —— 白名单**发布时人工加入**，不会自动加 |
+| **R-20** | 版本载体全部为 `0.0.3` | 🟢 **已裁决（维持）** —— 开发态保持 0.0.3，最终 SHA 固定后一次性同步 |
+| **R-21** | 四身份 UI 验收缺口（管理员无 `/admin` 入口等） | 🟠 **本轮处理中** —— UI 工程师补齐中，**待主理人确认后才可标 FIXED** |
+| **R-22** | 单测建库超时 | 🟢 **已定案并复验** —— 三次归因勘误后定案（crash recovery / I/O 积压态），稳态 `CREATE DATABASE` **2.0~2.3s**；`hookTimeout` 提到 120s；连续 4 轮全绿 |
+| **R-23** | 关注链路断言被静默跳过 | 🟢 **已修复并实跑通过** —— 修复前的 152 passed / 1 skipped 如实保留在证据文件，不回写历史 |
+| **R-24** | 关注功能无 UI 入口 | 🟠 **本轮处理中** —— UI 工程师补齐中，**待主理人确认后才可标 FIXED** |
+| **R-26** | CI 上单元测试红灯（`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过） | 🟠 **本轮修复中，待 CI 复验** —— 根因已定位并给出已实跑验证的修复方案；**未经 CI 复验不标 FIXED** |
+| **R-25** | 运行时上传数据被误提交入仓 | 🟡 **已缓解 —— 历史仍可达，与 R-01 同源** —— `.gitignore` + `git rm --cached` 已执行；18 个占位 PNG **仍在 Git 历史**，彻底消除需授权改写历史 |
+
+### 七、不包含（未实现，如实标注）
+
+- **容器级升级实跑** —— 升级脚本自检（62 项断言）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**。
+- **Docker 验证 1~8 项、Redis 故障注入** —— 取证通道已就绪，**本轮尚未实跑**。
+- **真实 SMTP 投递** —— 未配置，仅做静态核查。
+- **多浏览器 E2E（Firefox / Safari）** —— 本机仅 Chromium / Edge。
+- **原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照** —— 无权访问他人账号，不拿游客态冒充。
+- **四身份 UI 缺口（R-21 / R-24）** —— **本轮处理中，未闭环**。
+- **CI 单元测试红灯（R-26 / V4-17）** —— `tests/floor-continuity.spec.ts` 在 CI 崩溃，
+  5 条被跳过，`e2e` job 被连带跳过 ⇒ **153 条 E2E 在 CI 上从未跑过一条**。**本轮修复中，待 CI 复验**。
+- **R-25 的历史残留** —— 18 个公开占位 PNG **仍在 Git 历史里**（内容无害：无用户数据、无凭据），
+  彻底消除需**主人单独授权**改写历史。
+- **远端 Git 历史改写** —— 仅在隔离副本演练成功（`docs/HISTORY_CLEANUP_DRILL_v0.0.4.md`），
   状态 **DEFERRED，待主人单独授权**；仓库保持 Public。
 
 ---
@@ -183,6 +258,8 @@
 ### 测试
 
 - 单元测试 **185/185 全绿**（v0.0.2 基线 117 条全部保留 + 新增 68 条），零回归
+  —— ⚠️ **这是 v0.0.3 的历史总数**（master @ `37710fb4`，14 个 spec 文件）；
+  v0.0.4 的权威基线是 **190/190（15 文件）**，口径澄清见文首 `[Unreleased]` §5.1
 - 新增 5 个测试文件，覆盖正常流程/非法输入/越权/重复请求/并发/数据一致性
 - 真实 HTTP 端到端验证（真实 `next start` + 真实 PostgreSQL）：
   投票幂等、感谢自己的回复被拒、签到幂等、未登录 401、越权 403、

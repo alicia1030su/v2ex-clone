@@ -5,6 +5,18 @@
 > **v0.0.4 补充登记见文末「v0.0.4 新发现并修复的缺陷」小节**
 > 建表时间：2026-11-04
 > 维护者：代码审计负责人（主理人）
+>
+> ⚠️ **测试数字口径声明（v0.0.4 收尾轮）**：**v0.0.4 的权威基线是 190 条 / 15 个文件 /
+> 190 passed / 0 failed / 0 skipped**（本机连续 4 轮实测）。
+>
+> 本文中出现的 **185** 有**两个不同来源**，含义不同，不可混用：
+> ① **v0.0.3 历史总数**（CI run `41760677505`，master @ `37710fb4`，14 个 spec 文件，`185 passed (185)`）；
+> ② **当前分支 CI 上的通过数**（run `41837212170`，`185 passed | 5 skipped (190)` —— ⚠️ **分母仍是 190**，
+> 5 条因 `floor-continuity` 在 CI 崩溃而跳过，见 **V4-17**）。
+>
+> 无论哪种，**v0.0.4 的用例总数始终是 190**。口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节
+> 与 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1。
+> **历史条目不改写数字**，但在每处标注其来源。
 
 ## 状态图例
 
@@ -92,7 +104,7 @@
 | V3-10 | **幂等检查未规范化换行** —— CRLF/LF 差异误判「配置被覆盖」 | 同上 | `78a2573` | 本地连跑两次：长度 2515 → 2515，内容一致 | **VERIFIED** |
 | V3-11 | **PATHEXT 顺序 `.COM;.EXE;.BAT;.CMD`** —— Windows 上 `.EXE` 优先于 `.CMD`，假 docker shim 失效 | 同上 | `c654d2d` | 改用无扩展名 shim；`which docker` → `/d/a/_temp/inst/docker` | **VERIFIED** |
 | V3-12 | **shim 未处理 `docker inspect`** → 健康检查拿不到 healthy → install.sh 等待 120 秒超时 | 同上 | `d6bd278` | 本地实测 install.sh exit=0 完整跑通 | **VERIFIED** |
-| V3-13 | **5 个生产依赖完全未被引用**（jose/dompurify/bcryptjs/nanoid/zod）—— 白白扩大供应链攻击面 | `package.json` | `0b93eca` | 全仓库搜索 0 引用；移除后 tsc 0 错误、vitest **185/185** | **VERIFIED** |
+| V3-13 | **5 个生产依赖完全未被引用**（jose/dompurify/bcryptjs/nanoid/zod）—— 白白扩大供应链攻击面 | `package.json` | `0b93eca` | 全仓库搜索 0 引用；移除后 tsc 0 错误、vitest **185/185**（**v0.0.3 历史总数**，master @ `37710fb4`；v0.0.4 权威基线为 190/190） | **VERIFIED** |
 | V3-14 | **生产镜像整包 COPY node_modules**（530MB，含 devDeps 与 esbuild 0.18.20 漏洞版本） | `Dockerfile` | `19750b9` | `npm ci --omit=dev` 后 73 包 / 429MB；entrypoint 三个必需路径全部存在 | **VERIFIED** |
 | V3-15 | **`publish-release`/`verify-release` 无 dry_run 闸门** —— 勾选「仅验证」仍会真的发 Release | `.github/workflows/release.yml` | devops 修复 | 全链路语义核查：两个 job 均有 `if: needs.preflight.outputs.dry_run != 'true'` | **VERIFIED** |
 | V3-16 | **发布 tag 触发器为 `'v*'`** —— 任何能推 tag 的人可触发带写权限的流水线 | 同上 | devops 修复 | 触发器已为显式白名单 | **VERIFIED** |
@@ -102,7 +114,7 @@
 | V3-20 | **零 `@media` 断点** —— 375px 视口下 `.content` 的 `min-width:600px` 导致横向滚动，移动端不可用 | `src/app/globals.css` | `0313959` | 三视口几何量测；375 视口本地不再溢出 | **VERIFIED** |
 | V3-21 | **窄屏下 `#Rightbar` 浮动挤偏 `#Main`** —— 实测 Δx=100px | `src/app/globals.css` | `0313959` | 改用 flex `order` 后置；375 视口 Δy 从 928 降到 20 | **VERIFIED** |
 | V3-22 | **迁移脚本无幂等保护** —— `CREATE TYPE`/`ADD CONSTRAINT` 重跑即失败 | `drizzle/0001_striped_magdalene.sql` | `b4c0a12` | 连续应用 3 次全部 exit=0，26 表 / 38 约束 | **VERIFIED** |
-| V3-23 | **测试与 `@/db` 全局连接池库不一致** —— 服务层写 A 库、断言读 B 库，外键约束失败 | 5 个 v0.0.3 测试文件 | `0ae8c08` | 修正后 185/185 全绿 | **VERIFIED** |
+| V3-23 | **测试与 `@/db` 全局连接池库不一致** —— 服务层写 A 库、断言读 B 库，外键约束失败 | 5 个 v0.0.3 测试文件 | `0ae8c08` | 修正后 185/185 全绿（**v0.0.3 历史总数**，master @ `37710fb4`；v0.0.4 权威基线为 190/190） | **VERIFIED** |
 | V3-24 | **邮件脱敏断言与实现脱节** —— 实现改进后测试期望值过时 | `tests/password-reset.spec.ts` | `0ae8c08` | 断言改为验证「不泄漏原字符」这一性质 | **VERIFIED** |
 | V3-25 | **前端调用后端不存在的端点** —— `POST /api/notifications/read` 实际 404，通知「标记已读」功能失效 | `src/components/NotificationsList.tsx` | `9d766fa` | 改为 `POST /api/notifications`；已接入 CI 契约校验防回归 | **VERIFIED** |
 | V3-26 | **`.gitignore` 的 `logs/` 规则误伤源码目录** —— 匹配任意层级同名目录，`src/app/api/admin/logs/` 从未进入版本库，生产环境必然 404 | `.gitignore` + `src/app/api/admin/logs/route.ts` | `b30245b` | 改为 `/logs/` 并强制入库该端点；CI 干净 checkout 复验 72 路由 | **VERIFIED** |
@@ -166,6 +178,28 @@
 | V4-11 | 一般 | 视觉原站路径映射错误（`/go/go` 误当节点列表页；`/my/*` 实测 404） | `tools/visual/capture-multi.mjs` | 原站路径逐个探测 | 4 视口 × 17 页面重新采集，如实标注 `no-auth-reference` | **FIXED** |
 | V4-12 | 一般 | GHCR 可见性误判（首次 401 即判 private） | `docs/SECURITY_EXCEPTIONS.md` E-10、`.github/workflows/release.yml` | 完整 Bearer 协议复核 | 匿名换 token → 带 token 重试 v0.0.1/2/3 全部 HTTP 200 | **VERIFIED** |
 | V4-13 | 一般 | `RISK_REGISTER` R-09 整段错置（CSRF 风险实际从未评估） | `RISK_REGISTER.md` | 验收核查 D-03 | 三场景 curl 实测：无 cookie 403 / token 错 403 / 正常流程 201 | **VERIFIED** |
+
+### v0.0.4 第四轮（收尾轮）新发现的缺陷 —— 4 项
+
+> **发现轮次**：v0.0.4 收尾轮（2026-11-04，主理人实测 + CI 实跑取证）。
+> 这 3 项与上面的 V4-01~V4-13 **来源不同**：V4-01~13 来自真实浏览器 E2E / 真实压测，
+> 而本组 3 项来自**版本库卫生核查**与 **CI 工作流实跑**——
+> 即「验证基础设施本身出问题」，但同样会直接导致验收结论不可信，故一并登记。
+
+| ID | 级别 | 缺陷 | 位置 | 发现方式 | 修复 | 验证方式 | 状态 |
+|---|---|---|---|---|---|---|---|
+| **V4-14** | 严重 | **运行时上传数据被误提交入仓** —— E2E 跑出的 18 个头像占位 PNG（每个 684 字节）被 Git 跟踪，成为公开发布物的一部分。**风险性质与 R-01 同类**（运行时数据进入公开发布物） | `public/uploads/avatars/*`（18 个 `.png`） | 版本库卫生核查（`git log --numstat -- public/uploads/*`） | 提交 `49d66d3`：① `.gitignore` 增加 `public/uploads/` 规则（含背景说明注释）；② `git rm --cached` 把 18 个文件移出索引。**刻意不改写 Git 历史、不删除磁盘文件** | ① `git ls-files "public/uploads/*"` → **0 条**（已移出索引）<br>② `.gitignore` 含 `public/uploads/` 规则<br>③ 引入提交逐一定位：`04b107b`（16 个）、`1b15f79`（1 个）、`301a8a5`（1 个），合计 **18 个**唯一路径 | **VERIFIED** |
+| **V4-15** | 严重 | **`docker-verify.yml` 定义级失败** —— 工作流在**定义阶段**就失败，**一个 job 都没被创建**。症状：run 0 秒结束、`total_count=0`、报错仅一句「This run likely failed because of a workflow file issue」 | `.github/workflows/docker-verify.yml`（证据汇总步骤） | CI 实跑（run `41836244258`） | 提交 `2532f5f`：把三元判断从 GitHub 表达式上下文**下沉到 shell 层** —— `${{ job.status == 'success' && echo PASS \|\| echo '见日志' }}` → `$([ "${{ job.status }}" = 'success' ] && echo PASS \|\| echo FAIL)`；`${{ }}` 只用于传值 | ① 根因实测：GitHub Actions 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持，三元不支持）<br>② **陷阱**：YAML 本身能正常解析（python yaml 校验通过，1 job / 17 steps），问题只在表达式求值阶段 —— 这是排查耗时的主因<br>③ 全仓库复核：`ci.yml` / `install-verify.yml` / `release.yml` 其余表达式均为合法写法（`release.yml` 的 `${{ inputs.publish \|\| 'false' }}` 是 `\|\|` 取默认值，合法且历史跑通过）<br>④ 修复后 R-16 / R-17 的验证可正常进入 CI 真实取证 | **VERIFIED** |
+| **V4-16** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项报「✗ 镜像内缺少迁移文件: `_journal.json`」，而**同一步骤前面的 `ls` 输出已经证明它存在** | `.github/workflows/docker-verify.yml`（第 9 项 9e） | CI 实跑（run `41836588637`，第 9 项红灯） | 提交 `930f29e`：把 SQL 与 meta 元数据分成两段断言，各用正确路径 —— SQL 在 `/app/drizzle/` 根目录，`_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录 | ① 性质判定：**验证脚本自身的路径错误，不是产品缺陷**<br>② 修复后 meta 段同时断言 3 个 snapshot + `_journal.json`，**覆盖面反而更严**<br>③ 该 run 已实测通过第 9 项的 6 个子断言（详见 `docs/evidence/ci/docker-verify-v0.0.4.md` §2.5） | **VERIFIED** |
+
+| **V4-17** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元测试 `unit` job 红灯 → `e2e` job 被 `needs: unit` 连带跳过 → **整个 CI 红灯**，且 v0.0.4 的 153 条 E2E **在 CI 上从未跑过一条** | `tests/floor-continuity.spec.ts`（`baseDatabaseUrl()`） | CI 实跑（run `41837212170`，HEAD `930f29e`） | 🔧 **修复中（测试环境工程师负责）** —— 修复方向已实跑验证：去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断（`docs/evidence/ci/test-baseline-v0.0.4.md` §0.5，含在纯净 CI 检出 `/tmp/ci-sim` 上的双向验证：CI 条件与本地条件均 `5 passed`） | **根因**：① 硬编码 `readFileSync(path.join(repoRoot, '.env.test'))`，而 `.env.test` **被 `.gitignore` 排除** ⇒ **CI 检出里根本没有这个文件** ⇒ `ENOENT`；② 对 `process.env.DATABASE_URL` 有 `:55433/` 端口白名单，而 CI 的 `DATABASE_URL` 是 `localhost:5432` ⇒ **即使环境变量已注入也不会被采用**。两条路都走不通 ⇒ 崩溃。**实测输出**：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母 190 正确**，5 条因崩溃被跳过 | **本轮修复中，待 CI 复验** |
+
+> **V4-14 的残余说明（如实披露）**：18 个占位 PNG **仍然留在 Git 历史里**（`04b107b` / `1b15f79` / `301a8a5`）。
+> 本轮刻意**不改写历史** —— 改写远端历史属明令禁止的高风险不可逆操作，需主人单独授权（与 R-01 同类处置）。
+> 这些文件是 E2E 生成的**公开占位图**（无任何用户数据、无凭据），
+> 因此与 R-01 的「原站版权素材」性质不同：**不构成版权或凭据泄露**，
+> 但「运行时数据进入公开发布物」这一**风险性质**与 R-01 一致，故已登记为 R-25。
+> 彻底消除需授权改写历史。
 
 ### 测试基础设施缺陷（同样真实，影响结论可信度）
 

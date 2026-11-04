@@ -41,7 +41,7 @@
 | 一 · 功能真实性审计 | 53 项独立审计，38 VERIFIED / 14 PARTIAL / 1 MISSING | `FEATURE_AUDIT_v0.0.4.md` |
 | 二 · 用户验收 | 四身份真实浏览器点击流补齐（8 条），如实标注 UI 无入口的缺口 | `e2e/v004-four-roles-ui.spec.ts` |
 | 三 · 视觉还原 | 4 视口 × 17 页面 = 68 条，40 条完成对比、28 条如实标注无原站对照；三套几何口径可复算 | `VISUAL_DIFF_SUMMARY_v0.0.4.md` |
-| 四 · E2E | 新增 4 文件 + 四身份 UI；`playwright test --list` 实测 **153 条 / 11 文件** | `test-list-v0.0.4.txt` |
+| 四 · E2E | 新增 4 文件 + 四身份 UI；`playwright test --list` 实测 **153 条 / 11 文件**；全量实跑 **153 passed / 0 failed / 0 skipped，连续 2 轮全绿** | `test-list-v0.0.4.txt`、`e2e-full-run-v0.0.4.md` |
 | 五 · 负载测试 | 351 万行压测数据集、13 场景 / 24785 请求；发现并修复 3 个真实缺陷 + 3 项性能优化 | `METRICS_DEFINITION_v0.0.4.md` |
 | 六 · 升级/恢复 | 全新安装、原地升级、迁移幂等、备份恢复四项**实跑通过** | `UPGRADE_RECOVERY_v0.0.4.md` |
 | 七 · 发布工程 | GHCR Bearer 协议复核、Release Notes 动态化、口径纠错 | `RISK_REGISTER.md` / `release.yml` |
@@ -62,9 +62,13 @@
 ### 1.3 后续迭代（正式 Release 前必须）
 
 1. 带 Docker / Redis 的环境完成部署与故障恢复实跑（R-16 / R-17）
-2. `update.sh` 自动同步镜像 tag 并实跑验证（R-18）
-3. 管理员 `/admin` 入口与版主管理操作 UI 的产品决策（R-21）
+   —— 收尾轮进展：取证通道 `docker-verify.yml` 已就绪，**首轮实跑通过第 9 项的 6 个子断言**；1~8 项待重跑
+2. ~~`update.sh` 自动同步镜像 tag 并实跑验证（R-18）~~ —— ✅ **收尾轮已修并验证**（`b0d68c2`；自检 62 项断言全 PASS）；
+   ⚠️ 残余：**真实容器级升级**仍需带 Docker 的环境复跑
+3. 管理员 `/admin` 入口与版主管理操作 UI 的产品决策（R-21）—— 🟠 **本轮处理中**，待主理人确认
 4. 自动化视觉回归纳入 CI（FEATURE_AUDIT #53 仍 PARTIAL）
+5. **R-24** 关注功能 UI 入口 —— 🟠 **本轮处理中**，待主理人确认
+6. **R-25** 运行时上传数据的历史残留清理 —— 需授权改写 Git 历史
 
 ---
 
@@ -138,7 +142,7 @@ Redis（可选）          会话缓存 / 限流 / 计数；本轮未配置，�
 |---|---|---|---|
 | M1 功能审计（53 项） | — | ✅ | 完成 |
 | M2 视觉工具扩展 + 4 视口采集 | M1 | ✅ | 完成（含路径映射纠错） |
-| M3 真实缺陷修复 + 77 条 E2E | M1 | ✅ **关键路径** | 完成，144 条全绿 |
+| M3 真实缺陷修复 + 77 条 E2E | M1 | ✅ **关键路径** | 完成，**153 条全绿**（v0.0.4 权威口径；「144」为更早时点，见 §7 口径说明） |
 | M4 压测数据集（351 万行） | — | ✅ 并行 | 完成，3m4s |
 | M5 真实压测 → 3 缺陷 + 3 优化 | M3, M4 | ✅ **关键路径** | 完成 |
 | M6 升级/恢复 + 发布流程 | M5 | ✅ 并行 | 完成（数据库四项实跑，容器静态核查） |
@@ -168,22 +172,31 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 
 | 层级 | 口径 | 证据 |
 |---|---|---|
-| 单元 / 集成 | `vitest list` 静态 180 条；`npx vitest run` 运行时 190 条（含动态展开） | `docs/evidence/e2e/vitest-list-v0.0.4.txt` |
-| 真实浏览器 E2E | `playwright test --list` = **153 条 / 11 文件**（原有 67 + v004 四文件 78 + 四身份 UI 8） | `test-list-v0.0.4.txt` + `TEST_COUNT_DEFINITION_v0.0.4.md` |
-| 视觉 | 4 视口 × 17 页面 = 68 条；40 对比 / 28 无对照；严格口径 Δx=0 52/52 | `geometry-summary.json` |
+| 单元 / 集成 | **190 条 / 15 个文件**（190 passed / 0 failed / 0 skipped，**连续 4 轮全绿**，每轮约 170~210 秒）。⚠️ 静态 grep 得出 180（嵌套 for 循环生成用例），**口径必须取运行时 `numTotalTests`** | `docs/evidence/ci/test-baseline-v0.0.4.md` |
+| 单元 / 集成（**CI 现状**） | 🔴 **CI 红灯** —— run `41837212170`：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`。**分母 190 正确**，5 条因 `floor-continuity` 崩溃而跳过 ⇒ `unit` job 红 ⇒ **`e2e` job 被连带跳过**（**153 条 E2E 在 CI 上从未跑过一条**）。**本轮修复中，待 CI 复验** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
+| 真实浏览器 E2E | **153 条 / 11 个文件**（153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮）；`--list` 分解 = 原有 67 + v004 四文件 78 + 四身份 UI 8 | `e2e-full-run-v0.0.4.md` + `test-list-v0.0.4.txt` + `TEST_COUNT_DEFINITION_v0.0.4.md` |
+| 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker） | `bash scripts/release/verify-update-script.sh` |
+| 视觉 | 4 视口 × 17 页面 = 68 条；**40 对比 / 28 无对照**；严格口径 Δx=0 52/52（⚠️ 只覆盖几何位置，六类区分未全部闭环） | `geometry-summary.json` |
 | 性能 | 13 场景 / 24785 请求 / 并发 10 / **0 个 5xx** | `bench-result.json` + `METRICS_DEFINITION_v0.0.4.md` |
 | 升级/恢复 | 4 项实跑通过 + 容器项静态核查 | `UPGRADE_RECOVERY_v0.0.4.md` |
 | Go / No-Go | 完整判定表、缺陷分级、遗留阻断项 | `ACCEPTANCE_CHECKLIST_v0.0.4.md` |
 
-**本轮全量实跑结果**：
-- E2E（最终权威）：**153 passed / 0 skipped / 0 failed（10.0m，exit=0）** ——
+**本轮全量实跑结果（收尾轮定案）**：
+- E2E（最终权威）：**153 passed / 0 failed / 0 skipped（4.5m/轮，exit=0）**，**连续 2 轮全绿** ——
   证据 `docs/evidence/e2e/e2e-full-run-v0.0.4.md`。`--list` 枚举 153 条与运行时一致。
   修复前一轮为 152 passed / 1 skipped（关注用例静默跳过 = R-23，已修并补齐三条断言）；
   两轮结果均如实保留，不回写历史。
-- 单元：`hookTimeout` 提到 120s 后仍在复验（本机建库极慢，单文件可达 59s）；
-  本报告不预先声明全绿，最终结论以复验输出为准。
+  ⚠️ `v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动 ⇒ **正式发布前须重新 `--list` 固定口径**。
+- 单元（最终权威）：**190 passed / 0 failed / 0 skipped（15 个文件）**，**连续 4 轮全绿**（每轮约 170~210 秒）——
+  证据 `docs/evidence/ci/test-baseline-v0.0.4.md`。
+  ⚠️ **「185」有两个不同来源**：**v0.0.3 历史总数**（master @ `37710fb4`，14 文件）与
+  **当前分支 CI 的通过数**（run `41837212170`，`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。
+  **无论哪种，v0.0.4 的用例总数始终是 190，权威值为 190。**
+  `numPendingTests: 0` 证明**没有任何用例被静默跳过**（比「全绿」更强的结论）。
+- 升级脚本自检：**62 项断言全 PASS / 0 FAIL**。
 - R-21（管理员无 `/admin` 入口）与 R-24（关注无 UI 入口）是**产品缺口**，
   不是测试失败；相关用例已如实标注为「UI 缺口实证 / API 层」。
+  🟠 **本轮由 UI 工程师处理中，未闭环** —— 待主理人确认后才可标 FIXED。
 
 ---
 
@@ -191,18 +204,19 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 
 | 风险 | 概率 | 影响 | 应对 | 状态 |
 |---|---|---|---|---|
-| R-01 原站版权素材经 Git 历史持续暴露 | 高 | 高 | 隔离演练已验证清理可行且不损坏项目；远端改写需主人单独授权 | **DEFERRED** |
-| R-16 Docker 容器与安装包未实跑 | 高 | 大 | 正式 Release 前必须在带 Docker 的 CI/机器完成部署与安装包验证 | DEFERRED |
-| R-17 Redis 故障恢复未验证 | 中 | 中 | 需带 Redis 环境注入故障并观测 | DEFERRED |
-| R-18 升级路径断点（`update.sh` 不更新镜像 tag） | 高 | 大 | `deploy/INSTALL.md` §8 已补手工步骤；自动同步代码因无 Docker 刻意不改 | 文档已补 / 代码待实跑 |
-| R-21 管理员 `/admin` 无导航入口、版主管理 UI 缺失 | 高 | 中 | 需产品决策「补 UI」或「明确仅 API + 文档说明」；**不得把 API 断言当 UI 验收** | OPEN |
-| R-22 单测 `beforeAll` 建库超时（本机 CREATE DATABASE 38.6s） | 高 | 中 | `hookTimeout` 提到 120s；CI 独立 PG service 不受影响 | 已修，复验中 |
+| R-01 原站版权素材经 Git 历史持续暴露 | 高 | 高 | 隔离演练已验证清理可行且不损坏项目；远端改写需主人单独授权 | **DEFERRED（维持）** —— 收尾轮只读复核：风险未消除；演练改动了 3 个已发布 Tag 的 SHA，与「不得移动已发布 Tag」冲突，**待主人裁决** |
+| R-16 Docker 容器与安装包未实跑 | 高 | 大 | 取证通道已就绪；**已实证通过**：`ci.yml` Docker 构建与启动 ✅、`install-verify.yml` Linux 真实 Docker 安装（真跑 `install.sh`、`.env`/凭据权限 600、容器 healthy、管理员创建、数据持久化、重启后口令不变）✅、Windows 脚本校验 ✅、`docker-verify` [1/9] ✅ 与 [9/9] ✅ | 🟡 **部分项已实证通过，其余待重跑** —— [2/9]~[8/9] 待重跑 |
+| R-17 Redis 故障恢复未验证 | 中 | 中 | **已实证通过**：真实 Docker compose 起 PG+Redis、容器 healthy、持久化与重启口令不变（`install-verify.yml` Linux job ✅）；`[R-17a/b/c]` 三个专项子任务已实装于 `docker-verify.yml` | 🟡 **部分项已实证通过，其余待重跑** —— R-17a/b/c 待重跑 |
+| R-18 升级路径断点（`update.sh` 不更新镜像 tag） | 高 | 大 | `b0d68c2` 重写 `update.sh`（自动同步 tag + 失败回滚）；`verify-update-script.sh` **62 项断言全 PASS** | 🟢 **已修并验证** —— 真实容器级升级待复跑 |
+| R-21 管理员 `/admin` 无导航入口、版主管理 UI 缺失 | 高 | 中 | 需产品决策「补 UI」或「明确仅 API + 文档说明」；**不得把 API 断言当 UI 验收** | 🟠 **本轮处理中** —— 待主理人确认 |
+| R-22 单测 `beforeAll` 建库超时 | 高 | 中 | 三次归因勘误后定案（crash recovery / I/O 积压态）；稳态 `CREATE DATABASE` **2.0~2.3s**；`hookTimeout` 提到 120s | 🟢 **已定案并复验** —— 连续 4 轮全绿 |
 | 以不可复核的几何数字作放行依据 | — | — | D-01 已闭环：脚本入仓 + 机器证据 + 三套口径 | 已闭环 |
 | 版本载体与交付物不符 | — | — | 显式裁决 + `[Unreleased]` 段落 + 双模式门禁 | 已闭环 |
 | R-23 关注链路 E2E 被条件跳过 | 高 | 中 | **已修复**：确定性目标 id + 三条断言补齐，单条实跑 1 passed | 已闭环 |
-| R-24 关注功能无 UI 入口（全仓无关注按钮组件） | 高 | 中 | 用例标注「API 层，UI 无入口」；需产品决策补 UI 或文档说明 | OPEN |
+| R-24 关注功能无 UI 入口（全仓无关注按钮组件） | 高 | 中 | 用例标注「API 层，UI 无入口」；需产品决策补 UI 或文档说明 | 🟠 **本轮处理中** —— 待主理人确认 |
+| R-25 运行时上传数据被误提交入仓（18 个占位 PNG） | 中 | 小～中 | `49d66d3`：`.gitignore` 加 `public/uploads/` + `git rm --cached`（**不改写历史、不删磁盘文件**）；`git ls-files` → 0 条 | 🟡 **已缓解 —— 历史仍可达，与 R-01 同源** —— 18 个占位 PNG 仍在 Git 历史；内容无害（无用户数据、无凭据） |
 
-完整 22 条风险见 `RISK_REGISTER.md`。
+完整 25 条风险见 `RISK_REGISTER.md`。
 
 ---
 
@@ -214,8 +228,8 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 | 2 | 「固定 SHA”与「改版本必然改 SHA」矛盾 | devops §5.3 提出执行矛盾 | **采纳其澄清**：代码内版本载体并入形成最终 SHA 的版本同步提交；发布产物标识（Tag / Draft / 镜像 tag / 包名）在 SHA 固定后同步 | 原裁决措辞不可执行；拆分后既不违背意图又真正可落地 |
 | 3 | 几何「52 条」能否作放行依据 | QA D-01：不可复核，不得作为依据 | **已闭环，可用** | 脚本入仓 + 机器证据；三套口径（严格 52/52、历史 64/84、v0.0.3 96.9%）全部可复算。**否决「直接沿用 52/100% 而不给脚本」** |
 | 4 | 144 / 152 / 153 哪个是 E2E 用例数 | QA：153（含新增 DOM 实证） | **以 `--list` 实测 153 条为准** | `--list` 是运行时展开的权威口径；静态 `test(` 声明与历史描述均不作验收数字 |
-| 5 | 是否可以进入 Draft | devops：建议停在 Draft；QA：有条件可以 | **可以有条件进入 Draft，但不得公开发布** | 功能与安全条件已满足；R-01 维持 DEFERRED、R-16/17/18/21 作为 Draft Notes 已知限制披露 |
-| 6 | 单测 4 文件失败的根因 | 我：并行 PG 负载；QA：`.env.local → 5432` | **两者均错，实测推翻**：`CREATE DATABASE` 38.6s > `hookTimeout` 30s | `ENV_FILE` override 后仍超时、单独跑同样超时、无锁等待。**否决两个错误归因**，改为提高 hookTimeout |
+| 5 | 是否可以进入 Draft | devops：建议停在 Draft；QA：有条件可以 | **可以有条件进入 Draft，但不得公开发布** | 功能与安全条件已满足；R-01 维持 DEFERRED、R-16/17/21/24 作为 Draft Notes 已知限制披露（R-18 已修并验证） |
+| 6 | 单测 4 文件失败的根因 | 我：并行 PG 负载；QA：`.env.local → 5432` | **两者均错，实测推翻**（经**三次归因勘误**）：本机建库慢且处于 crash recovery / I/O 积压态；稳态实测 `CREATE DATABASE` **2.0~2.3s**（2277/1978/2243 ms） | `ENV_FILE` override 后仍超时、单独跑同样超时、无锁等待。**否决两个错误归因**，改为提高 hookTimeout 并复验（连续 4 轮全绿） |
 | 7 | GHCR 镜像是否 private | v0.0.3 E-10：private | **公开可拉取（完整 Bearer 协议实测 HTTP 200）** | 首次 401 只表示需要认证，公开包同样返回；三步协议后 v0.0.1/2/3 全部 200。**否决「首次 401 即判 private」** |
 | 8 | 搜索用 B-tree 还是 trigram | 原实现 B-tree 无效 | **pg_trgm GIN** | `ILIKE '%x%'` 前导通配符 B-tree 无法定位（803ms 全表扫描）；trigram 后 0.064ms。否决外部 ES（对 10 万主题过重） |
 | 9 | 排行榜是否用相关子查询 | 原实现 | **三个独立 CTE 聚合 + JOIN** | EXPLAIN 241.98s / loops=9997；改写后 0.74s。否决「加索引但保留相关子查询」 |
