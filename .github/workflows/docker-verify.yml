@@ -423,6 +423,41 @@ jobs:
           # 上一步已停掉根 compose 容器（端口与容器名均已释放），不存在冲突；
           # 安装容器随后也会被 down 掉，根 compose 再恢复到 3000，全程串行无冲突。
 
+          # ⚠️ 清空本 job 的 env 覆盖（2026-11-05 修复，真实 CI 抓到的）：
+          #
+          #   事故现场（run 41868374546，SHA 827eef7）：
+          #     安装模拟全程「成功」——install.sh 跑完、口令长度 32/32/48/16、
+          #     INSTALL_CREDENTIALS.txt 600、app health=healthy——
+          #     但最后一步 psql 报：
+          #       FATAL: database "v2ex" does not exist
+          #
+          #   根因：Docker Compose 的变量插值优先级是
+          #       **shell 环境变量 > --env-file / .env 文件**
+          #   本工作流 job 级 env（第 56-72 行，为根 compose 栈准备）含有
+          #   POSTGRES_DB=v2ex_dv 等一整套变量。install.sh 第 347 行执行的是
+          #   裸 `docker compose up -d`（无 --env-file，靠当前目录 .env 插值），
+          #   于是安装栈实际拿到的是**工作流的占位凭据**：
+          #     · postgres 容器 POSTGRES_DB=v2ex_dv → initdb 建出 v2ex_dv
+          #       （pg_isready 不校验库是否存在，healthcheck 照样 Healthy）
+          #     · app 容器 DATABASE_URL=.../v2ex_dv（第 93 行同一插值来源）
+          #       → 与 postgres 内部自洽，迁移/seed/首页全部正常 → healthy
+          #     · 但本 step 末尾硬编码的 `psql -d v2ex` 必然 FATAL
+          #   比红灯更危险的是：整个「安装模拟」被悄悄降级——
+          #   验的不再是 install.sh 生成的随机口令，而是工作流的占位口令，
+          #   INSTALL_CREDENTIALS.txt 里的口令与库里 seed 的实际口令并不一致。
+          #   install-verify.yml 没有这组 job 级 env，所以它一直是真绿的。
+          #
+          #   处置：跑 install.sh 前把这些变量从 shell 里 unset，
+          #   让 compose 插值完全回落到 /tmp/inst/.env（真实首装产物）。
+          #   作用域说明：每个 run: step 都是独立 shell，job 级 env 会被
+          #   重新注入，unset 只影响本 step；本 step 末尾恢复根 compose 用
+          #   `--env-file .env.dv`，其中已含全部 11 个所需键，不依赖 shell env。
+          unset POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB \
+                REDIS_PASSWORD SESSION_SECRET \
+                SEED_ADMIN_USERNAME SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD \
+                APP_PORT APP_URL NEXT_PUBLIC_APP_URL \
+                APP_RUNTIME_ENV TEST_ENV_ISOLATED
+
           echo "===== 用本地构建镜像跑 install.sh（真实 Docker）====="
           # V2EX_IMAGE=v2ex-clone:dv → 指向**本工作流本地构建**的镜像。
           # install.sh 会先尝试 `docker compose pull`；该 tag 只存在于本地，
@@ -466,8 +501,16 @@ jobs:
           done
           echo "  app health = ${H}"
           [ "$H" = "healthy" ] || { docker compose --env-file .env logs --tail 100; exit 1; }
-          CNT=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c \
-            "select count(*) from users where username='admin' and role='admin';")
+          # 库名 / 用户 / 管理员名从 install.sh 生成的 .env 里读取，**不再硬编码** ——
+          # 硬编码 v2ex 正是上一轮红灯的直接原因（插值被 shell env 覆盖成
+          # v2ex_dv，见上面的 unset 注释块）。改为读安装产物本身，
+          # 检查口径与真实安装结果自动保持一致。
+          PG_USER=$(grep -E '^POSTGRES_USER=' .env | cut -d= -f2-)
+          PG_DB=$(grep -E '^POSTGRES_DB=' .env | cut -d= -f2-)
+          ADMIN_USER=$(grep -E '^SEED_ADMIN_USERNAME=' .env | cut -d= -f2-)
+          echo "  安装产物口径：POSTGRES_USER=${PG_USER} POSTGRES_DB=${PG_DB} SEED_ADMIN_USERNAME=${ADMIN_USER}"
+          CNT=$(docker compose --env-file .env exec -T postgres psql -U "$PG_USER" -d "$PG_DB" -t -A -c \
+            "select count(*) from users where username='${ADMIN_USER}' and role='admin';")
           echo "  管理员账号数 = ${CNT}"
           [ "$CNT" = "1" ] || { echo "  ✗ 管理员未创建"; exit 1; }
 
