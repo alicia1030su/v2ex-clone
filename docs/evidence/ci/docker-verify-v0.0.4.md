@@ -286,14 +286,30 @@ $ bash scripts/release/preflight.sh --phase=dev
 两个不在其范围内的项（远端状态、容器运行时）已分别由本文档 §`ci-status-v0.0.4.md`
 和 `docker-verify.yml` 覆盖。
 
-> ⚠️ **preflight 第 285 行有一处硬编码需要修正**：
+> ✅ **preflight 的「单元基线 185 条」硬编码 —— 已由部署工程师修复**（`scripts/release/preflight.sh` 第 293–310 行）。
+>
+> **修复方式**（比我建议的「改成 190」更根治）：**动态统计文件数 + 明确标注条数口径来源**。
+>
+> ```bash
+> UNIT_SPEC_FILES="$(find tests -maxdepth 1 -name '*.spec.ts' | wc -l)"   # → 15
+> E2E_SPEC_FILES="$(find e2e   -maxdepth 1 -name '*.spec.ts' | wc -l)"   # → 11
 > ```
->   note "  单元基线 185 条 / E2E 以 playwright test --list 实测 153 条 / 11 文件为准"
+>
+> 实测输出：
 > ```
-> 这里的 **185** 是 **master（v0.0.3）** 的数字。当前分支已新增
-> `tests/floor-continuity.spec.ts`（5 条），实际为 **15 文件 / 190 条**。
-> 该行属于 `scripts/release/preflight.sh` —— 按文件所有权归属**部署工程师**，
-> 我**未修改**它，在此记录为待其处理的文档一致性问题。
+> 单元测试用例文件数：15 个（用例条数以 docs/evidence/ci/test-baseline-v0.0.4.md 的 vitest JSON reporter 实测为准）
+> E2E 用例文件数：11 个（用例条数以 playwright test --list 实测为准）
+> 历史基线参考：v0.0.3 为 185 条 / 14 文件（master @ 37710fb4）；当前实测 190 条 / 15 文件
+> ```
+>
+> **为什么只给文件数、不在 preflight 里给条数** —— 这个判断是对的：
+> preflight 是**只读发布前检查**，它自己的硬性约束就是「不跑测试」；
+> 而跑一次 vitest 要 **4m51s** 且必须连库，放进发布闸门不合适。
+> 加上**条数的唯一可靠来源是运行时的 `numTotalTests`**（静态 grep `it(` 得 180 ≠ 190）——
+> 所以「文件数」静态可确定（preflight 直接动态数），「条数」需运行时（指向本目录的 JSON reporter 实测）。
+>
+> **结果**：以后加测试文件，preflight 的数字**自动跟着变**，不会再过时。
+> 部署工程师已独立复跑验证（`numTotalTests = 190`，4m51s，exit=0），与我的结论一致。
 > （`preflight.sh` 与 `verify-update-script.sh` 归 `software-engineer-deploy`，非我所有。）
 
 ### 3.3 Dockerfile 生产依赖闭包复核（🟡 静态源码审阅）
