@@ -11,7 +11,7 @@ import { csrfFetch } from '@/components/CsrfProvider';
  *   → { ok, total, unread, notifications: [{ id, type, actorId, topicId, replyId, message, read, createdAt }] }
  *
  * 写操作：
- *   - POST   /api/notifications/read  body { id? }   —— 给 id 标记单条，不给则全部已读
+ *   - POST   /api/notifications       body { id? }   —— 给 id 标记单条，不给则全部已读
  *   - DELETE /api/notifications       body { id? }   —— 给 id 删单条，不给则清空自己的全部
  *
  * 交互约定：
@@ -124,7 +124,7 @@ export default function NotificationsList() {
     setPending(`read-${id}`);
     setMsg(null);
     try {
-      const res = await csrfFetch('/api/notifications/read', {
+      const res = await csrfFetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
@@ -155,7 +155,7 @@ export default function NotificationsList() {
     setPending('read-all');
     setMsg(null);
     try {
-      const res = await csrfFetch('/api/notifications/read', {
+      const res = await csrfFetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
