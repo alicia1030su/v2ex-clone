@@ -7,7 +7,7 @@
 > | 项 | v0.0.4 实测 | 证据 |
 > |---|---|---|
 > | 单元测试 | 185 条（`vitest.config.ts` 已设 `fileParallelism: false`） | `npx vitest run` |
-> | 真实浏览器 E2E | `playwright test --list` 实测 **153 条 / 11 文件**（原有 67 + v004 四文件 78 + 四身份 UI 8）；第四阶段收尾时 144 条全绿已实跑，新增 7 条本轮复验中，**全量 153 条最终结论以本轮复验输出为准，不预先声明** | `e2e/v004-*.spec.ts` 四文件 + 原有 6 文件 |
+> | 真实浏览器 E2E | `playwright test --list` 实测 **153 条 / 11 文件**；本轮全量实跑 **152 passed / 1 skipped / 0 failed（14.1m）**。1 条跳过为「关注列表」用例的条件跳过（设置页未匹配到 `@用户名`），是**真实覆盖缺口 R-23**，不是通过 | `docs/evidence/e2e/e2e-full-run-v0.0.4.md` |
 > | 视觉对照 | 4 视口 × 17 页面 = 68 条；40 对比 / 28 无对照；严格口径桌面 Δx=0 **52/52** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md`、`docs/evidence/visual/geometry-summary.json` |
 > | 负载测试 | **已执行**：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求、13 场景 | `scripts/loadtest/README.md`、`tools/loadtest/bench.mjs`、`docs/evidence/loadtest/bench-result.json` |
 > | 升级/恢复验证 | 见 `docs/UPGRADE_RECOVERY_v0.0.4.md` | 第六阶段 |

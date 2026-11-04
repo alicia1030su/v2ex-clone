@@ -188,7 +188,16 @@ test.describe('v0.0.4 关注', () => {
     await clearRateLimits(page);
   });
 
-  test('关注：关注后出现在关注列表，取消后移除，重复关注幂等', async ({ page, browser }) => {
+  test('关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层，UI 无入口）', async ({ page, browser }) => {
+    // ⚠️ v0.0.4 修复 R-23：原实现从 /settings 页 body 文本用
+    // `/@([a-z0-9_]+)/i` 猜目标用户名，匹配不到就 test.skip ——
+    // 导致本用例在全量 E2E 里被静默跳过，「关注出现 / 取消移除 / 重复幂等」
+    // 三条断言**实际上从未执行**（原实现只断言了 following 是数组）。
+    //
+    // 现在用**确定性的目标 id**：B 登录后从 /api/users/me 读取自己的 id。
+    // 全仓 src/ 下没有任何关注按钮组件（个人主页无关注 UI 入口），
+    // 因此本用例明确标注为 **API 层验收**，不冒充真实浏览器 UI 点击流；
+    // UI 缺口已登记 docs/ACCEPTANCE_CHECKLIST_v0.0.4.md 与 RISK_REGISTER R-24。
     const a = uniqueName('fa');
     await register(page, a, 'V004Test-2026!');
     await clearRateLimits(page);
@@ -200,34 +209,42 @@ test.describe('v0.0.4 关注', () => {
     await register(pageB, b, 'V004Test-2026!');
     await clearRateLimits(pageB);
 
-    // 从 B 的主页找到 A 要关注的目标 —— 直接用 API 按用户名查
-    const listRes = await page.request.get('/api/users/follows');
-    expect(listRes.ok()).toBe(true);
+    const meRes = await pageB.request.get('/api/users/me');
+    expect(meRes.ok()).toBe(true);
+    const me = await meRes.json();
+    const bId = Number(me?.user?.id ?? me?.id);
+    expect(Number.isInteger(bId) && bId > 0).toBe(true);
 
-    // B 有一个 id：从个人主页链接取
-    await pageB.goto('/settings');
-    const bodyText = await pageB.locator('body').innerText();
-    const m = bodyText.match(/@([a-z0-9_]+)/i);
-    if (!m) {
-      await pageB.close();
-      test.skip(true, '无法确定目标用户名');
-      return;
-    }
-    const targetName = m[1];
+    const followingNames = async (): Promise<string[]> => {
+      const r = await page.request.get('/api/users/follows');
+      expect(r.ok()).toBe(true);
+      const d = await r.json();
+      expect(Array.isArray(d?.following)).toBe(true);
+      return (d.following as Array<{ username: string }>).map((x) => x.username);
+    };
 
-    // A 搜索并访问目标主页
-    await page.goto(`/member/${targetName}`);
-    const followBtn = page.getByRole('button', { name: /关注/ }).first();
-    if (await followBtn.count()) {
-      await followBtn.click();
-      await page.waitForTimeout(1000);
+    // ① 关注后出现在列表
+    const first = await apiPost(page, '/api/users/follows', { userId: bId });
+    expect(first.ok()).toBe(true);
+    expect((await first.json())?.alreadyFollowed).toBe(false);
+    expect(await followingNames()).toContain(b);
 
-      const res = await page.request.get('/api/users/follows');
-      const data = await res.json();
-      expect(Array.isArray(data?.following ?? [])).toBe(true);
-    }
+    // ② 重复关注幂等（不产生第二条记录、返回 alreadyFollowed=true）
+    const again = await apiPost(page, '/api/users/follows', { userId: bId });
+    expect(again.ok()).toBe(true);
+    expect((await again.json())?.alreadyFollowed).toBe(true);
+    expect((await followingNames()).filter((n) => n === b)).toHaveLength(1);
 
-    await pageB.close();
+    // ③ 取消关注后从列表移除
+    const del = await page.request.delete('/api/users/follows', {
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getCsrfToken(page) },
+      data: { userId: bId },
+    });
+    expect(del.ok()).toBe(true);
+    expect((await del.json())?.removed).toBe(true);
+    expect(await followingNames()).not.toContain(b);
+
+    await ctxB.close();
   });
 });
 
