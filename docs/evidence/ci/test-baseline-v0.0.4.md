@@ -229,43 +229,80 @@ checkout **有完整 `.git`**，不会失败。**已排除。**
 > 如果只看「148 passed」，会误以为通过；实际是 `1 failed + 5 skipped`。
 > **核对 CI 时必须看 `Test Files` 行，不能只看 `Tests` 行。**
 
-### 0.5 候选修复方案 —— **已实跑验证通过**（供架构师 T01/T03 直接采纳）
+### 0.5 修复方案 —— ⚠️ **我原方案已被证伪并撤回，以 T01 统一封装为准**
 
-修复思路：**去掉 `:55433/` 硬编码门 + `.env.test` 读取前先判断文件存在**。
-这同时满足两条要求：**CI 用环境变量**、**本地仍可用 `.env.test` 兜底**。
+> ## 🔴 重要更正（2026-11-04 21:45，架构师实测后我复核确认）
+>
+> **我原先给出的补丁有安全缺陷，不能单独打。**
+> 架构师独立实测发现了一个我**未覆盖**的情形 ——
+> **「本地默认路径（不设 `ENV_FILE`）」**。我已用脚本复刻并**完全证实**：
+>
+> ```
+> 【本地默认路径（不设 ENV_FILE）】
+>   setup.ts 解析出 DATABASE_URL = postgres://v2ex:***@127.0.0.1:5432/v2ex     ← .env.local 的开发库
+>   修复前 (现状 55433 硬门)  -> (falls through to .env.test)          ✅ 隔离实例
+>   修复后 (我原方案)          -> postgres://v2ex:***@127.0.0.1:5432/v2ex  ❌ 开发库！
+> ```
+>
+> **原因**：我原方案第一步是 `if (injected) return injected`（无条件）。
+> 而不设 `ENV_FILE` 时，`tests/setup.ts` 会加载 `.env.local` → `DATABASE_URL` = **5432 开发库**
+> → `injected` 非空 → **直接返回开发库**。
+>
+> **我原方案的两个验证场景都设了 `ENV_FILE`，走的是同一个分支但值是对的，所以没暴露这个情形。**
+>
+> **危险程度**：`floor-continuity.spec.ts` 的 `beforeAll`（L107-108）会拿这个 URL 去
+> `DROP DATABASE IF EXISTS v2ex_floorcont_v004` + `CREATE DATABASE v2ex_floorcont_v004`，
+> 其中 admin URL 是 `<resolved URL>` 把 pathname 换成 `/postgres`
+> → **DROP/CREATE 会执行在 5432 开发实例上**。
+>
+> ⚠️ 本机 5432 无监听（`ECONNREFUSED`），所以**本机没有造成实际损坏**；
+> 但在**开发机上 5432 是活的**，那就是真的在开发库实例上建库。
 
-```ts
-// tests/floor-continuity.spec.ts
-import { existsSync, readFileSync } from 'node:fs';
+#### ✅ 正确处置：**不打单文件补丁，统一走 T01 的 `tests/helpers/test-env.ts`**
 
-function baseDatabaseUrl(): string {
-  const injected = process.env.DATABASE_URL;
-  if (injected) return injected;                       // ← 优先用环境变量（CI 走这条）
+架构师的处置是正确的，我完全认同并已复核 testenv 的实现：
 
-  const testFilePath = path.join(repoRoot, '.env.test');
-  if (existsSync(testFilePath)) {                      // ← 本地兜底前先判存在
-    const fromTestFile = parseEnvFile(readFileSync(testFilePath, 'utf8')).DATABASE_URL;
-    if (fromTestFile) return fromTestFile;
-  }
+- ✅ `tests/helpers/test-env.ts` 已实现**正确的优先级链**：
+  `shell (process.env) > ENV_FILE > .env.test > .env.local`
+- ✅ 且 `ENV_FILE` 改为**只填充未设置的变量**（不再 `override: true`）→ shell 永远赢
+- ✅ 且带 `assertNotDevInstance()` 护栏：**若解析结果来自文件（非 shell）且指向 `.env.local` 的开发端点，
+  直接抛错中止**（CI 例外：`process.env.CI` 时跳过，因为 CI 没有 `.env.local` 且来源是 shell）
+- ✅ 且错误信息明确指出「绝不允许在开发库上执行 DROP DATABASE / CREATE DATABASE」
 
-  throw new Error('无法解析隔离测试实例的 DATABASE_URL（环境变量与 .env.test 均缺失）');
-}
+**实测情形 D（T01 先落地 + 我的修复）**：
+```
+  setup.ts 解析出 DATABASE_URL = postgres://v2ex:***@127.0.0.1:55433/v2ex_e2e
+  -> 隔离实例  ✅
 ```
 
-**验证结果（在纯净 CI 检出 `/tmp/ci-sim` 上实跑，不是纸面推演）**：
+> ### 📌 给实现者的最终口径
+>
+> **不要**给 `tests/floor-continuity.spec.ts` 单独打任何形式的 `existsSync` 补丁。
+> **不要**用「无条件 `if (injected) return injected`」这种「优先环境变量」的写法 ——
+> 它在 `.env.local` 存在且未设 `ENV_FILE` 时会把**开发库**当成测试库。
+>
+> **正确做法**：统一走 `tests/helpers/test-env.ts` 的 `getResolvedTestEnv()` /
+> `testDatabaseUrl(db)`，由护栏保证「指向开发库端点」时立即抛错。
+> **单一真源，不给单个文件开特例。**
 
-| 场景 | 修复前 | 修复后 |
+#### 附：我原方案的验证记录（保留作为「为什么不能单独打」的证据）
+
+在纯净 CI 检出 `/tmp/ci-sim` 上实跑：
+
+| 场景 | 修复前 | 我原方案（**有缺陷**） |
 |---|---|---|
-| **CI 条件**（`DATABASE_URL` 不含 `:55433/`、无 `.env.test`） | 🔴 `ENOENT .env.test` → `1 failed + 5 skipped` | ✅ **`1 passed (1)` / `5 passed (5)`** |
-| **本地条件**（`.env.test` 存在） | ✅ 5 passed | ✅ **`1 passed (1)` / `5 passed (5)`**（无回归） |
+| **CI 条件**（`DATABASE_URL` 不含 `:55433/`、无 `.env.test`） | 🔴 `ENOENT .env.test` → `1 failed + 5 skipped` | ✅ `1 passed (1)` / `5 passed (5)` |
+| **本地 + `ENV_FILE=.env.test`** | ✅ 5 passed | ✅ `5 passed (5)`（无回归） |
+| ⚠️ **本地默认路径（不设 `ENV_FILE`）** | ✅ 落到 `.env.test`（隔离） | 🔴 **返回 5432 开发库 → DROP/CREATE 打开发库实例** |
 
-> ⚠️ **我没有修改仓库里的这个文件** —— `tests/**` 是架构师/工程师的所有权，
-> 且 T01/T03 正在做统一改造（`provisionTestDatabase()` 封装），
-> 我在他们的设计里直接改会造成并行冲突。
-> **以上补丁是在 `/tmp/ci-sim` 的副本上验证的，仓库原文未被触碰。**
-> 建议以 T01 的「shell > ENV_FILE」裁决为准，把这段逻辑并入统一封装。
+**我没有修改仓库里的 `tests/**`** —— 该文件是 T03 的独占范围，
+我打补丁会与 testenv 的 T01/T02 冲突。仓库原文至今未被触碰。
 
----
+> 📌 **附带的正面发现**：我复核了**我自己交付的** `docker-verify.yml`，
+> 确认它**没有**这个缺陷模式 —— 它全程用 compose 内部网络，
+> **从不解析 `DATABASE_URL`**，`grep DATABASE_URL` 零命中。
+
+
 
 ## 1. 单元测试实测（✅ 真实运行）
 

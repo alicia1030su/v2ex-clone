@@ -38,8 +38,14 @@ CI 的 `DATABASE_URL` 是 `localhost:5432` → 不匹配 → 落到 `readFileSyn
 （`seed-idempotency.spec.ts` 虽然 grep 得到 `.env.test`，但那只是**注释**，它实际只用
 `process.env.DATABASE_URL`，是 CI 安全的）。
 
-**已验证的修复**（在纯净检出副本上实跑通过，CI 与本地两种模式均 `5 passed`）见
-`test-baseline-v0.0.4.md` §0.5。**我未修改仓库文件**（`tests/**` 属他人所有权）。
+**修复方向**见 `test-baseline-v0.0.4.md` §0.5。**我未修改仓库文件**（`tests/**` 属他人所有权）。
+
+> ⚠️ **该节已更正**：我原方案（「无条件 `if (injected) return injected`」+ `existsSync` 兜底）
+> 存在**安全缺陷** —— 在「本地默认路径（不设 `ENV_FILE`）」下会把 `.env.local` 的
+> **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 `DROP DATABASE` / `CREATE DATABASE`。
+> 架构师实测发现后我已复现确认并**撤回该方案**。
+> **正确处置**：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏），
+> **不要单独给 `floor-continuity.spec.ts` 打补丁**。
 
 ⚠️ **注意这个失败的形态**：是 `1 failed + 5 skipped`，不是「148 条里少了几条」。
 核对 CI 时**必须看 `Test Files` 行，不能只看 `Tests` 行** —— 这正是 R-23 那类静默跳过。
@@ -421,7 +427,7 @@ elif [ "$PHASE" = 'release' ]; then
 
 | # | 项目 | 现状 | 主理人推进动作 |
 |---|---|---|---|
-| **A** | 🔴 **`tests/floor-continuity.spec.ts` 在 CI 必红** | **已实测确认**（run `41836588566`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。HEAD `930f29e` **仍未修** | 采纳 `test-baseline-v0.0.4.md` §0.5 的**已验证**补丁（CI 与本地均 `5 passed`）。修完 CI 即恢复：`Test Files 15 passed (15)` / `Tests 190 passed (190)`，**并解锁被跳过的 E2E job** |
+| **A** | 🔴 **`tests/floor-continuity.spec.ts` 在 CI 必红** | **已实测确认**（run `41836588566`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。**归属 `software-engineer-testenv` 的 T01/T03** | ⚠️ **不要单独打「existsSync」补丁** —— 我原方案已被架构师实测证伪（本地默认路径下会把 **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 DROP/CREATE DATABASE）。**正确做法**：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏）。详见 `test-baseline-v0.0.4.md` §0.5。修完 CI 即恢复：`Test Files 15 passed (15)` / `Tests 190 passed (190)`，**并解锁被跳过的 E2E job** |
 | **B** | 🟡 **E2E 153 条在 CI 上从未跑过** | `E2E 测试` job 状态 = **skipped**（`needs: unit` 连带） | 修完 A 后自动恢复执行。核对时看 `153 passed` 且 **0 skipped** |
 | **C** | 🟡 **`release.yml` tag 白名单仍不含 `v0.0.4`** | 刻意摩擦，**未改**（R-19） | **推 tag 之前**人工加 `- 'v0.0.4'`。⚠️ 漏加的后果是**静默失败**（推 tag 不触发任何 job，不报红）—— 详见 §6.1 |
 | **D** | 🟡 **GHCR 包可见性无法核实** | 当前 gh token 缺 `read:packages` scope → `GET /users/alicia1030su/packages` = 403 | 用有该 scope 的 token 核验，或浏览器访问 https://github.com/users/alicia1030su/packages |
@@ -440,7 +446,9 @@ elif [ "$PHASE" = 'release' ]; then
 
 > 🔴 **C0（推送前必须完成）**：`tests/floor-continuity.spec.ts` 的 `:55433/` 硬编码 +
 > 读未入仓的 `.env.test` —— **已实测确认 CI 必红**（`1 failed + 5 skipped`）。
-> 修复方案见 `test-baseline-v0.0.4.md` §0.5（已验证通过）。
+> 修复方案见 `test-baseline-v0.0.4.md` §0.5。
+> ⚠️ **注意**：该节已更新 —— 我原方案存在「本地默认路径会连开发库」的安全缺陷，
+> **已被架构师实测证伪并撤回**；正确处置是统一走 T01 的 `tests/helpers/test-env.ts`。
 > **不修就推，CI 必然红灯，且 `e2e` job 会被 `needs: unit` 连带跳过。**
 
 - [ ] **C1** run 的 `head SHA` == 推送后的最终 SHA（不是 master 的 `37710fb4`）
