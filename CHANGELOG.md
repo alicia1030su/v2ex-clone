@@ -26,7 +26,7 @@
 >
 > 本小节只记录**本轮实际做过并验证过的事**。
 
-### 一、修复的真实缺陷（12 项，均由真实浏览器 E2E / 真实压测 / 版本库核查 / CI 实跑发现）
+### 一、修复的真实缺陷（**14 项**，均由真实浏览器 E2E / 真实压测 / 版本库核查 / CI 实跑发现）
 
 | ID | 级别 | 缺陷 | 验证方式 |
 |---|---|---|---|
@@ -40,6 +40,8 @@
 | B-08 | 严重 | 积分排行榜相关子查询 N+1（每作者执行一次，EXPLAIN 实测 **241.98 秒**） | 改「三个独立聚合 + JOIN」→ 0.74 秒；`0002` 索引后 0.46 秒；压测 p50 1.23 秒（并发 10） |
 | **B-09** | 严重 | **运行时上传数据被误提交入仓** —— E2E 跑出的 **18 个头像占位 PNG**（每个 684 字节）被 Git 跟踪，进入公开发布物。**风险性质与 R-01 同类**（运行时数据进入公开发布物） | 提交 `49d66d3`：`.gitignore` 加 `public/uploads/` 规则 + `git rm --cached` 移出索引（**不改写历史、不删磁盘文件**）；验证 `git ls-files "public/uploads/*"` → **0 条**。引入提交逐一定位：`04b107b`（16 个）/ `1b15f79`（1 个）/ `301a8a5`（1 个）。登记 `BUG_REGISTER` V4-14 / `RISK_REGISTER` R-25 |
 | **B-10** | 严重 | **`docker-verify.yml` 定义级失败** —— 工作流在定义阶段就失败，**一个 job 都没被创建**（run 0 秒结束、`total_count=0`、报错仅「This run likely failed because of a workflow file issue」）。根因：GitHub 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持） | 提交 `2532f5f`：三元判断下沉到 shell 层，`${{ }}` 只用于传值。**陷阱**：YAML 本身能正常解析（1 job / 17 steps），问题只在表达式求值阶段 ⇒ 排查耗时。登记 `BUG_REGISTER` V4-15 |
+| **B-13** | 严重 | **`docker-verify.yml` 的 app 健康判定口径不可能成立** —— 第 2 项红灯 `✗ app 未达 healthy（none）`。根因：根目录 `docker-compose.yml` 的 **app 服务没有 healthcheck**（只有 `deploy/docker-compose.yml` 才有）⇒ `State.Health.Status` **永远返回 `none`**。⚠️ **CI 日志证明 app 其实完全健康**（`✓ Ready in 414ms`）—— 是断言读错了 | ✅ **已修** —— 改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` 返回 200）；PG/Redis 仍用 health 状态。**HTTP 探活是更强的证据**（证明 Next.js 真在服务请求，而非只是容器活着）。桩程序对照验证通过 |
+| **B-14** | 严重 | **`docker-verify.yml` 的 `[7/9]` 安装包实际部署必然失败** —— ① **端口占用**：`install.sh` L163 的硬性端口检查会因根 compose 的 app 容器仍占 3000 而直接 `die`；② **容器名冲突**：新实例与运行中的实例同名 | ✅ **已修** —— 断言与执行上下文分离，并新增断言保证它不会变成外部镜像 |
 | **B-12** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元 `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过 ⇒ 整个 CI 红灯，**v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。根因：硬编码 `readFileSync('.env.test')`（该文件被 gitignore，CI 检出里不存在）+ `:55433/` 端口白名单（CI 的 `DATABASE_URL` 是 5432） | 🔴 **本轮修复中，待 CI 复验** —— 实测 run `41837212170`：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`（**分母 190 正确**）。登记 `BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26 |
 | **B-11** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项误报「✗ 镜像内缺少迁移文件: `_journal.json`」，而同一步骤前面的 `ls` 已证明它存在。根因：drizzle 的 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录，初版混用同一路径断言。**性质：验证脚本自身的错误，不是产品缺陷** | 提交 `930f29e`：SQL 与 meta 分成两段断言，meta 段同时断言 3 个 snapshot + `_journal.json`（覆盖面更严）。登记 `BUG_REGISTER` V4-16 |
 

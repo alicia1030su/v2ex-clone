@@ -179,12 +179,21 @@
 | V4-12 | 一般 | GHCR 可见性误判（首次 401 即判 private） | `docs/SECURITY_EXCEPTIONS.md` E-10、`.github/workflows/release.yml` | 完整 Bearer 协议复核 | 匿名换 token → 带 token 重试 v0.0.1/2/3 全部 HTTP 200 | **VERIFIED** |
 | V4-13 | 一般 | `RISK_REGISTER` R-09 整段错置（CSRF 风险实际从未评估） | `RISK_REGISTER.md` | 验收核查 D-03 | 三场景 curl 实测：无 cookie 403 / token 错 403 / 正常流程 201 | **VERIFIED** |
 
-### v0.0.4 第四轮（收尾轮）新发现的缺陷 —— 4 项
+### v0.0.4 第四轮（收尾轮）新发现的缺陷 —— 6 项
 
 > **发现轮次**：v0.0.4 收尾轮（2026-11-04，主理人实测 + CI 实跑取证）。
-> 这 3 项与上面的 V4-01~V4-13 **来源不同**：V4-01~13 来自真实浏览器 E2E / 真实压测，
-> 而本组 3 项来自**版本库卫生核查**与 **CI 工作流实跑**——
+> 这 6 项与上面的 V4-01~V4-13 **来源不同**：V4-01~13 来自真实浏览器 E2E / 真实压测，
+> 而本组 6 项来自**版本库卫生核查**与 **CI 工作流实跑**——
 > 即「验证基础设施本身出问题」，但同样会直接导致验收结论不可信，故一并登记。
+>
+> | ID | 级别 | 一句话 |
+> |---|---|---|
+> | V4-14 | 严重 | 运行时上传数据被误提交入仓（18 个占位 PNG） |
+> | V4-15 | 严重 | `docker-verify.yml` 定义级失败（GitHub 表达式不支持 `&&`/`\|\|` 三元） |
+> | V4-16 | 一般 | `docker-verify.yml` 迁移物路径断言错误（**验证脚本自身错误，非产品缺陷**） |
+> | V4-17 | 阻断 | `tests/floor-continuity.spec.ts` 在 CI 必然崩溃（**修复中**） |
+> | V4-18 | 严重 | `docker-verify.yml` 的 app 健康判定口径不可能成立（app 其实完全健康） |
+> | V4-19 | 严重 | `docker-verify.yml` 的 `[7/9]` 安装包部署必然失败（端口占用 + 容器名冲突） |
 
 | ID | 级别 | 缺陷 | 位置 | 发现方式 | 修复 | 验证方式 | 状态 |
 |---|---|---|---|---|---|---|---|
@@ -193,6 +202,8 @@
 | **V4-16** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项报「✗ 镜像内缺少迁移文件: `_journal.json`」，而**同一步骤前面的 `ls` 输出已经证明它存在** | `.github/workflows/docker-verify.yml`（第 9 项 9e） | CI 实跑（run `41836588637`，第 9 项红灯） | 提交 `930f29e`：把 SQL 与 meta 元数据分成两段断言，各用正确路径 —— SQL 在 `/app/drizzle/` 根目录，`_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录 | ① 性质判定：**验证脚本自身的路径错误，不是产品缺陷**<br>② 修复后 meta 段同时断言 3 个 snapshot + `_journal.json`，**覆盖面反而更严**<br>③ 该 run 已实测通过第 9 项的 6 个子断言（详见 `docs/evidence/ci/docker-verify-v0.0.4.md` §2.5） | **VERIFIED** |
 
 | **V4-17** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元测试 `unit` job 红灯 → `e2e` job 被 `needs: unit` 连带跳过 → **整个 CI 红灯**，且 v0.0.4 的 153 条 E2E **在 CI 上从未跑过一条** | `tests/floor-continuity.spec.ts`（`baseDatabaseUrl()`） | CI 实跑（run `41837212170`，HEAD `930f29e`） | 🔧 **修复中（测试环境工程师负责）** —— 修复方向已实跑验证：去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断（`docs/evidence/ci/test-baseline-v0.0.4.md` §0.5，含在纯净 CI 检出 `/tmp/ci-sim` 上的双向验证：CI 条件与本地条件均 `5 passed`） | **根因**：① 硬编码 `readFileSync(path.join(repoRoot, '.env.test'))`，而 `.env.test` **被 `.gitignore` 排除** ⇒ **CI 检出里根本没有这个文件** ⇒ `ENOENT`；② 对 `process.env.DATABASE_URL` 有 `:55433/` 端口白名单，而 CI 的 `DATABASE_URL` 是 `localhost:5432` ⇒ **即使环境变量已注入也不会被采用**。两条路都走不通 ⇒ 崩溃。**实测输出**：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母 190 正确**，5 条因崩溃被跳过 | **本轮修复中，待 CI 复验** |
+| **V4-18** | 严重 | **`docker-verify.yml` 的 app 健康判定口径不可能成立** —— 第 2 项红灯：`✗ app 未达 healthy（none）`。**断言口径本身错了**：根目录 `docker-compose.yml` 的 **app 服务没有定义 healthcheck**（只有 `deploy/docker-compose.yml` 才有），所以 `docker inspect '{{.State.Health.Status}}' v2ex-app` **永远返回 `none`**。⚠️ **真实 CI 日志证明 app 其实是完全健康的**（`✓ Ready in 414ms`）—— 是断言读错了，不是应用没起来 | `.github/workflows/docker-verify.yml`（第 2 项） | CI 实跑（run `41837202602`）+ 静态复核 | 把 app 的就绪判定从「读 `State.Health.Status`」改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` 返回 **200**），PG / Redis 继续用 health 状态（它们**确实有** healthcheck）。**HTTP 探活是更强的证据** —— 不只证明容器活着，更证明 Next.js 真的在服务请求（`/` 是 force-dynamic 的 Server Component，会同时打到数据库） | **修复逻辑已用桩程序对照验证**：新逻辑 `postgres=healthy redis=healthy app_state=running http=200` → **EXIT=0 通过**；旧逻辑恒读出 `none` → 必红 | **VERIFIED** |
+| **V4-19** | 严重 | **`docker-verify.yml` 的 `[7/9]` 安装包实际部署必然失败** —— **两个冲突**：① **端口占用** —— `install.sh` L163 有硬性端口检查 `port_in_use "$APP_PORT"`，而此时根 compose 的 app 容器**仍在运行**、映射着宿主机 3000 ⇒ `install.sh` 会**直接 `die`**；② **容器名冲突** —— 新起的安装包实例与仍在运行的根 compose 实例**同名**，互相干扰 | `.github/workflows/docker-verify.yml`（第 7 项） | 逐项复核 `[7/9]` 执行上下文时**主动发现**（尚未被 CI 触发，但**一定会红**） | ✅ 断言与执行上下文分离，并**新增一条断言来保证它不会变成外部镜像** | 详见 `docs/evidence/ci/docker-verify-v0.0.4.md` §5.1.0 | **VERIFIED** |
 
 > **V4-14 的残余说明（如实披露）**：18 个占位 PNG **仍然留在 Git 历史里**（`04b107b` / `1b15f79` / `301a8a5`）。
 > 本轮刻意**不改写历史** —— 改写远端历史属明令禁止的高风险不可逆操作，需主人单独授权（与 R-01 同类处置）。
