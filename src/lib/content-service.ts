@@ -606,10 +606,17 @@ export async function getTopicDetail(
     .limit(replyLimit)
     .offset(replyOffset);
 
+  // ⚠️ 条件片段必须用 sql`` 包装。
+  // 直接写字符串会被 drizzle 当作**参数值**绑定成 $2，占位符而非 SQL 片段，
+  // PostgreSQL 直接报 42601「语法错误 在 "$2" 或附近的」。
+  // 这让 GET /api/topics/[id] 在生产构建下必然 500 ——
+  // 而 v0.0.3 的单元测试与 E2E 都没有调用过这个端点。
+  const deletedFilter = canSeeDeleted ? sql`` : sql`AND deleted_at IS NULL`;
+
   const countRows = await db.execute(sql`
     SELECT count(*)::int AS n FROM replies
     WHERE topic_id = ${topicId}
-      ${canSeeDeleted ? '' : 'AND deleted_at IS NULL'}
+      ${deletedFilter}
   `);
   const replyTotal = Number(
     (countRows as unknown as Array<{ n: number }>)[0]?.n ?? 0,

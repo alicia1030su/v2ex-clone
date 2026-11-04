@@ -47,10 +47,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: '父节点 ID 无效' }, { status: 400 });
   }
 
+  // ⚠️ limit / offset 必须从查询串读取并传给服务层。
+  // v0.0.3 的服务层 listNodes 支持这两个参数，但路由**从未传递**，
+  // 导致 ?limit=3 仍然返回全部节点（实测返回 23 条）——
+  // 分页形同虚设。服务层的钳制（1..500）在此生效。
+  const limitParam = url.searchParams.get('limit');
+  const offsetParam = url.searchParams.get('offset');
+  const limit = limitParam !== null && limitParam !== '' ? Number(limitParam) : undefined;
+  const offset = offsetParam !== null && offsetParam !== '' ? Number(offsetParam) : undefined;
+  if (limit !== undefined && !Number.isFinite(limit)) {
+    return NextResponse.json({ ok: false, error: 'limit 无效' }, { status: 400 });
+  }
+  if (offset !== undefined && !Number.isFinite(offset)) {
+    return NextResponse.json({ ok: false, error: 'offset 无效' }, { status: 400 });
+  }
+
   const nodes = await listNodes({
     categoryId,
     parentId,
     includeHidden: isStaffUser && url.searchParams.get('includeHidden') === 'true',
+    limit,
+    offset,
   });
 
   const result: Record<string, unknown> = { ok: true, nodes };

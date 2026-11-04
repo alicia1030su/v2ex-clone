@@ -1,6 +1,6 @@
 import 'server-only';
 import { db, schema } from '@/db';
-import { and, eq, isNull, sql, asc, desc } from 'drizzle-orm';
+import { and, eq, isNull, sql, asc, desc, type SQL } from 'drizzle-orm';
 
 /**
  * 节点服务层（v0.0.3）
@@ -42,19 +42,31 @@ export async function listNodes(opts: {
   const limit = Math.min(Math.max(opts.limit ?? 200, 1), 500);
   const offset = Math.max(opts.offset ?? 0, 0);
 
-  const conditions = [];
+  // ⚠️ WHERE 条件必须用原生 SQL 片段，不能用 drizzle 的 eq()/and()。
+  //
+  // 原因：下面的原生 SQL 用 `FROM nodes n` 起了别名，而 drizzle 的 eq()
+  // 生成的是 `"nodes"."status" = $1` —— 一旦 FROM 有了别名，
+  // PostgreSQL 就不再允许用原表名引用该 FROM 项（错误码 42P01
+  // 「对于表 "nodes" 的 FROM 子句项的引用无效」）。
+  //
+  // v0.0.3 的这个 bug 让 GET /api/nodes 在生产构建下**必然 500**，
+  // 但单元测试与 E2E 都没有覆盖该端点，因此长期未被发现。
+  const conditions: SQL[] = [];
   if (opts.categoryId !== undefined) {
-    conditions.push(eq(schema.nodes.categoryId, opts.categoryId));
+    conditions.push(sql`n.category_id = ${opts.categoryId}`);
   }
   if (opts.parentId !== undefined) {
-    conditions.push(eq(schema.nodes.parentId, opts.parentId));
+    conditions.push(sql`n.parent_id = ${opts.parentId}`);
   }
   if (!opts.includeHidden) {
-    conditions.push(eq(schema.nodes.status, 'active'));
+    conditions.push(sql`n.status = 'active'`);
   }
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const where =
+    conditions.length > 0
+      ? sql`WHERE ${conditions.reduce((acc, c) => sql`${acc} AND ${c}`)}`
+      : sql``;
 
-  // 用 LEFT JOIN + 聚合统计，避免 N+1 查询
+  // 用子查询聚合统计，避免 N+1 查询
   const rows: Array<Record<string, unknown>> = await db.execute(sql`
     SELECT
       n.id, n.name, n.title, n.description, n.avatar,
@@ -69,7 +81,7 @@ export async function listNodes(opts: {
         WHERE t2.node_id = n.id AND r.deleted_at IS NULL AND t2.deleted_at IS NULL
       ) AS last_reply_at
     FROM nodes n
-    ${where ? sql`WHERE ${where}` : sql``}
+    ${where}
     ORDER BY n.title ASC
     LIMIT ${limit} OFFSET ${offset}
   `);

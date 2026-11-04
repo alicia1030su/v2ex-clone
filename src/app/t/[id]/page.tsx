@@ -175,6 +175,8 @@ export default async function TopicPage({
                   user?.role === 'moderator' || user?.role === 'admin',
               }}
               user={user ? { id: user.id, role: user.role } : null}
+              initialContent={topic.content}
+              initialTitle={topic.title}
             />
           </div>
             <span className="gray">
