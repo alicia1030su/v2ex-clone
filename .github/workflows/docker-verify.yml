@@ -408,19 +408,20 @@ jobs:
           echo "  ✓ 根 compose 容器已停止"
 
           cd /tmp/inst
-          # 换用 3100 端口，与根 compose 的 3000 彻底隔离（双重保险）
-          export APP_PORT=3100
-          export APP_URL=http://localhost:3100
-          export NEXT_PUBLIC_APP_URL=http://localhost:3100
-          # 预置 .env，让 install.sh 复用我们指定的端口而不是用默认 3000
-          # （install.sh 第 136 行读 APP_PORT，第 281 行只写 V2EX_IMAGE，不覆盖 APP_PORT）
-          cat > .env <<EOF
-          APP_PORT=3100
-          APP_URL=http://localhost:3100
-          NEXT_PUBLIC_APP_URL=http://localhost:3100
-          V2EX_IMAGE=v2ex-clone:dv
-          EOF
-          chmod 600 .env
+          # **不预置 .env** —— 让 install.sh 走完整的「首次安装」路径：
+          #   从 .env.example 生成 .env + 四枚随机口令 + INSTALL_CREDENTIALS.txt。
+          #
+          # 为什么删掉原来的预置块（2026-11-05 修复，真实 CI 抓到的）：
+          #   原做法预置一个只含 APP_PORT/APP_URL/V2EX_IMAGE 的 .env，
+          #   install.sh 的幂等分支「沿用现有配置」随后校验四枚口令非空 →
+          #   POSTGRES_PASSWORD 为空 → die（安装直接失败）。
+          #   且幂等分支**不会创建** INSTALL_CREDENTIALS.txt，
+          #   后面「凭据文件缺失」检查注定红灯。
+          #   预置 .env 等于把真实用户旅程（首次安装）换成了半成品升级路径。
+          #
+          # 端口说明：首次安装路径用 .env.example 的默认 3000。
+          # 上一步已停掉根 compose 容器（端口与容器名均已释放），不存在冲突；
+          # 安装容器随后也会被 down 掉，根 compose 再恢复到 3000，全程串行无冲突。
 
           echo "===== 用本地构建镜像跑 install.sh（真实 Docker）====="
           # V2EX_IMAGE=v2ex-clone:dv → 指向**本工作流本地构建**的镜像。
@@ -473,7 +474,7 @@ jobs:
           echo "===== 安装后的容器资源占用（安装包路径的容器）====="
           docker stats --no-stream --format '  {{.Name}}  CPU={{.CPUPerc}}  MEM={{.MemUsage}}  MEM%={{.MemPerc}}' v2ex-app v2ex-postgres v2ex-redis
 
-          echo "===== 停掉安装包的容器（释放 v2ex-* 容器名与 3100 端口）====="
+          echo "===== 停掉安装包的容器（释放 v2ex-* 容器名与 3000 端口）====="
           docker compose --env-file .env down || true
           # 注：down（不带 -v）保留安装包的卷，但容器名已释放。
 
