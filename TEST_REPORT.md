@@ -56,14 +56,44 @@
 
 ## E2E 测试（GitHub Actions 真实环境）
 
-> run `41751032820` —— ubuntu-latest + PostgreSQL 17 + Redis 7 服务容器。
+> run `41754998422` —— ubuntu-latest + PostgreSQL 17 + Redis 7 服务容器。
 
 | 项 | 结果 |
 |---|---|
+| 前后端 API 契约校验 | ✅ success（后端 72 路由 / 前端 30 处调用 → 全部匹配） |
 | E2E 用例 | **67 passed**（0 failed / 0 skipped） |
 | 单元测试 | **185 passed**（14 套件） |
 | Docker 构建与启动验证 | ✅ success |
 | 整个 workflow | ✅ **success** |
+
+## 发布流水线验证（GitHub Actions 真实环境）
+
+> run `41759712235` —— 由 `v0.0.3` tag 推送触发。
+
+| job | 结果 |
+|---|---|
+| 前置检查（版本冲突检测） | ✅ success |
+| 代码检查（类型 + 构建） | ✅ success |
+| 安全扫描（依赖 + 秘密） | ✅ success |
+| 单元测试 | ✅ success |
+| E2E 测试 | ✅ success |
+| 构建并推送镜像 | ✅ success（`ghcr.io/alicia1030su/v2ex-clone:v0.0.3`） |
+| 部署验证（启动 + 重启持久化） | ✅ success |
+| 生成安装包 | ✅ success |
+| 创建并发布 Release | ✅ success |
+| 远端核验（Release 与资产） | ✅ success |
+| **整个 workflow** | ✅ **success（10/10）** |
+
+**Release 最终状态实测**：
+
+| 项 | 实测值 |
+|---|---|
+| `isDraft` | **true**（按约定停在 Draft，未公开发布） |
+| `isPrerelease` | true |
+| `publishedAt` | `null` |
+| 资产 | `SHA256SUMS`（95 B）+ `v2ex-clone-v0.0.3-deploy.zip`（41,867 B） |
+| 远端核验输出 | 「Release 状态：draft / 资产清单: ['SHA256SUMS', 'v2ex-clone-v0.0.3-deploy.zip'] / Release 状态核验通过 ✓」 |
+| 镜像匿名 manifest | HTTP 401（镜像已推送；包为 private —— 见 `docs/SECURITY_EXCEPTIONS.md` E-10） |
 
 ## 并发压力验证
 

@@ -102,8 +102,8 @@
 
 | 项 | 值 |
 |---|---|
-| master | `b963ee0`（含 Draft 保护与 draft-aware 核验修复） |
-| tag | `v0.0.3` → `b963ee0`（annotated） |
+| master | `9af3b89`（含 Draft 保护、draft-aware 核验、列表接口修复） |
+| tag | `v0.0.3` → `9af3b89`（annotated） |
 | PR | #3（功能）、#4（发布流程修复）—— 均已合并 |
 | Release | `v0.0.3`，**isDraft=true / isPrerelease=true / publishedAt=null** |
 | 安装包 | `v2ex-clone-v0.0.3-deploy.zip`（41,867 字节）+ `SHA256SUMS` |
@@ -141,4 +141,4 @@ gh workflow run release.yml \
 | 视觉量化 | 1280/1920 视口 Δx 一致率 96.9%（几何量测，非像素相似率声明） |
 | 前后端契约 | 后端 72 路由 / 前端 30 处调用 → 全部匹配（已接入 CI 常驻检查） |
 | CI run | `41754998422` 全绿：契约校验 + 185 单元 + 67 E2E + Docker 构建 |
-| 发布 run | `41758734582`：10 个 job（镜像推送 / 安装包 / Release 创建）全部成功 |
+| 发布 run | `41759712235`：**10 个 job 全部 success**（镜像推送 / 安装包 / Release 创建 / 远端核验） |
