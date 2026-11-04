@@ -633,7 +633,151 @@ fi
 # 现在唯一权威的检查在第 3 节（3.1），本节不再重复 —— 避免两处口径漂移。
 
 # ---------------------------------------------------------------------------
-section '8. 汇总'
+section '8. 环境加载语义（防止 override 回归）'
+# ---------------------------------------------------------------------------
+# 背景（v0.0.4 问题 A/B/C 的技术根）：
+#   修复前全仓有 **6 处各自独立**的 dotenv 加载实现，其中多处用
+#   `config({ path: ENV_FILE, override: true })` —— `override: true` 让
+#   ENV_FILE 指向的文件**无条件覆盖**已存在的变量，于是命令行 / CI 显式注入的
+#   DATABASE_URL 被**静默忽略**，表现为「以为在测试库跑、迁移其实跑到别的库」
+#   （QA 实测：迁移被写进了 v2ex_e2e，而不是指定的 QA 库）。
+#
+# 修复方案（架构师 T01）：抽出**全仓唯一**的加载器
+#   · 产品侧 → src/lib/env-loader.mjs（loadProductEnv）
+#   · 测试侧 → tests/helpers/test-env.ts（getResolvedTestEnv）
+#   优先级统一为：shell / CI 注入 > ENV_FILE 文件 > .env.local > .env，
+#   且文件**只填充未设置的变量**。
+#
+# 本节做**精确到文件**的静态核验，目的有两个方向：
+#   ① 正向：任何入口都**不得**再出现 `config({ path: ENV_FILE, override: true })`
+#      —— 防止将来被改回去（R-23 那类回归的预防）。
+#   ② **反向**：src/db/index.ts **必须**走统一加载器 ——
+#      它是唯一「Next.js 预加载了 .env.local 占位值」的特殊场景，
+#      其覆盖判定由 env-loader 内部的 shell 快照机制收紧。
+#      反向断言比正向更重要：它防的是「看到 override 就全局删掉」这种过度修正。
+#
+# ⚠️ 注意：注释里**提到** override 是正常的（那是「修复前的写法」的历史说明），
+#    所以只检查**可执行代码**（剥离注释行后再匹配）。
+
+# 剥离注释，只留可执行代码
+strip_ts_comments() {
+  local file="$1"
+  grep -vE '^[[:space:]]*(//|\*|/\*)' "$file" 2>/dev/null || true
+}
+
+# --- 8.1 统一加载器存在 -----------------------------------------------------
+ENV_LOADER='src/lib/env-loader.mjs'
+TEST_ENV_LOADER='tests/helpers/test-env.ts'
+if [ -f "$ENV_LOADER" ]; then
+  ok "${ENV_LOADER} 存在（全仓唯一的产品侧环境加载器）"
+else
+  fail "${ENV_LOADER} 不存在 —— 环境加载语义将退回「多处各自实现」，R-23 类回归失去防线"
+fi
+if [ -f "$TEST_ENV_LOADER" ]; then
+  ok "${TEST_ENV_LOADER} 存在（测试侧环境解析器）"
+else
+  fail "${TEST_ENV_LOADER} 不存在 —— 单元测试的环境加载将退回旧实现"
+fi
+
+# --- 8.2 各入口必须走统一加载器，且不得自行调用 dotenv config ---------------
+check_env_entry() {
+  local file="$1" expected="$2" label="$3"
+  if [ ! -f "$file" ]; then
+    fail "${label}：缺少文件 ${file}"
+    return
+  fi
+  local code
+  code="$(strip_ts_comments "$file")"
+  # ① 不得自行调用 dotenv 的 config({ path: ... })（含 override 变体）
+  local raw_calls
+  raw_calls="$(printf '%s\n' "$code" | grep -cE "config[[:space:]]*\([[:space:]]*\{[^}]*path[[:space:]]*:" || true)"
+  if [ "${raw_calls:-0}" -eq 0 ]; then
+    ok "${label}：未自行调用 dotenv config（无独立加载实现）"
+  else
+    fail "${label}：检出 ${raw_calls} 处独立的 dotenv config 调用 —— 应统一走 ${expected}"
+  fi
+  # ② 必须引用统一加载器
+  if printf '%s\n' "$code" | grep -qF "$expected"; then
+    ok "${label}：已引用统一加载器 ${expected}"
+  else
+    fail "${label}：未引用统一加载器 ${expected} —— 环境加载语义未统一"
+  fi
+}
+
+check_env_entry 'drizzle.config.ts' 'loadProductEnv' 'drizzle.config.ts'
+check_env_entry 'src/db/index.ts'   'loadProductEnv' 'src/db/index.ts'
+check_env_entry 'scripts/seed.ts'   'loadProductEnv' 'scripts/seed.ts'
+check_env_entry 'scripts/admin-cli.ts' 'loadProductEnv' 'scripts/admin-cli.ts'
+check_env_entry 'scripts/db-admin.mjs' 'loadProductEnv' 'scripts/db-admin.mjs'
+check_env_entry 'tests/setup.ts'    'getResolvedTestEnv' 'tests/setup.ts'
+
+# --- 8.3 反向断言：档 1 的特殊语义不得被「过度修正」删掉 ---------------------
+# src/db/index.ts 是唯一「Next.js 预加载占位值」的场景，必须保留覆盖能力
+# （由 env-loader 内部的 shell 快照机制收紧，而不是靠裸的 override: true）。
+if [ -f src/db/index.ts ] && [ -f "$ENV_LOADER" ]; then
+  if grep -qF 'loadProductEnv' src/db/index.ts \
+     && grep -qE 'initialEnv|shellSnapshot|canOverrideByEnvFile' "$ENV_LOADER" 2>/dev/null; then
+    ok 'src/db/index.ts 的「Next 预加载」特殊语义由 env-loader 的 shell 快照机制承载（未被过度修正）'
+  else
+    warn 'src/db/index.ts 未检出统一加载器调用，或 env-loader 缺少 shell 快照机制 —— 请人工确认 Next 预加载场景下的 ENV_FILE 仍能生效'
+  fi
+fi
+
+# --- 8.4 env-loader 自身不得引入「无条件覆盖」-------------------------------
+if [ -f "$ENV_LOADER" ]; then
+  if strip_ts_comments "$ENV_LOADER" | grep -qE "override[[:space:]]*:[[:space:]]*true"; then
+    fail "${ENV_LOADER} 出现了 override: true —— 统一加载器不允许无条件覆盖（会复活静默误跑）"
+  else
+    ok "${ENV_LOADER}：无无条件覆盖（override: true）"
+  fi
+fi
+
+# --- 8.5 快照获取机制不得被「顺手改成静态 import」---------------------------
+# ⚠️ 这是一个非常容易被踩坏的实现细节（架构师 2026-11-04 专门核实过）：
+#
+#   覆盖判定的**规则③**（Next 运行时 + 精确的 shell 快照）依赖
+#   `require('@next/env')` 拿到与 Next **同一个模块实例**。
+#   Next 自己是从 `next/dist/server/config.js` 里 `require("@next/env")` 的 ——
+#   两边都解析到 `node_modules/@next/env/dist/index.js`，Node 的模块缓存
+#   按解析后的绝对路径索引 → **同一实例** → initialEnv 是同一份快照。
+#
+#   但如果改成**静态 import** `@next/env`：
+#     - webpack 会把它打包成**另一个模块实例**；
+#     - 该实例的 `initialEnv` 恒为 `undefined`；
+#     - 于是规则③**永远退化成规则④**（占位值比对，精度更低）；
+#     - 在「shell 注入的值恰好等于占位值」时会误判 → 可能静默误跑。
+#
+#   同理，改用 `import { createRequire }` + 运行时 require 是**必须**的。
+#   正确写法：`createRequire(path.join(process.cwd(), '__env_loader__.js'))`
+#   —— 从 cwd 解析，保证与 Next 解析到同一份磁盘文件。
+#
+# 本检查锁死这两点，防止将来被「优化」掉。
+if [ -f "$ENV_LOADER" ]; then
+  ENV_CODE="$(strip_ts_comments "$ENV_LOADER")"
+  # ① 不得出现静态 import @next/env
+  if printf '%s\n' "$ENV_CODE" | grep -qE "^[[:space:]]*import[[:space:]].*@next/env"; then
+    fail "${ENV_LOADER} 使用了静态 import '@next/env' —— webpack 会打包成另一个模块实例，initialEnv 恒为 undefined，规则③会静默退化为规则④（必须用 createRequire 运行时 require）"
+  else
+    ok "${ENV_LOADER}：未使用静态 import '@next/env'（模块实例安全）"
+  fi
+  # ② 必须用 createRequire 运行时 require
+  if printf '%s\n' "$ENV_CODE" | grep -qF 'createRequire'; then
+    ok "${ENV_LOADER}：使用 createRequire 运行时 require（可拿到与 Next 同一实例）"
+  else
+    fail "${ENV_LOADER} 未使用 createRequire —— 无法保证拿到与 Next 同一个 @next/env 实例，规则③会失效"
+  fi
+  # ③ 快照获取失败时必须有可见的告警（不得静默退化）
+  #    —— 架构师建议：退化是兜底路径，精度低于规则③；静默退化会让问题
+  #       「在发生时不可见」，直到某次静默误跑才暴露。
+  if printf '%s\n' "$ENV_CODE" | grep -qE 'console\.(warn|error)|process\.emitWarning'; then
+    ok "${ENV_LOADER}：存在诊断输出（快照获取失败时可见）"
+  else
+    warn "${ENV_LOADER}：未检出任何诊断输出（console.warn / console.error）—— 快照获取失败时的退化路径将是**完全静默**的，建议加一条 WARN（架构师建议，由 env-loader 的 owner 实施）"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+section '9. 汇总'
 # ---------------------------------------------------------------------------
 printf 'phase=%s  PASS=%s  WARN=%s  FAIL=%s  BLOCK=%s  INFO=%s\n' \
   "$PHASE" "$PASS" "$WARN" "$FAIL" "$BLOCK" "$INFO"

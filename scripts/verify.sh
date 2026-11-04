@@ -71,14 +71,26 @@ if [ -f "$ENV_FILE" ]; then
   echo "环境文件: $ENV_FILE"
   # 把 .env 内容导入当前 shell，然后**清空 ENV_FILE**。
   #
-  # 为什么清空：项目里的 db/index.ts、drizzle.config.ts、seed.ts 在加载
-  # ENV_FILE 时使用 dotenv 的 `override: true`（上一轮修复「ENV_FILE 从未生效」
-  # 时加的 —— Next.js 会预先加载 .env.local 占位 DATABASE_URL）。
-  # 若保留 ENV_FILE，.env.test 里的 DATABASE_URL 会覆盖 shell 中显式设置的
-  # 验证库连接串，导致迁移与 seed 又跑回开发库。
+  # 为什么清空 ENV_FILE：
+  # 清空 ENV_FILE 是为了**确定性地指向验证库**，与 dotenv 的 override 语义
+  # **无关**（更安全，不依赖 dotenv 的优先级）。
   #
-  # 导入到 shell 后清空 ENV_FILE，所有后续工具都从 shell 读变量，
-  # 指向的都是验证库 —— 既隔离，也不会误伤开发数据。
+  # 具体机制：把 .env 内容导入到当前 shell 后清空 ENV_FILE，所有后续工具
+  # （迁移 / seed / E2E）都只从 shell 读变量，指向的都是验证库 ——
+  # 既隔离，也不会误伤开发数据。
+  #
+  # ⚠️ 这条做法**不依赖**任何「override 有/无」的实现细节：
+  # v0.0.4 之前这里写的是「必须清空 ENV_FILE，否则 .env.test 的 DATABASE_URL
+  # 会覆盖 shell 里的验证库连接串」（那时 db/index.ts、drizzle.config.ts、
+  # seed.ts 都用 dotenv 的 `override: true`）。该描述在
+  # `src/lib/env-loader.mjs`（全仓统一加载器）落地后已**过时** ——
+  # 现在的优先级是「shell / CI 注入 > ENV_FILE 文件 > .env.local > .env」，
+  # 文件**只填充未设置的变量**，shell 注入的值永远赢。
+  # 但「清空 ENV_FILE」这个动作**本身依然正确且必要**：
+  # 它让「父进程规范化 → 子进程只继承」成为唯一事实，
+  # 子进程不会再去解析任何 env 文件，从而杜绝「父子走散」。
+  #
+  # 详见 `docs/TEST_ENV_ISOLATION_v0.0.4.md` §3.1~§3.4。
   eval "$("$NODE_BIN" scripts/env-dump.mjs "$ENV_FILE")"
   unset ENV_FILE
 else
