@@ -222,9 +222,9 @@ npx tsx scripts/loadtest/seed-large.ts \
 
 | 指标 | 实测值 |
 |---|---|
-| 完整规模总耗时 | **3m4.0s**（约 184 秒） |
+| 完整规模总耗时 | **3m4.0s**（约 184 秒；三次实测 2m55s ~ 3m4s） |
 | 完整规模总行数 | **3,513,106** |
-| 平均写入速度 | **约 19,100 行/秒** |
+| 平均写入速度 | **约 19,100 ~ 20,100 行/秒** |
 | 其中 100 万条回复 | **36.6 秒**（约 27,300 行/秒） |
 | 其中 116 万条积分流水 | 54.8 秒 |
 | 其中 84 万条投票 | 40.7 秒 |
@@ -264,13 +264,13 @@ npx tsx scripts/loadtest/seed-large.ts \
 已验证：
 
 ```console
-# 同 seed 跑两次
+# 同 seed 跑两次（冒烟规模与完整规模各验证一次）
 $ npx tsx scripts/loadtest/seed-large.ts --seed=20261104 ... | grep -A5 确定性指纹
     replies    -688959893895
     topics     -152838164644
     nodes      -2111021357
     users      4855192190
-# → 两次输出完全相同（diff 无差异）
+# → 两次输出完全相同（diff 无差异）；完整规模重跑一次，指纹仍是上面这组
 
 # 换 seed
 $ npx tsx scripts/loadtest/seed-large.ts --seed=777 ... | grep -A5 确定性指纹
@@ -416,6 +416,8 @@ UNION ALL SELECT 'users', count(*) FROM users;
 
 ## 应用侧验证
 
+### 1. 查询层（复刻应用真实 SQL）
+
 生成的数据已用**应用真实的 SQL 形态**验证过（复刻 `src/server/queries.ts`、
 `src/lib/node-service.ts`、`src/lib/credit-service.ts`、`src/server/floor.ts` 的查询）：
 
@@ -436,7 +438,56 @@ published 主题数: 94800
 ✓ 应用查询层探针全部通过
 ```
 
-另外验证了所有 serial 序列都已同步到最大值（应用层后续写入不会撞主键）：
+### 2. HTTP 层（`next start` 指向压测库，实测）
+
+用生产构建（`.next/BUILD_ID=5YlcRnLCBWkl52XvOTFRx`）起服务，
+`DATABASE_URL` 指向 `v2ex_loadtest`：
+
+```
+/                                          HTTP 200  0.225s   95679 bytes
+/nodes                                     HTTP 200  0.062s  221017 bytes
+/t/1                                       HTTP 200  0.047s   45069 bytes
+/go/n_000001                               HTTP 200  0.041s   20508 bytes
+/go/search?q=替代品                         HTTP 200  0.427s   72411 bytes
+/member/lt_000001                          HTTP 200  0.180s   81561 bytes
+/tag/tag_0001                              HTTP 200  0.089s   72079 bytes
+/signin                                    HTTP 200  0.019s   14064 bytes
+/about                                     HTTP 200  0.018s   15155 bytes
+/settings   （登录态）                      HTTP 200  0.031s   15392 bytes
+/bookmarks  （登录态）                      HTTP 200  0.033s   34325 bytes
+/notifications（登录态）                    HTTP 200  0.019s   14147 bytes
+/api/nodes?limit=20                        HTTP 200  0.029s    5758 bytes
+/api/feed/atom                             HTTP 200  0.023s   20178 bytes
+/api/search?q=替代品                        HTTP 200  1.107s   11271 bytes
+```
+
+**登录验证**（用本脚本生成的密码哈希）：
+
+```console
+# 正确密码
+POST /api/auth/signin  {"username":"lt_000001","password":"loadtest-password-20261104-0"}
+→ {"ok":true,"redirect":"/"}
+
+# 错误密码
+POST /api/auth/signin  {"username":"lt_000001","password":"wrong-password"}
+→ {"ok":false,"error":"用户名或密码不正确"}
+```
+
+登录后 `/bookmarks` 能渲染出收藏的主题与节点、`/notifications` 能渲染出
+「回复了你的主题」通知 —— 说明 `collections` / `notifications` / `follows` 这些关系表
+与用户数据是自洽可用的。
+
+### 3. 写路径验证（发回复）
+
+通过应用自己的 `POST /api/replies` 给主题 #1 连发两条回复，均返回 `{"ok":true}`，
+**没有触发 `replies_topic_floor_uidx` 唯一索引冲突** —— 说明 `floor_counters`
+与实际楼层水位对齐正确，压测时发帖不会因为种子数据而 500。
+
+> ⚠️ 但这次验证**暴露了一个应用侧缺陷**（不是本脚本的问题），见下一节。
+
+### 4. 序列同步
+
+所有 serial 序列都已同步到最大值（应用层后续写入不会撞主键）：
 
 ```
  users | 10000        votes       | 840039
@@ -446,6 +497,111 @@ published 主题数: 94800
  credit_ledger| 1159990  thanks  | 189898
  daily_checkins| 49990
 ```
+
+---
+
+## ⚠️ 压测时需要注意的应用侧缺陷（与本脚本无关）
+
+HTTP 层验证时发现：**`src/server/floor.ts` 的 `allocateFloor` 在 UPDATE 分支会跳号**，
+导致回复的楼层号不连续（1, 3, 5, ... 而不是 1, 2, 3, ...）。
+
+**这不是压测数据造成的** —— 用一个**完全由应用自己新建**的主题（无任何种子数据）
+也能复现：
+
+```
+新主题 #100001：
+  第 1 条回复 → floor = 1   ✓
+  第 2 条回复 → floor = 3   ✗ 应该是 2
+```
+
+**根因**：`allocateFloor` 的 SQL 在 `ON CONFLICT DO UPDATE` 分支里，
+`greatest(floor_counters.last_floor, EXCLUDED.last_floor) + 1` 把 `EXCLUDED` 也加了 1。
+而 `EXCLUDED.last_floor` 本身已经是 `max(floor) + 1`，于是当 `counter == max(floor)` 时
+结果是 `max(floor) + 2` —— **每次分配都跳一个号**。
+
+`tests/floor-counter.spec.ts` 没抓到它，因为该测试只断言「楼层号**递增且不重复**」，
+而**跳号恰好也满足递增**。
+
+**候选修复**（已在本机用 SQL 实测三种场景全部正确）：
+
+```diff
+ ON CONFLICT (topic_id) DO UPDATE
+-  SET last_floor = greatest(floor_counters.last_floor, EXCLUDED.last_floor) + 1
++  SET last_floor = greatest(floor_counters.last_floor + 1, EXCLUDED.last_floor)
+```
+
+实测结果：
+
+| 场景 | counter | max(floor) | 修复后返回值 | 说明 |
+|---|---|---|---|---|
+| A 正常路径 | 10 | 10 | **11** | 连续 ✓ |
+| B 自愈（计数表落后） | 0 | 10 | **11** | 不撞号 ✓ |
+| C 计数表领先 | 20 | 10 | **21** | 不复用 ✓ |
+
+**我没有修改 `src/server/floor.ts`** —— 它在禁改清单里，且这是应用逻辑缺陷，
+应由负责应用代码的队友决定是否修、怎么修。
+
+> 📌 **截至本 README 最后更新时，这个缺陷尚未被修复** ——
+> `src/server/floor.ts` 里仍是 `greatest(floor_counters.last_floor, EXCLUDED.last_floor) + 1`。
+> 压测前请确认是否已修复。
+
+**对压测的影响**：楼层号跳号不影响压测脚本生成的数据（脚本自己写的楼层是连续的
+1..n，且 `floor_counters` 与实际 `max(floor)` 一致），但会让 k6 阶段测到的
+「回复楼层连续性」断言失败。**压测前建议先修掉它**，否则压测报告里会出现
+一个与压测数据无关的假阳性。
+
+---
+
+## 性能注意事项：慢查询
+
+`/leaderboard` 与 `/api/leaderboard` 在完整规模数据下**很慢**：
+冷缓存 **162 秒**，热缓存 **6.2 秒**。
+
+根因是 `src/lib/credit-service.ts` 的 `leaderboard()` 里那个统计子查询：
+
+```sql
+(SELECT count(*)::int FROM thanks th JOIN replies r2 ON r2.id = th.reply_id
+  WHERE r2.author_id = t.author_id) AS thanks_received
+```
+
+`EXPLAIN ANALYZE` 显示它是 **N+1 全表扫描**：
+
+```
+SubPlan 2
+  ->  Aggregate (actual rows=1 loops=9997)          ← 9997 个作者，每个都跑一遍
+        ->  Hash Join (actual rows=19 loops=9997)
+              ->  Seq Scan on thanks th (actual rows=189898 loops=9997)   ← 全表扫描 × 9997
+```
+
+`thanks` 表只有 `(user_id, reply_id)` 复合索引，**没有 `reply_id` 单列索引**，
+所以 `JOIN replies r2 ON r2.id = th.reply_id` 走不了索引。
+
+**修法建议**（我没有动 schema —— 在禁改清单里）：给 `thanks` 加 `reply_id` 单列索引，
+或把该统计改成一次性聚合子查询：
+
+```sql
+-- 替代方案：先聚合再 join，避免 N+1
+(SELECT count(*)::int FROM (
+   SELECT th.reply_id FROM thanks th
+   JOIN replies r2 ON r2.id = th.reply_id
+   WHERE r2.author_id = t.author_id
+   GROUP BY th.reply_id
+ ) z) AS thanks_received
+```
+
+同理，`votes` 表也缺 `topic_id` 单列索引（只有 `(user_id, topic_id)` 复合索引），
+`credits` 页面按 topic 统计票数时也会走全表扫描。
+
+> ✅ **这两项已被队友处理**（截至本 README 最后更新）：
+> - `drizzle/0002_v004_perf_indexes.sql` 已新增 `thanks_reply_id_idx`、
+>   `replies_author_alive_idx`、`topics_author_alive_idx`、`votes_topic_id_idx`、
+>   `replies_topic_id_idx`。
+> - `src/lib/credit-service.ts` 的 `leaderboard()` 已改写为「三个独立聚合 + JOIN」，
+>   端点耗时从 241.98 秒降到 0.74 秒（加索引后 0.46 秒）。
+>
+> **压测建议**：k6 阶段如果打 `/leaderboard`，请确认压测库已应用
+> `0002_v004_perf_indexes.sql` 迁移 —— 否则测出来的仍是旧路径的慢，
+> 会得出「应用很慢」的错误结论。
 
 ---
 
@@ -463,6 +619,13 @@ published 主题数: 94800
 5. **未覆盖 `kv_store` 的 `seed:initialized` 标记** —— 脚本只写 `loadtest:seed`。
    因此在压测库上跑 `npm run db:seed` 仍会正常执行。
 6. **`reports` / `node_requests` 等辅助表只做了引用自洽**，语义是随机填充，不是业务真实场景。
+7. **发现了两个应用侧缺陷**（`allocateFloor` 楼层跳号、`leaderboard` 慢查询），
+   均已定位根因并给出修复方案，但**没有改应用代码**（在禁改清单内）—— 详见上面两节。
+   压测前建议先处理，否则 k6 阶段的结论会被这两条路径污染。
+8. **HTTP 层验证用的是 `next start`（生产构建）**，不是 `next dev` ——
+   `next dev` 启动时清理 `.next` chunk 触发了沙箱的 safe-delete 守卫（非本脚本问题）。
+   另外本次 HTTP 验证向库里写了 1 个主题 + 4 条回复 + 1 个会话，
+   验证后已用 `--truncate` 重新生成，交付状态下库是干净的（指纹与首次生成一致）。
 
 ---
 

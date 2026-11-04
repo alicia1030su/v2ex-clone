@@ -15,6 +15,13 @@
       "when": 1793749333173,
       "tag": "0001_striped_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793778312868,
+      "tag": "0002_v004_perf_indexes",
+      "breakpoints": true
     }
   ]
 }
