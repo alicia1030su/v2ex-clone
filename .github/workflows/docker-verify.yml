@@ -529,6 +529,15 @@ jobs:
 
       # ---------------------------------------------------------------------
       # 证据汇总 —— 把逐项结论写成一份可归档的 markdown
+      #
+      # ⚠️ 表达式写法约束（v0.0.4 实测踩坑）：
+      #   GitHub Actions 的 `${{ }}` 上下文**不支持** `&&` / `||` 三元式。
+      #   本文件初版把 `job.status == 'success' && echo PASS || echo '见日志'`
+      #   写进了 `${{ }}`，导致工作流**在定义阶段**直接失败 ——
+      #   run 0 秒结束、total_count=0、无任何 job 被创建，
+      #   报错只有一句「This run likely failed because of a workflow file issue」。
+      #   正确做法：三元判断放在 `run:` 块的 **shell 层**里，
+      #   `${{ }}` 只用于传值（见下一行 steps.build.outcome 的写法）。
       # ---------------------------------------------------------------------
       - name: 生成验证汇总
         if: always()
@@ -545,7 +554,7 @@ jobs:
             echo "| # | 校验项 | 结果 |"
             echo "|---|--------|------|"
             echo "| 1 | 镜像真实构建 | $([ '${{ steps.build.outcome }}' = 'success' ] && echo PASS || echo FAIL) |"
-            echo "| 2 | Compose 启动 | ${{ job.status == 'success' && echo PASS || echo '见日志' }} |"
+            echo "| 2 | Compose 启动 | $([ "${{ job.status }}" = 'success' ] && echo PASS || echo FAIL) |"
             echo "| 3 | PG / Redis 健康检查 | 同上 |"
             echo "| 4 | 数据卷持久化 | 同上 |"
             echo "| 5 | 容器重启不丢数据 | 同上 |"
