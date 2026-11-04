@@ -156,7 +156,7 @@ jobs     : ['verify']
 | **5** | 容器重启 | `[5/9] 容器重启（数据与口令不变）` | `docker compose restart` 后断言管理员 `password_hash` **逐字节不变** 且 `topics` 计数**不变** | 🔴 待 CI 实跑 |
 | **6** | Redis 中断与恢复 | `[R-17a] Redis 中断与恢复` | `stop redis` → 断言 `/`、`/nodes`、`/api/nodes` **均不返回 5xx**（应用须降级而非崩溃）→ `start redis` → 断言回到 200 且 `PING` = `PONG` | 🔴 待 CI 实跑 |
 | **6′** | PG 中断与恢复 | `[R-17b] PostgreSQL 中断与恢复` | `stop postgres` → 记录首页行为 → `start postgres` → **断言应用自动回到 200（不需重启容器）** | 🔴 待 CI 实跑 |
-| **7** | 安装包实际部署 | `[7/9] 安装包实际部署` | `tar` 打包 `deploy/` → 解包到全新目录 → `bash -n` 全部脚本 → **真实执行 `install.sh`**（`V2EX_IMAGE=v2ex-clone:dv`，避免拉 GHCR）→ 断言 `.env` 权限 = **600**、凭据文件权限 = **600**、4 个口令长度 ≥ 16、容器 healthy、管理员账号存在 | 🔴 待 CI 实跑 |
+| **7** | 安装包实际部署 | `[7/9] 安装包实际部署` | ① **先停根 compose**（避端口 3000 + 容器名冲突，见 §5.1.0）→ ② `tar` 打包 `deploy/` → 解包到全新目录 → `bash -n` 全部脚本 → ③ 预置 `.env`（`APP_PORT=3100`）并 **真实执行 `install.sh`**（`V2EX_IMAGE=v2ex-clone:dv`）→ ④ 断言 `.env` 权限 = **600**、凭据文件权限 = **600**、4 个口令长度 ≥ 16、**`V2EX_IMAGE` 不是外部仓库** → ⑤ 断言发行版 compose 的 app healthy + 管理员账号存在 → ⑥ **停掉安装包容器并恢复根 compose**（供 `[8/9]` 与 R-17 用） | 🔴 待 CI 实跑 |
 | **8** | 容器资源观察 | `[8/9] 容器资源观察（CPU / 内存）` | `docker stats --no-stream` 输出三容器 CPU%/MEM/MEM% + **连续 5 次采样**观察波动 + 镜像体积 + `SizeRw`（可写层）+ 容器内 `/proc/1/status` 的 `VmRSS`/`VmHWM` | 🔴 待 CI 实跑 |
 | **9** | 镜像内容与权限检查 | `[9/9] 镜像内容与权限检查` | 见 §2.5 展开 | 🔴 待 CI 实跑 |
 
@@ -376,6 +376,55 @@ gh run download <RUN_ID> -n docker-verify-evidence -D ./docker-verify-evidence
 | `41836244258` | **0 秒失败、`total_count=0`、无任何 job 被创建**，只报一句「This run likely failed because of a workflow file issue」 | 我把三元式写进了 `${{ }}` 表达式上下文 —— **GitHub Actions 的表达式不支持 `&&`/`||` 三元运算**（`||` 取默认值支持，三元不支持） | `2532f5f`（主理人）—— 三元判断下沉到 `run:` 的 shell 层：`$([ "${{ job.status }}" = 'success' ] && echo PASS \|\| echo FAIL)` |
 | `41836588637` | 第 9 项红灯：`✗ 镜像内缺少迁移文件: _journal.json` | **验证脚本自身的路径错误**：`drizzle` 的迁移 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录 —— 我把两者混在同一列表用同一路径断言 | `930f29e`（主理人）—— SQL 与 meta 元数据分成两段断言，meta 段覆盖 3 个 snapshot + journal（**覆盖面反而更严**） |
 | `41837202602` | 第 2 项红灯：`✗ app 未达 healthy（none）` | **断言口径本身不可能成立**：根目录 `docker-compose.yml` 的 **app 服务没有定义 healthcheck**（只有 `deploy/docker-compose.yml` 才有）。所以 `docker inspect '{{.State.Health.Status}}' v2ex-app` **永远返回 `none`** | **本轮由我修复**（见 §5.1.1） |
+
+#### 5.1.0 我在复核第 4 项时**主动发现的第 4 个缺陷**（尚未被 CI 触发，但一定会红）
+
+主理人让我「补齐其余项覆盖」时，我逐项复核了 `[7/9]` 的执行上下文，
+发现**它必然失败**（不是「可能」）：
+
+> **冲突 1 —— 端口占用**：`install.sh` 第 163 行有硬性端口检查：
+> ```bash
+> if port_in_use "$APP_PORT"; then
+>   die "端口 ${APP_PORT} 已被占用。请先停止占用该端口的程序…"
+> ```
+> 而此时根 compose 的 app 容器**仍在运行**，映射着宿主机 `${APP_PORT:-3000}` = **3000**。
+> → `install.sh` 会**直接 `die`**。
+>
+> **冲突 2 —— 容器名冲突**：两份 compose 都硬编码了
+> `container_name: v2ex-postgres` / `v2ex-redis` / `v2ex-app`
+> → `docker compose up -d` 会因容器名已存在而失败。
+>
+> **冲突 3 —— 步骤顺序**：修好前两个之后，`[7/9]` 结束时根 compose 处于停止状态，
+> 而后续 `[8/9]`（`docker stats` / `docker exec v2ex-app`）与 **R-17 三项**
+> 都依赖 `v2ex-app` 正在运行 → 会连带失败。
+
+**修复（三处一起改，缺一不可）**：
+
+1. **`[7/9]` 开头先停根 compose**（`stop` + `rm -f`，**保留卷**，不影响前面已取证的数据卷状态）
+2. **改用 3100 端口**并预置 `.env`（`install.sh` 对 `.env` 是幂等的 —— 第 170 行注释
+   「准备 .env（幂等：已存在则不覆盖）」，且 `set_env_value` 只写 4 个凭据变量 + `V2EX_IMAGE`，
+   **不会覆盖** `APP_PORT`）
+3. **`[7/9]` 结尾停掉安装包容器并恢复根 compose**，供 `[8/9]` 与 R-17 三项使用
+
+**另外加了一条防呆断言**（防止未来有人把 `V2EX_IMAGE` 改成外部仓库）：
+
+```bash
+IMG=$(grep -E '^V2EX_IMAGE=' .env | cut -d= -f2-)
+case "${IMG}" in
+  ghcr.io/*|docker.io/*|quay.io|registry.*)
+    echo "  ✗ 安装包指向了外部镜像仓库 —— 本工作流必须只用本地构建镜像"; exit 1 ;;
+esac
+[ "${IMG}" = "v2ex-clone:dv" ] || { echo "  ✗ V2EX_IMAGE 应为 v2ex-clone:dv"; exit 1; }
+```
+
+**为什么绝不会 push / 绝不会拉外部镜像**：
+`install.sh` 第 332 行会先试 `docker compose pull`，但 `v2ex-clone:dv` 这个 tag
+**只存在于本工作流本地构建的镜像里**，pull 必然失败 → 脚本走
+「拉取失败但本机已存在该镜像 → 继续使用本地镜像」的分支（`deploy/install.sh` 第 337–341 行）。
+本工作流**没有任何 `docker login` / `docker push`**，也**不设置 registry 凭据**。
+
+> 📌 **这一条也回答了主理人的第 3 个问题**：是的，`[7/9]` 用的是本地构建的 `v2ex-clone:dv`，
+> 且现在**多了一条断言来保证它不会变成外部镜像**。
 
 #### 5.1.1 第 3 个缺陷的详细诊断（run `41837202602`）
 
