@@ -72,11 +72,12 @@ const LEDGER_LABELS: Record<string, string> = {
 };
 
 export default function CreditBadge({
-  signedIn,
+  signedIn = true,
   initialBalance,
   showLedger = false,
 }: {
-  signedIn: boolean;
+  /** 未登录时传 false —— 组件会整块隐藏（不显示误导性的「积分 0」） */
+  signedIn?: boolean;
   /** 服务端已知的余额（可省，省略则由组件自行拉取） */
   initialBalance?: number;
   /** 是否展示积分流水明细 */

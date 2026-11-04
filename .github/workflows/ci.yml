@@ -136,6 +136,11 @@ jobs:
       - name: 类型检查
         run: npx tsc --noEmit
 
+      - name: 前后端 API 契约校验
+        # 扫描前端写死的 API 路径，与后端实际挂载的路由比对，
+        # 防止「前端调了但后端没这个端点」的偏差静默存在。
+        run: node scripts/ui-verify.cjs
+
       - name: 单元测试
         env:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci

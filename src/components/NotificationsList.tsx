@@ -11,7 +11,7 @@ import { csrfFetch } from '@/components/CsrfProvider';
  *   → { ok, total, unread, notifications: [{ id, type, actorId, topicId, replyId, message, read, createdAt }] }
  *
  * 写操作：
- *   - POST   /api/notifications/read  body { id? }   —— 给 id 标记单条，不给则全部已读
+ *   - POST   /api/notifications       body { id? }   —— 给 id 标记单条，不给则全部已读
  *   - DELETE /api/notifications       body { id? }   —— 给 id 删单条，不给则清空自己的全部
  *
  * 交互约定：
@@ -124,7 +124,7 @@ export default function NotificationsList() {
     setPending(`read-${id}`);
     setMsg(null);
     try {
-      const res = await csrfFetch('/api/notifications/read', {
+      const res = await csrfFetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
@@ -134,13 +134,17 @@ export default function NotificationsList() {
         setMsg({ kind: 'err', text: data.error ?? '标记已读失败' });
         return;
       }
-      // 本地同步该条状态，避免整表重拉
+      // 本地同步该条状态，避免整表重拉。
+      // 注意「仅未读」视图下，标记已读后该条已不符合筛选条件 —— 必须移除，
+      // 否则会留下一条永远显示「已读」的记录（再次点击标记已读也无意义）。
       setState((prev) =>
         prev.status === 'ready'
           ? {
               ...prev,
               unread: Math.max(0, prev.unread - 1),
-              items: prev.items.map((n) => (n.id === id ? { ...n, read: true } : n)),
+              items: unreadOnly
+                ? prev.items.filter((n) => n.id !== id)
+                : prev.items.map((n) => (n.id === id ? { ...n, read: true } : n)),
             }
           : prev,
       );
@@ -155,7 +159,7 @@ export default function NotificationsList() {
     setPending('read-all');
     setMsg(null);
     try {
-      const res = await csrfFetch('/api/notifications/read', {
+      const res = await csrfFetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
