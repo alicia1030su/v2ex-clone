@@ -11,19 +11,32 @@
  *    供容器入口脚本判断「这个库是否已经初始化过」，
  *    从而保证重新部署不会再次写入演示数据、污染用户数据。
  */
-import 'dotenv/config';
-import { config } from 'dotenv';
 import { sql as pgSql } from '../src/db/index';
 import { db, schema } from '../src/db';
 import { hashPassword } from '../src/lib/password';
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
+import { loadProductEnv } from '../src/lib/env-loader.mjs';
 
-if (process.env.ENV_FILE) {
-  config({ path: process.env.ENV_FILE, quiet: true, override: true });
-}
-config({ path: '.env.local', quiet: true });
-config({ path: '.env', quiet: true });
+/**
+ * 环境加载 —— 委托给**全仓唯一**的实现 `src/lib/env-loader.mjs`
+ *
+ * ⚠️ 这里**故意不再** `import 'dotenv/config'`：
+ * 那条语句会在本模块之前加载仓库根的 `.env`，把 `DATABASE_URL` 抢先占位，
+ * 导致 `ENV_FILE` 永远赢不了（这是修复前 `ENV_FILE` 失效的根因之一）。
+ *
+ * ⚠️ `ENV_FILE: ''`（空串）必须保持 **falsy** 语义：
+ * 子进程用空串表示「不要再解析任何 env 文件，只继承父进程的 DATABASE_URL」。
+ * 这是 `tests/helpers/local-bin.ts` 的既有契约，
+ * `tests/seed-idempotency.spec.ts` 也依赖它。
+ *
+ * 优先级：shell / CI 注入 > `ENV_FILE` 文件 > `.env.local` > `.env`，
+ * 且文件**只填充未设置的变量** —— 于是测试传入的 `DATABASE_URL` 一定生效。
+ *
+ * 注：本文件同时 `import { ... } from '../src/db/index'`，而那个模块也会调用
+ * 同一个加载器 —— 加载器是**幂等**的（进程内只解析一次），重复调用无副作用。
+ */
+loadProductEnv({ cwd: process.cwd() });
 
 /** 首次初始化标记的 key（存放在 kv_store 表） */
 export const INIT_MARKER_KEY = 'seed:initialized';

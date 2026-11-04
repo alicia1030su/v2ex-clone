@@ -32,17 +32,24 @@
  *  - 拒绝在生产环境修改 demo 账号（lisi/wangwu/zhaoliu/moderator）。
  *  - 口令长度下限 8（与注册接口一致），上限 128。
  */
-import { config } from 'dotenv';
 import { sql as pgSql } from '../src/db/index';
 import { db, schema } from '../src/db';
 import { hashPassword } from '../src/lib/password';
 import { eq, sql as dsql } from 'drizzle-orm';
+import { loadProductEnv } from '../src/lib/env-loader.mjs';
 
-if (process.env.ENV_FILE) {
-  config({ path: process.env.ENV_FILE, quiet: true, override: true });
-}
-config({ path: '.env.local', quiet: true });
-config({ path: '.env', quiet: true });
+/**
+ * 环境加载 —— 委托给**全仓唯一**的实现 `src/lib/env-loader.mjs`
+ *
+ * ⚠️ `ENV_FILE: ''`（空串）必须保持 **falsy** 语义：
+ * 子进程用空串表示「不要再解析任何 env 文件，只继承父进程的 DATABASE_URL」。
+ * 这是 `tests/helpers/local-bin.ts` 的既有契约，
+ * `tests/admin-cli.spec.ts` 也依赖它。
+ *
+ * 优先级：shell / CI 注入 > `ENV_FILE` 文件 > `.env.local` > `.env`，
+ * 且文件**只填充未设置的变量** —— 于是测试传入的 `DATABASE_URL` 一定生效。
+ */
+loadProductEnv({ cwd: process.cwd() });
 
 const DEMO_ACCOUNTS = new Set(['lisi', 'wangwu', 'zhaoliu', 'moderator']);
 const VALID_ROLES = new Set(['admin', 'moderator', 'user']) as ReadonlySet<string>;
