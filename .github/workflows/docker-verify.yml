@@ -172,10 +172,23 @@ jobs:
 
           echo "===== 9e. 镜像内迁移物完整性 ====="
           docker run --rm --entrypoint sh v2ex-clone:dv -c 'ls -la /app/drizzle/ /app/drizzle/meta/'
-          for f in 0000_init.sql 0001_striped_magdalene.sql 0002_v004_perf_indexes.sql _journal.json; do
+          # ⚠️ 路径勘误（2026-11-04，CI 实测）：
+          #   drizzle 的迁移 SQL 在 /app/drizzle/ 根目录，
+          #   而 _journal.json 与 snapshot 在 /app/drizzle/meta/ 子目录。
+          #   初版把两者混在同一列表里、用同一路径断言，
+          #   导致 _journal.json 被误判为「镜像内缺少」而红灯 ——
+          #   而实际上前面的 ls 输出已经证明它存在。
+          #   这属于**验证脚本自身的路径错误**，不是产品缺陷。
+          for f in 0000_init.sql 0001_striped_magdalene.sql 0002_v004_perf_indexes.sql; do
             docker run --rm --entrypoint sh v2ex-clone:dv -c "test -f /app/drizzle/$f" \
-              || { echo "  ✗ 镜像内缺少迁移文件: $f"; exit 1; }
+              || { echo "  ✗ 镜像内缺少迁移文件: /app/drizzle/$f"; exit 1; }
             echo "  ✓ /app/drizzle/$f 在镜像内"
+          done
+          # meta/ 子目录里的元数据文件（journal + 三个 snapshot）
+          for f in _journal.json 0000_snapshot.json 0001_snapshot.json 0002_snapshot.json; do
+            docker run --rm --entrypoint sh v2ex-clone:dv -c "test -f /app/drizzle/meta/$f" \
+              || { echo "  ✗ 镜像内缺少迁移元数据: /app/drizzle/meta/$f"; exit 1; }
+            echo "  ✓ /app/drizzle/meta/$f 在镜像内"
           done
 
           echo "===== 9f. 镜像体积 ====="
