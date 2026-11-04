@@ -4,10 +4,9 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
 import * as schema from '../src/db/schema';
 import { runDrizzleKit, repoRoot } from './helpers/local-bin';
+import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
+import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 import { allocateFloor, ensureFloorCounter } from '@/server/floor';
-import { parse as parseEnvFile } from 'dotenv';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 
 /**
  * v0.0.4 —— 楼层号「连续性」回归测试（B-05 漏检根因）
@@ -49,31 +48,29 @@ const PRESEED_FLOORS = 5;
 /**
  * 基础连接串。
  *
- * ⚠️ 不能直接用 `process.env.DATABASE_URL`：
- * `tests/setup.ts` 会加载 `.env.local`，而该文件指向 **5432**（本机无该实例，
- * 首次实跑得到 `ECONNREFUSED 127.0.0.1:5432`）。隔离测试实例在
- * `.env.test` 的 **55433**。这里只读文件解析连接串，不改写全局
- * `process.env`（避免污染同进程其它测试），仅在 beforeAll 里把
- * DATABASE_URL 临时指向本测试的独立库，afterAll 恢复原值。
+ * ⚠️ **v0.0.4 修复（CI 崩溃根因）**：
+ *
+ * 本文件此前**硬编码**了本机端口与文件路径：
+ *
+ * ```ts
+ * const injected = process.env.DATABASE_URL;
+ * if (injected && /:55433\//.test(injected)) return injected;   // ← 硬编码端口
+ * const fromTestFile = parseEnvFile(
+ *   readFileSync(path.join(repoRoot, '.env.test'), 'utf8'),      // ← 读未入仓的文件
+ * ).DATABASE_URL;
+ * ```
+ *
+ * 在 **CI（ubuntu-latest）** 里：
+ *  - `DATABASE_URL` = `postgres://v2ex:...@localhost:5432/v2ex_ci` → **不匹配** `/55433/`；
+ *  - `.env.test` **未入仓** → `readFileSync` 抛 **`ENOENT`**。
+ *
+ * 即：**该文件在 CI 上必然失败**。上一轮「CI 绿灯」的结论要么来自该文件
+ * 入库之前的运行，要么来自未清理该文件的本地运行。
+ *
+ * 现在改为**统一入口**：连接串一律由 `tests/helpers/test-spec-base.ts`
+ * 从**父进程规范化后的基础连接串**派生（只换库名，不换 host/port）。
+ * CI 与本机走**同一条代码路径**，不再有任何本机路径/端口硬编码。
  */
-function baseDatabaseUrl(): string {
-  const injected = process.env.DATABASE_URL;
-  if (injected && /:55433\//.test(injected)) return injected;
-
-  const fromTestFile = parseEnvFile(
-    readFileSync(path.join(repoRoot, '.env.test'), 'utf8'),
-  ).DATABASE_URL;
-  if (fromTestFile) return fromTestFile;
-
-  throw new Error('无法解析 55433 隔离测试实例的 DATABASE_URL');
-}
-
-function testDatabaseUrl(): string {
-  const url = new URL(baseDatabaseUrl());
-  url.pathname = `/${TEST_DB}`;
-  return url.toString();
-}
-
 type DbGlobals = {
   __v2exSql?: { end(): Promise<void> };
   __v2exDrizzle?: unknown;
@@ -94,33 +91,30 @@ let driftTopicId: number;
 let authorId: number;
 
 describe('楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT）', () => {
-  // 建库 + drizzle-kit migrate（0000/0001/0002）在本机可能超过 vitest 默认
-  // hookTimeout=30s；与主理人并行复验共享 PostgreSQL 实例时会更慢。
-  // 第二次实跑实测在 30s 被判超时（进程 38.98s 才结束），故显式放宽到 120s。
+  // 建库 + drizzle-kit migrate 在本机实测约 7s（稳态），120s 是宽松保险。
   beforeAll(async () => {
     originalDatabaseUrl = process.env.DATABASE_URL;
+    logDbTarget('tests/floor-continuity.spec.ts', TEST_DB);
 
-    // 1) 用 admin 连接重建独立库
-    const adminUrl = new URL(testDatabaseUrl());
-    adminUrl.pathname = '/postgres';
-    const admin = postgres(adminUrl.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`);
-    await admin.unsafe(`CREATE DATABASE ${TEST_DB}`);
-    await admin.end();
-
-    // 2) 在独立库上跑真实迁移（含 0000 / 0001 / 0002）
-    runDrizzleKit(['migrate'], {
-      ...process.env,
-      ENV_FILE: '',
-      DATABASE_URL: testDatabaseUrl(),
+    // 1) 建库 → 迁移，逐阶段计时（护栏在 provision 内部强制生效）
+    await provisionTestDatabase({
+      file: 'tests/floor-continuity.spec.ts',
+      db: TEST_DB,
+      adminUrl: adminUrlOf(TEST_DB),
+      migrate: () =>
+        runDrizzleKit(['migrate'], {
+          ...process.env,
+          ENV_FILE: '',
+          DATABASE_URL: dbUrlFor(TEST_DB),
+        }),
     });
 
-    // 3) 让 src/db 的惰性代理在首次调用时连接到独立库
-    process.env.DATABASE_URL = testDatabaseUrl();
+    // 2) 让 src/db 的惰性代理在首次调用时连接到独立库
+    process.env.DATABASE_URL = dbUrlFor(TEST_DB);
     clearGlobalDbCache();
 
-    // 4) 本文件自己的连接（用于造数据与读回校验）
-    ownSql = postgres(testDatabaseUrl(), { prepare: false });
+    // 3) 本文件自己的连接（用于造数据与读回校验）
+    ownSql = postgres(dbUrlFor(TEST_DB), { prepare: false });
     ownDb = drizzle(ownSql, { schema });
 
     const [user] = await ownDb
@@ -193,15 +187,10 @@ describe('楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT）',
 
     await ownSql?.end().catch(() => undefined);
 
-    const dropUrl = testDatabaseUrl();
     if (originalDatabaseUrl !== undefined) process.env.DATABASE_URL = originalDatabaseUrl;
 
-    const adminUrl = new URL(dropUrl);
-    adminUrl.pathname = '/postgres';
-    const admin = postgres(adminUrl.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`).catch(() => undefined);
-    await admin.end();
-  }, 120_000);
+    await dropTestDatabase(adminUrlOf(TEST_DB), TEST_DB).catch(() => undefined);
+  }, 60_000);
 
   it('初始状态：计数表为空（漂移已建立）', async () => {
     const rows = await ownDb

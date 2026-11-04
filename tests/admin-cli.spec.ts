@@ -9,6 +9,8 @@ import * as schema from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyPassword, hashPassword } from '../src/lib/password';
 import { runDrizzleKit, runTsx, repoRoot } from './helpers/local-bin';
+import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
+import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 
 /**
  * 管理员账号管理 CLI 回归测试（P0-1）
@@ -31,14 +33,6 @@ import { runDrizzleKit, runTsx, repoRoot } from './helpers/local-bin';
 const TEST_DB = process.env.ADMIN_CLI_TEST_DB ?? 'v2ex_admintest';
 const ADMIN_TOKEN = 'unit-test-admin-token-not-real';
 
-function testDatabaseUrl(): string {
-  const base = process.env.DATABASE_URL;
-  if (!base) throw new Error('DATABASE_URL 未配置，无法运行 admin-cli 回归测试');
-  const url = new URL(base);
-  url.pathname = `/${TEST_DB}`;
-  return url.toString();
-}
-
 let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle<typeof schema>>;
 
@@ -56,7 +50,7 @@ function runAdminCli(
       env: {
         ...process.env,
         ENV_FILE: '',
-        DATABASE_URL: testDatabaseUrl(),
+        DATABASE_URL: dbUrlFor(TEST_DB),
         APP_RUNTIME_ENV: 'test',
         NODE_ENV: 'test',
         ...env,
@@ -89,20 +83,22 @@ function resolveTsx(): { command: string; args: string[] } {
 
 describe('admin-cli 授权与审计（P0-1）', () => {
   beforeAll(async () => {
-    const adminUrl = new URL(testDatabaseUrl());
-    adminUrl.pathname = '/postgres';
-    const admin = postgres(adminUrl.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`);
-    await admin.unsafe(`CREATE DATABASE ${TEST_DB}`);
-    await admin.end();
+    logDbTarget('tests/admin-cli.spec.ts', TEST_DB);
 
-    runDrizzleKit(['migrate'], {
-      ...process.env,
-      ENV_FILE: '',
-      DATABASE_URL: testDatabaseUrl(),
+    // 建库 → 迁移，逐阶段计时（护栏在 provision 内部强制生效）
+    await provisionTestDatabase({
+      file: 'tests/admin-cli.spec.ts',
+      db: TEST_DB,
+      adminUrl: adminUrlOf(TEST_DB),
+      migrate: () =>
+        runDrizzleKit(['migrate'], {
+          ...process.env,
+          ENV_FILE: '',
+          DATABASE_URL: dbUrlFor(TEST_DB),
+        }),
     });
 
-    client = postgres(testDatabaseUrl(), { prepare: false });
+    client = postgres(dbUrlFor(TEST_DB), { prepare: false });
     db = drizzle(client, { schema });
 
     // 造两个账号：lisi（普通用户）与 admin（唯一的管理员）
@@ -122,16 +118,12 @@ describe('admin-cli 授权与审计（P0-1）', () => {
         balance: 100,
       },
     ]);
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await client?.end().catch(() => undefined);
-    const url = new URL(testDatabaseUrl());
-    url.pathname = '/postgres';
-    const admin = postgres(url.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`).catch(() => undefined);
-    await admin.end();
-  });
+    await dropTestDatabase(adminUrlOf(TEST_DB), TEST_DB).catch(() => undefined);
+  }, 60_000);
 
   it('未配置 ADMIN_CLI_TOKEN 时拒绝改密', () => {
     const r = runAdminCli(
@@ -288,7 +280,7 @@ describe('admin-cli 授权与审计（P0-1）', () => {
     runTsx('scripts/seed.ts', {
       ...process.env,
       ENV_FILE: '',
-      DATABASE_URL: testDatabaseUrl(),
+      DATABASE_URL: dbUrlFor(TEST_DB),
       SEED_ADMIN_USERNAME: 'admin',
       SEED_ADMIN_EMAIL: 'admin@test.local',
       SEED_ADMIN_PASSWORD: 'seed-admin-password-123456',
