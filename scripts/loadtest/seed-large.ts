@@ -834,14 +834,18 @@ async function main(): Promise<void> {
 
       // ---- 10. votes ----
       // 每个主题的票数按幂律分布（热门主题票多、冷门主题票少）；
-      // 同一主题内投票人互不相同（避免撞 (user_id, topic_id) 唯一索引）。
+      // 投票人也按幂律分布 —— 少数「水军」账号投出大部分票，
+      // 这会让 votes_user_topic_uidx 索引上出现热点条目，
+      // 更接近真实的索引页竞争场景。
+      //
+      // DISTINCT ON 保证 (user_id, topic_id) 不重复（幂律映射不保证唯一）。
       // topics.votes = up 数 - down 数（与 src/lib/content-service.ts 的 voteTopic 语义一致）。
       const tVotes = Date.now();
       const maxVotesPerTopic = Math.max(1, Math.min(20, opts.users));
       await tx.unsafe(
         `INSERT INTO votes (user_id, topic_id, direction, created_at)
-         SELECT
-           1 + ((t.base_voter + v.i::bigint - 1) % ${opts.users}),
+         SELECT DISTINCT ON (t.id, vx.uid)
+           vx.uid,
            t.id,
            CASE WHEN ${rnd.expr(`'vdir:' || t.rn || ':' || v.i`)} < 0.75
              THEN 'up'::vote_direction ELSE 'down'::vote_direction END,
@@ -850,13 +854,16 @@ async function main(): Promise<void> {
            SELECT
              lt.id,
              lt.rn,
-             ((lt.rn::bigint * 7919) % ${opts.users})::bigint AS base_voter,
              ${rnd.zipf(`'vn:' || lt.rn`, maxVotesPerTopic, 1.4)}::int AS n_votes
            FROM lt_topics lt
          ) AS t
          JOIN topics tt ON tt.id = t.id
          CROSS JOIN LATERAL generate_series(1, t.n_votes) AS v(i)
-         WHERE tt.deleted_at IS NULL`,
+         CROSS JOIN LATERAL (
+           SELECT ${rnd.zipf(`'vv:' || t.rn || ':' || v.i`, opts.users, 1.5)}::int AS uid
+         ) AS vx
+         WHERE tt.deleted_at IS NULL
+         ORDER BY t.id, vx.uid, v.i`,
       );
       await tx.unsafe(
         `UPDATE topics t SET votes = COALESCE(v.v, 0)

@@ -40,8 +40,13 @@ export const VIEWPORTS = {
 // 不做区分的对比没有意义。
 const PAGES = [
   { name: 'home', origin: '/', local: '/' },
-  { name: 'hot', origin: '/hot', local: '/' },
-  { name: 'nodes_all', origin: '/go/go', local: '/nodes' },
+  // ⚠️ 原站的 /hot 与 /nodes 都**需要登录**（实测 302 → /signin），
+  //    我们无权访问他人账号 —— 因此这两页**没有原站对照**，
+  //    本地映射到首页/节点列表页并如实标注。
+  //    （原站的 /go/go 是「Go 编程语言」节点页，不是节点列表页；
+  //      之前误用作对照对象，已更正。）
+  { name: 'hot', origin: '/hot', local: '/', requiresAuth: true },
+  { name: 'nodes_all', origin: '/nodes', local: '/nodes', requiresAuth: true },
   { name: 'node_detail', origin: '/go/claude', local: '/go/claude' },
   { name: 'topic_detail', origin: '/t/1253638', local: '/t/1' },
   { name: 'reply_list', origin: '/t/1253638#reply1', local: '/t/1#reply1' },
