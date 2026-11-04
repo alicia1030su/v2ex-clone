@@ -4,6 +4,7 @@ import {
   register,
   uniqueName,
   createTopicViaUi,
+  waitForHydration,
   ADMIN,
   USER_A,
   MODERATOR,
@@ -23,17 +24,27 @@ import {
  *  3. 若某操作在 UI 上确实没有按钮，**如实记录「UI 无入口，功能仅 API 层」**，
  *     不伪造点击、不改 src/**、不为了让测试通过去调 API。
  *
- * ## 已知的 UI 缺口（本文件会验证并在报告中列出）
+ * ## v0.0.4 UI 缺口补齐后的断言方向（2026-11-04 修订）
  *
- *  - `SiteNav.tsx` 对**任何角色**都不渲染 `/admin` 链接 —— 后台只能靠直达 URL，
- *    所以「导航栏无后台入口」对游客/普通用户成立，但对管理员同样成立（这是产品缺口，
- *    不是权限正确性的证据）。
- *  - 节点申请**提交**在前端无表单/按钮（`/nodes` 页无入口），只有
- *    `/api/node-requests`；后台「节点申请」tab 只有审批按钮。
- *  - 「隐藏既有节点」(`PATCH /api/nodes { action:'hide' }`) 在 UI 上无任何入口，
- *    因此 `feature.spec.ts:157` 的「非管理员不能审核节点」是 **API 层结论**，
- *    不能冒充 UI 验收；它与「审批节点申请」是两个不同操作。
- *  - 找回密码 / SMTP 真实投递、多视口交互：不在本文件范围。
+ * 本文件原先有两条用例把「UI 无入口」**当作断言**（`toHaveCount(0)`）。
+ * UI 工程师补齐了入口后，这两条用例的**前提已经失效**，必然失败。
+ * 修订原则（**不是降低标准，是把标准从「缺陷存在」翻转为「功能可用」**）：
+ *
+ *  - 原用例 A（节点申请无入口）→ 改为**正向断言**：入口存在 + 真实点击提交
+ *    + 申请真实入库 + 审批后节点真实可见。
+ *  - 原用例 B（管理员无 /admin 入口）→ 改为**正向断言**：三个页面都有
+ *    `a[href="/admin"]` + 真实点击到达 `/admin`。
+ *
+ * 修订后每条用例的**断言强度都高于原版**：
+ *  - A：原版只断言「不存在」（1 条计数断言）→ 新版断言「入口存在 + 点击有反应
+ *    + 记录入库 + 审批后节点可见 + 未登录被拦」（5 层）
+ *  - B：原版只断言「不存在」（1 条计数断言）→ 新版断言「存在 + 可见 + 可点击
+ *    + 点击后真的到达 /admin」（3 个页面 × 3 层）
+ *
+ * 仍然保留的 UI 缺口（如实记录，不伪造）：
+ *  - 「隐藏既有节点」`PATCH /api/nodes { action:'hide' }` —— v0.0.4 已补 UI
+ *    （`/admin` → 「节点管理」tab，管理员可见「隐藏/恢复节点」按钮），
+ *    但**版主**无该按钮（服务端 `isAdmin` 限制），故版主用例仍记录为观测。
  *
  * 数据自给自足：封禁目标用户与版主操作用的主题都在用例内用 UI 创建，
  * 且封禁后会解封、锁定后会解锁，尽量不污染共享测试库。
@@ -95,13 +106,113 @@ test.describe('四身份 UI 验收 · 游客', () => {
     });
   });
 
-  test('UI 缺口：节点申请提交在前端无入口（仅 API /api/node-requests）', async ({ page }) => {
-    await page.goto('/nodes');
-    await expect(page.getByRole('button', { name: /申请节点|申请新节点/ })).toHaveCount(0);
-    await expect(page.locator('form[action*="node-requests"]')).toHaveCount(0);
-    test.info().annotations.push({
-      type: 'ui-no-entry',
-      description: '节点申请「提交」无 UI 入口；只有 /api/node-requests 与后台审批 tab',
+  /**
+   * v0.0.4 修订：原用例「节点申请提交在前端无入口（仅 API /api/node-requests）」
+   * 把**缺陷**当断言（`toHaveCount(0)`）。UI 工程师补齐了 `/nodes/request`
+   * 页面与 `NodeRequestForm` 组件后，原断言必然失败。
+   *
+   * 修订为**正向断言**，且断言强度**高于原版**：
+   *  - 原版：1 层（断言「按钮不存在」）
+   *  - 新版：4 层（入口存在 → 真实点击提交 → 反馈可见 → 记录真实入库）
+   *
+   * 「列表断言必须基于 DOM」：`/nodes/request` 页面的「我提交的申请」
+   * 区块由服务端渲染入库记录，是 DOM 事实；`page.request` 只作为
+   * **数据库侧佐证**（证明确实写进 node_requests 表，而不只是前端假状态）。
+   */
+  test('节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库', async ({
+    page,
+    browser,
+  }) => {
+    // 用例需要一个**普通用户**（游客没有节点申请入口）
+    const user = uniqueName('nodeui');
+    await register(page, user, 'V004Test-2026!');
+
+    await test.step('游客在 /nodes 看不到「申请新节点」入口（权限边界）', async () => {
+      const ctxGuest = await browser.newContext();
+      const guest = await ctxGuest.newPage();
+      await guest.goto('/nodes');
+      await expect(guest.locator('#Top')).toBeVisible({ timeout: 15_000 });
+      await expect(guest.getByRole('link', { name: '申请新节点' })).toHaveCount(0);
+      await ctxGuest.close();
+    });
+
+    await test.step('登录后在 /nodes 能看到「申请新节点」入口', async () => {
+      await page.goto('/nodes');
+      await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+      const entry = page.getByRole('link', { name: '申请新节点' });
+      await expect(entry).toBeVisible({ timeout: 15_000 });
+    });
+
+    // 节点名必须匹配服务端 NAME_RE：^[a-z0-9][a-z0-9_-]{1,31}$
+    const nodeName = `e2e${uniqueName('n').replace(/[^a-z0-9]/gi, '').slice(0, 10)}`;
+    const nodeTitle = `E2E 申请节点 ${nodeName}`;
+
+    await test.step('真实点击入口进入 /nodes/request，表单完整可见', async () => {
+      await page.getByRole('link', { name: '申请新节点' }).click();
+      await expect(page).toHaveURL(/\/nodes\/request/);
+      await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+
+      // 表单四要素全部在 DOM 里（不是只有链接的空壳）
+      await expect(page.locator('input[name="nodeName"]')).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator('input[name="nodeTitle"]')).toBeVisible();
+      await expect(page.locator('select[name="categoryId"]')).toBeVisible();
+      await expect(page.locator('textarea[name="description"]')).toBeVisible();
+
+      const submitBtn = page.getByRole('button', { name: '提交申请' });
+      await expect(submitBtn).toBeVisible();
+      // 未填必填项时提交按钮必须禁用（前端校验真的生效）
+      await expect(submitBtn).toBeDisabled();
+    });
+
+    await test.step('真实填写表单并点击「提交申请」', async () => {
+      // NodeRequestForm 是**客户端组件**，必须等 hydration 完成，
+      // 否则 onSubmit 没绑定、点击不会有任何反应。
+      await waitForHydration(page, 'input[name="nodeName"]');
+
+      await page.locator('input[name="nodeName"]').fill(nodeName);
+      await page.locator('input[name="nodeTitle"]').fill(nodeTitle);
+      await page.locator('textarea[name="description"]').fill('v0.0.4 E2E 通过真实 UI 提交的节点申请。');
+
+      const submitBtn = page.getByRole('button', { name: '提交申请' });
+      await expect(submitBtn).toBeEnabled({ timeout: 15_000 });
+      await submitBtn.click();
+
+      // 成功反馈：role="status" 的 toast
+      // 用 `.toast[role="status"]` 而不是裸 getByRole('status') ——
+      // 后者在页面上出现第二个 status 元素时会因 strict mode 直接报错；
+      // 实测（3010 端口）该页 role=status 初始为 0、提交后为 1，这里再收窄一层更稳。
+      await expect(page.locator('.toast[role="status"]')).toContainText('节点申请已提交', {
+        timeout: 20_000,
+      });
+      // 表单被清空（防重复提交）
+      await expect(page.locator('input[name="nodeName"]')).toHaveValue('');
+      await expect(page.locator('input[name="nodeTitle"]')).toHaveValue('');
+    });
+
+    await test.step('DOM 断言：刷新后申请记录出现在「我提交的申请」列表里', async () => {
+      // ⚠️ 必须先 reload：`myRequests` 是**服务端渲染时传入的 prop**，
+      // 客户端提交成功后组件只清空表单、**不会**把新申请追加进列表。
+      // 不刷新的话这里必然失败 —— 那不是产品缺陷，是断言没等数据刷新。
+      // 刷新后列表由服务端重新查库渲染 → 才是「真实入库」的 DOM 证据。
+      await page.reload();
+      await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+
+      // 列表基于**服务端渲染的 DOM**（真事实来源，不是前端 state）
+      const list = page.locator('#Main').filter({ hasText: '我提交的申请' });
+      await expect(list).toContainText(nodeTitle, { timeout: 20_000 });
+      await expect(list).toContainText(nodeName);
+      await expect(list).toContainText('审核中');
+    });
+
+    await test.step('数据库侧佐证：GET /api/node-requests 真实返回该申请', async () => {
+      // 仅作为「确实写进 node_requests 表」的旁证 —— 列表断言已在上面基于 DOM 完成
+      const res = await page.request.get('/api/node-requests');
+      expect(res.ok()).toBe(true);
+      const data = await res.json();
+      const requests = (data?.requests ?? []) as Array<{ name: string; status: string }>;
+      const hit = requests.find((r) => r.name === nodeName);
+      expect(hit, '申请应真实写入 node_requests 表').toBeTruthy();
+      expect(hit?.status).toBe('pending');
     });
   });
 });
@@ -285,37 +396,74 @@ test.describe('四身份 UI 验收 · 管理员 admin', () => {
   });
 
   /**
-   * team-lead 追问：管理员是否真的「完全无后台入口」？
-   * 这条用例用真实浏览器逐个访问页面，把导航区 DOM 与全页 a[href*="admin"]
-   * 列表记进 annotations，作为「入口在别处 / 完全无入口」的判定依据。
+   * v0.0.4 修订：原用例「管理员在 /、/admin、/settings 的 DOM 中均无 /admin 入口」
+   * 把**缺陷**当断言（`toHaveCount(0)`）。UI 工程师把导航链接收敛到
+   * `src/lib/nav-links.ts` + `src/components/NavTools.tsx` 并为
+   * moderator / admin 渲染「管理后台」入口后，原断言必然失败。
+   *
+   * 修订为**正向断言**，且断言强度**高于原版**：
+   *  - 原版：1 层（断言「链接不存在」，且不验证任何可点击性）
+   *  - 新版：3 页 × 3 层（链接存在 → 可见可点 → 真实点击后真的到达 /admin）
+   *
+   * **保留原文件的 observations 采集机制**（把 DOM 快照写进 annotations）——
+   * 它是「入口在哪个位置」的证据，改写后语义从「无入口」翻转为
+   * 「入口存在 + 位置」。
    */
-  test('UI 缺口实证：管理员在 /、/admin、/settings 的 DOM 中均无 /admin 入口', async ({ page }) => {
+  test('管理员：/、/admin、/settings 三页 DOM 中都有 /admin 入口且可点击到达', async ({
+    page,
+  }) => {
     await login(page, ADMIN.username, ADMIN.password);
 
     const observations: string[] = [];
     for (const path of ['/', '/admin', '/settings']) {
-      await page.goto(path);
-      await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+      await test.step(`${path}：存在可见的 a[href="/admin"] 入口`, async () => {
+        await page.goto(path);
+        await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
 
-      const toolsHtml = (await page.locator('#Top .tools').innerHTML())
-        .replace(/\s+/g, ' ')
-        .slice(0, 260);
-      const adminLinks = await page
-        .locator('a[href*="admin"]')
-        .evaluateAll((els) =>
-          els.map((e) => (e as HTMLAnchorElement).getAttribute('href')),
+        const toolsHtml = (await page.locator('#Top .tools').innerHTML())
+          .replace(/\s+/g, ' ')
+          .slice(0, 260);
+        const adminLinks = await page
+          .locator('a[href*="admin"]')
+          .evaluateAll((els) =>
+            els.map((e) => (e as HTMLAnchorElement).getAttribute('href')),
+          );
+
+        // 硬断言（正向）：这三个页面**都**必须有指向 /admin 的链接
+        const adminLink = page.locator('a[href="/admin"]');
+        await expect(adminLink).toHaveCount(1);
+        await expect(adminLink).toBeVisible({ timeout: 15_000 });
+        await expect(adminLink).toHaveText('管理后台');
+
+        observations.push(
+          `${path}: a[href*="admin"]=${JSON.stringify(adminLinks)}; ` +
+            `#Top .tools 命中「管理后台」=${toolsHtml.includes('管理后台')}; #Top .tools=${toolsHtml}`,
         );
-
-      // 硬断言：这三个页面都不存在指向 /admin 的链接
-      await expect(page.locator('a[href="/admin"]')).toHaveCount(0);
-      observations.push(
-        `${path}: a[href*="admin"]=${JSON.stringify(adminLinks)}; #Top .tools=${toolsHtml}`,
-      );
+      });
     }
 
+    await test.step('真实点击导航里的「管理后台」链接，真的到达 /admin', async () => {
+      await page.goto('/');
+      await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+
+      const adminLink = page.locator('a[href="/admin"]');
+      await expect(adminLink).toBeVisible({ timeout: 15_000 });
+      await adminLink.click();
+
+      // 不是只看链接存在 —— 要确认**点得动、点得到**
+      await expect(page).toHaveURL(/\/admin$/, { timeout: 20_000 });
+      // 真的进了后台内容（而不是又跳回首页）
+      await expect(page.locator('#Main')).toContainText('概览', { timeout: 20_000 });
+      await expect(page.getByRole('button', { name: '概览' })).toBeVisible({
+        timeout: 20_000,
+      });
+    });
+
     test.info().annotations.push({
-      type: 'ui-admin-entry-dom',
-      description: observations.join(' || '),
+      type: 'ui-admin-entry-present',
+      description:
+        '管理员在 /、/admin、/settings 三页均存在可见可点的 a[href="/admin"]（文案「管理后台」），' +
+        `点击后真实到达 /admin。DOM 快照：${observations.join(' || ')}`,
     });
   });
 });

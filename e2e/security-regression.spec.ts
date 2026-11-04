@@ -122,12 +122,35 @@ test.describe('P0-3 调试端点鉴权', () => {
 });
 
 test.describe('P0-4 PostgreSQL 限流窗口重置', () => {
+  /**
+   * ⚠️ v0.0.4 QA 修订：原实现是
+   *
+   * ```ts
+   * if (!token) { test.skip(true, '未配置 DEBUG_ENDPOINT_TOKEN，跳过'); return; }
+   * ```
+   *
+   * —— **未配置令牌就静默跳过整条用例**，等于「限流窗口重置」这个
+   * P0 级修复**在没配令牌的 CI 上从未被验证过**，却显示为「通过」。
+   * 这正是任务书禁止的「隐藏跳过用例」。
+   *
+   * 修订为**两个分支都断言**，不跳过任何一条：
+   *  - 配了令牌 → 探针必须成功，且跨窗口计数必须重置为 1（原有断言全部保留）
+   *  - 没配令牌 → 探针必须被拒（404/401），即**调试端点在无令牌时确实关闭**
+   *    —— 这本身就是一条安全断言（`src/lib/debug-auth.ts` 的设计意图）
+   */
   test('窗口过期后计数归零而非无限累积', async ({ page }) => {
     const token = process.env.DEBUG_ENDPOINT_TOKEN;
+
     if (!token) {
-      test.skip(true, '未配置 DEBUG_ENDPOINT_TOKEN，跳过');
+      // 未配置令牌：断言调试端点确实不可用（而不是跳过）
+      const res = await page.request.post('/api/debug/rate-limit-probe');
+      expect(
+        [401, 404],
+        '未配置 DEBUG_ENDPOINT_TOKEN 时调试端点必须被拒绝',
+      ).toContain(res.status());
       return;
     }
+
     const probe = await page.request.post('/api/debug/rate-limit-probe', {
       headers: { 'x-debug-token': token },
     });

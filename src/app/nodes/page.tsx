@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { getSessionUser } from '@/lib/auth';
 import { listCategories, listNodesByCategory } from '@/server/queries';
 import Wrapper from '@/components/Wrapper';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NodesPage() {
+  const user = await getSessionUser();
   const categories = await listCategories();
 
   return (
@@ -16,6 +18,16 @@ export default async function NodesPage() {
             <div className="sep5" />
             <span className="fade">按分类浏览所有节点</span>
           </div>
+          {/* v0.0.4：节点申请的 UI 入口（此前只有后端 API，没有提交入口） */}
+          {user ? (
+            <div className="cell">
+              <Link href="/nodes/request" className="dark">
+                申请新节点
+              </Link>
+              <div className="sep5" />
+              <span className="f12 gray">提交节点申请，由管理员或版主审批</span>
+            </div>
+          ) : null}
         </div>
       }
     >

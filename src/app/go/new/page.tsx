@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { listNodesByCategory, listCategories } from '@/server/queries';
 import NewTopicForm from '@/components/NewTopicForm';
+import NavTools from '@/components/NavTools';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,23 +26,7 @@ export default async function NewTopicPage() {
             <div id="search-container">
               <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
             </div>
-            <div className="tools">
-              <a href="/" className="top">
-                首页
-              </a>
-              <a href="/notifications" className="top">
-                通知
-              </a>
-              <a href="/bookmarks" className="top">
-                收藏
-              </a>
-              <a href={`/member/${user.username}`} className="top">
-                {user.username}
-              </a>
-              <a href="/settings" className="top">
-                设置
-              </a>
-            </div>
+            <NavTools user={{ username: user.username, role: user.role }} />
           </div>
         </div>
       </div>

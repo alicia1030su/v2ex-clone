@@ -196,6 +196,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: '需要管理员权限' }, { status: 403 });
   }
 
+  // ⚠️ v0.0.4 修复真实安全缺陷：**PATCH 此前完全没有 CSRF 校验**。
+  //
+  //   同一个文件的 POST（创建节点）有 guardCsrf，但 PATCH（隐藏/恢复节点）
+  //   漏掉了 —— 而 PATCH 是**写操作**且能改变全站可见性。
+  //   攻击者只要诱导已登录的管理员访问一个恶意页面，
+  //   就能用跨站请求把节点批量隐藏掉。
+  //
+  //   校验顺序与 adminGuard 一致：**先判角色（401/403），再判 CSRF（403）**，
+  //   避免向未授权调用方泄露「端点存在但缺 token」这类信息。
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
+
   const body = (await request.json().catch(() => null)) as {
     id?: number;
     action?: 'approve' | 'hide' | 'activate';

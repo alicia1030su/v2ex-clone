@@ -9,6 +9,7 @@ import {
   createTopicViaUi,
   submitReplyViaUi,
   pickNodeId,
+  waitForHydration,
 } from './helpers';
 
 /**
@@ -188,16 +189,19 @@ test.describe('v0.0.4 关注', () => {
     await clearRateLimits(page);
   });
 
-  test('关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层，UI 无入口）', async ({ page, browser }) => {
+  test('关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层）', async ({ page, browser }) => {
     // ⚠️ v0.0.4 修复 R-23：原实现从 /settings 页 body 文本用
     // `/@([a-z0-9_]+)/i` 猜目标用户名，匹配不到就 test.skip ——
     // 导致本用例在全量 E2E 里被静默跳过，「关注出现 / 取消移除 / 重复幂等」
     // 三条断言**实际上从未执行**（原实现只断言了 following 是数组）。
     //
     // 现在用**确定性的目标 id**：B 登录后从 /api/users/me 读取自己的 id。
-    // 全仓 src/ 下没有任何关注按钮组件（个人主页无关注 UI 入口），
-    // 因此本用例明确标注为 **API 层验收**，不冒充真实浏览器 UI 点击流；
-    // UI 缺口已登记 docs/ACCEPTANCE_CHECKLIST_v0.0.4.md 与 RISK_REGISTER R-24。
+    //
+    // ⚠️ v0.0.4（第二轮）说明：UI 工程师已补齐 `FollowButton.tsx` 与
+    // `/following` 页面，**真实浏览器 UI 点击流**由本 describe 下的
+    // 「关注（UI）」用例覆盖。本条保留为 **API 层验收**，
+    // 两条互补：API 层验证幂等语义（alreadyFollowed / removed），
+    // UI 层验证点击流与状态持久化。
     const a = uniqueName('fa');
     await register(page, a, 'V004Test-2026!');
     await clearRateLimits(page);
@@ -245,6 +249,128 @@ test.describe('v0.0.4 关注', () => {
     expect(await followingNames()).not.toContain(b);
 
     await ctxB.close();
+  });
+
+  /**
+   * v0.0.4 新增：**真实浏览器 UI 点击流**验证关注功能（R-24 的正面验收）。
+   *
+   * 上一条用例是 **API 层**验收（明确标注「UI 无入口」）。
+   * UI 工程师补齐了 `src/components/FollowButton.tsx` 与
+   * `src/app/following/` 之后，任务书第五节 A 要求验证
+   * 「用户关注功能是否存在**真正可点击的 UI**」。
+   *
+   * 断言链路（每一步都基于**真实 DOM**，不是前端 state 幻觉）：
+   *   按钮存在且可点 → 点击后变「已关注」→ 再点变回「关注」
+   *   → **刷新后状态持久化**（关键：证明不是纯前端 state）
+   *   → /following 页面出现该用户
+   */
+  test('关注（UI）：真实点击关注/取消，刷新后状态持久化，关注列表出现该用户', async ({
+    page,
+    browser,
+  }) => {
+    // 关注者 A（当前 page）
+    const a = uniqueName('fui');
+    await register(page, a, 'V004Test-2026!');
+    await clearRateLimits(page);
+
+    // 目标用户 B —— 独立 context（共享 cookie 会导致已登录访问 /signup 被重定向）
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    const b = uniqueName('ftgt');
+    await register(pageB, b, 'V004Test-2026!');
+    await clearRateLimits(pageB);
+
+    try {
+      await test.step('在目标用户个人主页看到「关注」按钮', async () => {
+        await page.goto(`/member/${b}`);
+        await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+
+        // FollowButton 是客户端组件 —— 必须等 hydration，
+        // 否则 onClick 没绑定，点击不会有任何反应。
+        await waitForHydration(page, 'button[aria-label^="关注"]');
+
+        const followBtn = page.locator(`button[aria-label="关注 ${b}"]`);
+        await expect(followBtn).toBeVisible({ timeout: 15_000 });
+        await expect(followBtn).toHaveText('关注');
+        // 初始未关注
+        await expect(followBtn).toHaveAttribute('aria-pressed', 'false');
+      });
+
+      await test.step('真实点击「关注」→ 按钮状态变为「已关注」', async () => {
+        await page.locator(`button[aria-label="关注 ${b}"]`).click();
+
+        const followedBtn = page.locator(`button[aria-label="取消关注 ${b}"]`);
+        await expect(followedBtn).toBeVisible({ timeout: 20_000 });
+        await expect(followedBtn).toHaveText('已关注');
+        await expect(followedBtn).toHaveAttribute('aria-pressed', 'true');
+        // 成功反馈文案
+        // 用 `.follow-button [role="status"]` 收窄 ——
+        // 裸 getByRole('status') 在页面上出现第二个 status 元素时会因
+        // Playwright strict mode 直接报错（成员页可能有多个 role=status 元素）。
+        await expect(page.locator('.follow-button [role="status"]')).toContainText(
+          `已关注 ${b}`,
+          { timeout: 20_000 },
+        );
+      });
+
+      await test.step('真实点击「取消关注」→ 按钮状态回到「关注」', async () => {
+        await page.locator(`button[aria-label="取消关注 ${b}"]`).click();
+
+        const followBtn = page.locator(`button[aria-label="关注 ${b}"]`);
+        await expect(followBtn).toBeVisible({ timeout: 20_000 });
+        await expect(followBtn).toHaveText('关注');
+        await expect(followBtn).toHaveAttribute('aria-pressed', 'false');
+        await expect(page.locator('.follow-button [role="status"]')).toContainText(
+          `已取消关注 ${b}`,
+          { timeout: 20_000 },
+        );
+      });
+
+      await test.step('刷新页面 → 状态持久化（服务端渲染，不是前端 state）', async () => {
+        // 重新关注，验证持久化
+        await page.locator(`button[aria-label="关注 ${b}"]`).click();
+        await expect(page.locator(`button[aria-label="取消关注 ${b}"]`)).toBeVisible({
+          timeout: 20_000,
+        });
+
+        await page.reload();
+        await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+
+        // 刷新后仍然是「已关注」—— 状态来自服务端（getFollowState）
+        await expect(page.locator(`button[aria-label="取消关注 ${b}"]`)).toBeVisible({
+          timeout: 20_000,
+        });
+        await expect(
+          page.locator(`button[aria-label="取消关注 ${b}"]`),
+        ).toHaveAttribute('aria-pressed', 'true');
+        // 关注者计数也来自服务端
+        await expect(page.locator('#Rightbar')).toContainText('1 位关注者');
+      });
+
+      await test.step('/following 页面出现该用户（DOM 断言）', async () => {
+        await page.goto('/following');
+        await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
+
+        // 「关注的人」区块出现目标用户
+        await expect(page.locator('#Rightbar')).toContainText(b, { timeout: 20_000 });
+        await expect(page.locator('#Rightbar')).toContainText('已关注 1 位用户');
+        // 可点击跳转到对方主页
+        await expect(page.locator(`#Rightbar a[href="/member/${b}"]`)).toBeVisible({
+          timeout: 20_000,
+        });
+      });
+
+      await test.step('清理：取消关注（避免污染共享测试库）', async () => {
+        await page.goto(`/member/${b}`);
+        await waitForHydration(page, 'button[aria-label^="取消关注"]');
+        await page.locator(`button[aria-label="取消关注 ${b}"]`).click();
+        await expect(page.locator(`button[aria-label="关注 ${b}"]`)).toBeVisible({
+          timeout: 20_000,
+        });
+      });
+    } finally {
+      await ctxB.close();
+    }
   });
 });
 

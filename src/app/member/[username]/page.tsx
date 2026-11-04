@@ -5,8 +5,11 @@ import { db, schema } from '@/db';
 import { getUserByUsername, listTopics, TOPICS_PER_PAGE } from '@/server/queries';
 import { formatDate, fullTimestamp } from '@/lib/time';
 import { stripMarkdown } from '@/lib/markdown';
+import { getSessionUser } from '@/lib/auth';
+import { getFollowState } from '@/lib/follow-service';
 import TopicItem from '@/components/TopicItem';
 import PageNav from '@/components/PageNav';
+import FollowButton from '@/components/FollowButton';
 import Wrapper from '@/components/Wrapper';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +27,11 @@ export default async function MemberPage({
 
   const user = await getUserByUsername(username);
   if (!user) notFound();
+
+  // v0.0.4：关注状态由服务端算好传入 —— 首屏即正确，无闪烁，
+  // 也不需要客户端再发一次请求去猜「我有没有关注他」。
+  const viewer = await getSessionUser();
+  const followState = await getFollowState(viewer?.id ?? null, user.id);
 
   const { items, total } = await listTopics({
     authorUsername: user.username,
@@ -73,6 +81,16 @@ export default async function MemberPage({
           <div className="cell">
             <span className="f12 gray">积分</span>
             <div className="f16">{user.balance}</div>
+          </div>
+          {/* v0.0.4：关注入口（R-24）—— 关注/取消关注都走真实 UI 点击流 */}
+          <div className="cell">
+            <FollowButton
+              userId={user.id}
+              username={user.username}
+              currentUserId={viewer?.id ?? null}
+              initiallyFollowing={followState.isFollowing}
+              initialFollowersCount={followState.followersCount}
+            />
           </div>
           {user.bio ? (
             <div className="cell">

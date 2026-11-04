@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
+import { grantCredits, creditAmounts } from '@/lib/credit-service';
 import { allocateFloor, ensureFloorCounter } from '@/server/floor';
 import { sanitizeRedirect } from '@/lib/redirect';
 import { getFormData } from '@/lib/csrf';
@@ -128,6 +129,21 @@ export async function POST(request: Request) {
           message: `${user.username} 回复了你的主题：${topic.title}`,
         });
       }
+
+      // 回复积分（v0.0.4 补齐闭环）
+      //
+      // ⚠️ 此前**回复完全不给积分** —— 排行榜页与积分规则页都写着
+      // 「发布主题与回复都可以获得积分」，但回复路径没有发放逻辑，
+      // 属于文档与实现不一致。额度由 REPLY_CREDITS 配置（默认 2），
+      // 幂等键保证同一回复不会重复发放。
+      await grantCredits(user.id, {
+        type: 'reply_created',
+        amount: creditAmounts().reply,
+        idempotencyKey: `reply_created:${reply.id}`,
+        refType: 'reply',
+        refId: reply.id,
+        reason: '发布回复',
+      });
     } catch (err) {
       // drizzle 会把 Postgres 错误包在 cause 中，需同时检查两层
       const e = err as {

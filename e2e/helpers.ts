@@ -199,6 +199,39 @@ export async function createTopicViaUi(
   return Number(m[1]);
 }
 
+/**
+ * 等待目标元素完成 React hydration（客户端组件真正接管事件）。
+ *
+ * ## 为什么需要这一步
+ *
+ * `NodeRequestForm` / `FollowButton` / `NewTopicForm` 都是**客户端组件**：
+ * 服务端渲染出的 HTML 里输入框与按钮**都在**，但 `onChange` / `onClick`
+ * **尚未绑定**。此时 `fill()` / `click()` 不会发出任何请求 ——
+ * 表现是「点了没反应」，用例要么超时、要么误判为功能缺失。
+ *
+ * React 完成 hydration 后会在 DOM 节点上挂 `__reactFiber$*` / `__reactProps$*`
+ * 私有属性（**非 enumerable**，必须用 `getOwnPropertyNames` 才能读到），
+ * 用它们作为「已接管」的确定性信号。
+ *
+ * 相比 `waitForTimeout` 之类的盲等，这个信号：
+ *  - 不受机器快慢影响（快机器不会白等，慢机器不会超时）
+ *  - 失败时是**明确超时**而不是「偶发点击落空」
+ *
+ * @param page Playwright 页面对象
+ * @param selector 目标元素的 CSS 选择器（必须是客户端组件内部的节点）
+ */
+export async function waitForHydration(page: Page, selector: string): Promise<void> {
+  await page.waitForFunction(
+    (sel: string) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      return Object.getOwnPropertyNames(el).some((k) => k.startsWith('__react'));
+    },
+    selector,
+    { timeout: 20_000 },
+  );
+}
+
 /** 找一个可用的节点 id（优先 programmer，失败则取第一个） */
 export async function pickNodeId(page: Page): Promise<number> {
   const res = await page.request.get('/api/nodes');

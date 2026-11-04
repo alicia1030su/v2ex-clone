@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { csrfFetch } from '@/components/CsrfProvider';
 
 /**
@@ -21,6 +21,8 @@ import { csrfFetch } from '@/components/CsrfProvider';
  * | 节点申请 | GET  /api/admin/node-requests?status=                        |
  * | 节点申请 | POST /api/admin/node-requests/[id]/approve                    |
  * | 节点申请 | POST /api/admin/node-requests/[id]/reject                     |
+ * | 节点管理 | GET  /api/nodes?includeHidden=true                             |
+ * | 节点管理 | PATCH /api/nodes  body { id, action: 'hide' \| 'activate' }   |
  * | 日志     | GET  /api/admin/logs?action=&targetType=&targetId=            |
  * | 配置     | GET  /api/admin/config                                        |
  *
@@ -28,7 +30,7 @@ import { csrfFetch } from '@/components/CsrfProvider';
  *
  * 页面按角色呈现不同能力（与 src/lib/permissions.ts 的矩阵一致）：
  *  - moderator：查看用户、封禁/解封、处理举报、审批节点、看日志与配置
- *  - admin    ：以上全部 + 变更他人角色
+ *  - admin    ：以上全部 + 变更他人角色 + 隐藏/恢复节点
  *
  * `canChangeRole` 由服务端传入（服务端已用 isAdmin(user) 判定），
  * **前端隐藏按钮只是体验优化，adminGuardWrite 才是唯一权威**。
@@ -121,13 +123,28 @@ type Config = {
   note: string;
 };
 
-type TabKey = 'overview' | 'users' | 'reports' | 'nodes' | 'logs' | 'config';
+/**
+ * 节点（后台「节点管理」tab）
+ *
+ * `GET /api/nodes?includeHidden=true` 的返回项 —— staff 可见隐藏节点。
+ */
+type AdminNode = {
+  id: number;
+  name: string;
+  title: string;
+  status: 'active' | 'pending' | 'hidden';
+  categoryId: number | null;
+  topicsCount: number;
+};
+
+type TabKey = 'overview' | 'users' | 'reports' | 'nodes' | 'nodemgmt' | 'logs' | 'config';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: '概览' },
   { key: 'users', label: '用户' },
   { key: 'reports', label: '举报' },
   { key: 'nodes', label: '节点申请' },
+  { key: 'nodemgmt', label: '节点管理' },
   { key: 'logs', label: '操作日志' },
   { key: 'config', label: '系统配置' },
 ];
@@ -183,12 +200,26 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
   const [nodeRequests, setNodeRequests] = useState<NodeRequest[]>([]);
   const [nodeStatus, setNodeStatus] = useState('pending');
 
+  // 节点管理（含隐藏节点）
+  const [allNodes, setAllNodes] = useState<AdminNode[]>([]);
+  const [nodeFilter, setNodeFilter] = useState('');
+
   // 日志
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [logFilter, setLogFilter] = useState({ action: '', targetType: '' });
 
   // 配置
   const [config, setConfig] = useState<Config | null>(null);
+
+  /** 节点管理 tab 的过滤结果（按名称或标题模糊匹配） */
+  const filteredNodes = useMemo(() => {
+    const q = nodeFilter.trim().toLowerCase();
+    if (!q) return allNodes;
+    return allNodes.filter(
+      (n) =>
+        n.name.toLowerCase().includes(q) || n.title.toLowerCase().includes(q),
+    );
+  }, [allNodes, nodeFilter]);
 
   // ---- 加载：概览与待办 ----
   const loadOverview = useCallback(async () => {
@@ -286,6 +317,28 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
     }
   }, []);
 
+  // ---- 加载：节点管理（含隐藏节点）----
+  const loadAllNodes = useCallback(async () => {
+    try {
+      // includeHidden=true 只对 staff 生效（服务端 isStaff(user) 判定），
+      // 普通版主/管理员都能看到隐藏节点；普通用户拿不到 staff 身份，
+      // 服务端会退化成只返回 active 节点。
+      const res = await fetch('/api/nodes?includeHidden=true&limit=500');
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        nodes?: AdminNode[];
+      };
+      if (!res.ok || !data.ok) {
+        setMsg({ kind: 'err', text: data.error ?? '节点列表加载失败' });
+        return;
+      }
+      setAllNodes(data.nodes ?? []);
+    } catch {
+      setMsg({ kind: 'err', text: '网络错误，请稍后重试' });
+    }
+  }, []);
+
   // ---- 加载：日志 ----
   const loadLogs = useCallback(async (action: string, targetType: string) => {
     const params = new URLSearchParams({ limit: '50' });
@@ -332,6 +385,7 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
     if (tab === 'users') void loadUsers(appliedQuery.offset);
     else if (tab === 'reports') void loadReports(reportStatus);
     else if (tab === 'nodes') void loadNodeRequests(nodeStatus);
+    else if (tab === 'nodemgmt') void loadAllNodes();
     else if (tab === 'logs') void loadLogs(logFilter.action, logFilter.targetType);
     else if (tab === 'config') void loadConfig();
   }, [
@@ -342,6 +396,7 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
     reportStatus,
     loadNodeRequests,
     nodeStatus,
+    loadAllNodes,
     loadLogs,
     logFilter.action,
     logFilter.targetType,
@@ -427,6 +482,23 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
     const ok = await act(`node-reject-${id}`, `/api/admin/node-requests/${id}/reject`, 'POST');
     if (ok) {
       void loadNodeRequests(nodeStatus);
+      void loadOverview();
+    }
+  }
+
+  /**
+   * 隐藏 / 恢复既有节点。
+   *
+   * 走 `PATCH /api/nodes { id, action }` —— **仅管理员**（服务端 isAdmin 判定）。
+   * 隐藏后节点对普通访问者不可见（`getNodeByName` 过滤非 active 状态）。
+   */
+  async function setNodeVisibility(
+    id: number,
+    action: 'hide' | 'activate',
+  ) {
+    const ok = await act(`node-status-${id}`, '/api/nodes', 'PATCH', { id, action });
+    if (ok) {
+      void loadAllNodes();
       void loadOverview();
     }
   }
@@ -815,6 +887,97 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
                     </button>
                   </div>
                 ) : null}
+              </div>
+            ))
+          )}
+        </>
+      ) : null}
+
+      {/* ---------------- 节点管理（隐藏 / 恢复既有节点） ---------------- */}
+      {tab === 'nodemgmt' ? (
+        <>
+          <div className="cell">
+            <table cellPadding={5} cellSpacing={0} border={0} width="100%">
+              <tbody>
+                <tr>
+                  <td width={120} align="right">
+                    筛选
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={nodeFilter}
+                      placeholder="按节点名或标题过滤"
+                      aria-label="过滤节点"
+                      onChange={(e) => setNodeFilter(e.target.value)}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td align="right">&nbsp;</td>
+                  <td>
+                    <span className="f12 gray">
+                      共 {allNodes.length} 个节点（含隐藏）。隐藏的节点对普通访问者不可见。
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {filteredNodes.length === 0 ? (
+            <div className="cell">
+              <span className="fade">没有符合条件的节点</span>
+            </div>
+          ) : (
+            filteredNodes.map((n) => (
+              <div key={n.id} className="cell">
+                <div className="fr f12 gray">
+                  UID {n.id} · {n.topicsCount} 主题
+                </div>
+                <div>
+                  <strong>{n.title}</strong>{' '}
+                  <span className="f12 gray">({n.name})</span>{' '}
+                  <span
+                    className="badge"
+                    style={n.status === 'active' ? { background: '#3d8a56' } : undefined}
+                  >
+                    {n.status === 'active' ? '正常' : n.status === 'hidden' ? '已隐藏' : '待审'}
+                  </span>
+                </div>
+
+                {/* 隐藏/恢复是**管理员专属**操作（服务端 PATCH /api/nodes 要求 isAdmin）。
+                    版主可见列表但没有按钮 —— 前端隐藏只是体验优化，
+                    服务端仍是唯一权威。 */}
+                {canChangeRole ? (
+                  <div className="sep5">
+                    {n.status === 'hidden' ? (
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => void setNodeVisibility(n.id, 'activate')}
+                        disabled={pending === `node-status-${n.id}`}
+                        aria-label={`恢复节点 ${n.title}`}
+                      >
+                        {pending === `node-status-${n.id}` ? '处理中…' : '恢复节点'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => void setNodeVisibility(n.id, 'hide')}
+                        disabled={pending === `node-status-${n.id}`}
+                        aria-label={`隐藏节点 ${n.title}`}
+                      >
+                        {pending === `node-status-${n.id}` ? '处理中…' : '隐藏节点'}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="sep5 f12 gray">
+                    隐藏/恢复节点是管理员专属操作
+                  </div>
+                )}
               </div>
             ))
           )}

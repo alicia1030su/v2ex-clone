@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
+import NavTools from '@/components/NavTools';
 
 /**
  * 静态信息页骨架
@@ -38,17 +39,7 @@ export default function StaticPage({
             <div id="search-container">
               <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
             </div>
-            <div className="tools">
-              <Link href="/" className="top">
-                首页
-              </Link>
-              <Link href="/signup" className="top">
-                注册
-              </Link>
-              <Link href="/signin" className="top">
-                登录
-              </Link>
-            </div>
+            <NavTools user={null} />
           </div>
         </div>
       </div>
