@@ -140,6 +140,11 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 见 `test-baseline-v0.0.4.md` §0.5。修复后预期 CI 变为：
 `Test Files 15 passed (15)` / `Tests 190 passed (190)` / `E2E 测试` 恢复正常执行。
 
+> 📌 **截至 2026-11-04T21:35Z 的状态复核**：
+> `tests/floor-continuity.spec.ts` 的 `:55433/` 硬门**仍然存在**，
+> 该文件自 `1b15f79` 起**未被任何提交修改过**。
+> 归 `software-engineer-testenv` / `software-architect` 的 T01 范围。
+
 ### ✅ 已被真实 CI 证明通过的部分
 
 - **ci.yml 的 `Docker 构建与启动验证` job** —— success（compose 真实启动 + 健康检查 + 重启不污染数据）
