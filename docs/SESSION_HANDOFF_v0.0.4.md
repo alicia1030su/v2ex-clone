@@ -426,7 +426,7 @@ v2ex_rateclear
 - **真正的阻断**：护栏 3「CI 库名 `v2ex_ci` 不被护栏 2 误伤」只存在于导出函数 `assertCiInstanceOwnership`，而该函数**从未被调用**；globalSetup 走的是 `assertDatabaseAllowed`，它不认 CI 库名。而 CI 的 unit job 只注入 `DATABASE_URL`（→ `v2ex_ci`）、**不**注入 `TEST_DB_ALLOWED_DATABASES` → 新代码推送后 CI 会在建基础库前直接被护栏拦死。
 - **修复**（工作区已改，待提交）：
   1. `tests/helpers/test-db-guard.ts` 的 `assertDatabaseAllowed` 新增 `if (process.env.CI && CI_DATABASE_NAMES.has(dbName)) return;` —— 判据是 `process.env.CI`（GitHub Actions 恒为 true），本机不放宽；
-  2. `tests/helpers/verify-db-guard.mts` 断言 6 补充「真实 CI 路径」（CI=true 且无 env 注入时必须放行）+ 反向断言（非 CI 无注入时必须仍拒绝），51 → **53 项**。
+  2. `tests/helpers/verify-db-guard.mts` 断言 6 补充「真实 CI 路径」（CI=true 且无 env 注入时必须放行）+ 反向断言（非 CI 无注入时必须仍拒绝），50 → **52 项**。
 - **教训（写进文档警醒后人）**：上一轮本地 CI 等价场景设了 `TEST_DB_ALLOWED_DATABASES=v2ex_ci_sim`，而真实 CI 并不设这个变量——**模拟环境比真实环境宽松，正好把阻断掩盖了**。
 
 ## C. 团队成员状态（2026-11-04 23:20）
@@ -444,3 +444,57 @@ v2ex_rateclear
 - 后台任务 `HpLUcU`：忠实 CI 等价全量验证（PG start → `tsc --noEmit` → `ui-verify.cjs` → vitest CI 场景（CI=true + 55440/v2ex_ci，**不设** TEST_DB_ALLOWED_DATABASES）→ 护栏断言复跑）。
 - **待提交**：`.gitignore`、14 份文档、`tests/**`（含新 helpers 与上述 2 处护栏修复）、`vitest.config.ts`、`scripts/verify.sh`、`scripts/release/preflight.sh`、**`tests/env/.env.test.example`（模板，必须入库）**。
 - **待清理**：`_probe-gs.mts`、`tests/helpers/__race5.mts`（一次性调试探针）。
+
+---
+
+# 第 5 轮状态快照（2026-11-05，主理人）—— 最新状态以此为准
+
+## A. 本轮已推送提交（分支 feat/v0.0.4-high-fidelity，PR #5）
+
+| Commit | 内容 |
+|---|---|
+| `0511471` | docs: 根目录交付文档口径统一（BUG_REGISTER/CHANGELOG/README/RELEASE_GATE） |
+| `6289ea3` | chore(release): preflight 环境加载语义断言（第 8 节 16 项）+ verify.sh 注释勘误 |
+| `dda4f70` | fix(docker): runner 镜像补拷 `src/lib/env-loader.mjs`（容器迁移模块缺失回归） |
+
+## B. v0.0.4 首次真实 CI 全量结果（run 41860242099，SHA 6289ea3）—— 三job两败一胜
+
+| Job | 结果 | 说明 |
+|---|---|---|
+| 类型检查 / 单元测试 | ✅ **success** | **v0.0.4 在真实 CI 上首次转绿**：vitest 15 文件全过、globalSetup 正常建迁 `v2ex_ci`。护栏 3 修复（634a202）被实证有效。 |
+| E2E 测试 | ❌ failure | **史上首次真实运行**：153 条中 **152 通过、1 失败**（`v004-four-roles-ui` 节点申请用例）。 |
+| Docker 构建与启动验证 | ❌ failure | 第 2 项断言「Compose 启动」红灯：app 容器 `restarting` 无限重启。 |
+
+### B1. Docker 失败根因（已修，`dda4f70`）
+
+镜像内 entrypoint 阶段 1「迁移」→ drizzle-kit 读 `/app/drizzle.config.ts` → `import './src/lib/env-loader.mjs'` → **Cannot find module** → 迁移失败 → 容器退出 → compose 无限重启。
+dotenv 统一加载器重构给 `drizzle.config.ts` 引入了该依赖，但 Dockerfile runner 层拷贝清单（只拷 `src/db` + `src/lib/password.ts`）未同步——**回归漏网原因：重构后没人重跑过 docker-verify**。依赖追踪确认镜像内唯一漏拷文件（5 个 import 方：drizzle.config.ts / src/db/index.ts / seed.ts / admin-cli.ts / db-admin.mjs；env-loader 自身只依赖 node:fs / node:module / node:path / dotenv，无递归风险）。本地无 Docker，验证只能靠 CI（R-16/R-17 的唯一取证通道，设计如此）。
+
+### B2. E2E 失败根因证据链（trace 级实锤，已移交 ui2 修复）
+
+失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请」：
+1. 点「提交申请」触发**浏览器原生表单 GET 提交**（trace 实证 URL：`/nodes/request?nodeName=...&nodeTitle=...&description=...`），整个 trace **无任何** `POST /api/node-requests`——React `onSubmit` 从未执行；
+2. 点击过程中抛出未捕获 `TypeError: nodeName.toLowerCase is not a function`——该无保护调用存在于 **react-dom 自己的 hydration 遍历函数 `canHydrateInstance`**（react-dom-client.production.js:16660）；
+3. 页面 reload 后再次抛出同类错误（栈经 RSC payload 消息处理器）；失败瞬间截图：表单空、按钮回 disabled、无 toast；
+4. 另一实例：`Minified React error #418`（hydration 不匹配）在**首页 `/`** 触发（SignUpForm 用 `window.location.href` 整页加载 `/`）；
+5. 反证：`waitForHydration` 通过、fill 后按钮解禁——React 接管了表单，但**提交路径的事件分发崩了**；
+6. 页面到达路径为客户端导航（/nodes 点 Link）；/nodes hydration 正常，/nodes/request 与 `/` 失败。
+
+**这是 v0.0.4 的真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），不是测试误报。修复与验证全部走 CI E2E job。
+
+## C. 团队成员状态（2026-11-05）
+
+| 成员 | 状态 | 任务 |
+|---|---|---|
+| software-engineer-ui2 | **已派发证据包，修复中** | #418 hydration 根因（B2 证据链）；禁自行起库起服务，验证走 CI |
+| software-architect | 在途 | v0.0.4 版本同步只读审计（5 载体） |
+| software-qa-e2e | 在途 | 方案 A 库分离（阶段 1 改文件提交；阶段 2 全量复跑等通知） |
+| software-engineer-docs | 在途 | 护栏修复文档 + `docs/evidence/ci/` 证据记录（按 52 项口径） |
+| software-engineer-deploy / testenv / dotenv / qa-ci | 空闲/待命 | — |
+
+## D. 待观察 / 待办
+
+- **观察 `dda4f70` 的 CI 三件套**：Docker job 与 docker-verify 工作流应转绿（env-loader 已补拷）；E2E 预计仍红 1 条（ui2 修复中）——这是预期内的红，修复后复跑。
+- 55433（v003 证据库）仍未恢复 → 本地 E2E/起应用验证继续暂停。
+- 版本同步（5 载体）→ 测该提交 → 定 SHA → 人工放行 tag → 建不可变 Tag → Draft Release：等 ui2 修复 + CI 全绿后执行。
+- R-01 仍 DEFERRED，等待主人单独授权。
