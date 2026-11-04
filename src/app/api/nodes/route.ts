@@ -4,10 +4,73 @@ import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser, isAdmin, isStaff } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
+import { listNodes, listCategories, nodeBreadcrumb } from '@/lib/node-service';
 
 export const dynamic = 'force-dynamic';
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{1,31}$/;
+
+/**
+ * GET /api/nodes —— 节点列表
+ *
+ * 查询参数：
+ *  - categoryId：只取该分类下的节点
+ *  - parentId：只取该父节点下的子节点
+ *  - includeHidden：staff 可查看被隐藏的节点
+ *  - withCategories：同时返回分类列表
+ *  - withBreadcrumb=<nodeId>：同时返回某节点的面包屑
+ *
+ * 响应含每个节点的未删除主题数与最新回复时间（实时统计，不依赖缓存字段）。
+ */
+export async function GET(request: Request) {
+  const user = await getSessionUser();
+  const isStaffUser = isStaff(user);
+
+  const url = new URL(request.url);
+  const categoryIdParam = url.searchParams.get('categoryId');
+  const parentIdParam = url.searchParams.get('parentId');
+  const breadcrumbParam = url.searchParams.get('withBreadcrumb');
+
+  const categoryId =
+    categoryIdParam !== null && categoryIdParam !== ''
+      ? Number(categoryIdParam)
+      : undefined;
+  const parentId =
+    parentIdParam !== null && parentIdParam !== ''
+      ? Number(parentIdParam)
+      : undefined;
+
+  if (categoryId !== undefined && !Number.isInteger(categoryId)) {
+    return NextResponse.json({ ok: false, error: '分类 ID 无效' }, { status: 400 });
+  }
+  if (parentId !== undefined && !Number.isInteger(parentId)) {
+    return NextResponse.json({ ok: false, error: '父节点 ID 无效' }, { status: 400 });
+  }
+
+  const nodes = await listNodes({
+    categoryId,
+    parentId,
+    includeHidden: isStaffUser && url.searchParams.get('includeHidden') === 'true',
+  });
+
+  const result: Record<string, unknown> = { ok: true, nodes };
+
+  if (url.searchParams.get('withCategories') === 'true') {
+    result.categories = await listCategories();
+  }
+
+  if (breadcrumbParam) {
+    const bid = Number(breadcrumbParam);
+    if (Number.isInteger(bid) && bid > 0) {
+      result.breadcrumb = await nodeBreadcrumb(bid);
+    }
+  }
+
+  // 节点列表变动不频繁，给 60 秒缓存
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=120' },
+  });
+}
 
 /** 创建节点：管理员直接生效；版主创建后进入待审 */
 export async function POST(request: Request) {

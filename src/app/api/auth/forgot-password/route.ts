@@ -3,7 +3,8 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { rateLimitByIp, rateLimit } from '@/lib/rate-limit';
-import { createResetToken, deliverMail, maskEmail } from '@/lib/mailer';
+import { sendMail, buildPasswordResetEmail, maskEmail } from '@/lib/mailer';
+import { createResetToken } from '@/lib/reset-token-store';
 import { resolveClientIp } from '@/lib/client-ip';
 
 export const dynamic = 'force-dynamic';
@@ -92,27 +93,25 @@ export async function POST(request: Request) {
       const link = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
       const ttlMinutes = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 60);
 
-      const result = await deliverMail({
+      const mail = buildPasswordResetEmail({
+        username: user.username,
+        resetUrl: link,
+        ttlMinutes,
+      });
+
+      const result = await sendMail({
         to: email,
         purpose: 'password_reset',
         userId: user.id,
-        subject: '重置你的 V2EX Clone 密码',
-        body: [
-          `你好 ${user.username}：`,
-          '',
-          '我们收到了重置密码的请求。请点击下面的链接设置新密码：',
-          '',
-          link,
-          '',
-          `该链接将在 ${ttlMinutes} 分钟后失效，且只能使用一次。`,
-          '如果你没有申请过重置密码，请忽略此邮件，你的密码不会被更改。',
-        ].join('\n'),
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
       });
 
-      if (!result.delivered) {
-        // 未配置 SMTP —— 必须如实反映状态，不能假装已发送
+      if (!result.sent) {
+        // 未配置 SMTP 或发送失败 —— 必须如实反映状态，不能假装已发送
         console.warn(
-          `[forgot-password] 邮件未送达（${maskEmail(email)}）：${result.reason}`,
+          `[forgot-password] 邮件未送达（${maskEmail(email)}）：${result.reason ?? '未知原因'}`,
         );
       }
     } catch (err) {

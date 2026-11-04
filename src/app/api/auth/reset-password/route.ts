@@ -3,7 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { db, schema } from '@/db';
 import { eq, isNull } from 'drizzle-orm';
 import { hashPassword } from '@/lib/password';
-import { consumeResetToken, revokeUserTokens, hashToken } from '@/lib/mailer';
+import { consumeResetToken, revokeUserTokens, inspectResetToken } from '@/lib/reset-token-store';
 import { rateLimitByIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -99,29 +99,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: '重置链接无效' }, { status: 400 });
   }
 
-  const rows = await db
-    .select({
-      expiresAt: schema.passwordResetTokens.expiresAt,
-      usedAt: schema.passwordResetTokens.usedAt,
-      revokedAt: schema.passwordResetTokens.revokedAt,
-    })
-    .from(schema.passwordResetTokens)
-    .where(eq(schema.passwordResetTokens.tokenHash, hashToken(token)))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row) {
-    return NextResponse.json({ ok: false, error: '重置链接无效' }, { status: 400 });
-  }
-  if (row.revokedAt) {
-    return NextResponse.json({ ok: false, error: '重置链接已被撤销' }, { status: 400 });
-  }
-  if (row.usedAt) {
-    return NextResponse.json({ ok: false, error: '重置链接已被使用' }, { status: 400 });
-  }
-  if (new Date(row.expiresAt).getTime() < Date.now()) {
-    return NextResponse.json({ ok: false, error: '重置链接已过期' }, { status: 400 });
+  const check = await inspectResetToken(token);
+  if (!check.ok) {
+    return NextResponse.json({ ok: false, error: check.reason }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, valid: true });
+  return NextResponse.json({ ok: true, valid: true, expiresAt: check.expiresAt });
 }
