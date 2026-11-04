@@ -167,7 +167,13 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
   // 用户
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [userTotal, setUserTotal] = useState(0);
-  const [userQuery, setUserQuery] = useState({ q: '', role: '', status: '', offset: 0 });
+  /**
+   * 已应用的查询条件（用于拉数据）。
+   * 与表单里的输入状态分开 —— 否则每敲一个字符都会触发一次请求。
+   */
+  const [appliedQuery, setAppliedQuery] = useState({ q: '', role: '', status: '', offset: 0 });
+  /** 表单输入状态（仅本地，不触发请求） */
+  const [userForm, setUserForm] = useState({ q: '', role: '', status: '' });
 
   // 举报
   const [reports, setReports] = useState<Report[]>([]);
@@ -218,9 +224,9 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
         limit: String(USER_PAGE_SIZE),
         offset: String(offset),
       });
-      if (userQuery.q.trim()) params.set('q', userQuery.q.trim());
-      if (userQuery.role) params.set('role', userQuery.role);
-      if (userQuery.status) params.set('status', userQuery.status);
+      if (appliedQuery.q.trim()) params.set('q', appliedQuery.q.trim());
+      if (appliedQuery.role) params.set('role', appliedQuery.role);
+      if (appliedQuery.status) params.set('status', appliedQuery.status);
       try {
         const res = await fetch(`/api/admin/users?${params.toString()}`);
         const data = (await res.json()) as {
@@ -239,7 +245,7 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
         setMsg({ kind: 'err', text: '网络错误，请稍后重试' });
       }
     },
-    [userQuery.q, userQuery.role, userQuery.status],
+    [appliedQuery.q, appliedQuery.role, appliedQuery.status],
   );
 
   // ---- 加载：举报 ----
@@ -323,7 +329,7 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
 
   // ---- tab 切换时按需加载 ----
   useEffect(() => {
-    if (tab === 'users') void loadUsers(userQuery.offset);
+    if (tab === 'users') void loadUsers(appliedQuery.offset);
     else if (tab === 'reports') void loadReports(reportStatus);
     else if (tab === 'nodes') void loadNodeRequests(nodeStatus);
     else if (tab === 'logs') void loadLogs(logFilter.action, logFilter.targetType);
@@ -331,7 +337,7 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
   }, [
     tab,
     loadUsers,
-    userQuery.offset,
+    appliedQuery.offset,
     loadReports,
     reportStatus,
     loadNodeRequests,
@@ -378,19 +384,19 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
 
   async function changeRole(userId: number, role: Role) {
     const ok = await act(`role-${userId}`, `/api/admin/users/${userId}/role`, 'PATCH', { role });
-    if (ok) void loadUsers(userQuery.offset);
+    if (ok) void loadUsers(appliedQuery.offset);
   }
 
   async function banUser(userId: number, username: string) {
     const reason = window.prompt(`封禁 ${username} 的原因（可留空）：`);
     if (reason === null) return;
     const ok = await act(`ban-${userId}`, `/api/admin/users/${userId}/ban`, 'POST', { reason });
-    if (ok) void loadUsers(userQuery.offset);
+    if (ok) void loadUsers(appliedQuery.offset);
   }
 
   async function unbanUser(userId: number) {
     const ok = await act(`unban-${userId}`, `/api/admin/users/${userId}/unban`, 'POST');
-    if (ok) void loadUsers(userQuery.offset);
+    if (ok) void loadUsers(appliedQuery.offset);
   }
 
   async function handleReport(id: number, action: 'accept' | 'reject') {
@@ -508,10 +514,10 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
                   <td>
                     <input
                       type="text"
-                      value={userQuery.q}
+                      value={userForm.q}
                       placeholder="用户名或邮箱"
                       aria-label="搜索用户"
-                      onChange={(e) => setUserQuery({ ...userQuery, q: e.target.value, offset: 0 })}
+                      onChange={(e) => setUserForm({ ...userForm, q: e.target.value })}
                     />
                   </td>
                 </tr>
@@ -519,11 +525,9 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
                   <td align="right">角色</td>
                   <td>
                     <select
-                      value={userQuery.role}
+                      value={userForm.role}
                       aria-label="按角色筛选"
-                      onChange={(e) =>
-                        setUserQuery({ ...userQuery, role: e.target.value, offset: 0 })
-                      }
+                      onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                     >
                       <option value="">全部</option>
                       <option value="user">用户</option>
@@ -536,11 +540,9 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
                   <td align="right">状态</td>
                   <td>
                     <select
-                      value={userQuery.status}
+                      value={userForm.status}
                       aria-label="按状态筛选"
-                      onChange={(e) =>
-                        setUserQuery({ ...userQuery, status: e.target.value, offset: 0 })
-                      }
+                      onChange={(e) => setUserForm({ ...userForm, status: e.target.value })}
                     >
                       <option value="">全部</option>
                       <option value="active">正常</option>
@@ -555,7 +557,10 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
                     <button
                       type="button"
                       className="button"
-                      onClick={() => void loadUsers(0)}
+                      onClick={() => {
+                        // 应用筛选条件（重置到第一页）
+                        setAppliedQuery({ ...userForm, offset: 0 });
+                      }}
                       aria-label="搜索用户"
                     >
                       搜索
@@ -637,14 +642,14 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
 
           <div className="cell ps_container">
             <div style={{ textAlign: 'center' }}>
-              {userQuery.offset > 0 ? (
+              {appliedQuery.offset > 0 ? (
                 <button
                   type="button"
                   className="page_normal"
                   onClick={() =>
-                    setUserQuery({
-                      ...userQuery,
-                      offset: Math.max(0, userQuery.offset - USER_PAGE_SIZE),
+                    setAppliedQuery({
+                      ...appliedQuery,
+                      offset: Math.max(0, appliedQuery.offset - USER_PAGE_SIZE),
                     })
                   }
                   aria-label="上一页"
@@ -657,13 +662,18 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
                   ‹ 上一页
                 </span>
               )}{' '}
-              <span className="page_current">{Math.floor(userQuery.offset / USER_PAGE_SIZE) + 1}</span>{' '}
+              <span className="page_current">
+                {Math.floor(appliedQuery.offset / USER_PAGE_SIZE) + 1}
+              </span>{' '}
               {users.length === USER_PAGE_SIZE ? (
                 <button
                   type="button"
                   className="page_normal"
                   onClick={() =>
-                    setUserQuery({ ...userQuery, offset: userQuery.offset + USER_PAGE_SIZE })
+                    setAppliedQuery({
+                      ...appliedQuery,
+                      offset: appliedQuery.offset + USER_PAGE_SIZE,
+                    })
                   }
                   aria-label="下一页"
                   style={{ background: 'none', border: 'none', cursor: 'pointer' }}

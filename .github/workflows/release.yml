@@ -53,10 +53,11 @@ on:
       # ⚠️ 每次发版都必须手动把新版本号加到这里 —— 这是**刻意的摩擦**，
       #    让「新增 tag = 新发布」这件事必须经过人的确认。
       - 'v0.0.2'
+      - 'v0.0.3'
   workflow_dispatch:
     inputs:
       version:
-        description: '要发布的版本号，例如 v0.0.2'
+        description: '要发布的版本号，例如 v0.0.3'
         required: true
         type: string
       dry_run:

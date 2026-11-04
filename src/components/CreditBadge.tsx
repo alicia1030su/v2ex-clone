@@ -90,7 +90,10 @@ export default function CreditBadge({
   const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
-    setState({ status: 'loading' });
+    // 已有服务端给出的余额时不闪「—」，避免无谓的加载闪烁
+    setState((prev) =>
+      prev.status === 'ready' ? prev : { status: 'loading' },
+    );
     try {
       const res = await fetch('/api/credits?limit=20');
       const data = (await res.json()) as CreditsResponse;
