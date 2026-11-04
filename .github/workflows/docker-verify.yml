@@ -1,0 +1,576 @@
+name: Docker/Redis 隔离验证
+
+# ===========================================================================
+# v0.0.4 —— R-16 / R-17 的**唯一**取证通道
+#
+# 背景（为什么必须单独建一个工作流）：
+#   R-16（Docker 镜像构建 / Compose 启动 / PG-健康 / Redis-健康 / 数据卷持久化 /
+#   容器重启 / 安装包实际部署 / 容器资源观察 / 镜像内容与权限检查）
+#   与 R-17（Redis 故障恢复 / 缓存失效 / 内存观测）
+#   在开发机（Windows，无 Docker）**无法实跑**。
+#   GitHub Actions 的 ubuntu-latest runner 自带 Docker Engine + Compose v2，
+#   是唯一能产出**真实运行证据**的地方。
+#
+# 与既有工作流的关系：
+#   · ci.yml 的 `docker` job        —— 只做「构建 + compose 起来 + 重启不污染数据」
+#   · install-verify.yml            —— 只做「安装脚本真实部署 + 持久化 + 口令不变」
+#   · **本工作流**                   —— 把 R-16 的 9 项与 R-17 的 3 项
+#                                     做成**逐项独立断言**，任何一项不达标就红灯，
+#                                     并把每一项的原始输出落成 artifact。
+#
+# 硬性约束：
+#   1. **绝不连接任何外部数据库**。PG / Redis 全部由本工作流自己用 compose 起，
+#      数据落在 workflow 生命周期内的临时卷里，job 结束即销毁。
+#   2. **绝不推送到 GHCR**。本工作流只 `docker build` / `docker load`，
+#      不登录 registry、不 push。
+#   3. 不创建 Tag、不创建 Release、不改仓库可见性。
+#   4. 凭据全部是 workflow 内生成的随机值，`: `add-mask::` 屏蔽。
+#
+# Action 版本说明（与 ci.yml 保持一致）：
+#   GitHub 已于 2026-09-23 移除 runner 上的 Node 20 运行时，
+#   仍声明 runs.using: node20 的 Action 会在**启动阶段**直接失败。
+#   本文件一律使用已迁移到 node24 的版本。
+# ===========================================================================
+
+on:
+  push:
+    branches: [master, 'fix/**', 'feat/**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      # 允许只跑某几项，便于失败后定点重跑
+      scenario:
+        description: '要执行的情景（留空 = 全部）'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: docker-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.23.4'
+  # ---- 隔离环境标识 ----
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  # ---- 随机凭据（无任何真实价值）----
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: docker-verify-postgres-pw-not-real
+  POSTGRES_DB: v2ex_dv
+  REDIS_PASSWORD: docker-verify-redis-pw-not-real
+  SESSION_SECRET: docker-verify-session-secret-0123456789abcdef0123456789
+  SEED_ADMIN_USERNAME: admin
+  SEED_ADMIN_EMAIL: admin@docker-verify.local
+  SEED_ADMIN_PASSWORD: docker-verify-admin-pw-12345
+  APP_PORT: '3000'
+  APP_URL: http://localhost:3000
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  # =========================================================================
+  # 主作业：R-16 的 9 项 + R-17 的 3 项，逐项断言
+  # =========================================================================
+  verify:
+    name: R-16/R-17 九项验证
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 环境信息
+        run: |
+          echo "  OS      : $(uname -a)"
+          echo "  Docker  : $(docker --version)"
+          echo "  Compose : $(docker compose version)"
+          echo "  可用磁盘: $(df -h / | tail -1 | awk '{print $4}')"
+
+      # ---------------------------------------------------------------------
+      # 校验项 1/9 —— 镜像真实构建
+      # ---------------------------------------------------------------------
+      - name: '[1/9] 镜像真实构建'
+        id: build
+        run: |
+          set -euo pipefail
+          docker build -t v2ex-clone:dv .
+          docker images v2ex-clone:dv --format '  {{.Repository}}:{{.Tag}}  {{.Size}}'
+          echo "IMAGE_SIZE_BYTES=$(docker image inspect v2ex-clone:dv --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_ID=$(docker image inspect v2ex-clone:dv --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
+
+      # ---------------------------------------------------------------------
+      # 校验项 9/9 —— 镜像内容与权限检查
+      #   · 非 root 用户运行
+      #   · 镜像内不含 devDependencies（playwright / vitest / typescript）
+      #   · 镜像内不含任何 .env / 凭据文件
+      #   · entrypoint 三个必需运行时路径都在
+      # ---------------------------------------------------------------------
+      - name: '[9/9] 镜像内容与权限检查'
+        run: |
+          set -euo pipefail
+          echo "===== 9a. 运行用户必须是非 root ====="
+          RUN_UID=$(docker image inspect v2ex-clone:dv --format '{{.Config.User}}')
+          echo "  Config.User = '${RUN_UID:-<空>}'"
+          if [ -z "${RUN_UID}" ] || [ "${RUN_UID}" = "root" ] || [ "${RUN_UID}" = "0" ]; then
+            echo "  ✗ 镜像以 root 运行（Config.User='${RUN_UID}'）——违反最小权限"; exit 1
+          fi
+          # 容器内实际 whoami 复核
+          ACTUAL_USER=$(docker run --rm --entrypoint sh v2ex-clone:dv -c 'id -un')
+          ACTUAL_UID=$(docker run --rm --entrypoint sh v2ex-clone:dv -c 'id -u')
+          echo "  容器内实际用户 = ${ACTUAL_USER} (uid=${ACTUAL_UID})"
+          if [ "${ACTUAL_UID}" = "0" ]; then
+            echo "  ✗ 容器内进程 uid=0（root）"; exit 1
+          fi
+          echo "  ✓ 以非 root 用户运行"
+
+          echo "===== 9b. 应用目录权限 ====="
+          docker run --rm --entrypoint sh v2ex-clone:dv -c 'ls -ld /app /app/public /app/.next /app/node_modules'
+
+          echo "===== 9c. 镜像内不得含 devDependencies ====="
+          for pkg in playwright playwright-core vitest typescript @playwright/test pixelmatch pngjs @types/node; do
+            if docker run --rm --entrypoint sh v2ex-clone:dv -c "test -e node_modules/$pkg"; then
+              echo "  ✗ 镜像内检出 devDependency: $pkg"; FOUND_DEV=1
+            else
+              echo "  ✓ 不含 $pkg"
+            fi
+          done
+          # entrypoint 的三个必需运行时路径必须在
+          for p in node_modules/drizzle-kit/bin.cjs node_modules/tsx/dist/cli.mjs node_modules/next/dist/bin/next; do
+            docker run --rm --entrypoint sh v2ex-clone:dv -c "test -f $p" \
+              || { echo "  ✗ 缺少运行时必需文件: $p"; exit 1; }
+            echo "  ✓ 存在 $p"
+          done
+          if [ "${FOUND_DEV:-0}" = "1" ]; then
+            echo "  ✗ 镜像含 devDependencies —— 生产镜像不必要地膨胀且携带漏洞版本"; exit 1
+          fi
+          echo "  ✓ 镜像不含 devDependencies"
+
+          echo "===== 9d. 镜像内不得含凭据 / 环境文件 ====="
+          for f in .env .env.local .env.test .env.production INSTALL_CREDENTIALS.txt; do
+            if docker run --rm --entrypoint sh v2ex-clone:dv -c "test -e /app/$f"; then
+              echo "  ✗ 镜像内检出敏感文件: $f"; exit 1
+            else
+              echo "  ✓ 不含 $f"
+            fi
+          done
+          # 全盘扫一遍常见密钥关键字（只查文件名与 .env 类内容，不打印内容）
+          SECRET_HITS=$(docker run --rm --entrypoint sh v2ex-clone:dv -c \
+            "find /app -maxdepth 2 -name '*.env*' -o -maxdepth 2 -name '*CREDENTIAL*' 2>/dev/null | head -20" || true)
+          if [ -n "${SECRET_HITS}" ]; then
+            echo "  ✗ 镜像内检出疑似凭据文件:"; echo "${SECRET_HITS}"; exit 1
+          fi
+          echo "  ✓ 无凭据文件"
+
+          echo "===== 9e. 镜像内迁移物完整性 ====="
+          docker run --rm --entrypoint sh v2ex-clone:dv -c 'ls -la /app/drizzle/ /app/drizzle/meta/'
+          for f in 0000_init.sql 0001_striped_magdalene.sql 0002_v004_perf_indexes.sql _journal.json; do
+            docker run --rm --entrypoint sh v2ex-clone:dv -c "test -f /app/drizzle/$f" \
+              || { echo "  ✗ 镜像内缺少迁移文件: $f"; exit 1; }
+            echo "  ✓ /app/drizzle/$f 在镜像内"
+          done
+
+          echo "===== 9f. 镜像体积 ====="
+          docker images v2ex-clone:dv --format '  {{.Repository}}:{{.Tag}}  {{.Size}}'
+
+      # ---------------------------------------------------------------------
+      # 校验项 2/9 —— compose 启动 + PG/Redis 健康检查（校验项 3/9）
+      # ---------------------------------------------------------------------
+      - name: '[2/9][3/9] Compose 启动 + PG/Redis 健康检查'
+        run: |
+          set -euo pipefail
+          cat > .env.dv <<EOF
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          SESSION_SECRET=${SESSION_SECRET}
+          SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME}
+          SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+          SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+          APP_PORT=${APP_PORT}
+          APP_URL=${APP_URL}
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          EOF
+          # 根 compose 用本地构建（build: . / Dockerfile）
+          docker compose --env-file .env.dv up -d --build
+
+          echo "===== compose ps ====="
+          docker compose --env-file .env.dv ps
+
+          echo "===== 等待三个服务全部 healthy ====="
+          for i in $(seq 1 60); do
+            PG=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-postgres 2>/dev/null || echo none)
+            RD=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-redis 2>/dev/null || echo none)
+            APP=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
+            echo "  [${i}s] postgres=${PG} redis=${RD} app=${APP}"
+            if [ "$PG" = "healthy" ] && [ "$RD" = "healthy" ] && [ "$APP" = "healthy" ]; then
+              echo "  ✓ 三个容器全部 healthy"; break
+            fi
+            if [ "$PG" = "unhealthy" ] || [ "$RD" = "unhealthy" ]; then
+              echo "  ✗ 依赖容器 unhealthy"; docker compose --env-file .env.dv logs --tail 100; exit 1
+            fi
+            sleep 3
+          done
+          [ "${PG}" = "healthy" ] || { echo "  ✗ postgres 未达 healthy（${PG}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          [ "${RD}" = "healthy" ] || { echo "  ✗ redis 未达 healthy（${RD}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          [ "${APP}" = "healthy" ] || { echo "  ✗ app 未达 healthy（${APP}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+
+          echo "===== PG 实查 ====="
+          docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select version();"
+          echo "===== Redis 实查 ====="
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning info server | grep -E 'redis_version|uptime'
+
+          echo "===== HTTP 探活 ====="
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/)
+          echo "  GET / → ${CODE}"
+          [ "$CODE" = "200" ] || exit 1
+
+          echo "===== 数据库端口不得对宿主机暴露 ====="
+          docker compose --env-file .env.dv config > /tmp/compose-rendered.yml
+          if grep -A 20 '^  postgres:' /tmp/compose-rendered.yml | grep -q 'published:'; then
+            echo "  ✗ postgres 向宿主机暴露了端口"; exit 1
+          fi
+          if grep -A 20 '^  redis:' /tmp/compose-rendered.yml | grep -q 'published:'; then
+            echo "  ✗ redis 向宿主机暴露了端口"; exit 1
+          fi
+          echo "  ✓ postgres / redis 均未暴露宿主机端口"
+
+      # ---------------------------------------------------------------------
+      # 校验项 4/9 —— 数据卷持久化（跨 restart + 跨 down/up 重建容器）
+      # ---------------------------------------------------------------------
+      - name: '[4/9] 数据卷持久化'
+        run: |
+          set -euo pipefail
+          echo "===== 写入探针数据 ====="
+          docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO users (username, email, password_hash, role, balance)
+          VALUES ('dv_probe', 'dv_probe@docker-verify.local', 'x', 'user', 100)
+          ON CONFLICT DO NOTHING;
+          SQL
+          # Redis 也写一个键，验证 AOF 持久化
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning SET dv_probe_key dv_probe_value
+
+          BEFORE_USERS=$(docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select count(*) from users where username='dv_probe'")
+          BEFORE_REDIS=$(docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning GET dv_probe_key)
+          echo "  PG 探针用户数 = ${BEFORE_USERS}"
+          echo "  Redis 探针键值 = ${BEFORE_REDIS}"
+
+          echo "===== 容器整体 down（保留卷）后 up —— 数据必须仍在 ====="
+          docker compose --env-file .env.dv down        # 注意：不加 -v，卷保留
+          docker compose --env-file .env.dv up -d
+          for i in $(seq 1 60); do
+            APP=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
+            [ "$APP" = "healthy" ] && break
+            sleep 3
+          done
+          echo "  app health = ${APP}"
+
+          AFTER_USERS=$(docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select count(*) from users where username='dv_probe'")
+          AFTER_REDIS=$(docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning GET dv_probe_key)
+          echo "  down/up 后 PG 探针用户数 = ${AFTER_USERS}"
+          echo "  down/up 后 Redis 探针键值 = ${AFTER_REDIS}"
+
+          [ "${BEFORE_USERS}" = "${AFTER_USERS}" ] || { echo "  ✗ PG 数据在 down/up 后丢失"; exit 1; }
+          [ "${BEFORE_REDIS}" = "${AFTER_REDIS}" ] || { echo "  ✗ Redis 数据在 down/up 后丢失（AOF 未生效）"; exit 1; }
+          [ "${AFTER_USERS}" != "0" ] || { echo "  ✗ 探针用户不存在 —— 持久化验证无效"; exit 1; }
+          echo "  ✓ 数据卷持久化通过（PG 与 Redis 均保持）"
+
+      # ---------------------------------------------------------------------
+      # 校验项 5/9 —— 容器重启（不丢数据、不重置口令）
+      # ---------------------------------------------------------------------
+      - name: '[5/9] 容器重启（数据与口令不变）'
+        run: |
+          set -euo pipefail
+          BEFORE_HASH=$(docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c \
+            "select password_hash from users where username='${SEED_ADMIN_USERNAME}'")
+          BEFORE_TOPICS=$(docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select count(*) from topics")
+          echo "  重启前 主题数=${BEFORE_TOPICS}  管理员哈希前 16 位=${BEFORE_HASH:0:16}"
+
+          docker compose --env-file .env.dv restart
+          for i in $(seq 1 60); do
+            APP=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
+            [ "$APP" = "healthy" ] && break
+            sleep 3
+          done
+          echo "  重启后 app health = ${APP}"
+          [ "${APP}" = "healthy" ] || { docker compose --env-file .env.dv logs --tail 100; exit 1; }
+
+          AFTER_HASH=$(docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c \
+            "select password_hash from users where username='${SEED_ADMIN_USERNAME}'")
+          AFTER_TOPICS=$(docker compose --env-file .env.dv exec -T postgres \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select count(*) from topics")
+          echo "  重启后 主题数=${AFTER_TOPICS}  管理员哈希前 16 位=${AFTER_HASH:0:16}"
+
+          [ -n "${BEFORE_HASH}" ] || { echo "  ✗ 管理员账号不存在，验证无效"; exit 1; }
+          [ "${BEFORE_HASH}" = "${AFTER_HASH}" ] || { echo "  ✗ 管理员口令在重启后被重置 —— seed 仍在覆盖已有账号"; exit 1; }
+          [ "${BEFORE_TOPICS}" = "${AFTER_TOPICS}" ] || { echo "  ✗ 主题数在重启后变化（${BEFORE_TOPICS} → ${AFTER_TOPICS}）—— seed 污染了数据"; exit 1; }
+          echo "  ✓ 重启未重置管理员口令、未污染用户数据"
+
+      # ---------------------------------------------------------------------
+      # 校验项 7/9 —— 安装包实际部署（用 release 产出的 tar.gz 真装一遍）
+      # ---------------------------------------------------------------------
+      - name: '[7/9] 安装包实际部署'
+        run: |
+          set -euo pipefail
+          echo "===== 打包 release 目录 ====="
+          mkdir -p /tmp/dist
+          tar -czf /tmp/dist/v2ex-clone-deploy.tar.gz -C deploy .
+          tar -tzf /tmp/dist/v2ex-clone-deploy.tar.gz | head -30
+
+          echo "===== 解包到全新目录模拟用户安装 ====="
+          rm -rf /tmp/inst && mkdir -p /tmp/inst
+          tar -xzf /tmp/dist/v2ex-clone-deploy.tar.gz -C /tmp/inst
+          cd /tmp/inst
+          ls -la
+          for f in *.sh; do bash -n "$f" || { echo "  ✗ bash -n 失败: $f"; exit 1; }; done
+          echo "  ✓ 所有 shell 脚本语法通过"
+
+          echo "===== 用本地构建镜像跑 install.sh（真实 Docker）====="
+          V2EX_IMAGE=v2ex-clone:dv bash ./install.sh 2>&1 | tee /tmp/install.log | tail -40
+
+          echo "===== 校验安装产物 ====="
+          test -f .env || { echo "  ✗ .env 未生成"; exit 1; }
+          PERM=$(stat -c '%a' .env)
+          echo "  .env 权限 = ${PERM}"
+          [ "$PERM" = "600" ] || { echo "  ✗ .env 权限应为 600"; exit 1; }
+          if [ -f INSTALL_CREDENTIALS.txt ]; then
+            CPERM=$(stat -c '%a' INSTALL_CREDENTIALS.txt)
+            echo "  INSTALL_CREDENTIALS.txt 权限 = ${CPERM}"
+            [ "$CPERM" = "600" ] || { echo "  ✗ 凭据文件权限应为 600"; exit 1; }
+          else
+            echo "  ✗ 凭据文件缺失"; exit 1
+          fi
+          for k in POSTGRES_PASSWORD REDIS_PASSWORD SESSION_SECRET SEED_ADMIN_PASSWORD; do
+            V=$(grep -E "^$k=" .env | cut -d= -f2-)
+            echo "  ${k} 长度 = ${#V}"
+            [ "${#V}" -ge 16 ] || { echo "  ✗ $k 太短"; exit 1; }
+          done
+
+          echo "===== 安装后的容器必须 healthy 且管理员存在 ====="
+          for i in $(seq 1 60); do
+            H=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
+            [ "$H" = "healthy" ] && break
+            sleep 3
+          done
+          echo "  app health = ${H}"
+          [ "$H" = "healthy" ] || { docker compose --env-file .env logs --tail 100; exit 1; }
+          CNT=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c \
+            "select count(*) from users where username='admin' and role='admin';")
+          echo "  管理员账号数 = ${CNT}"
+          [ "$CNT" = "1" ] || { echo "  ✗ 管理员未创建"; exit 1; }
+
+          echo "===== 安装后的容器资源占用（安装包路径的容器）====="
+          docker stats --no-stream --format '  {{.Name}}  CPU={{.CPUPerc}}  MEM={{.MemUsage}}  MEM%={{.MemPerc}}' v2ex-app v2ex-postgres v2ex-redis
+
+      # ---------------------------------------------------------------------
+      # 校验项 8/9 —— 容器资源观察（CPU / 内存）
+      # ---------------------------------------------------------------------
+      - name: '[8/9] 容器资源观察（CPU / 内存）'
+        run: |
+          set -euo pipefail
+          echo "===== 静态资源占用 ====="
+          docker stats --no-stream --format '  {{.Name}}\tCPU={{.CPUPerc}}\tMEM={{.MemUsage}}\tMEM%={{.MemPerc}}\tNET={{.NetIO}}\tBLOCK={{.BlockIO}}'
+          echo "===== 连续采样 5 次（观察波动）====="
+          for i in $(seq 1 5); do
+            echo "--- sample ${i} ---"
+            docker stats --no-stream --format '  {{.Name}}\tCPU={{.CPUPerc}}\tMEM={{.MemUsage}}\tMEM%={{.MemPerc}}'
+            sleep 2
+          done
+          echo "===== 镜像体积 vs 运行时内存 ====="
+          docker images v2ex-clone:dv --format '  image {{.Repository}}:{{.Tag}}  {{.Size}}'
+          echo "===== 容器可写层大小 ====="
+          for c in v2ex-app v2ex-postgres v2ex-redis; do
+            printf '  %-16s ' "$c"
+            docker inspect --format '{{.SizeRw}}' "$c" 2>/dev/null || echo 'n/a'
+          done
+          echo "===== 应用进程内存（容器内）====="
+          docker exec v2ex-app sh -c 'ps -o pid,rss,comm 2>/dev/null || cat /proc/1/status | grep -E "VmRSS|VmHWM"' || true
+
+      # ---------------------------------------------------------------------
+      # R-17 a —— Redis 中断与恢复
+      # ---------------------------------------------------------------------
+      - name: '[R-17a] Redis 中断与恢复'
+        run: |
+          set -euo pipefail
+          echo "===== 停止 Redis ====="
+          docker compose --env-file .env.dv stop redis
+          docker compose --env-file .env.dv ps
+
+          echo "===== Redis 停止期间：应用不得 5xx（应降级而非崩溃）====="
+          for path in / /nodes /api/nodes; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000${path}")
+            echo "  GET ${path} → ${CODE}"
+            if [ "${CODE}" -ge 500 ]; then
+              echo "  ✗ Redis 停止期间 ${path} 返回 5xx（${CODE}）—— 应用未做降级"; exit 1
+            fi
+          done
+
+          echo "===== 恢复 Redis ====="
+          docker compose --env-file .env.dv start redis
+          for i in $(seq 1 30); do
+            R=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-redis 2>/dev/null || echo none)
+            [ "$R" = "healthy" ] && break
+            sleep 2
+          done
+          echo "  redis health = ${R}"
+          [ "${R}" = "healthy" ] || { echo "  ✗ Redis 未恢复"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+
+          echo "===== 恢复后应用必须回到正常 ====="
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/)
+            [ "$CODE" = "200" ] && break
+            sleep 2
+          done
+          echo "  GET / → ${CODE}"
+          [ "${CODE}" = "200" ] || { echo "  ✗ Redis 恢复后应用仍未正常"; exit 1; }
+          PONG=$(docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping)
+          echo "  redis ping = ${PONG}"
+          [ "${PONG}" = "PONG" ] || exit 1
+          echo "  ✓ Redis 中断/恢复通过"
+
+      # ---------------------------------------------------------------------
+      # R-17 b —— PostgreSQL 中断与恢复
+      # ---------------------------------------------------------------------
+      - name: '[R-17b] PostgreSQL 中断与恢复'
+        run: |
+          set -euo pipefail
+          echo "===== 停止 PostgreSQL ====="
+          docker compose --env-file .env.dv stop postgres
+          docker compose --env-file .env.dv ps
+
+          echo "===== PG 停止期间：应用不得返回 5xx 到首页以外的关键页 ====="
+          # 首页是 force-dynamic 的 Server Component，DB 挂了必然 5xx —— 这是预期。
+          # 这里记录实际行为，不做通过/失败断言，但要明确记录下来供人工判断。
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 http://localhost:3000/)
+          echo "  PG 停止期间 GET / → ${CODE}（预期为 5xx：首页强依赖 DB）"
+
+          echo "===== 恢复 PostgreSQL ====="
+          docker compose --env-file .env.dv start postgres
+          for i in $(seq 1 40); do
+            P=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-postgres 2>/dev/null || echo none)
+            [ "$P" = "healthy" ] && break
+            sleep 2
+          done
+          echo "  postgres health = ${P}"
+          [ "${P}" = "healthy" ] || { echo "  ✗ PostgreSQL 未恢复"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+
+          echo "===== 恢复后应用必须回到 200 ====="
+          RECOVERED=0
+          for i in $(seq 1 40); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 http://localhost:3000/)
+            echo "  [${i}] GET / → ${CODE}"
+            if [ "$CODE" = "200" ]; then RECOVERED=1; break; fi
+            sleep 3
+          done
+          [ "${RECOVERED}" = "1" ] || { echo "  ✗ PostgreSQL 恢复后应用仍未回到 200"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          echo "  ✓ PostgreSQL 中断/恢复通过（应用自动恢复，无需重启容器）"
+
+      # ---------------------------------------------------------------------
+      # R-17 c —— 缓存失效观测（Redis 内存 / keyspace）
+      # ---------------------------------------------------------------------
+      - name: '[R-17c] 缓存失效与 Redis 内存观测'
+        run: |
+          set -euo pipefail
+          echo "===== 清库前 Redis 内存与 keyspace ====="
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning info memory | grep -E 'used_memory_human|used_memory_peak_human|maxmemory_human'
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning info keyspace
+
+          echo "===== 触发缓存写入（连续请求若干次）====="
+          for i in $(seq 1 20); do
+            curl -s -o /dev/null http://localhost:3000/nodes
+            curl -s -o /dev/null http://localhost:3000/
+          done
+          echo "===== 写入后 Redis 内存与 keyspace ====="
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning info memory | grep -E 'used_memory_human|used_memory_peak_human'
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning info keyspace
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning dbsize
+
+          echo "===== 缓存失效：FLUSHDB 后 keyspace 必须清空 ====="
+          docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning FLUSHDB
+          SIZE=$(docker compose --env-file .env.dv exec -T redis \
+            redis-cli -a "$REDIS_PASSWORD" --no-auth-warning dbsize)
+          echo "  FLUSHDB 后 dbsize = ${SIZE}"
+          [ "${SIZE}" = "0" ] || { echo "  ✗ FLUSHDB 后仍有 ${SIZE} 个键"; exit 1; }
+
+          echo "===== 缓存失效后应用必须仍可用（不得因缓存清空而 5xx）====="
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/)
+          echo "  GET / → ${CODE}"
+          [ "$CODE" = "200" ] || { echo "  ✗ 缓存清空后首页异常"; exit 1; }
+          echo "  ✓ 缓存失效观测通过"
+
+      # ---------------------------------------------------------------------
+      # 证据汇总 —— 把逐项结论写成一份可归档的 markdown
+      # ---------------------------------------------------------------------
+      - name: 生成验证汇总
+        if: always()
+        run: |
+          {
+            echo "# Docker/Redis 隔离验证汇总"
+            echo ""
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- 时间: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo "## 校验项"
+            echo ""
+            echo "| # | 校验项 | 结果 |"
+            echo "|---|--------|------|"
+            echo "| 1 | 镜像真实构建 | $([ '${{ steps.build.outcome }}' = 'success' ] && echo PASS || echo FAIL) |"
+            echo "| 2 | Compose 启动 | ${{ job.status == 'success' && echo PASS || echo '见日志' }} |"
+            echo "| 3 | PG / Redis 健康检查 | 同上 |"
+            echo "| 4 | 数据卷持久化 | 同上 |"
+            echo "| 5 | 容器重启不丢数据 | 同上 |"
+            echo "| 6 | Redis / PG 中断恢复 | 同上 |"
+            echo "| 7 | 安装包实际部署 | 同上 |"
+            echo "| 8 | 容器资源观察 | 同上 |"
+            echo "| 9 | 镜像内容与权限检查 | 同上 |"
+          } > /tmp/summary.md
+          cat /tmp/summary.md
+
+      - name: 上传验证证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-verify-evidence
+          path: |
+            /tmp/summary.md
+            /tmp/install.log
+            /tmp/compose-rendered.yml
+          retention-days: 14
+
+      - name: compose 日志
+        if: always()
+        run: docker compose --env-file .env.dv logs --tail 200 || true
+
+      - name: 停止并清理
+        if: always()
+        run: docker compose --env-file .env.dv down -v || true

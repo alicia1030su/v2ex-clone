@@ -17,6 +17,12 @@
 #   · dev     ：版本载体为 0.0.3 是**预期状态** → [INFO]，不判 FAIL
 #   · release ：才要求全部为 0.0.4 → 否则 FAIL；本模式只应在最终 SHA 固定后运行
 #
+# 双模式之外，第 7 节额外覆盖「升级链路」：
+#   · deploy/update.sh 是否具备「改写 .env 中 V2EX_IMAGE」的能力（R-18 核心）
+#   · deploy/VERSION 与 .env.example 的镜像 tag 是否与目标版本一致
+#   · release.yml 的 push tag 白名单是否已包含目标版本 —— **需要人工放行**，
+#     本脚本只报出、**绝不自动修改**白名单（R-19 的刻意摩擦）
+#
 # 硬性约束（本脚本自我承诺，评审时请逐条核对）：
 #   - 不执行任何写操作：不建/删文件、不改文件、不 git add/commit/tag、
 #     不 git stash/checkout/restore、不 npm install、不跑迁移、不跑测试
@@ -304,7 +310,176 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-section '7. 汇总'
+section '7. 升级脚本（deploy/update.sh）与版本同步（release 阶段重点）'
+# ---------------------------------------------------------------------------
+# 背景（R-18）：v0.0.3 的 update.sh 存在「看似升级成功、实际没升」的缺陷：
+#   1. 从 .env 读 V2EX_IMAGE 但**从不更新它** → 用户从 v0.0.3 升级仍拉旧 tag
+#   2. `docker compose pull` + `up -d` 后镜像 tag 没变 → 跑的还是旧版本
+#   3. 升级失败没有恢复旧镜像的路径
+#   4. 升级前没有备份
+#   5. 没有明确的目标版本参数
+# v0.0.4 重写后新增了 --version / --image 参数、.env 的 V2EX_IMAGE 实际改写、
+# 升级前自动备份、digest 对比、失败自动回滚（且明确不做破坏性数据库回滚）。
+#
+# 本节在 release 阶段逐条静态核对这些能力是否真的存在。
+UPDATE_SH='deploy/update.sh'
+
+if [ ! -f "$UPDATE_SH" ]; then
+  fail "缺少 ${UPDATE_SH} —— 发行版用户将无法升级"
+else
+  ok "${UPDATE_SH} 存在"
+
+  # --- 7.1 语法 -------------------------------------------------------------
+  if bash -n "$UPDATE_SH" 2>/dev/null; then
+    ok 'update.sh 通过 bash -n 语法检查'
+  else
+    fail 'update.sh 未通过 bash -n 语法检查'
+  fi
+
+  # --- 7.2 目标版本参数 -----------------------------------------------------
+  if grep -qE '\-\-version' "$UPDATE_SH" && grep -qE '\-\-image' "$UPDATE_SH"; then
+    ok 'update.sh 支持 --version / --image 明确指定目标版本'
+  else
+    fail 'update.sh 缺少 --version / --image 参数 —— 无法明确指定目标版本（R-18 第 5 项）'
+  fi
+
+  # --- 7.3 改写 .env 的 V2EX_IMAGE（R-18 第 1、2 项：核心）-------------------
+  # 判定依据：脚本必须**实际调用** update_env_value（或等价的写 .env 动作）
+  # 把 V2EX_IMAGE 写成目标镜像，而不只是读出来。
+  if grep -qE 'update_env_value[[:space:]]+V2EX_IMAGE' "$UPDATE_SH"; then
+    ok 'update.sh 具备「更新 .env 中 V2EX_IMAGE」的能力（存在 update_env_value V2EX_IMAGE 调用）'
+  elif grep -qE '(sed|awk).*V2EX_IMAGE' "$UPDATE_SH"; then
+    ok 'update.sh 具备「更新 .env 中 V2EX_IMAGE」的能力（通过 sed/awk 改写）'
+  else
+    fail 'update.sh **不具备**更新 .env 中 V2EX_IMAGE 的能力 —— 升级会拉旧 tag、跑旧版本（R-18 第 1、2 项）'
+  fi
+  # 且必须是「写目标镜像」而不是「写回旧值」
+  if grep -qE 'update_env_value[[:space:]]+V2EX_IMAGE[[:space:]]+"\$TARGET_IMAGE"' "$UPDATE_SH"; then
+    ok 'update.sh 把 V2EX_IMAGE 改写为目标镜像（$TARGET_IMAGE），而非沿用旧值'
+  else
+    warn 'update.sh 中未检出「把 V2EX_IMAGE 写为 $TARGET_IMAGE」的语句 —— 请人工确认改写目标正确'
+  fi
+
+  # --- 7.4 备份（失败即中止）------------------------------------------------
+  if grep -qE 'backup\.sh' "$UPDATE_SH"; then
+    ok 'update.sh 升级前会调用 backup.sh（复用既有备份脚本）'
+  else
+    fail 'update.sh 升级前未调用 backup.sh —— 升级前无备份（R-18 第 4 项）'
+  fi
+  if grep -qE 'backup\.sh.*失败|失败.*backup\.sh|backup\.sh.*中止' "$UPDATE_SH"; then
+    ok 'update.sh 明确声明「备份失败即中止升级」'
+  else
+    warn 'update.sh 未明确声明「备份失败即中止升级」—— 请人工确认失败路径'
+  fi
+
+  # --- 7.5 digest 对比 + 未变化告警 ----------------------------------------
+  if grep -qE 'RepoDigests' "$UPDATE_SH"; then
+    ok 'update.sh 会记录并对比镜像 digest（RepoDigests）'
+  else
+    fail 'update.sh 未检出 digest 记录逻辑'
+  fi
+  if grep -qE '完全相同|未变化|未变' "$UPDATE_SH"; then
+    ok 'update.sh 对「目标版本镜像未变化」有明确告警与处置分支'
+  else
+    fail 'update.sh 未检出「目标镜像未变化」的告警分支 —— 会静默「假升级」（R-18 第 2 项）'
+  fi
+
+  # --- 7.6 回滚（R-18 第 3 项）---------------------------------------------
+  if grep -qE '^rollback\(\)' "$UPDATE_SH"; then
+    ok 'update.sh 存在自动回滚路径（rollback 函数）'
+  else
+    fail 'update.sh 缺少自动回滚路径 —— 升级失败后无恢复手段（R-18 第 3 项）'
+  fi
+
+  # --- 7.7 保留数据卷（绝不 down -v）---------------------------------------
+  # 只看**会被执行**的代码行：排除注释行。
+  # 注意这里用与 install-verify.yml 闸门一致的判定方式，避免两处口径不一致。
+  UPDATE_DOWN_EXEC="$(grep -vE "^[[:space:]]*#" "$UPDATE_SH" \
+    | grep -cE 'docker[[:space:]]+compose[[:space:]]+down[[:space:]]+(-v|--volumes)' || true)"
+  UPDATE_DOWN_ANY="$(grep -vE "^[[:space:]]*#" "$UPDATE_SH" \
+    | grep -cE 'compose[[:space:]]+down' || true)"
+  if [ "${UPDATE_DOWN_EXEC:-0}" -eq 0 ] && [ "${UPDATE_DOWN_ANY:-0}" -eq 0 ]; then
+    ok 'update.sh 不含任何 compose down 调用（数据卷不会被删除）'
+  else
+    fail "update.sh 检出 compose down 调用（执行级 ${UPDATE_DOWN_EXEC:-0} 处）—— 存在删除数据卷的风险"
+  fi
+
+  # --- 7.8 不自动执行破坏性数据库回滚 --------------------------------------
+  # 允许在**提示文本**里出现 restore.sh（那是给人工的指引），
+  # 但绝不能作为**命令**被调用。
+  UPDATE_RESTORE_EXEC="$(grep -vE "^[[:space:]]*#" "$UPDATE_SH" \
+    | grep -E '^[[:space:]]*(bash|sh)[[:space:]].*restore\.sh' | wc -l | tr -d ' ')"
+  if [ "${UPDATE_RESTORE_EXEC:-0}" -eq 0 ]; then
+    ok 'update.sh 不自动执行 restore.sh（数据库回滚需人工显式确认）'
+  else
+    fail 'update.sh 会自动执行 restore.sh —— 升级失败时自动覆盖数据库有丢数据风险'
+  fi
+  if grep -qE '破坏性数据库回滚|不会.*数据库回滚' "$UPDATE_SH"; then
+    ok 'update.sh 在注释/日志中显式声明了「不自动执行破坏性数据库回滚」'
+  else
+    warn 'update.sh 未显式声明「不自动执行破坏性数据库回滚」—— 请人工确认设计意图'
+  fi
+
+  # --- 7.9 不覆盖管理员口令 ------------------------------------------------
+  if grep -qE 'SEED_ADMIN_PASSWORD' "$UPDATE_SH"; then
+    ok 'update.sh 涉及 SEED_ADMIN_PASSWORD —— 说明其对管理员口令的处理是显式的（而非默认覆盖）'
+  else
+    warn 'update.sh 未提及 SEED_ADMIN_PASSWORD —— 请人工确认升级不会重置管理员口令'
+  fi
+  if grep -qE 'ADMIN_HASH|password_hash' "$UPDATE_SH"; then
+    ok 'update.sh 会校验管理员口令哈希未变（升级后证明口令未被篡改）'
+  else
+    warn 'update.sh 未校验管理员口令哈希 —— 请人工确认升级不会覆盖管理员口令（R-18 要求项）'
+  fi
+
+  # --- 7.10 自检脚本存在 ----------------------------------------------------
+  if [ -f scripts/release/verify-update-script.sh ]; then
+    ok 'scripts/release/verify-update-script.sh 存在（update.sh 的无 Docker 自检脚本）'
+    if bash -n scripts/release/verify-update-script.sh 2>/dev/null; then
+      ok 'verify-update-script.sh 通过 bash -n 语法检查'
+    else
+      fail 'verify-update-script.sh 未通过 bash -n 语法检查'
+    fi
+  else
+    warn 'scripts/release/verify-update-script.sh 不存在 —— update.sh 缺少无 Docker 环境的自检手段'
+  fi
+fi
+
+# --- 7.11 deploy/VERSION 与目标版本的一致性 --------------------------------
+# 这是「用户拿到的安装包自称的版本」与「本次发布版本」是否一致的问题。
+# release 阶段必须严格一致，否则发行包会带着旧版本号出厂。
+if [ "$PHASE" = 'release' ]; then
+  if [ "$DEPLOY_VER" = "$TARGET" ]; then
+    ok "deploy/VERSION = ${DEPLOY_VER} 与目标版本 ${TARGET} 一致（发行包版本号正确）"
+  else
+    fail "deploy/VERSION = ${DEPLOY_VER}，与目标版本 ${TARGET} **不一致** —— 发行包会带着旧版本号出厂"
+  fi
+  # .env.example 的默认镜像 tag 也必须跟着目标版本走，
+  # 否则新装的用户装到的是旧版本镜像。
+  if [ "${ENV_IMG:-}" = "$EXPECTED_IMAGE" ]; then
+    ok "deploy/.env.example 的 V2EX_IMAGE 已指向 ${EXPECTED_IMAGE}"
+  else
+    fail "deploy/.env.example 的 V2EX_IMAGE = ${ENV_IMG:-（缺失）}，期望 ${EXPECTED_IMAGE} —— 新装用户会装到旧版本镜像"
+  fi
+else
+  note "deploy/VERSION = ${DEPLOY_VER}（开发态刻意保持 ${DEV_BASELINE}，不判 FAIL）"
+fi
+
+# --- 7.12 tag 白名单需要人工放行（刻意保留的摩擦）--------------------------
+# 与第 3 节的检查重复出现是**刻意**的：第 3 节是流水线闸门视角，
+# 第 7 节是「发行包能不能被正确升级」视角 —— 两处口径都要在发布前被人看见。
+if grep -qE "^\s*-\s*'${VTAG}'" .github/workflows/release.yml 2>/dev/null; then
+  ok "release.yml 的 push tag 白名单已包含 ${VTAG}（无需人工放行）"
+else
+  if [ "$PHASE" = 'release' ]; then
+    fail "【需人工放行】release.yml 的 push tag 白名单**未包含** ${VTAG} —— 本脚本**不会自动修改**该白名单（刻意的摩擦，R-19）；发布前必须由人手工把 '- ${VTAG}' 加入 .github/workflows/release.yml 的 tags 列表"
+  else
+    info "【需人工放行】发布前须由人手工把 '- ${VTAG}' 加入 release.yml 的 push tag 白名单（刻意的摩擦，R-19；本脚本**不会自动修改**它）"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+section '8. 汇总'
 # ---------------------------------------------------------------------------
 printf 'phase=%s  PASS=%s  WARN=%s  FAIL=%s  BLOCK=%s  INFO=%s\n' \
   "$PHASE" "$PASS" "$WARN" "$FAIL" "$BLOCK" "$INFO"
