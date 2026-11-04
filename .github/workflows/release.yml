@@ -1420,18 +1420,55 @@ jobs:
             exit 1
           fi
 
-          # 额外探测匿名可拉取性，仅作提示
-          ANON=$(curl -s -o /dev/null -w '%{http_code}' \
+          # 额外探测匿名可拉取性，仅作提示。
+          #
+          # ⚠️ 必须走完整的 Registry V2 Bearer Token 流程：
+          #   1) 匿名请求 manifest → 401 + WWW-Authenticate
+          #   2) 用 realm 换匿名 token
+          #   3) 带 token 重试 → 200 才是「公开可拉取」
+          # 只看第 1 步的 401 会**误判**为 private ——
+          # 公开包的第 1 步同样返回 401（v0.0.3 就踩了这个坑）。
+          ANON_HEADERS=$(mktemp)
+          ANON_CODE=$(curl -s -D "$ANON_HEADERS" -o /dev/null -w '%{http_code}' \
             "https://${REGISTRY}/v2/${IMAGE_NAME}/manifests/${VERSION}" \
             -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
             || echo "000")
-          if [ "$ANON" = "200" ]; then
-            echo "✓ 匿名可拉取（包已设为 Public）"
+          if [ "$ANON_CODE" = "200" ]; then
+            echo "✓ 匿名直接可读 manifest（公开）"
+          elif [ "$ANON_CODE" = "401" ]; then
+            REALM=$(grep -i '^www-authenticate:' "$ANON_HEADERS" | head -1 \
+              | sed -n 's/.*realm="\([^"]*\)".*/\1/p')
+            SERVICE=$(grep -i '^www-authenticate:' "$ANON_HEADERS" | head -1 \
+              | sed -n 's/.*service="\([^"]*\)".*/\1/p')
+            SCOPE=$(grep -i '^www-authenticate:' "$ANON_HEADERS" | head -1 \
+              | sed -n 's/.*scope="\([^"]*\)".*/\1/p')
+            [ -z "$SCOPE" ] && SCOPE="repository:${IMAGE_NAME}:pull"
+            if [ -n "$REALM" ]; then
+              ANON_TOKEN=$(curl -s --max-time 20 \
+                "${REALM}?service=${SERVICE}&scope=${SCOPE}" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))" \
+                2>/dev/null || echo '')
+              if [ -n "$ANON_TOKEN" ]; then
+                ANON2=$(curl -s -o /dev/null -w '%{http_code}' \
+                  -H "Authorization: Bearer ${ANON_TOKEN}" \
+                  -H "Accept: application/vnd.oci.image.index.v1+json" \
+                  "https://${REGISTRY}/v2/${IMAGE_NAME}/manifests/${VERSION}" || echo "000")
+                if [ "$ANON2" = "200" ]; then
+                  echo "✓ 匿名 Bearer 流程通过（HTTP 200）—— 镜像为 Public，普通用户可直接 pull"
+                else
+                  echo "::notice::匿名 Bearer 流程后仍返回 HTTP ${ANON2} —— 匿名拉取不可用。"
+                  echo "::notice::这不影响镜像已推送的事实（上面的带凭据拉取已验证）。"
+                fi
+              else
+                echo "::notice::未能换到匿名 token（HTTP ${ANON_CODE} 后 token 失败）"
+              fi
+            else
+              echo "::notice::无法从 WWW-Authenticate 解析 realm，跳过匿名探测"
+            fi
           else
-            echo "::notice::匿名拉取返回 HTTP $ANON —— GHCR 包当前为 private。"
-            echo "::notice::如需供普通用户匿名使用，请到仓库 Packages 设置里把 visibility 改为 Public。"
-            echo "::notice::这是仓库级配置项，不影响镜像本身已推送的事实。"
+            echo "::notice::匿名探测返回 HTTP ${ANON_CODE}（非 200/401）"
           fi
+          rm -f "$ANON_HEADERS"
 
       - name: 核验 Release 网页可打开（仅已发布的 Release）
         # draft 状态的 Release 页面对匿名访问返回 404（GitHub 的正常行为），

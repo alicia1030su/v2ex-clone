@@ -93,7 +93,7 @@
 | `publishedAt` | `null` |
 | 资产 | `SHA256SUMS`（95 B）+ `v2ex-clone-v0.0.3-deploy.zip`（41,867 B） |
 | 远端核验输出 | 「Release 状态：draft / 资产清单: ['SHA256SUMS', 'v2ex-clone-v0.0.3-deploy.zip'] / Release 状态核验通过 ✓」 |
-| 镜像匿名 manifest | HTTP 401（镜像已推送；包为 private —— 见 `docs/SECURITY_EXCEPTIONS.md` E-10） |
+| 镜像匿名可见性 | ✅ **公开可拉取** —— 按 Registry V2 Bearer Token 协议实测：匿名换 token → 带 token 请求 manifest → **HTTP 200**（v0.0.1/v0.0.2/v0.0.3 全部 200）。v0.0.3 的「包为 private」判定基于不完整的 401 测试，**结论有误**，已在 E-10 修正 |
 
 ## 并发压力验证
 
