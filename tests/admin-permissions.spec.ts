@@ -27,6 +27,27 @@ import {
 
 const TEST_DB = process.env.V003_ADMIN_TEST_DB ?? 'v2ex_v003_admin';
 
+/**
+ * 让 `@/db` 的全局连接池也指向本测试库。
+ *
+ * `src/db/index.ts` 在模块加载时读取 DATABASE_URL 并缓存连接池，
+ * 因此必须在**导入任何使用 @/db 的模块之前**通过 ENV_FILE 覆盖
+ * （src/db/index.ts 对 ENV_FILE 使用 override:true）。
+ * 否则服务层写 A 库、断言读 B 库，会出现外键约束失败。
+ */
+process.env.ENV_FILE = '';
+process.env.DATABASE_URL = testDatabaseUrl();
+// 清掉可能被其他测试文件（同一 worker 进程）缓存的连接池，
+// 强制 @/db 用上面设置的测试库重新建连接。
+{
+  const g = globalThis as unknown as {
+    __v2exSql?: unknown;
+    __v2exDrizzle?: unknown;
+  };
+  g.__v2exSql = undefined;
+  g.__v2exDrizzle = undefined;
+}
+
 function testDatabaseUrl(): string {
   const base = process.env.DATABASE_URL;
   if (!base) throw new Error('DATABASE_URL 未配置，无法运行后台权限测试');

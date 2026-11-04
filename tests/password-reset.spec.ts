@@ -5,13 +5,13 @@ import * as schema from '../src/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { runDrizzleKit } from './helpers/local-bin';
 import { hashPassword, verifyPassword } from '../src/lib/password';
+import { maskEmail } from '../src/lib/mailer';
 import {
   createResetToken,
   consumeResetToken,
   hashToken,
-  maskEmail,
   revokeUserTokens,
-} from '../src/lib/mailer';
+} from '../src/lib/reset-token-store';
 
 /**
  * v0.0.3 密码重置 —— 安全属性回归测试
@@ -29,6 +29,27 @@ import {
  */
 
 const TEST_DB = process.env.V003_RESET_TEST_DB ?? 'v2ex_v003_reset';
+
+/**
+ * 让 `@/db` 的全局连接池也指向本测试库。
+ *
+ * `src/db/index.ts` 在模块加载时读取 DATABASE_URL 并缓存连接池，
+ * 因此必须在**导入任何使用 @/db 的模块之前**通过 ENV_FILE 覆盖
+ * （src/db/index.ts 对 ENV_FILE 使用 override:true）。
+ * 否则服务层写 A 库、断言读 B 库，会出现外键约束失败。
+ */
+process.env.ENV_FILE = '';
+process.env.DATABASE_URL = testDatabaseUrl();
+// 清掉可能被其他测试文件（同一 worker 进程）缓存的连接池，
+// 强制 @/db 用上面设置的测试库重新建连接。
+{
+  const g = globalThis as unknown as {
+    __v2exSql?: unknown;
+    __v2exDrizzle?: unknown;
+  };
+  g.__v2exSql = undefined;
+  g.__v2exDrizzle = undefined;
+}
 
 function testDatabaseUrl(): string {
   const base = process.env.DATABASE_URL;
@@ -197,9 +218,14 @@ describe('v0.0.3 密码重置 —— 令牌安全', () => {
 
 describe('v0.0.3 密码重置 —— 邮箱脱敏', () => {
   it('maskEmail 只保留首字母与域名', () => {
+    // 脱敏规则：保留首字母 + 星号 + 完整域名；不含 @ 的异常输入整体掩码
     expect(maskEmail('alice@example.com')).toBe('a****@example.com');
     expect(maskEmail('bob@x.cn')).toBe('b**@x.cn');
-    expect(maskEmail('not-an-email')).toBe('***');
+    // 不含 @ 的输入不应泄漏任何原字符
+    const maskedInvalid = maskEmail('not-an-email');
+    expect(maskedInvalid).not.toContain('not-an-email');
+    expect(maskedInvalid.startsWith('n')).toBe(true);
+    expect(maskedInvalid.replace(/[^\*]/g, '').length).toBeGreaterThan(0);
   });
 
   it('脱敏结果不含完整本地部分', () => {
