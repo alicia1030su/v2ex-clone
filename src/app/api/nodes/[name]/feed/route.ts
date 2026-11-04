@@ -1,18 +1,20 @@
-import { NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { desc, eq, isNull, sql } from 'drizzle-orm';
-import { buildRss, truncate, siteOrigin } from '@/lib/feed-builder';
+import { eq } from 'drizzle-orm';
+import {
+  buildFeedEntries,
+  buildRss,
+  resolveBaseUrl,
+  toFeedItem,
+} from '@/lib/feed-builder';
 
 export const dynamic = 'force-dynamic';
-
-const FEED_LIMIT = 30;
 
 /**
  * GET /api/nodes/[name]/feed —— 节点 RSS 2.0
  *
- * Content-Type: application/rss+xml; charset=utf-8
- *
- * 软删除的主题不会出现在 feed 中。
+ * - 内容来自真实数据库；软删除的主题不出现
+ * - Content-Type: application/rss+xml; charset=utf-8
+ * - Cache-Control: public, max-age=120
  */
 export async function GET(
   request: Request,
@@ -29,54 +31,31 @@ export async function GET(
   const node = nodeRows[0];
 
   if (!node) {
-    return NextResponse.json({ ok: false, error: '节点不存在' }, { status: 404 });
+    return new Response(
+      JSON.stringify({ ok: false, error: '节点不存在' }),
+      { status: 404, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
+    );
   }
 
-  const origin = siteOrigin(request);
+  const origin = resolveBaseUrl(request.url);
 
-  const rows = await db
-    .select({
-      id: schema.topics.id,
-      title: schema.topics.title,
-      content: schema.topics.content,
-      createdAt: schema.topics.createdAt,
-      authorName: schema.users.username,
-    })
-    .from(schema.topics)
-    .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-    .where(sql`${schema.topics.deletedAt} IS NULL AND ${schema.topics.nodeId} = ${node.id}`)
-    .orderBy(desc(schema.topics.lastReplyAt))
-    .limit(FEED_LIMIT);
+  const entries = await buildFeedEntries(db, { baseUrl: origin, nodeId: node.id });
 
-  const latest = await db
-    .select({ t: schema.topics.createdAt })
-    .from(schema.topics)
-    .where(sql`${schema.topics.deletedAt} IS NULL AND ${schema.topics.nodeId} = ${node.id}`)
-    .orderBy(desc(schema.topics.createdAt))
-    .limit(1);
-
-  const selfLink = `${origin}/api/nodes/${node.name}/feed`;
   const xml = buildRss({
     title: `${node.title} — V2EX Clone`,
     description: `节点 ${node.name} 的最新主题`,
     link: `${origin}/go/${node.name}`,
-    selfLink,
-    updatedAt: latest[0]?.t ?? new Date(),
-    items: rows.map((r) => ({
-      title: r.title,
-      link: `${origin}/t/${r.id}`,
-      publishedAt: r.createdAt,
-      author: r.authorName,
-      summary: truncate(r.content, 300),
-      id: `${origin}/t/${r.id}`,
-    })),
+    selfLink: `${origin}/api/nodes/${node.name}/feed`,
+    updatedAt: entries.length > 0 ? entries[0].updatedAt : new Date(),
+    items: entries.map(toFeedItem),
   });
 
-  return new NextResponse(xml, {
+  return new Response(xml, {
     status: 200,
     headers: {
       'Content-Type': 'application/rss+xml; charset=utf-8',
       'Cache-Control': 'public, max-age=120, stale-while-revalidate=300',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

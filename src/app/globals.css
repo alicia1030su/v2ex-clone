@@ -638,8 +638,16 @@ textarea {
 .fr {
   float: right;
 }
+/* 与原站 combo.css 对齐：图标字体必须保持 inline-block，
+   用 float 会破坏 FontAwesome 字体的基线与行高 */
 .fa {
-  float: left;
+  display: inline-block;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .flex-one-row {
   display: flex;
@@ -1075,4 +1083,168 @@ textarea {
   border: 1px solid #eadca4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   font-size: 13px;
+}
+
+/* ==========================================================================
+   响应式适配（v0.0.3）
+   ==========================================================================
+
+   断点说明：
+   - 原站 combo.css 的断点为 `max-width: 600px` 与 `max-width: 500px`
+     （600px 时 #nodes 收窄为 200px），本项目沿用同一断点值。
+   - 原站桌面版 `.content` 有 `min-width: 600px`，在 375px 视口下会横向滚动。
+     这是原站桌面站自身的行为（其移动版是独立站点）。
+     本项目在窄视口下改为**响应式重排**（侧栏收窄、主区占满），
+     属于「独立替代实现」，已在 docs/VISUAL_DIFF_REPORT.md 中标注。
+   ========================================================================== */
+
+/* ------------------------------ ≤600px：平板与窄屏 ------------------------------ */
+@media screen and (max-width: 600px) {
+  .content {
+    /* 关键：解除 600px 最小宽度，避免窄屏横向滚动 */
+    min-width: 0;
+    width: 100%;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  #Main {
+    /* 主区占满，不再为右侧栏留 310px */
+    margin: 0;
+    width: 100%;
+  }
+
+  /* 原站：600px 以下 #nodes 收窄为 200px */
+  #nodes {
+    width: 200px;
+    font-size: 14px;
+  }
+
+  /* 侧栏容器在窄屏下改为常规流（不再浮动在右侧） */
+  .nodes-sidebar-container {
+    width: 100%;
+    padding: 0;
+    margin-bottom: 12px;
+  }
+
+  /* 右侧栏在窄屏下不再浮动占位。
+     DOM 顺序是 Leftbar → Rightbar → Main，若直接取消浮动，侧栏会跑到主区**上面**。
+     因此把内容区改为 flex 纵向布局，用 order 把主区排到侧栏之前。 */
+  #Wrapper > .content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #Main {
+    order: 1;
+    margin: 0;
+    width: 100%;
+  }
+
+  #Rightbar {
+    order: 2;
+    width: 100%;
+    float: none;
+    margin: 12px 0 0 0;
+  }
+
+  #Leftbar {
+    display: none;
+  }
+
+  .node-sidebar-item {
+    display: inline-block;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  /* 表格在窄屏下允许横向滚动而不是撑破布局 */
+  .box,
+  .cell {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* 表单元素在窄屏下占满宽度，便于点按 */
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='url'],
+  textarea,
+  select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 原站：600px 以下单选按钮组内边距收紧 */
+  .radio-group > input[type='radio'] + label {
+    padding: 5px 10px 5px 10px;
+  }
+
+  /* 原站：600px 以下 toast 改为底部居中 */
+  .toast {
+    left: 50%;
+    right: auto;
+    width: max-content;
+    max-width: calc(100vw - 20px);
+    transform: translateX(-50%);
+  }
+}
+
+/* ------------------------------ ≤500px：手机 ------------------------------ */
+@media screen and (max-width: 500px) {
+  /* 原站：500px 以下工具栏改为纵向排列 */
+  .monetization-toolbar {
+    flex-direction: column;
+  }
+
+  /* 单元格左右留白收紧 */
+  .cell {
+    padding: 8px;
+  }
+
+  .cell.item,
+  .cell .item {
+    font-size: 14px;
+  }
+
+  /* 头像在窄屏下略缩 */
+  .avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* 导航在窄屏下允许换行 */
+  .site-nav {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  /* 右浮动元素在窄屏下改为静态流（避免与左侧内容重叠） */
+  .fr {
+    float: none;
+  }
+}
+
+/* ------------------------------ 无障碍：减少动态效果 ------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------ 键盘可访问性：焦点可见 ------------------------------ */
+:focus-visible {
+  outline: 2px solid #5897fb;
+  outline-offset: 2px;
+}
+
+/* 鼠标点击时���隐藏轮廓，键盘导航时保留 */
+:focus:not(:focus-visible) {
+  outline: none;
 }

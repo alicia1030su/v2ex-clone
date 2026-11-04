@@ -1,63 +1,40 @@
-import { NextResponse } from 'next/server';
-import { db, schema } from '@/db';
-import { desc, eq, isNull } from 'drizzle-orm';
-import { buildAtom, truncate, siteOrigin } from '@/lib/feed-builder';
+import { db } from '@/db';
+import {
+  buildAtom,
+  buildFeedEntries,
+  resolveBaseUrl,
+  toFeedItem,
+} from '@/lib/feed-builder';
 
 export const dynamic = 'force-dynamic';
-
-const FEED_LIMIT = 30;
 
 /**
  * GET /api/feed/atom —— 全站 Atom 1.0
  *
- * Content-Type: application/atom+xml; charset=utf-8
+ * - 内容来自真实数据库；软删除的主题不出现
+ * - Content-Type: application/atom+xml; charset=utf-8
+ * - Cache-Control: public, max-age=300
  */
 export async function GET(request: Request) {
-  const origin = siteOrigin(request);
+  const origin = resolveBaseUrl(request.url);
 
-  const rows = await db
-    .select({
-      id: schema.topics.id,
-      title: schema.topics.title,
-      content: schema.topics.content,
-      createdAt: schema.topics.createdAt,
-      authorName: schema.users.username,
-    })
-    .from(schema.topics)
-    .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-    .where(isNull(schema.topics.deletedAt))
-    .orderBy(desc(schema.topics.lastReplyAt))
-    .limit(FEED_LIMIT);
+  const entries = await buildFeedEntries(db, { baseUrl: origin });
 
-  const latest = await db
-    .select({ t: schema.topics.createdAt })
-    .from(schema.topics)
-    .where(isNull(schema.topics.deletedAt))
-    .orderBy(desc(schema.topics.createdAt))
-    .limit(1);
-
-  const selfLink = `${origin}/api/feed/atom`;
   const xml = buildAtom({
     title: 'V2EX Clone',
     subtitle: 'V2EX Clone —— 创意工作者社区',
     link: origin,
-    selfLink,
-    updatedAt: latest[0]?.t ?? new Date(),
-    items: rows.map((r) => ({
-      title: r.title,
-      link: `${origin}/t/${r.id}`,
-      publishedAt: r.createdAt,
-      author: r.authorName,
-      summary: truncate(r.content, 300),
-      id: `${origin}/t/${r.id}`,
-    })),
+    selfLink: `${origin}/api/feed/atom`,
+    updatedAt: entries.length > 0 ? entries[0].updatedAt : new Date(),
+    items: entries.map(toFeedItem),
   });
 
-  return new NextResponse(xml, {
+  return new Response(xml, {
     status: 200,
     headers: {
       'Content-Type': 'application/atom+xml; charset=utf-8',
       'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }
