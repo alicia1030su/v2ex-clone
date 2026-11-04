@@ -88,12 +88,15 @@ config({ path: '.env', quiet: true });
 - 子进程（`runDrizzleKit` / `runTsx`）显式传 `ENV_FILE: ''` 与测试库 `DATABASE_URL`，父/子最终目标需验证一致
 - ⚠️ 上一轮归因勘误：曾误判为「`.env.local` → 5432 污染」或「并行 PG 负载」，用 `ENV_FILE`（override:true）指向 55433 后**仍然超时**，两假设均被实测推翻
 
-### 问题 B：CREATE DATABASE 38.6s —— 🟡 根因升级（架构师处理中）
+### 问题 B：CREATE DATABASE 38.6s —— ✅ 根因已定案（第三次归因勘误）
 
-- 上一轮实测：`DROP DATABASE` 1.2s / **`CREATE DATABASE` 38.6s** / `drizzle-kit migrate` 5.4s
-- **本轮新发现**：PG 数据目录 **1.4GB / 24 库**，压测库单库 891MB。Windows 上 PG fsync **逐文件**系统调用，checkpoint 曾耗时 **70s**（关机）与 **138s**（write）。CREATE DATABASE 复制模板库时 fsync 全部文件 → 数据目录越大越慢
+- 上一轮观测：`DROP DATABASE` 1.2s / **`CREATE DATABASE` 38.6s** / `drizzle-kit migrate` 5.4s
+- **本轮实测推翻旧假设**：在同一 1.4GB / 24 库实例上连测 3 次 `DROP+CREATE` = **2277 / 1978 / 2243 ms**，单独 `CREATE` = **2083 ms**；同期 checkpoint `total=0.053s / 0.158s`
+- ✅ **正确根因**：38.6s 是 **PG 处于 crash recovery / I/O 积压态**时的观测值，**不是稳态**。本轮首次启动 PG 时它在上次被强杀后做 redo 恢复，日志显示逐目录 fsync 耗时 70 秒（`syncing data directory (fsync), elapsed time: 70.01 s`）。**数据目录大小不是瓶颈**（建库只复制 `template1`，实测 7689 kB / public schema 0 张表）
+- 纠错留痕：① 第一轮误判「`.env.local` → 5432 污染」→ 用 `ENV_FILE`（override:true）指向 55433 后仍超时，**被实测推翻**；② 第二轮误判「并行 PG 负载」→ 单独跑 seed-idempotency 同样超时，**被实测推翻**；③ 第三轮「数据目录 1.4GB 导致」→ 本轮实测 2 秒，**被实测推翻**
 - 现存配置：`vitest.config.ts` `testTimeout: 30_000` / `hookTimeout: 120_000` / `fileParallelism: false`
-- **架构师任务 #1**：设计独立测试实例（复用现有 PG17 二进制 + `initdb` 新数据目录 + 独立端口），旧 `data-v003` 只读保留
+- **方案**（架构师 `docs/TEST_ENV_ISOLATION_v0.0.4.md`）：新建**独立测试实例**（独立数据目录 + 独立端口，复用现有 PG 17.5 二进制）。定位是**隔离性与可复现性**，**不是性能修复** —— 不得包装成「解决 38.6s 超时」
+- 配套：阶段耗时日志（DROP/CREATE/migrate/seed 各阶段毫秒数）+ **区分「PG 未就绪」与「真实超时」**
 
 ### 问题 C：PG 子进程生命周期 —— ✅ 已解决
 
@@ -108,6 +111,12 @@ v2ex_rateclear
 ```
 
 **绝对不可 DROP**：`v2ex_loadtest`（891MB 压测库）、`v2ex_v002_baseline`、`v2ex_e2e`、`data-v003` 整个数据目录。
+
+⚠️ **护栏必须用「精确枚举」而非「前缀通配」** —— 证据库 `v2ex_v004_audit`、`v2ex_e2e_v004` 同样以 `v2ex_v` 开头，前缀通配会误删。`v2ex_v004_audit` 是 `docs/UPGRADE_RECOVERY_v0.0.4.md` L56 明文记载的证据库。
+
+**扩展禁止清单（不可 DROP / 不可写）**：`v2ex_e2e_v004`、`v2ex_mig_idem`、`v2ex_mig_v004`、`v2ex_release_v001`、`v2ex_upg_v004_fresh`、`v2ex_upg_v004_old`、`v2ex_upg_v004_restore`、`v2ex_upgrade_src`、`v2ex_v004_audit`、`v2ex_visual`。
+
+本轮已实测确认（20:47）上述库**全部存在且完好**，未发生误删。
 
 ---
 
@@ -128,16 +137,26 @@ v2ex_rateclear
 
 ---
 
-## 6. 上一轮既有基线（**待本轮实测复核，勿直接当结论**）
+## 6. 本轮实测基线（**已复核，以此为准**）
 
-| 项 | 上一轮记录 | 本轮状态 |
+> ✅ **185 vs 190 争议已解决：权威基线是 190 条。** 185 是 v0.0.3 的历史数字，v0.0.4 新增了 `tests/floor-continuity.spec.ts`（5 条）后为 190。
+
+| 项 | 上一轮记录 | **本轮实测（2026-11-04）** |
 |---|---|---|
-| 单元测试 | 185 条（报告另处写 190，**存在争议，需实测确定**） | 🔄 QA 复核中 |
-| E2E | 153 条 / 11 文件，153 passed / 0 skipped / 0 failed（10.0m） | 🔄 待本轮实跑 |
-| 视觉对照 | 4 视口 × 17 页面 = 68 条（40 有对照 / 28 无对照）；严格口径桌面 Δx=0 **52/52** | ⏸ 保留，既有证据 |
+| 单元测试 | 185（旧）/ 190（报告另处） | ✅ **190 条 / 15 文件，全部通过，0 failed / 0 skipped**；连续 **4 轮**全绿（~170–210s/轮）。证据：`docs/evidence/baseline/vitest-v0.0.4-round3.txt` |
+| E2E | 153 条 / 11 文件，153 passed（10.0m） | ✅ **153 条 / 11 文件，153 passed / 0 failed / 0 skipped（4.5m）**，连续 **2 轮**全绿。`--list` 权威清单：`docs/evidence/baseline/playwright-list-v0.0.4.txt` |
+| 视觉对照 | 4 视口 × 17 页面 = 68 条（40 有对照 / 28 无对照）；严格口径桌面 Δx=0 **52/52** | ⏸ 保留既有证据 |
 | 负载测试 | 已执行：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求 / 13 场景 | ⏸ 保留既有证据 |
 | 迁移幂等 + 备份恢复 | 已验证 | 🔄 QA 复核中 |
 | 功能审计 | 53 项 | ⏸ 保留 |
+
+### ⚠️ E2E 用例 149 / 153 的特殊含义
+
+`e2e/v004-four-roles-ui.spec.ts` 有 **2 条用例把「UI 无入口」当作断言**：
+- `:98` 「UI 缺口：节点申请提交在前端无入口（仅 API /api/node-requests）」
+- `:292` 「UI 缺口实证：管理员在 /、/admin、/settings 的 DOM 中均无 /admin 入口」
+
+**UI 工程师补齐入口后，这两条会失败 —— 这是预期结果，不是回归。** 届时必须改写为「**已具备入口**」的正向断言，而不是删掉或加 `skip` 掩盖。
 
 ---
 
@@ -147,10 +166,25 @@ v2ex_rateclear
 
 | 成员 | Agent ID | 任务 | 状态 |
 |---|---|---|---|
-| 架构师 | `software-architect` | PG 测试环境隔离方案设计 → `docs/TEST_ENV_ISOLATION_v0.0.4.md` | 🟡 运行中 |
-| 部署工程师 | `software-engineer-deploy` | `deploy/update.sh` + `preflight.sh` + 自检脚本 | 🟡 运行中 |
-| UI 工程师 | `software-engineer-ui` | 补齐 R-21 / R-24 等 8 项 UI 缺口 | 🟡 运行中 |
+| 架构师 | `software-architect` | PG 测试环境隔离方案设计 → `docs/TEST_ENV_ISOLATION_v0.0.4.md` | ✅ **已交付**（1679 行，含三次归因勘误留痕、三道护栏、独立实例命令） |
+| 部署工程师 | `software-engineer-deploy` | `deploy/update.sh` + `preflight.sh` + 自检脚本 | ✅ **已交付**（含 stub-docker 自检真实输出） |
+| UI 工程师 | `software-engineer-ui` | 补齐 R-21 / R-24 等 8 项 UI 缺口 | ⚠️ **网络 502 中断，零产出**，已重启为 `software-engineer-ui2` |
+| UI 工程师（重启） | `software-engineer-ui2` | 同上 | 🟡 运行中 |
 | QA/CI | `software-qa-ci` | 远端状态核查 + `docker-verify.yml` + 本地基线复核 | 🟡 运行中 |
+| 测试环境工程师 | `software-engineer-testenv` | 按架构师设计实施 PG 测试环境修复 + 三道护栏 | 🟡 运行中 |
+
+### 架构师交付要点（`docs/TEST_ENV_ISOLATION_v0.0.4.md`）
+
+- **第三次归因勘误**：38.6s → crash recovery / I/O 积压态，**不是**数据目录大小
+- **三道护栏**：① 端点白名单 ② **库名精确枚举**（跨端点生效，同时覆盖 DROP） ③ CI 实例归属校验
+- **独立实例定位**：隔离性 + 可复现性，**不是性能修复**
+- ⚠️ 架构师指出**主理人指令中的一处缺陷**：我给的护栏正则 `^v2ex_(test|v003|v004|...)` 会误删 `v2ex_v004_audit` 证据库 —— 架构师已改为精确枚举。**指令已勘误**
+
+### 部署工程师交付要点
+
+- `deploy/update.sh` 重写：`--version` / `--image` 显式指定目标版本、**实际更新 `.env` 的 `V2EX_IMAGE`**、升级前备份、digest 核对、失败**自动回滚旧镜像**、**只回滚镜像与配置不回滚数据库**、严禁 `down -v`
+- `scripts/release/verify-update-script.sh`：**用 stub docker 模拟**（本机无 Docker），验证 `.env` 的 tag 真被更新、pull 目标正确、无 `down -v`、pull 失败时安全退出
+- `scripts/release/preflight.sh`：release 阶段新增版本一致性 / tag 白名单人工放行提示
 
 **文件所有权互斥约定**（防止覆盖）：
 

@@ -1,0 +1,3 @@
+  [chromium] › v004-four-roles-ui.spec.ts:216:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/admin 真实点击「封禁 → 解封」+ 配置页无明文口令
+  [chromium] › v004-four-roles-ui.spec.ts:292:3 › 四身份 UI 验收 · 管理员 admin › UI 缺口实证：管理员在 /、/admin、/settings 的 DOM 中均无 /admin 入口
+Total: 153 tests in 11 files
