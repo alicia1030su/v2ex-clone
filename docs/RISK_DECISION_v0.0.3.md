@@ -97,15 +97,32 @@
 
 ## 五、候选产物已就绪（若决定公开发布，无需再开发）
 
+**v0.0.3 的产物已在 GitHub 上实际产出**（当前处于 Draft 状态，
+普通用户无法访问 —— 这正是 Draft 的含义）：
+
 | 项 | 值 |
 |---|---|
-| 开发分支 | `feat/v0.0.3-complete` |
-| PR | #3 https://github.com/alicia1030su/v2ex-clone/pull/3 |
-| 提交数 | 13 |
-| CI run | `41751032820`（三 job 全绿） |
+| master | `b963ee0`（含 Draft 保护与 draft-aware 核验修复） |
+| tag | `v0.0.3` → `b963ee0`（annotated） |
+| PR | #3（功能）、#4（发布流程修复）—— 均已合并 |
+| Release | `v0.0.3`，**isDraft=true / isPrerelease=true / publishedAt=null** |
+| 安装包 | `v2ex-clone-v0.0.3-deploy.zip`（41,867 字节）+ `SHA256SUMS` |
+| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.3`（**已推送**，见 E-10：包为 private） |
 | 迁移 | `drizzle/0001_striped_magdalene.sql`（幂等，实测连跑 3 次 exit=0） |
-| 安装包 | 由 `release.yml` 的 `package` job 生成（含 SHA256SUMS） |
-| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.3` |
+
+### 转正式发布的操作（无需改任何代码）
+
+```bash
+# 方式一（推荐）：手动触发 workflow，显式传 publish=true
+gh workflow run release.yml \
+  -f version=v0.0.3 -f dry_run=false -f publish=true
+
+# 方式二：直接在 GitHub 网页上点「Publish release」
+```
+
+> `publish=true` 时，发布流程会额外执行**匿名下载安装包 + SHA256 校验**
+> 与 **Release 页面可访问性检查** —— 这两步在 Draft 状态下会被跳过
+> （GitHub 不允许匿名下载草稿资产）。
 
 ---
 
@@ -122,3 +139,6 @@
 | 迁移幂等 | 连跑 3 次 exit=0（26 表 / 38 约束） |
 | 升级验证 | v0.0.2 结构 + 真实数据 → 26 表，数据指纹完全一致（含管理员口令哈希与积分余额） |
 | 视觉量化 | 1280/1920 视口 Δx 一致率 96.9%（几何量测，非像素相似率声明） |
+| 前后端契约 | 后端 72 路由 / 前端 30 处调用 → 全部匹配（已接入 CI 常驻检查） |
+| CI run | `41754998422` 全绿：契约校验 + 185 单元 + 67 E2E + Docker 构建 |
+| 发布 run | `41758734582`：10 个 job（镜像推送 / 安装包 / Release 创建）全部成功 |

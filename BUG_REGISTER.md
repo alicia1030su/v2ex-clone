@@ -103,6 +103,11 @@
 | V3-22 | **迁移脚本无幂等保护** —— `CREATE TYPE`/`ADD CONSTRAINT` 重跑即失败 | `drizzle/0001_striped_magdalene.sql` | `b4c0a12` | 连续应用 3 次全部 exit=0，26 表 / 38 约束 | **VERIFIED** |
 | V3-23 | **测试与 `@/db` 全局连接池库不一致** —— 服务层写 A 库、断言读 B 库，外键约束失败 | 5 个 v0.0.3 测试文件 | `0ae8c08` | 修正后 185/185 全绿 | **VERIFIED** |
 | V3-24 | **邮件脱敏断言与实现脱节** —— 实现改进后测试期望值过时 | `tests/password-reset.spec.ts` | `0ae8c08` | 断言改为验证「不泄漏原字符」这一性质 | **VERIFIED** |
+| V3-25 | **前端调用后端不存在的端点** —— `POST /api/notifications/read` 实际 404，通知「标记已读」功能失效 | `src/components/NotificationsList.tsx` | `9d766fa` | 改为 `POST /api/notifications`；已接入 CI 契约校验防回归 | **VERIFIED** |
+| V3-26 | **`.gitignore` 的 `logs/` 规则误伤源码目录** —— 匹配任意层级同名目录，`src/app/api/admin/logs/` 从未进入版本库，生产环境必然 404 | `.gitignore` + `src/app/api/admin/logs/route.ts` | `b30245b` | 改为 `/logs/` 并强制入库该端点；CI 干净 checkout 复验 72 路由 | **VERIFIED** |
+| V3-27 | **Release 流程的 `publish` 输入项 YAML 缩进错误** —— 被嵌进 `dry_run` 内部，`gh workflow run` 无法传入，Draft 保护缺少转正通道 | `.github/workflows/release.yml` | `045043c` | 缩进改为与同级输入项一致；dispatch inputs 现含 `publish`(boolean,false) | **VERIFIED** |
+| V3-28 | **远端核验 job 假设 Release 已公开发布** —— draft 下匿名访问返回 404，导致最后一个 job 必然失败（run 41757442592） | `.github/workflows/release.yml` | `b963ee0` | 核验改为 draft-aware：带凭据校验资产完整性，匿名下载与网页检查加 `if: inputs.publish == true` | **VERIFIED** |
+| V3-29 | **GHCR 匿名拉取被当作发布成败判据** —— 包 visibility 是仓库级设置（默认 private），不在代码控制范围内；v0.0.1/v0.0.2 同样是 401 | `.github/workflows/release.yml` | `b963ee0` | 改为「带凭据拉取 = 镜像已推送」作判据，匿名可拉取性降级为提示 | **VERIFIED** |
 
 ## v0.0.2 本轮新发现并修复的缺陷（全部有实测证据）
 

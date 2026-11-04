@@ -1333,19 +1333,27 @@ jobs:
           REPO="${{ github.repository }}"
           PUBLISH="${{ inputs.publish || 'false' }}"
 
-          # 先用带凭据的 API 读取 Release —— draft 状态下匿名访问会返回 404，
-          # 这是 GitHub 的正常行为，不应被判为失败。
-          curl -s -o /tmp/rel-auth.json \
+          # 用**列表**接口读取 Release，而不是 /releases/tags/{tag}。
+          # 原因：GitHub 的按 tag 查询端点**不返回 draft 状态**的 Release
+          # （即使带凭据也会得到 404 Not Found）—— 实测确认。
+          # 列表接口则能拿到 draft（含其资产清单）。
+          curl -s -o /tmp/rel-list.json \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/releases/tags/$VERSION"
+            "https://api.github.com/repos/$REPO/releases?per_page=100"
 
-          python3 - <<'PY'
+          python3 - "$VERSION" <<'PY'
           import json, sys
-          d = json.load(open('/tmp/rel-auth.json', encoding='utf-8'))
-          if 'id' not in d:
-              print('::error::无法读取 Release：', d.get('message', '未知错误'))
+          VERSION = sys.argv[1]
+          lst = json.load(open('/tmp/rel-list.json', encoding='utf-8'))
+          if not isinstance(lst, list):
+              print('::error::无法读取 Release 列表：', lst.get('message', '未知错误'))
               sys.exit(1)
+          hit = [r for r in lst if r.get('tag_name') == VERSION]
+          if not hit:
+              print('::error::Release 列表中找不到 tag =', VERSION)
+              sys.exit(1)
+          d = hit[0]
           is_draft = bool(d.get('draft'))
           print('Release 状态：', 'draft' if is_draft else '已发布')
           if not d.get('prerelease'):

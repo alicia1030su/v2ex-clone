@@ -142,6 +142,40 @@
 
 ---
 
+## E-10 v0.0.3 GHCR 容器镜像为 private ⚠️ **已声明**
+
+**风险**：发布到 `ghcr.io/alicia1030su/v2ex-clone` 的容器镜像当前为
+**private**，普通用户无法匿名 `docker pull`。这是 GHCR 首次发布的默认
+可见性，属**仓库级设置**，不在代码或 CI 的控制范围内。
+
+**可复核证据**（2026-11-04 匿名实测）：
+
+```
+curl -s -o /dev/null -w "%{http_code}" \
+  https://ghcr.io/v2/alicia1030su/v2ex-clone/manifests/v0.0.1   → 401
+  .../manifests/v0.0.2                                          → 401
+  .../manifests/v0.0.3                                          → 401
+```
+
+三个 tag 的响应完全一致（401 = 镜像存在但需认证），
+说明这是**自 v0.0.1 起的既有条件**，不是 v0.0.3 引入的。
+
+**缓解**：
+- 镜像本身**确实已推送成功** —— CI 的「构建并推送镜像」job 成功，
+  并在「远端核验」阶段用带凭据 `docker pull` 验证过可拉取；
+- 发布流程的成败判据已改为「镜像已推送」（可在代码内验证），
+  匿名可拉取性降级为提示，不阻塞发布；
+- 若需供普通用户匿名使用，需在仓库 **Packages → v2ex-clone →
+  Package settings → Change visibility → Public** 处改一次，
+  这是**一次性的手工操作**，无需改代码。
+
+**到期日**：2027-05-04（半年内复核；若届时仍为 private，
+转为阻断项并加入 `RISK_REGISTER.md`）
+
+**责任人**：仓库所有者
+
+---
+
 ## 复核指引
 
 到期日到期时，本表任一条目若仍为 `DEFERRED` / `ACCEPTED`：
