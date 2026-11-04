@@ -64,6 +64,11 @@ on:
         description: '仅验证（不推送镜像、不创建 Release、不发布）'
         required: false
         default: true
+      publish:
+        description: '是否将 Release 从 Draft 转为正式发布。默认 false（保持 Draft，待风险决策）'
+        required: false
+        type: boolean
+        default: false
         type: boolean
 
 concurrency:
@@ -1290,9 +1295,22 @@ jobs:
           echo "$ASSETS"
           echo "$ASSETS" | grep -q "v2ex-clone-${VERSION}-deploy.zip" || { echo "::error::缺少安装包"; exit 1; }
           echo "$ASSETS" | grep -q "SHA256SUMS" || { echo "::error::缺少 SHA256SUMS"; exit 1; }
-          # 资产齐全 → 从 draft 转为正式发布
-          gh release edit "$VERSION" --repo "${{ github.repository }}" --draft=false
-          echo "Release 已正式发布"
+          # 资产齐全 → **默认保持 Draft**。
+          #
+          # v0.0.3 起，发布流程不再自动把 Draft 转为正式发布。
+          # 原因：发布门槛可能存在阻断项（如 Git 历史合规风险），
+          #       此时候选版本必须停在 Draft，等待主人决策后才能公开。
+          #
+          # 只有显式传 publish=true（workflow_dispatch 输入）才会转正式发布。
+          PUBLISH="${{ inputs.publish || 'false' }}"
+          if [ "$PUBLISH" = "true" ]; then
+            gh release edit "$VERSION" --repo "${{ github.repository }}" --draft=false
+            echo "Release 已正式发布（publish=true）"
+          else
+            echo "Release 保持 Draft 状态。"
+            echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过，"
+            echo "然后以 workflow_dispatch 传 publish=true 触发，或手动在 GitHub 上发布。"
+          fi
 
   # ===========================================================================
   # 10. verify-release —— 远端只读核验（匿名视角）
