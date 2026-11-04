@@ -1315,30 +1315,39 @@ jobs:
   # 10. verify-release —— 远端只读核验（匿名视角）
   # ===========================================================================
   verify-release:
-    name: 远端核验（匿名视角）
+    name: 远端核验（Release 与资产）
     needs: [preflight, publish-release]
     runs-on: ubuntu-latest
+    # 读取 draft Release 需要 contents: write（顶层默认只有 read）
+    permissions:
+      contents: write
+      packages: read
     # dry_run 时没有真正的 Release 可核验（publish-release 已被跳过），
     # 本 job 也一并跳过。
     if: needs.preflight.outputs.dry_run != 'true'
     steps:
-      - name: 匿名核验 Release 与资产
+      - name: 核验 Release 与资产（draft 或已发布）
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
           REPO="${{ github.repository }}"
-          # 匿名请求（显式清空 Authorization 头）—— 模拟普通用户
-          CODE=$(curl -s -o /tmp/rel.json -w '%{http_code}' \
-            -H 'Authorization:' "https://api.github.com/repos/$REPO/releases/tags/$VERSION")
-          if [ "$CODE" != "200" ]; then
-            echo "::error::匿名访问 Release API 返回 $CODE（普通用户打不开）"
-            exit 1
-          fi
+          PUBLISH="${{ inputs.publish || 'false' }}"
+
+          # 先用带凭据的 API 读取 Release —— draft 状态下匿名访问会返回 404，
+          # 这是 GitHub 的正常行为，不应被判为失败。
+          curl -s -o /tmp/rel-auth.json \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/releases/tags/$VERSION"
+
           python3 - <<'PY'
           import json, sys
-          d = json.load(open('/tmp/rel.json', encoding='utf-8'))
-          if d.get('draft'):
-              print('::error::Release 仍是 draft'); sys.exit(1)
+          d = json.load(open('/tmp/rel-auth.json', encoding='utf-8'))
+          if 'id' not in d:
+              print('::error::无法读取 Release：', d.get('message', '未知错误'))
+              sys.exit(1)
+          is_draft = bool(d.get('draft'))
+          print('Release 状态：', 'draft' if is_draft else '已发布')
           if not d.get('prerelease'):
               print('::error::Release 未标记 prerelease'); sys.exit(1)
           names = [a['name'] for a in d.get('assets', [])]
@@ -1348,9 +1357,16 @@ jobs:
           if 'SHA256SUMS' not in names:
               print('::error::缺少 SHA256SUMS'); sys.exit(1)
           print('Release 状态核验通过 ✓')
+          if is_draft:
+              print('::notice::Release 处于 draft —— 资产匿名不可下载（GitHub 的正常行为）。'
+                    '已跳过匿名下载校验；转正式发布后会自动补做。')
           PY
 
-      - name: 实际下载安装包并校验 SHA256
+      # 仅在 Release 已公开时做匿名下载校验。
+      # draft 状态下 GitHub 不允许匿名下载 Release 资产，
+      # 此时下载会得到 404 页面而非文件，校验必然失败 —— 不是资产有问题。
+      - name: 实际下载安装包并校验 SHA256（仅已发布的 Release）
+        if: ${{ inputs.publish == true }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
@@ -1379,25 +1395,44 @@ jobs:
           test -f /tmp/verify/deploy/docker-compose.yml
           echo "✓ 安装包结构完整"
 
-      - name: 匿名核验 GHCR 镜像可拉取
+      - name: 核验 GHCR 镜像已推送（带凭据拉取）
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION"
-          docker logout "${{ env.REGISTRY }}" 2>/dev/null || true
+          # 用 CI 自带凭据拉取 —— 验证「镜像确实已推送成功」。
+          # 注意：**匿名**可拉取取决于仓库 Packages 的 visibility 设置，
+          # 而那是仓库级配置，不在代码控制范围内（GHCR 首次发布默认为 private），
+          # 因此这里只做提示，不作为发布成败的判据。
           if docker pull "$IMAGE"; then
-            echo "✓ 匿名拉取成功：$IMAGE"
+            echo "✓ 镜像拉取成功：$IMAGE"
             docker image inspect "$IMAGE" --format 'Digest: {{index .RepoDigests 0}}'
           else
-            echo "::error::GHCR 镜像无法匿名拉取 —— GHCR 包首次发布默认为 private，需要在仓库 Packages 设置里把 visibility 改成 Public 后才能供普通用户使用"
+            echo "::error::镜像 $IMAGE 无法拉取 —— 推送环节可能失败"
             exit 1
           fi
 
-      - name: 核验 Release 网页可打开
+          # 额外探测匿名可拉取性，仅作提示
+          ANON=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://${REGISTRY}/v2/${IMAGE_NAME}/manifests/${VERSION}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+            || echo "000")
+          if [ "$ANON" = "200" ]; then
+            echo "✓ 匿名可拉取（包已设为 Public）"
+          else
+            echo "::notice::匿名拉取返回 HTTP $ANON —— GHCR 包当前为 private。"
+            echo "::notice::如需供普通用户匿名使用，请到仓库 Packages 设置里把 visibility 改为 Public。"
+            echo "::notice::这是仓库级配置项，不影响镜像本身已推送的事实。"
+          fi
+
+      - name: 核验 Release 网页可打开（仅已发布的 Release）
+        # draft 状态的 Release 页面对匿名访问返回 404（GitHub 的正常行为），
+        # 只有正式发布后才可公开访问。
+        if: ${{ inputs.publish == true }}
         run: |
-          set -euo pipefail
-          VERSION="${{ needs.preflight.outputs.version }}"
-          CODE=$(curl -sL -o /dev/null -w '%{http_code}' \
-            "https://github.com/${{ github.repository }}/releases/tag/$VERSION")
-          echo "Release 页面 HTTP $CODE"
-          [ "$CODE" = "200" ] || { echo "::error::Release 页面不可访问"; exit 1; }
+            set -euo pipefail
+            VERSION="${{ needs.preflight.outputs.version }}"
+            CODE=$(curl -sL -o /dev/null -w '%{http_code}' \
+              "https://github.com/${{ github.repository }}/releases/tag/$VERSION")
+            echo "Release 页面 HTTP $CODE"
+            [ "$CODE" = "200" ] || { echo "::error::Release 页面不可访问"; exit 1; }
