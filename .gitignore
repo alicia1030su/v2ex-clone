@@ -17,6 +17,21 @@ dist/
 .env.*.test
 !.env.example
 
+# ---- v0.0.4 测试环境隔离 ----
+#
+# `.env.test` 仍是**本机实际文件**（含测试口令），保持忽略、不入库。
+# 但它的**模板**必须入库 —— 否则：
+#   - `tests/floor-continuity.spec.ts` 在 CI 上读 `.env.test` → ENOENT 必崩；
+#   - 新克隆的仓库开箱无法跑单元测试。
+#
+# 模板位置：tests/env/.env.test.example（**无任何真实口令**，只有 __占位符__）
+# 模板放行规则必须排在上面的忽略规则**之后**，否则会被 `.env` 规则覆盖。
+!.env.test.example
+!tests/env/.env.test.example
+# 生成物（若模板被复制到 tests/env/ 下）同样不入库
+tests/env/.env.test
+tests/env/.env
+
 # 部署包运行时生成的文件（含真实凭据，绝不入库）
 # 注意：`.env` 这条规则会匹配**任意层级**下的 .env，
 # 所以 deploy/.env 已被上面的 `.env` 规则覆盖；这里额外列出是为了明确意图。

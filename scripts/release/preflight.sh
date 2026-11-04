@@ -144,11 +144,95 @@ check_carrier() {
   fi
 }
 
+# --- 版本载体（5 个，主理人裁决）---------------------------------------------
+# 清单（主理人裁决 2026-11-04）：**5 个真正的版本载体**
+#   1. package.json  → "version"
+#   2. deploy/VERSION
+#   3. README.md
+#   4. RELEASE_GATE.md
+#   5. TEST_REPORT.md
+#
+# 曾提议把 FEATURE_MATRIX.md 列入，被主理人否决并给出理由：
+#   FEATURE_MATRIX.md 是**功能矩阵**（描述「有哪些功能、各自什么状态」），
+#   不是版本载体。它里面出现的版本号是「本版新增了 XX」这类**说明性引用**，
+#   把它们计入「必须同步」的载体清单是概念错误。
+#
+# tag 白名单（.github/workflows/release.yml 的 tags 列表）**不在此清单内** ——
+# 它不是「代码里有个数字忘了改」，而是必须由人确认的发布动作，
+# 因此在第 3 节作为独立的「人工放行」项处理。
+#
+# 另说明：deploy/.env.example 的 V2EX_IMAGE **不是版本载体**（它是发行包的
+# 默认镜像指向，语义上更接近「默认安装目标」），但它与载体强相关 ——
+# 新装用户会按它拉镜像，因此在第 7 节单独校验，不混入本清单。
 PKG_VER="$(node -p "require('./package.json').version" 2>/dev/null || echo '?')"
 check_carrier 'package.json version' "$PKG_VER" "$DEV_BASELINE" "$TARGET"
 
 DEPLOY_VER="$(tr -d '[:space:]' < deploy/VERSION 2>/dev/null || echo '?')"
 check_carrier 'deploy/VERSION' "$DEPLOY_VER" "$DEV_BASELINE" "$TARGET"
+
+# 从 Markdown 载体中提取「当前版本标记」。
+# extract_md_version <文件> <匹配该版本行的正则>
+# 提取该行里第一个 vX.Y.Z 形态的版本号。
+extract_md_version() {
+  grep -m1 -E "$2" "$1" 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n 1
+}
+# 去掉 v 前缀，得到纯版本号，便于与 $TARGET 比较
+strip_v() {
+  local v="${1:-}"
+  case "$v" in
+    v*) printf '%s' "${v#v}" ;;
+    *)  printf '%s' "$v" ;;
+  esac
+}
+
+README_VER="$(extract_md_version README.md '^## 当前版本：')"
+check_carrier 'README.md 当前版本' "$(strip_v "$README_VER")" "$DEV_BASELINE" "$TARGET"
+
+# --- 5 个载体里有两类，判定方式**必须**不同 ---------------------------------
+#
+# 第一类：载体只有一个「身份版本号」，落后了就是落后了 → 用**相等**判定。
+#   package.json / deploy/VERSION / README.md 属于这一类。
+#
+# 第二类：文档里**同时**保留多个版本（历史记录 + 当前版本的权威段落），
+#   这类文档**不是**「落后」的载体 —— 它们的当前版本权威段落**本来就该**
+#   在开发态就写好（内容来自实测，而不是等版本号同步后才写）。
+#   RELEASE_GATE.md / TEST_REPORT.md 属于这一类。
+#
+# 对第二类若也用「相等」判定，会产生**假阳性**：
+#   RELEASE_GATE.md 的 v0.0.4 门禁速览、TEST_REPORT.md 的 v0.0.4 权威口径段
+#   在开发态就已经写好了（它们描述的是 v0.0.4 的**实测结论**），
+#   报「开发态提前升到 0.0.4」是**误判** —— 内容本就该提前写。
+#
+# 因此第二类改用「**当前版本的权威内容标记是否存在**」判定（存在性），
+# 这既能在发布态拦住「文档没有本次版本的判据」，又不会误报开发态。
+#
+# check_carrier_section <标签> <文件> <匹配该权威段的正则>
+check_carrier_section() {
+  local label="$1" file="$2" pattern="$3" actual
+  actual="$(strip_v "$(extract_md_version "$file" "$pattern")")"
+  if [ -z "$actual" ]; then
+    fail "${label}：**未找到**当前版本的权威内容标记（期望存在 ${TARGET} 的判据段落）"
+    return
+  fi
+  if [ "$PHASE" = 'release' ]; then
+    if [ "$actual" = "$TARGET" ]; then
+      ok "${label}：已含 ${TARGET} 的权威内容标记"
+    else
+      fail "${label} = ${actual}（发布态期望 ${TARGET} 的权威段落）"
+    fi
+  else
+    if [ "$actual" = "$TARGET" ]; then
+      info "${label}：已含 ${TARGET} 的权威内容标记 —— 开发态正常（该段记录的是 v0.0.4 的**实测结论**，本就应提前写好）"
+    elif [ "$actual" = "$DEV_BASELINE" ]; then
+      info "${label} = ${actual} —— 开发态刻意保持 ${DEV_BASELINE}，不判 FAIL"
+    else
+      warn "${label} = ${actual}（既非 ${DEV_BASELINE} 也非 ${TARGET}，请人工确认）"
+    fi
+  fi
+}
+
+check_carrier_section 'RELEASE_GATE.md 门禁速览节' 'RELEASE_GATE.md' '^## 0\. v[0-9]+\.[0-9]+\.[0-9]+ 门禁速览'
+check_carrier_section 'TEST_REPORT.md 权威口径节' 'TEST_REPORT.md' '^## v[0-9]+\.[0-9]+\.[0-9]+ 单元测试（权威口径'
 
 ENV_IMG="$(grep -m1 '^V2EX_IMAGE=' deploy/.env.example 2>/dev/null | cut -d= -f2- | tr -d '[:space:]')"
 check_carrier 'deploy/.env.example V2EX_IMAGE' "${ENV_IMG:-（缺失）}" "$DEV_IMAGE" "$EXPECTED_IMAGE"
@@ -182,13 +266,27 @@ done
 # ---------------------------------------------------------------------------
 section "3. 发布流水线闸门（.github/workflows/release.yml，只读）"
 # ---------------------------------------------------------------------------
-# tag 白名单是「刻意的摩擦」：开发态只提示，发布态必须人工加入 v0.0.4
+# --- 3.1 tag 白名单：**独立的「人工放行」项，不计入 FAIL** -------------------
+#
+# 主理人裁决 2026-11-04：tag 白名单**不属于版本载体**，它不是
+# 「代码里有个数字忘了改」，而是「必须由人确认的发布动作」。
+# 混进载体一致性检查会让发布门禁的语义变模糊（一个是「改漏了」，
+# 一个是「还没做这个动作」），因此拆成独立一项，判为 WARN + 醒目提示。
+#
+# 为什么必须人工放行：
+#   白名单没加 → 推 tag **不触发任何 job**。而且是**静默失败**：
+#   GitHub Actions 页面全绿（压根没有 run），极易被误判为「发布成功了」。
+#   这正是白名单存在的意义 —— 让「新增 tag = 新发布」必须经过人的确认。
+#
+# 本脚本**绝不自动修改**该白名单（R-19 的刻意摩擦）。
 if grep -qE "^\s*-\s*'${VTAG}'" .github/workflows/release.yml 2>/dev/null; then
-  ok "release.yml 的 push tag 白名单已包含 ${VTAG}"
+  ok "release.yml 的 push tag 白名单已包含 ${VTAG}（无需人工放行）"
 elif [ "$PHASE" = 'release' ]; then
-  fail "release.yml 的 push tag 白名单**未包含** ${VTAG}（当前仅 v0.0.2 / v0.0.3）—— 发布时必须人工加入，否则推 tag 不触发任何 job"
+  warn "【需人工放行】release.yml 的 push tag 白名单**未包含** ${VTAG} —— 发布前必须由人手工在 .github/workflows/release.yml 的 tags 列表加入 '- ${VTAG}'"
+  note "  ⚠️ 不加的后果是**静默失败**：推 tag 不触发任何 job，Actions 页面全绿（压根没有 run），极易被误判为「发布成功」。"
+  note "  本脚本**不会自动修改**该白名单（R-19 的刻意摩擦）。此项不计入 FAIL —— 它是「还没做的动作」，不是「改漏了的数字」。"
 else
-  info "发布时需人工把 '${VTAG}' 加入 release.yml 的 push tag 白名单（刻意的摩擦，符合 R1；开发态不判定为缺陷）"
+  info "发布时需人工把 '- ${VTAG}' 加入 release.yml 的 push tag 白名单（刻意的摩擦，符合 R1；开发态不判定为缺陷）"
 fi
 if grep -qE 'publish:.*' .github/workflows/release.yml && grep -A4 'publish:' .github/workflows/release.yml | grep -q 'default: false'; then
   ok 'publish 输入默认 false（Release 保持 Draft）'
@@ -287,8 +385,40 @@ fi
 section '6. 测试记录与阻断项（只读）'
 # ---------------------------------------------------------------------------
 if [ -f TEST_REPORT.md ]; then
-  ok 'TEST_REPORT.md 存在（本脚本只检查存在性，不解析通过数、不代替测试判定）'
-  note "  单元基线 185 条 / E2E 以 playwright test --list 实测 153 条 / 11 文件为准"
+  ok 'TEST_REPORT.md 存在（本脚本只检查存在性、不解析通过数、不代替测试判定）'
+  # 测试基线数字**动态统计**，不再硬编码。
+  #
+  # 为什么改：此前这里硬编码「单元基线 185 条 / E2E 153 条 / 11 文件」。
+  # 硬编码的坏处是：数字会随测试增减而**静默过时**，而发布门禁却在陈述它。
+  #
+  # 口径说明：
+  #   · 单元测试**用例数**必须取 Vitest 运行时的 numTotalTests。
+  #     本项目用嵌套 for 循环生成用例，静态 grep 'it(' 得出 180，
+  #     与运行时 190 不符 —— 静态计数不可作为口径。
+  #     本脚本是**只读发布前检查**，不跑测试（跑一次需数分钟且要连库），
+  #     因此这里给出的是「用例文件数」这一可静态确定的下界，
+  #     用例条数以 docs/evidence/ci/test-baseline-v0.0.4.md 的实测为准。
+  #   · E2E 同理：用例数取 `playwright test --list` 的实测，文件数可静态数。
+  #
+  # 关于「185 vs 190」的准确表述（**重要，勿再简化为「v0.0.3 vs v0.0.4」**）：
+  #   · **CI 上** = `185 passed | 5 skipped (190)`（run 41837212170 实证）
+  #   · **本机上** = `190 passed`
+  #   · 差异的**根因**不是版本差异，而是 `tests/floor-continuity.spec.ts`
+  #     在 CI 上崩溃：它硬编码读 `.env.test`，而 `.env.test` 被 `.gitignore`
+  #     忽略（.gitignore:16），CI 的干净克隆里不存在 → readFileSync 抛 ENOENT
+  #     → 该文件 5 条用例被 skipped。
+  #   · **分母 190 自始至终是正确的** —— 185 只是通过数，不是总数。
+  #   · 🔴 **该缺陷当前尚未修复**（截至 2026-11-04 21:35Z 实测仍在）：
+  #     `tests/floor-continuity.spec.ts` 的 `:55433/` 硬门未拆，
+  #     导致 unit job 红灯 → e2e job 被 `needs: unit` 连带跳过。
+  #     修复后 CI 与本地都应为 190。
+  #   · 归属：BUG_REGISTER V4-17 / RISK_REGISTER R-26，由测试环境工程师与架构师处置。
+  UNIT_SPEC_FILES="$(find tests -maxdepth 1 -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
+  E2E_SPEC_FILES="$(find e2e -maxdepth 1 -name '*.spec.ts' 2>/dev/null | wc -l | tr -d ' ')"
+  note "  单元测试用例文件数：${UNIT_SPEC_FILES} 个（用例条数以 docs/evidence/ci/test-baseline-v0.0.4.md 的 vitest JSON reporter 实测为准）"
+  note "  E2E 用例文件数：${E2E_SPEC_FILES} 个（用例条数以 playwright test --list 实测为准）"
+  note "  用例总数以 vitest JSON reporter 的 numTotalTests 为准（当前实测 190 条 / 15 文件，见 test-baseline-v0.0.4.md）"
+  note "  ⚠️ CI 现状：`185 passed | 5 skipped (190)` —— 分母 190 正确；5 条因 floor-continuity 在 CI 崩溃而跳过。该缺陷修复中（V4-17 / R-26），修复后 CI 与本地都应为 190。"
   note "  全量结论由 team-lead 复验（任务 #1）写入 TEST_REPORT.md；qa-engineer 第二轮为专项实跑，不作为全量判定"
 else
   warn 'TEST_REPORT.md 不存在'
@@ -443,11 +573,40 @@ else
   else
     warn 'scripts/release/verify-update-script.sh 不存在 —— update.sh 缺少无 Docker 环境的自检手段'
   fi
+
+  # --- 7.10b --dry-run 演练模式（主理人裁决 2026-11-04：必须保留）-------------
+  # 为什么必须保留：本机无 Docker，「升级脚本的容器级行为」只能靠 CI 或
+  # 带 Docker 的环境实跑；--dry-run 是唯一能在无 Docker 环境做**部分**验证
+  # 的手段。没有它，update.sh 在纯离线环境里连参数校验都跑不了。
+  if grep -qE '\-\-dry-run' "$UPDATE_SH"; then
+    ok 'update.sh 支持 --dry-run 演练模式（无 Docker 环境下的部分验证手段）'
+  else
+    fail 'update.sh **缺少 --dry-run** —— 无 Docker 环境将无法做任何本地验证（R-16 风险放大）'
+  fi
+  # --dry-run 的核心承诺是「不做任何写操作」。这里做**静态**核验：
+  # 演练分支必须在改写 .env 之前就 exit，且不得出现 pull / up 等写命令。
+  if grep -qE 'DRY_RUN.*=.*1' "$UPDATE_SH"; then
+    ok 'update.sh 有独立的 DRY_RUN 分支标志'
+  else
+    warn 'update.sh 未检出 DRY_RUN 分支标志 —— 请人工确认 --dry-run 的实现方式'
+  fi
+  if grep -q 'dry-run 的确切语义' "$UPDATE_SH"; then
+    ok 'update.sh 的 --help 中写清了 --dry-run 的确切语义（会做什么 / 不会做什么）'
+  else
+    warn 'update.sh 的 --help 未写清 --dry-run 语义 —— 用户可能误以为它会真的升级'
+  fi
 fi
 
-# --- 7.11 deploy/VERSION 与目标版本的一致性 --------------------------------
+# --- 7.11 发行包自称的版本 vs 本次发布版本 ----------------------------------
 # 这是「用户拿到的安装包自称的版本」与「本次发布版本」是否一致的问题。
 # release 阶段必须严格一致，否则发行包会带着旧版本号出厂。
+#
+# 注意：5 个版本载体的**一致性**已在第 2 节统一检查（那里是权威位置）。
+# 本节只做**发行包视角**的补充 —— 即「装到用户机器上的那个包」：
+#   · deploy/VERSION 是发行包内**唯一**随包分发的版本标识（install.sh 会读它）
+#   · deploy/.env.example 的 V2EX_IMAGE 决定**新装用户**默认拉哪个镜像
+# 两者都不在第 2 节的 5 载体清单里（.env.example 的 tag 语义是「默认安装
+# 目标」而非「版本标识」），因此在此单独校验。
 if [ "$PHASE" = 'release' ]; then
   if [ "$DEPLOY_VER" = "$TARGET" ]; then
     ok "deploy/VERSION = ${DEPLOY_VER} 与目标版本 ${TARGET} 一致（发行包版本号正确）"
@@ -465,18 +624,13 @@ else
   note "deploy/VERSION = ${DEPLOY_VER}（开发态刻意保持 ${DEV_BASELINE}，不判 FAIL）"
 fi
 
-# --- 7.12 tag 白名单需要人工放行（刻意保留的摩擦）--------------------------
-# 与第 3 节的检查重复出现是**刻意**的：第 3 节是流水线闸门视角，
-# 第 7 节是「发行包能不能被正确升级」视角 —— 两处口径都要在发布前被人看见。
-if grep -qE "^\s*-\s*'${VTAG}'" .github/workflows/release.yml 2>/dev/null; then
-  ok "release.yml 的 push tag 白名单已包含 ${VTAG}（无需人工放行）"
-else
-  if [ "$PHASE" = 'release' ]; then
-    fail "【需人工放行】release.yml 的 push tag 白名单**未包含** ${VTAG} —— 本脚本**不会自动修改**该白名单（刻意的摩擦，R-19）；发布前必须由人手工把 '- ${VTAG}' 加入 .github/workflows/release.yml 的 tags 列表"
-  else
-    info "【需人工放行】发布前须由人手工把 '- ${VTAG}' 加入 release.yml 的 push tag 白名单（刻意的摩擦，R-19；本脚本**不会自动修改**它）"
-  fi
-fi
+# --- 7.12 tag 白名单 → 已上移至第 3 节（主理人裁决 2026-11-04）--------------
+#
+# 原先本节与第 3 节各有一份 tag 白名单检查，且第 7 节那份判为 FAIL。
+# 主理人裁决：白名单**不是版本载体**，而是「必须由人确认的发布动作」，
+# 应作为**独立的一项**、判为 WARN + 醒目提示，**不计入 FAIL**。
+# 理由：把「改漏了数字」与「还没做这个动作」混在一起会让发布门禁语义模糊。
+# 现在唯一权威的检查在第 3 节（3.1），本节不再重复 —— 避免两处口径漂移。
 
 # ---------------------------------------------------------------------------
 section '8. 汇总'

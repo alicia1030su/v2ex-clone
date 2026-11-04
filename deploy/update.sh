@@ -76,6 +76,7 @@ usage() {
   ./update.sh --version vX.Y.Z             升级到指定版本，自动改写 .env 的 V2EX_IMAGE
   ./update.sh --image <完整镜像引用>        升级到指定镜像（必须带 tag）
   ./update.sh --force                      目标镜像 digest 与当前一致时仍继续（不推荐）
+  ./update.sh --dry-run                    只做只读检查与本地可验证的部分，不做任何写操作
   ./update.sh --help                       显示本帮助
 
 环境变量：
@@ -95,12 +96,23 @@ V2EX Clone 升级脚本
   ./update.sh --version vX.Y.Z             升级到指定版本，自动改写 .env 的 V2EX_IMAGE
   ./update.sh --image <完整镜像引用>        升级到指定镜像（必须带 tag）
   ./update.sh --force                      目标镜像 digest 与当前一致时仍继续（不推荐）
+  ./update.sh --dry-run                    只做只读检查与本地可验证的部分，不做任何写操作
   ./update.sh --help                       显示本帮助
 
 关键安全约定：
   · 绝不删除数据卷：只用 `up -d` 就地重建容器，保留全部卷
   · 绝不自动执行破坏性数据库回滚（数据层回退需人工执行 ./restore.sh）
   · 绝不覆盖管理员口令（升级后校验口令哈希未变）
+
+--dry-run 的确切语义（重要）：
+  · **会执行**：参数校验（空版本 / 非法版本 / 缺 tag / 参数互斥 / 未知参数一律拒绝）、
+    读取 .env、计算目标镜像、用 `docker compose config` 校验 compose 实际解析到的镜像、
+    查询本机已有镜像的 digest / imageId、模拟计算「升级后 .env 将变成什么」。
+  · **会执行**：在**内存中**计算并打印 .env 改写后的结果（不改磁盘）。
+  · **不会执行**：任何写操作 —— 不写 .env、不跑 backup.sh、
+    不执行 `docker compose pull` / `up` / `logs` / `exec` / `volume` 等任何变更类命令。
+  · 因此 --dry-run 可以安全地在没有 Docker 的机器上运行一部分校验逻辑。
+  · 参数校验失败时退出码与正式模式**完全一致**（2 = 参数错误）。
 
 退出码：0 成功 / 1 失败（已回滚）/ 2 参数或校验错误 / 3 目标镜像未变化（已中止）
 EOF
@@ -114,6 +126,7 @@ TARGET_IMAGE=""
 VERSION_GIVEN=0
 IMAGE_GIVEN=0
 FORCE=0
+DRY_RUN=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -129,6 +142,8 @@ while [ $# -gt 0 ]; do
       TARGET_IMAGE="${1#--image=}"; IMAGE_GIVEN=1; shift ;;
     --force)
       FORCE=1; shift ;;
+    --dry-run)
+      DRY_RUN=1; shift ;;
     -h|--help)
       usage_text; exit 0 ;;
     *)
@@ -170,7 +185,12 @@ split_image_ref() {
   fi
 }
 
-# 校验版本号：允许 v0.0.4 / 0.0.4 / v0.0.4-rc.1
+# 校验版本号：允许 vX.Y.Z / X.Y.Z / vX.Y.Z-rc.1
+#
+# 注意：这里的示例**刻意不写死具体版本号**（用 vX.Y.Z 占位）——
+# deploy/update.sh 是版本中立脚本，目标版本完全由调用方通过 --version 指定。
+# 写死具体版本号会让 scripts/release/preflight.sh 的版本载体检查
+# 把「错误提示里的示例」误判为「开发态提前升级」。
 validate_version() {
   local v="$1"
   if [ -z "$v" ]; then
@@ -180,7 +200,7 @@ validate_version() {
   if printf '%s' "$v" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
     return 0
   fi
-  err "非法版本号格式：'${v}'（期望形如 v0.0.4 或 v0.0.4-rc.1；仅允许数字、点、短横线与预发布后缀）。"
+  err "非法版本号格式：'${v}'（期望形如 vX.Y.Z 或 vX.Y.Z-rc.1；仅允许数字、点、短横线与预发布后缀）。"
   return 1
 }
 
@@ -230,20 +250,24 @@ read_env_value() {
 }
 
 # 写入 .env 的某个键；若该键不存在则追加到文件末尾。
+#
+# ENV_TARGET 允许把写入目标重定向到别处 —— --dry-run 用它在一份**内存副本**
+# 上模拟改写，从而在不碰磁盘 .env 的前提下验证「改写结果是否正确」。
+# 正式路径不设置 ENV_TARGET，写入目标始终是 $ENV_FILE。
 update_env_value() {
-  local key="$1" value="$2" tmp
-  [ -f "$ENV_FILE" ] || return 1
-  tmp="$(mktemp "${ENV_FILE}.XXXXXX")"
+  local key="$1" value="$2" tmp target="${ENV_TARGET:-$ENV_FILE}"
+  [ -f "$target" ] || return 1
+  tmp="$(mktemp "${target}.XXXXXX")"
   if ! awk -v key="$key" -v val="$value" '
         index($0, key "=") == 1 { print key "=" val; seen = 1; next }
         { print }
         END { if (!seen) print key "=" val }
-      ' "$ENV_FILE" > "$tmp"; then
+      ' "$target" > "$tmp"; then
     rm -f "$tmp"
     return 1
   fi
   chmod 600 "$tmp" 2>/dev/null || true
-  mv "$tmp" "$ENV_FILE"
+  mv "$tmp" "$target"
 }
 
 # 从 .env 中移除某个键（回滚到「原本就没有这一行」的状态）。
@@ -299,8 +323,23 @@ psql_query() {
 # ===========================================================================
 # 前置检查
 # ===========================================================================
-command -v docker >/dev/null 2>&1 || die "未检测到 docker 命令。请先安装 Docker Engine 20.10+。"
-docker compose version >/dev/null 2>&1 || die "未检测到 Docker Compose v2（docker compose version 失败）。"
+# --dry-run 允许在没有 Docker 的机器上运行「只读 + 纯本地」的那部分校验。
+# 因此 Docker 缺失在 dry-run 下**不是致命错误**，只会被降级为告警。
+if [ "$DRY_RUN" = "1" ]; then
+  if ! command -v docker >/dev/null 2>&1; then
+    warn "未检测到 docker 命令 —— dry-run 下继续（所有依赖 Docker 的检查将被跳过）。"
+    DOCKER_AVAILABLE=0
+  elif ! docker compose version >/dev/null 2>&1; then
+    warn "未检测到 Docker Compose v2 —— dry-run 下继续（所有依赖 Docker 的检查将被跳过）。"
+    DOCKER_AVAILABLE=0
+  else
+    DOCKER_AVAILABLE=1
+  fi
+else
+  command -v docker >/dev/null 2>&1 || die "未检测到 docker 命令。请先安装 Docker Engine 20.10+。"
+  docker compose version >/dev/null 2>&1 || die "未检测到 Docker Compose v2（docker compose version 失败）。"
+  DOCKER_AVAILABLE=1
+fi
 [ -f "$ENV_FILE" ] || die "未找到 .env 配置。请先运行 ./install.sh 完成安装。"
 
 OLD_IMAGE="$(read_env_value V2EX_IMAGE)"
@@ -374,7 +413,125 @@ fi
 info "目标镜像（新）：${TARGET_IMAGE}"
 
 # ===========================================================================
-# 记录旧状态
+# --dry-run：只做只读检查与本地可验证的部分，**不做任何写操作**
+# ===========================================================================
+if [ "$DRY_RUN" = "1" ]; then
+  printf '\n%s[DRY-RUN] 演练模式 —— 不做任何写操作%s\n' "$C_BLD" "$C_RST"
+  info "本次演练**不会**：写 .env、跑 backup.sh、执行 pull / up / logs / exec / volume 等变更类命令"
+
+  # --- 只读 1：查询本机已有镜像的 digest / imageId（无 Docker 时降级）--------
+  OLD_IMAGE_ID='<未知>'
+  OLD_DIGEST='<未知>'
+  RUNNING_IMAGE_ID='<无运行容器>'
+  PRE_TARGET_ID='<未知>'
+  if [ "$DOCKER_AVAILABLE" = "1" ]; then
+    if [ "$OLD_IMAGE_PRESENT" = "1" ]; then
+      OLD_IMAGE_ID="$(get_image_id "$OLD_IMAGE")"
+      OLD_DIGEST="$(get_image_digest "$OLD_IMAGE")"
+    fi
+    RUNNING_IMAGE_ID="$(get_running_image_id)"
+    PRE_TARGET_ID="$(get_image_id "$TARGET_IMAGE")"
+  else
+    warn "无 Docker：跳过 digest / imageId 查询。"
+  fi
+  info "旧镜像 imageId：${OLD_IMAGE_ID}"
+  info "旧镜像 digest ：${OLD_DIGEST}"
+  info "运行中容器 imageId：${RUNNING_IMAGE_ID}"
+  info "目标镜像本地已存在时的 imageId：${PRE_TARGET_ID}"
+
+  # --- 只读 2：模拟 .env 改写结果（**只在临时副本上计算，不落盘**）------------
+  #
+  # 顺序很重要：必须**先**算出「改写后的 .env」，**再**用它去校验 compose
+  # 解析到的镜像 —— 因为 compose 正是从 .env 插值得到镜像的。
+  # 若顺序颠倒（先校验 compose），compose 读到的还是**旧** .env，
+  # 必然解析出旧 tag，校验会永远失败（这是个真实踩过的坑）。
+  info "模拟 .env 改写（**仅在临时副本上计算，不落盘**）..."
+  info "  V2EX_IMAGE：${OLD_IMAGE:-（无）} → ${TARGET_IMAGE}"
+  DRY_ENV_TMP="$(mktemp "${TMPDIR:-/tmp}/v2ex-env-dryrun.XXXXXX" 2>/dev/null || true)"
+  DRY_ENV_OK=0
+  if [ -n "$DRY_ENV_TMP" ] && cp "$ENV_FILE" "$DRY_ENV_TMP" 2>/dev/null; then
+    if ENV_TARGET="$DRY_ENV_TMP" update_env_value V2EX_IMAGE "$TARGET_IMAGE" 2>/dev/null; then
+      DRY_RESULT="$(sed -n 's/^V2EX_IMAGE=//p' "$DRY_ENV_TMP" | tail -n 1)"
+      if [ "$DRY_RESULT" = "$TARGET_IMAGE" ]; then
+        ok "改写后 .env 的 V2EX_IMAGE 将是：${DRY_RESULT}（校验通过）"
+        DRY_ENV_OK=1
+      else
+        err "改写后 .env 的 V2EX_IMAGE 校验不一致（期望 ${TARGET_IMAGE}，实际 ${DRY_RESULT:-（空）}）。"
+        /bin/rm -f "$DRY_ENV_TMP" 2>/dev/null || true
+        die "演练中止。"
+      fi
+    else
+      warn "无法在临时副本上模拟改写（跳过该项校验）。"
+    fi
+  else
+    warn "无法创建临时副本（跳过 .env 改写模拟校验）。"
+  fi
+
+  # --- 只读 3：用「改写后的 .env」校验 compose 实际解析到的镜像 ---------------
+  # 做法：把 compose 文件与改写后的 .env 复制到一个**临时目录**，
+  # 在那里跑 `docker compose config`。这样既能读到目标 tag，
+  # 又完全不碰真实 deploy/ 目录（真实 .env 不受影响）。
+  if [ "$DOCKER_AVAILABLE" = "1" ]; then
+    COMPOSE_CONFIG_OUT=""
+    if [ "$DRY_ENV_OK" = "1" ] && [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+      DRY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-compose-dryrun.XXXXXX" 2>/dev/null || true)"
+      if [ -n "$DRY_DIR" ]; then
+        cp "$SCRIPT_DIR/docker-compose.yml" "$DRY_DIR/docker-compose.yml" 2>/dev/null || true
+        cp "$DRY_ENV_TMP" "$DRY_DIR/.env" 2>/dev/null || true
+        COMPOSE_CONFIG_OUT="$(cd "$DRY_DIR" && docker compose config 2>/dev/null || true)"
+        /bin/rm -rf "$DRY_DIR" 2>/dev/null || true
+      fi
+    fi
+    if [ -z "$COMPOSE_CONFIG_OUT" ]; then
+      warn "无法在临时目录中执行 docker compose config（可能缺少必填环境变量），跳过镜像解析校验。"
+    elif printf '%s\n' "$COMPOSE_CONFIG_OUT" | grep -qF -- "$TARGET_IMAGE"; then
+      ok "Compose 解析到的应用镜像确为目标镜像：${TARGET_IMAGE}（用改写后的 .env 校验）"
+    else
+      err "Compose 解析到的镜像与目标不一致！期望包含：${TARGET_IMAGE}"
+      printf '%s\n' "$COMPOSE_CONFIG_OUT" | grep -i 'image:' >&2 || true
+      /bin/rm -f "$DRY_ENV_TMP" 2>/dev/null || true
+      die "演练中止。"
+    fi
+  else
+    warn "无 Docker：跳过 `docker compose config` 镜像解析校验。"
+  fi
+
+  [ -n "$DRY_ENV_TMP" ] && /bin/rm -f "$DRY_ENV_TMP" 2>/dev/null || true
+
+  # 确认磁盘上的 .env **确实没被动过**
+  if [ "$(read_env_value V2EX_IMAGE)" = "$OLD_IMAGE" ] \
+     || { [ "$OLD_IMAGE_PRESENT" != "1" ] && [ -z "$(read_env_value V2EX_IMAGE)" ]; }; then
+    ok "确认磁盘上的 .env 未被改动（dry-run 不落盘）。"
+  else
+    err "磁盘上的 .env 疑似被改动 —— dry-run 不应写文件！"
+    die "演练中止。"
+  fi
+
+  # --- 只读 4：备份可用性检查（**只检查文件是否存在，不执行备份**）------------
+  if [ -f "$SCRIPT_DIR/backup.sh" ]; then
+    ok "backup.sh 存在（正式升级时会被调用；dry-run 不执行备份）。"
+  else
+    warn "缺少 backup.sh —— 正式升级会在此中止。"
+  fi
+
+  # --- 只读 5：升级后校验项的可执行性提示 ----------------------------------
+  if [ "$DOCKER_AVAILABLE" = "1" ]; then
+    ok "Docker 可用：正式升级将执行 pull → up -d → 健康检查 → 数据卷/管理员校验。"
+  else
+    warn "无 Docker：正式升级的容器级行为（pull / up / 健康检查 / 数据卷 / 管理员校验）无法在本机验证。"
+    warn "请在带 Docker 的环境或 CI 中复跑正式升级以完成容器级验证。"
+  fi
+
+  printf '\n%s演练结束（未做任何写操作）%s\n' "$C_BLD" "$C_RST"
+  printf '  旧镜像 : %s\n' "${OLD_IMAGE:-（.env 中原本没有 V2EX_IMAGE）}"
+  printf '  目标镜像: %s\n' "$TARGET_IMAGE"
+  printf '  .env 实际状态: 未改动\n\n'
+  ok "dry-run 通过：参数与本地可验证部分均正常。"
+  exit 0
+fi
+
+# ===========================================================================
+# 记录旧状态（正式模式）
 # ===========================================================================
 OLD_IMAGE_ID='<未知>'
 OLD_DIGEST='<未知>'

@@ -153,6 +153,24 @@ strip_code() {
   rm -f "$SANDBOX/.stripped.$$" 2>/dev/null || true
 }
 
+# 断言：目录下**不存在**任何数据库备份产物（*.sql.gz）。
+# 目录本身不存在也算通过 —— 这正是 --dry-run 的预期形态。
+assert_no_db_backup() {
+  local label="$1" dir="$2"
+  if [ ! -d "$dir" ]; then
+    ok "$label（备份目录不存在，符合预期）"
+    return
+  fi
+  local found
+  found="$(find "$dir" -maxdepth 2 -name '*.sql.gz' -print -quit 2>/dev/null || true)"
+  if [ -z "$found" ]; then
+    ok "$label"
+  else
+    bad "$label"
+    note "发现备份产物：${found}"
+  fi
+}
+
 # 正则**不得**匹配（可执行代码中）
 assert_code_not_matches() {
   local label="$1" file="$2" pattern="$3"
@@ -308,8 +326,13 @@ id_for_ref() {
 }
 
 # 模拟 compose 读取 .env 得到的应用镜像。
+# 真实 docker compose 从**项目目录**（compose 文件所在目录）读 .env，
+# 因此优先用 $PWD/.env，找不到才回退到 STUB_ENV_FILE。
+# 这样 --dry-run 在临时目录里跑 compose config 时，
+# 读到的就是临时目录里那份「改写后的 .env」，与真实行为一致。
 env_image() {
-  local f="${STUB_ENV_FILE:-$PWD/.env}"
+  local f="$PWD/.env"
+  [ -f "$f" ] || f="${STUB_ENV_FILE:-}"
   [ -f "$f" ] || return 0
   sed -n 's/^V2EX_IMAGE=//p' "$f" | tail -n 1
 }
@@ -545,6 +568,8 @@ assert_file_matches 'update.sh 支持 --image 参数' "$U" '\-\-image'
 assert_file_matches 'update.sh 校验管理员口令哈希未变' "$U" 'ADMIN_HASH_BEFORE'
 assert_file_matches 'update.sh 校验数据卷仍在' "$U" 'docker volume ls'
 assert_file_matches 'update.sh 显式声明不做破坏性数据库回滚' "$U" '不会.*破坏性数据库回滚'
+assert_file_matches 'update.sh 支持 --dry-run 演练模式' "$U" '\-\-dry-run'
+assert_file_matches 'update.sh 在 --help 中说明了 --dry-run 的语义' "$U" 'dry-run 的确切语义'
 
 # ===========================================================================
 section "3. 用例：--version v0.0.4（核心正向路径）"
@@ -722,7 +747,80 @@ assert_eq '用例 9.3：备份失败时没有执行 pull' '0' \
   "$(count_matches "$LOG_FILE" '^PULL_TARGET=')"
 
 # ===========================================================================
-section "10. 仓库真实文件未被改动"
+section "10. 用例：--dry-run 演练模式（不做任何写操作）"
+# ===========================================================================
+# 主理人裁决 3：--dry-run 是「唯一能在无 Docker 环境做部分验证的手段」，
+# 因此必须保留，且语义必须是「只做只读检查与本地可验证的部分」。
+# 本节断言三件事：
+#   1. 参数校验在 --dry-run 下**同样生效**（五项拒绝逻辑全部保留）
+#   2. 演练模式下 .env **未被落盘修改**
+#   3. 演练模式下**未发生任何 docker 写操作**（pull / up / exec / volume 等）
+CASE_DIR="$(setup_case case-dry-run)"
+OUT_FILE="$SANDBOX/out-case-dry-run.txt"
+run_update "$CASE_DIR" --version v0.0.4 --dry-run > "$OUT_FILE" 2>&1
+RC=$?
+assert_zero '用例 10.1：--dry-run 正常退出码为 0' "$RC"
+if [ "$RC" -ne 0 ]; then
+  note '--- 脚本输出（末尾 30 行）---'
+  tail -n 30 "$OUT_FILE" | sed 's/^/        /'
+fi
+assert_eq '用例 10.2：--dry-run 后 .env 的 V2EX_IMAGE **未被落盘修改**' \
+  'ghcr.io/alicia1030su/v2ex-clone:v0.0.3' "$(env_image_of "$CASE_DIR")"
+LOG_FILE="$(calls_log_of "$CASE_DIR")"
+assert_eq '用例 10.3：--dry-run 未执行 docker compose pull' '0' \
+  "$(count_matches "$LOG_FILE" '^PULL_TARGET=')"
+assert_eq '用例 10.4：--dry-run 未执行 docker compose up' '0' \
+  "$(count_matches "$LOG_FILE" '^UP_TARGET=')"
+assert_eq '用例 10.5：--dry-run 未执行任何 compose exec（未查库、未改库）' '0' \
+  "$(count_matches "$LOG_FILE" 'compose exec')"
+assert_eq '用例 10.6：--dry-run 未执行任何 compose down' '0' \
+  "$(count_matches "$LOG_FILE" 'down')"
+assert_file_contains '用例 10.7：--dry-run 输出了演练模式标识' \
+  "$OUT_FILE" 'DRY-RUN'
+assert_file_contains '用例 10.8：--dry-run 打印了旧镜像 → 目标镜像的改写预览' \
+  "$OUT_FILE" 'ghcr.io/alicia1030su/v2ex-clone:v0.0.3 → ghcr.io/alicia1030su/v2ex-clone:v0.0.4'
+assert_file_contains '用例 10.9：--dry-run 明确声明「仅计算，不落盘」' \
+  "$OUT_FILE" '不落盘'
+assert_file_contains '用例 10.10：--dry-run 确认磁盘上的 .env 未被改动' \
+  "$OUT_FILE" '未被改动'
+assert_file_contains '用例 10.11：--dry-run 确认「不执行备份」' \
+  "$OUT_FILE" 'dry-run 不执行备份'
+# --dry-run 下 backups 目录**可能根本不存在**（备份步骤位于演练分支之后，
+# 根本不会执行到）。因此这里断言的是「**不存在**任何数据库备份产物」，
+# 而不是「目录存在但为空」—— 后者在目录不存在时会误报。
+assert_no_db_backup '用例 10.12：--dry-run 未生成任何数据库备份产物' \
+  "$CASE_DIR/deploy/backups"
+
+# --- 10.12 演练模式下五项拒绝逻辑**同样生效** --------------------------------
+# 主理人裁决 3 明确要求：「保留拒绝空版本 / 非法版本 / 缺 tag 的镜像引用 /
+# --version 与 --image 互斥 / 未知参数这五项拒绝逻辑，且在 --dry-run 下同样生效」。
+REJECT_CASES='空版本 非法版本 缺tag 参数互斥 未知参数'
+for CASE_NAME in $REJECT_CASES; do
+  CASE_DIR="$(setup_case "case-dryrun-reject-${CASE_NAME}")"
+  OUT_FILE="$SANDBOX/out-dryrun-reject-${CASE_NAME}.txt"
+  case "$CASE_NAME" in
+    空版本)   ARGS=(--version '' --dry-run) ;;
+    非法版本) ARGS=(--version 'not-a-version' --dry-run) ;;
+    缺tag)    ARGS=(--image 'ghcr.io/alicia1030su/v2ex-clone' --dry-run) ;;
+    参数互斥) ARGS=(--version v0.0.4 --image 'ghcr.io/x/y:v1' --dry-run) ;;
+    未知参数) ARGS=(--bogus --dry-run) ;;
+  esac
+  run_update "$CASE_DIR" "${ARGS[@]}" > "$OUT_FILE" 2>&1
+  RC=$?
+  assert_nonzero "用例 10.13：--dry-run 下「${CASE_NAME}」仍被拒绝（非零退出）" "$RC"
+  assert_eq "用例 10.14：--dry-run 下「${CASE_NAME}」被拒绝后 .env 未被改动" \
+    'ghcr.io/alicia1030su/v2ex-clone:v0.0.3' "$(env_image_of "$CASE_DIR")"
+done
+
+# --- 10.13 dry-run 下 --version 与 --image 仍互斥 ----------------------------
+CASE_DIR="$(setup_case case-dryrun-mutual)"
+OUT_FILE="$SANDBOX/out-dryrun-mutual.txt"
+run_update "$CASE_DIR" --version v0.0.4 --image 'ghcr.io/x/y:v1' --dry-run > "$OUT_FILE" 2>&1
+RC=$?
+assert_nonzero '用例 10.15：--dry-run 下 --version 与 --image 仍互斥' "$RC"
+
+# ===========================================================================
+section "11. 仓库真实文件未被改动"
 # ===========================================================================
 CHECKSUM_AFTER="$(checksum_snapshot)"
 if [ "$CHECKSUM_BEFORE" = "$CHECKSUM_AFTER" ]; then
