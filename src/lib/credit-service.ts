@@ -63,6 +63,7 @@ export function creditAmounts(): {
   checkin: number;
   streakBonus: number;
   streakBonusMax: number;
+  thanks: number;
 } {
   const num = (v: string | undefined, d: number) => {
     const n = v === undefined ? d : Number(v);
@@ -74,6 +75,8 @@ export function creditAmounts(): {
     checkin: num(process.env.CHECKIN_CREDITS, 2),
     streakBonus: num(process.env.CHECKIN_STREAK_BONUS, 1),
     streakBonusMax: num(process.env.CHECKIN_STREAK_BONUS_MAX, 10),
+    // v0.0.4：感谢回复给作者加分（默认 1，可由 THANKS_CREDITS 覆盖）
+    thanks: num(process.env.THANKS_CREDITS, 1),
   };
 }
 

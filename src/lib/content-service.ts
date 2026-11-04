@@ -3,6 +3,7 @@ import { db, schema } from '@/db';
 import { and, eq, isNull, sql, desc, asc } from 'drizzle-orm';
 import type { SessionUser } from '@/lib/auth';
 import { canModifyOwnContent, withinEditWindow } from '@/lib/permissions';
+import { grantCredits, creditAmounts } from '@/lib/credit-service';
 
 /**
  * 内容服务层（v0.0.3）
@@ -364,13 +365,21 @@ export async function restoreReply(
  * 幂等：thanks 表有 (user_id, reply_id) 唯一索引。
  * 重复感谢返回 duplicated=true，计数不变。
  * 一致性：replies.thanks 必须与 thanks 表行数一致 —— 用原子递增维护。
+ *
+ * v0.0.4：感谢会**给回复作者加积分**（`topic_thanked` 流水）并发**通知**，
+ * 补齐「感谢 → 积分 → 通知」的闭环 —— 此前 `topic_thanked` 流水类型
+ * 与 `topic_thanks` 通知类型在 schema 里定义了却**从未被写入过**。
  */
 export async function thankReply(
   user: SessionUser,
   replyId: number,
 ): Promise<{ replyId: number; thanks: number; duplicated: boolean }> {
   const replyRows = await db
-    .select({ id: schema.replies.id, authorId: schema.replies.authorId })
+    .select({
+      id: schema.replies.id,
+      authorId: schema.replies.authorId,
+      topicId: schema.replies.topicId,
+    })
     .from(schema.replies)
     .where(and(eq(schema.replies.id, replyId), isNull(schema.replies.deletedAt)))
     .limit(1);
@@ -401,6 +410,30 @@ export async function thankReply(
     .set({ thanks: sql`${schema.replies.thanks} + 1` })
     .where(eq(schema.replies.id, replyId))
     .returning({ thanks: schema.replies.thanks });
+
+  // —— 感谢的积分与通知闭环（v0.0.4）——
+  //
+  // 幂等键 `topic_thanked:{replyId}` 保证同一条回复**只被感谢一次**
+  // 就只发一次积分（thanks 表的唯一索引已经保证了「只插入一条」，
+  // 这里再由幂等键保证「只发放一次」—— 两者职责不同，缺一不可）。
+  await grantCredits(reply.authorId, {
+    type: 'topic_thanked',
+    amount: creditAmounts().thanks,
+    idempotencyKey: `topic_thanked:${replyId}`,
+    refType: 'reply',
+    refId: replyId,
+    actorId: user.id,
+    reason: '收到感谢',
+  });
+
+  await db.insert(schema.notifications).values({
+    userId: reply.authorId,
+    type: 'topic_thanks',
+    actorId: user.id,
+    topicId: reply.topicId,
+    replyId,
+    message: `${user.username} 感谢了你的回复`,
+  });
 
   return { replyId, thanks: updated[0]?.thanks ?? 0, duplicated: false };
 }
