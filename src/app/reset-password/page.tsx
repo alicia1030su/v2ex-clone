@@ -174,10 +174,10 @@ export default function ResetPasswordPage() {
                     {check.reason}
                   </div>
                   <div className="sep10" />
-                  <Link href="/forgot" className="button">
+                  <Link href="/forgot" className="super normal button">
                     重新申请重置链接
                   </Link>{' '}
-                  <Link href="/signin" className="button">
+                  <Link href="/signin" className="super normal button">
                     返回登录
                   </Link>
                 </div>
