@@ -219,23 +219,46 @@ jobs:
           echo "===== compose ps ====="
           docker compose --env-file .env.dv ps
 
-          echo "===== 等待三个服务全部 healthy ====="
+          # ⚠️ 断言口径勘误（2026-11-04，CI 实测踩坑，run 41837202602）：
+          #
+          #   根目录 docker-compose.yml 的 **app 服务没有定义 healthcheck**
+          #   （只有 deploy/docker-compose.yml 才有 —— 发行版需要给
+          #    install.sh / start.sh / update.sh 等待就绪的信号）。
+          #
+          #   因此 `docker inspect --format '{{.State.Health.Status}}' v2ex-app`
+          #   **永远返回 none**，初版断言「三个容器全部 healthy」会**恒假**：
+          #   实测日志里 app 其实已完全就绪（三个 entrypoint 阶段全过、
+          #   `✓ Ready in 414ms`），却因为读不到 health 状态而判失败。
+          #
+          #   正确口径：
+          #     · postgres / redis —— 有 healthcheck，断言 State.Health.Status
+          #     · app            —— 无 healthcheck，改用**容器状态 + HTTP 探活**判定
+          #                          （HTTP 探活是更强的证据：它证明应用真的在服务）
+          echo "===== 等待 PG/Redis healthy 且 app 容器 running + HTTP 200 ====="
+          APP_CODE='000'
           for i in $(seq 1 60); do
             PG=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-postgres 2>/dev/null || echo none)
             RD=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-redis 2>/dev/null || echo none)
-            APP=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
-            echo "  [${i}s] postgres=${PG} redis=${RD} app=${APP}"
-            if [ "$PG" = "healthy" ] && [ "$RD" = "healthy" ] && [ "$APP" = "healthy" ]; then
-              echo "  ✓ 三个容器全部 healthy"; break
+            APP_STATE=$(docker inspect --format '{{.State.Status}}' v2ex-app 2>/dev/null || echo none)
+            APP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:3000/ 2>/dev/null || echo 000)
+            echo "  [${i}s] postgres=${PG} redis=${RD} app_state=${APP_STATE} http=${APP_CODE}"
+            if [ "$PG" = "healthy" ] && [ "$RD" = "healthy" ] \
+               && [ "$APP_STATE" = "running" ] && [ "$APP_CODE" = "200" ]; then
+              echo "  ✓ PG/Redis healthy，app 容器 running 且 HTTP 200"; break
             fi
             if [ "$PG" = "unhealthy" ] || [ "$RD" = "unhealthy" ]; then
               echo "  ✗ 依赖容器 unhealthy"; docker compose --env-file .env.dv logs --tail 100; exit 1
+            fi
+            if [ "$APP_STATE" = "exited" ] || [ "$APP_STATE" = "dead" ]; then
+              echo "  ✗ app 容器已退出（${APP_STATE}）"; docker compose --env-file .env.dv logs --tail 100; exit 1
             fi
             sleep 3
           done
           [ "${PG}" = "healthy" ] || { echo "  ✗ postgres 未达 healthy（${PG}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
           [ "${RD}" = "healthy" ] || { echo "  ✗ redis 未达 healthy（${RD}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
-          [ "${APP}" = "healthy" ] || { echo "  ✗ app 未达 healthy（${APP}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          [ "${APP_STATE}" = "running" ] || { echo "  ✗ app 容器未在 running（${APP_STATE}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          [ "${APP_CODE}" = "200" ] || { echo "  ✗ app HTTP 探活失败（${APP_CODE}）"; docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          echo "  ✓ 三个服务全部就绪（app 无 healthcheck，用容器状态 + HTTP 200 判定）"
 
           echo "===== PG 实查 ====="
           docker compose --env-file .env.dv exec -T postgres \
@@ -288,12 +311,15 @@ jobs:
           echo "===== 容器整体 down（保留卷）后 up —— 数据必须仍在 ====="
           docker compose --env-file .env.dv down        # 注意：不加 -v，卷保留
           docker compose --env-file .env.dv up -d
+          # app 无 healthcheck（根 compose 未定义）→ 用容器状态 + HTTP 200 判定
+          APP_CODE='000'
           for i in $(seq 1 60); do
-            APP=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
-            [ "$APP" = "healthy" ] && break
+            APP_STATE=$(docker inspect --format '{{.State.Status}}' v2ex-app 2>/dev/null || echo none)
+            APP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:3000/ 2>/dev/null || echo 000)
+            [ "$APP_STATE" = "running" ] && [ "$APP_CODE" = "200" ] && break
             sleep 3
           done
-          echo "  app health = ${APP}"
+          echo "  app state = ${APP_STATE}  http = ${APP_CODE}"
 
           AFTER_USERS=$(docker compose --env-file .env.dv exec -T postgres \
             psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select count(*) from users where username='dv_probe'")
@@ -321,13 +347,17 @@ jobs:
           echo "  重启前 主题数=${BEFORE_TOPICS}  管理员哈希前 16 位=${BEFORE_HASH:0:16}"
 
           docker compose --env-file .env.dv restart
+          # app 无 healthcheck（根 compose 未定义）→ 用容器状态 + HTTP 200 判定
+          APP_CODE='000'
           for i in $(seq 1 60); do
-            APP=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
-            [ "$APP" = "healthy" ] && break
+            APP_STATE=$(docker inspect --format '{{.State.Status}}' v2ex-app 2>/dev/null || echo none)
+            APP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:3000/ 2>/dev/null || echo 000)
+            [ "$APP_STATE" = "running" ] && [ "$APP_CODE" = "200" ] && break
             sleep 3
           done
-          echo "  重启后 app health = ${APP}"
-          [ "${APP}" = "healthy" ] || { docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          echo "  重启后 app state = ${APP_STATE}  http = ${APP_CODE}"
+          [ "${APP_STATE}" = "running" ] || { docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          [ "${APP_CODE}" = "200" ] || { docker compose --env-file .env.dv logs --tail 100; exit 1; }
 
           AFTER_HASH=$(docker compose --env-file .env.dv exec -T postgres \
             psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c \
@@ -360,7 +390,43 @@ jobs:
           for f in *.sh; do bash -n "$f" || { echo "  ✗ bash -n 失败: $f"; exit 1; }; done
           echo "  ✓ 所有 shell 脚本语法通过"
 
+          # ⚠️ 必须先停掉根 compose 的容器（2026-11-04 复核发现，否则本步必红）：
+          #
+          #   1) **端口冲突** —— 根 compose 的 app 映射到宿主机 ${APP_PORT:-3000}，
+          #      而 install.sh 第 163 行有硬性端口占用检查：
+          #          if port_in_use "$APP_PORT"; then die "端口 ... 已被占用。"
+          #      不停掉就直接 `die`。
+          #   2) **容器名冲突** —— 两份 compose 都硬编码了
+          #      container_name: v2ex-postgres / v2ex-redis / v2ex-app，
+          #      同时存在会让 compose up 直接失败。
+          #
+          #   停掉根 compose（**保留卷**，不影响前面几项已取证的数据卷状态）。
+          echo "===== 停掉根 compose 容器（避免端口/容器名冲突）====="
+          cd "$GITHUB_WORKSPACE"
+          docker compose --env-file .env.dv stop
+          docker compose --env-file .env.dv rm -f
+          echo "  ✓ 根 compose 容器已停止"
+
+          cd /tmp/inst
+          # 换用 3100 端口，与根 compose 的 3000 彻底隔离（双重保险）
+          export APP_PORT=3100
+          export APP_URL=http://localhost:3100
+          export NEXT_PUBLIC_APP_URL=http://localhost:3100
+          # 预置 .env，让 install.sh 复用我们指定的端口而不是用默认 3000
+          # （install.sh 第 136 行读 APP_PORT，第 281 行只写 V2EX_IMAGE，不覆盖 APP_PORT）
+          cat > .env <<EOF
+          APP_PORT=3100
+          APP_URL=http://localhost:3100
+          NEXT_PUBLIC_APP_URL=http://localhost:3100
+          V2EX_IMAGE=v2ex-clone:dv
+          EOF
+          chmod 600 .env
+
           echo "===== 用本地构建镜像跑 install.sh（真实 Docker）====="
+          # V2EX_IMAGE=v2ex-clone:dv → 指向**本工作流本地构建**的镜像。
+          # install.sh 会先尝试 `docker compose pull`；该 tag 只存在于本地，
+          # pull 必然失败，随后脚本走「本机已存在镜像 → 继续使用本地镜像」的分支。
+          # ⚠️ 因此**绝不会**从 GHCR 拉取、**绝不会** push 任何镜像。
           V2EX_IMAGE=v2ex-clone:dv bash ./install.sh 2>&1 | tee /tmp/install.log | tail -40
 
           echo "===== 校验安装产物 ====="
@@ -380,8 +446,18 @@ jobs:
             echo "  ${k} 长度 = ${#V}"
             [ "${#V}" -ge 16 ] || { echo "  ✗ $k 太短"; exit 1; }
           done
+          echo "===== 确认未使用外部镜像（不得是 ghcr.io）====="
+          IMG=$(grep -E '^V2EX_IMAGE=' .env | cut -d= -f2-)
+          echo "  V2EX_IMAGE = ${IMG}"
+          case "${IMG}" in
+            ghcr.io/*|docker.io/*|quay.io/*|registry.*)
+              echo "  ✗ 安装包指向了外部镜像仓库 —— 本工作流必须只用本地构建镜像"; exit 1 ;;
+          esac
+          [ "${IMG}" = "v2ex-clone:dv" ] || { echo "  ✗ V2EX_IMAGE 应为 v2ex-clone:dv，实际为 ${IMG}"; exit 1; }
+          echo "  ✓ 仅使用本地构建镜像，未触碰任何外部 registry"
 
           echo "===== 安装后的容器必须 healthy 且管理员存在 ====="
+          # 这里用发行版 compose（deploy/docker-compose.yml），app **有** healthcheck
           for i in $(seq 1 60); do
             H=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-app 2>/dev/null || echo none)
             [ "$H" = "healthy" ] && break
@@ -396,6 +472,24 @@ jobs:
 
           echo "===== 安装后的容器资源占用（安装包路径的容器）====="
           docker stats --no-stream --format '  {{.Name}}  CPU={{.CPUPerc}}  MEM={{.MemUsage}}  MEM%={{.MemPerc}}' v2ex-app v2ex-postgres v2ex-redis
+
+          echo "===== 停掉安装包的容器（释放 v2ex-* 容器名与 3100 端口）====="
+          docker compose --env-file .env down || true
+          # 注：down（不带 -v）保留安装包的卷，但容器名已释放。
+
+          echo "===== 恢复根 compose 容器（供 [8/9] 与 R-17 步骤使用）====="
+          cd "$GITHUB_WORKSPACE"
+          docker compose --env-file .env.dv up -d
+          APP_CODE='000'
+          for i in $(seq 1 60); do
+            APP_STATE=$(docker inspect --format '{{.State.Status}}' v2ex-app 2>/dev/null || echo none)
+            APP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:3000/ 2>/dev/null || echo 000)
+            [ "$APP_STATE" = "running" ] && [ "$APP_CODE" = "200" ] && break
+            sleep 3
+          done
+          echo "  根 compose 恢复：app_state=${APP_STATE} http=${APP_CODE}"
+          [ "${APP_STATE}" = "running" ] || { docker compose --env-file .env.dv logs --tail 100; exit 1; }
+          [ "${APP_CODE}" = "200" ] || { docker compose --env-file .env.dv logs --tail 100; exit 1; }
 
       # ---------------------------------------------------------------------
       # 校验项 8/9 —— 容器资源观察（CPU / 内存）

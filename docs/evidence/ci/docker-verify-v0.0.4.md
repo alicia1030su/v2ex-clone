@@ -9,24 +9,31 @@
 
 ## 0. 状态速览（**最重要的一行**）
 
-> ## 🔴 R-16 与 R-17 的 9 + 3 项验证 **全部尚未实跑**。
+> ## 🟡 部分已实跑 —— R-16 第 1、9 项已在**真实 CI** 上通过；第 2 项断言口径已修待重跑；其余项待取证。
 >
-> **原因有二**：
-> 1. **本机无 Docker** —— `docker` 命令不存在（实测 `docker: command not found`），
->    无法在本地执行任何容器相关验证；
-> 2. **9 个提交未推送** —— 远端不存在 `feat/v0.0.4-high-fidelity` 分支，
->    GitHub Actions 从未见过本轮任何代码，新写的 `docker-verify.yml` 也未被 GitHub 注册。
+> **时间线**：
+> 1. **初始状态**：本机无 Docker（`docker: command not found`）+ 分支未推送
+>    → 全部 12 项 🔴 DEFERRED，本文档只交付「已就绪的验证通道」。
+> 2. **主理人推送后**：工作流在真实 GitHub Actions runner 上跑了起来，
+>    **暴露了我交付物自身的 3 个缺陷**（三元式写进 `${{ }}`；`_journal.json` 路径写错；
+>    app 健康断言口径不成立），前两个由主理人修复为 `2532f5f` / `930f29e`，
+>    第三个由我在本轮修复（§5.1.1）。
+> 3. **当前状态**：`[1/9]` ✅、`[9/9]` ✅ **已在真实 CI 确认通过**；
+>    `[2/9]` 断言口径已修正，**需重新触发 CI 取证**；
+>    `[4/9]`–`[8/9]` 与 R-17 三项**待重跑取证**。
 >
-> **本轮交付的是「已就绪的验证通道」与「本地可做的静态/逻辑复核」，
-> 不是实跑结果。任何人不得把本文档当作 v0.0.4 已通过 Docker 验证的证据。**
+> ⚠️ **仍然不能下结论说「R-16/R-17 已通过」** ——
+> 9 项里只有 2 项有真实证据，其余 7 项 + R-17 三项必须等 run 跑完。
+> **任何人不得把本文档当作 v0.0.4 已通过 Docker 验证的完整证据。**
 
 本文档严格区分三类内容，每一段都标注了状态标记：
 
 | 标记 | 含义 |
 |---|---|
-| ✅ **实测** | 本机真实执行过，有原始输出 |
+| ✅ **实测** | 真实执行过，有原始输出（本地或 CI） |
 | 🟡 **静态** | 只做了静态分析（YAML 解析 / 源码审阅），未真实运行 |
-| 🔴 **待 CI 实跑** | 已写成可执行的工作流，**等待推送后由 GitHub Actions 真实执行** |
+| 🔴 **待 CI 实跑** | 已写成可执行的工作流，**等待真实 CI 出结果** |
+| 🔄 **CI 执行中** | 真实 CI 正在跑，结果待回填 |
 
 ---
 
@@ -360,16 +367,140 @@ gh run download <RUN_ID> -n docker-verify-evidence -D ./docker-verify-evidence
 
 ## 5. 实跑结果
 
-> 🔴 **待 CI 实跑。本节目前为空 —— 这是刻意的。**
->
-> 本机无 Docker（`docker: command not found`）+ 9 个提交未推送，
-> 任何"实跑结果"都只能是伪造的。**我不会伪造。**
+### 5.1 🔴 **本工作流在真实 CI 上暴露了我交付物的 3 个缺陷**
 
-<!-- 实跑后在此追加：
-     - Run URL 与 Run ID
-     - 9 项逐项的实际输出
-     - artifact 下载链接
--->
+诚实记录：**我交付的工作流自身有 bug，全部是真实 CI 跑出来的，不是纸面推演。**
+
+| Run | 症状 | 根因 | 修复 |
+|---|---|---|---|
+| `41836244258` | **0 秒失败、`total_count=0`、无任何 job 被创建**，只报一句「This run likely failed because of a workflow file issue」 | 我把三元式写进了 `${{ }}` 表达式上下文 —— **GitHub Actions 的表达式不支持 `&&`/`||` 三元运算**（`||` 取默认值支持，三元不支持） | `2532f5f`（主理人）—— 三元判断下沉到 `run:` 的 shell 层：`$([ "${{ job.status }}" = 'success' ] && echo PASS \|\| echo FAIL)` |
+| `41836588637` | 第 9 项红灯：`✗ 镜像内缺少迁移文件: _journal.json` | **验证脚本自身的路径错误**：`drizzle` 的迁移 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录 —— 我把两者混在同一列表用同一路径断言 | `930f29e`（主理人）—— SQL 与 meta 元数据分成两段断言，meta 段覆盖 3 个 snapshot + journal（**覆盖面反而更严**） |
+| `41837202602` | 第 2 项红灯：`✗ app 未达 healthy（none）` | **断言口径本身不可能成立**：根目录 `docker-compose.yml` 的 **app 服务没有定义 healthcheck**（只有 `deploy/docker-compose.yml` 才有）。所以 `docker inspect '{{.State.Health.Status}}' v2ex-app` **永远返回 `none`** | **本轮由我修复**（见 §5.1.1） |
+
+#### 5.1.1 第 3 个缺陷的详细诊断（run `41837202602`）
+
+**真实 CI 日志证明 app 其实是完全健康的**：
+
+```
+v2ex-app | [entrypoint] 等待数据库就绪...
+v2ex-app | [entrypoint] 数据库就绪。
+v2ex-app | [entrypoint] 阶段 1/3：执行数据库迁移...
+v2ex-app | [✓] migrations applied successfully!
+v2ex-app | [entrypoint] 阶段 2/3：检查是否需要首次初始化...
+v2ex-app | [entrypoint] 首次初始化阶段完成。
+v2ex-app | [entrypoint] 阶段 3/3：启动应用服务...
+v2ex-app |  ✓ Ready in 414ms          ← 应用确实起来了
+```
+
+但我的断言读到的是 `app=none`：
+
+```
+  [27s] postgres=healthy redis=healthy app=none
+  ...
+  [60s] postgres=healthy redis=healthy app=none
+  ✗ app 未达 healthy（none）
+```
+
+**根因（静态复核确认）**：
+
+```
+docker-compose.yml        : app.healthcheck = *** NONE ***
+deploy/docker-compose.yml : app.healthcheck = YES  (node -e 探 /, start_period 90s)
+```
+
+发行版 compose 才有 app healthcheck（因为 `install.sh`/`start.sh`/`update.sh` 需要等就绪信号），
+**仓库根 compose 没有** —— 我在写工作流时把两者当成了同一份。
+
+**修复（已落地到 `docker-verify.yml`）**：把 app 的就绪判定从
+「读 `State.Health.Status`」改为「**容器状态 + HTTP 探活**」，
+而 PG / Redis 继续用 health 状态（它们**确实有** healthcheck）：
+
+```bash
+PG=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-postgres ...)
+RD=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' v2ex-redis ...)
+APP_STATE=$(docker inspect --format '{{.State.Status}}' v2ex-app ...)
+APP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:3000/ ...)
+if [ "$PG" = "healthy" ] && [ "$RD" = "healthy" ] \
+   && [ "$APP_STATE" = "running" ] && [ "$APP_CODE" = "200" ]; then ...
+```
+
+**HTTP 探活是更强的证据** —— 它不只证明容器活着，而是证明 **Next.js 真的在服务请求**
+（且 `/` 是 force-dynamic 的 Server Component，会同时打到数据库）。
+
+**修复逻辑已用桩程序对照验证**：
+
+```
+新逻辑（container state + HTTP 200）:
+  [1s] postgres=healthy redis=healthy app_state=running http=200
+  ✓ PG/Redis healthy，app 容器 running 且 HTTP 200
+  ✓ 三个服务全部就绪
+  EXIT=0                                        ← 通过
+
+旧逻辑（读 State.Health.Status）:
+  [1s] postgres=healthy redis=healthy app=none
+  ...
+  ✗ app 未达 healthy（none）
+  EXIT=1                                        ← 这正是 CI 的失败
+```
+
+**同时修掉了 `[4/9]` 与 `[5/9]` 里同样的错误模式**
+（这两步也用了根 compose 的 `v2ex-app` health 状态），现在三处统一用
+「容器状态 + HTTP 200」。
+
+> ⚠️ **`[7/9]` 安装包那一步保留 `State.Health.Status` 断言是正确的** ——
+> 它用的是 `deploy/docker-compose.yml`（发行版），**那里 app 确实有 healthcheck**。
+> 已复核确认，不属于同类缺陷。
+
+> ⚠️ **连带影响值得记录**：`[9/9]` 排在第 2 项**之前**，所以它一红，
+> **第 2–8 项与全部 R-17 三项都被连带 skip** —— 这在 run `41836588637` 的 step 列表里清晰可见。
+> **教训**：在一个「逐项断言」的工作流里，**任何一项失败都会遮蔽后续所有项的取证**。
+> 理想做法是各项互不依赖（用 `if: always()` + 汇总判定），
+> 或至少把「最可能失败、最容易被遮蔽」的项目排在最后。当前顺序是「先便宜后昂贵」，
+> 在修掉三个 bug 后已可接受，但**结构上的脆弱性仍存在**，记为已知局限。
+
+### 5.2 ✅ 已被真实 CI 确认通过的部分
+
+**Run** `41836588637` / `41836706240`（`2532f5f9`）与 `41837202602` / `41837212362`（`930f29e`）：
+
+| 步骤 | 结论 | 说明 |
+|---|---|---|
+| 环境信息 | ✅ success | Docker / Compose 版本、磁盘可用量 |
+| `[1/9] 镜像真实构建` | ✅ **success** | `docker build` 真实成功 |
+| `[9/9] 镜像内容与权限检查` | ✅ **success**（`930f29e` 修复路径后） | 见下方明细 |
+| `[2/9][3/9]` Compose 启动 + 健康检查 | 🔄 **真实执行中** | |
+| `[4/9]`–`[8/9]`、`[R-17a-c]` | 🔄 排队中 | |
+| 生成验证汇总 / 上传验证证据 / compose 日志 / 停止并清理 | ✅ success | `if: always()` 生效，失败时也能留证据 |
+
+**`[9/9] 镜像内容与权限检查` —— 真实 CI 已确认通过的子断言**（从 run `41836588637` 日志）：
+
+- ✓ **`Config.User` 非 root，容器内 `id -u` ≠ 0**
+- ✓ **镜像不含 devDependencies**（playwright / playwright-core / vitest / typescript / `@playwright/test` / pixelmatch / pngjs / `@types/node` —— **8 项全不含**）
+- ✓ **镜像含运行时必需文件**（`drizzle-kit/bin.cjs`、`tsx/dist/cli.mjs`、`next/dist/bin/next`）—— 证明 entrypoint 三个阶段仍能跑
+- ✓ **镜像不含** `.env` / `.env.local` / `.env.test` / `.env.production` / `INSTALL_CREDENTIALS.txt`
+- ✓ **无凭据文件**（`find` 全盘扫 `.env*` 与 `*CREDENTIAL*` 结果为空）
+- ✓ **迁移物 `0000`/`0001`/`0002` 三个 SQL 均在镜像内**
+- ✓ **`meta/` 下 `_journal.json` + 3 个 snapshot 均在镜像内**（`930f29e` 补齐）
+
+> 📌 **这一项是整个 R-16 里安全价值最高的部分**：
+> 它用**真实镜像**证明了「生产镜像不含测试工具链、不含凭据、以非 root 运行、
+> 但保留了 entrypoint 必需的运行时依赖」——
+> **删过头导致容器起不来**与**删不够导致漏洞版本进生产**这两个方向都被覆盖了。
+
+### 5.3 🔄 仍待真实 CI 出结果的部分
+
+`[4/9]` 数据卷持久化、`[5/9]` 容器重启、`[7/9]` 安装包实际部署、`[8/9]` 容器资源观察、
+`[R-17a]` Redis 中断恢复、`[R-17b]` PG 中断恢复、`[R-17c]` 缓存失效观测 ——
+**本轮修复了第 2 项的断言口径后，需重新触发一次 CI 才能取证**，完成后回填本节。
+
+> ⚠️ 在结果出来之前，**这些项一律保持 🔴 待取证**。
+> 「工作流已就绪」与「验证已通过」是两件事 —— 本文档严格区分。
+>
+> 📌 **注意**：第 7 项「安装包实际部署」的**核心内容已被另一条工作流独立证明** ——
+> `install-verify.yml` 的 `Linux + 真实 Docker 安装` job 在 run `41836706277` / `41837212635` 上
+> **success**（真实 Docker 上跑 `install.sh`、`.env` 权限 600、凭据 600、口令强度、
+> 容器 healthy、管理员创建、数据持久化、重启后口令不变）。
+> 但 `docker-verify` 里的第 7 项走的是**「打成 tar.gz → 全新目录解包 → 安装」**路径，
+> 与 install-verify 的路径**不同**，仍需独立取证。
 
 ---
 

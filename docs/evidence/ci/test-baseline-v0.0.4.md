@@ -91,6 +91,180 @@ CONSISTENCY CHECK
 > 另注：本轮**未复现**「hook 超时 + 28 条被跳过」的历史现象，
 > `numPendingTests: 0` 证明**没有任何用例被静默跳过**（这是比「全绿」更强的结论）。
 
+### 0.3 基线归属证明：**190 这个数字只对应 `097c1b9`，不含任何未提交改动**
+
+本轮运行期间（20:36:39 – 20:40:14）有并发队友在编辑 `deploy/`。
+架构师随后提出质疑：「190 是否包含了未提交改动？」—— **答案是不含，且可证明**。
+
+**证据 A —— mtime 时序**：所有测试输入文件的 mtime **全部早于**我的运行窗口。
+
+| 路径 | mtime | 相对我的运行窗口（20:36:39–20:40:14） |
+|---|---|---|
+| `tests/*.spec.ts`（15 个） | 最晚 `2026-11-04 18:18:34` | **全部更早** ✅ |
+| `vitest.config.ts` | `2026-11-04 18:42:12` | **更早** ✅ |
+| `src/db/index.ts` / `schema.ts` | `11-03 22:39` / `11-04 09:55` | **更早** ✅ |
+| `drizzle/*.sql` | 最晚 `11-04 16:22:59` | **更早** ✅ |
+| `drizzle.config.ts` | `11-03 13:06:58` | **更早** ✅ |
+| `package.json` | `11-04 09:55:18` | **更早** ✅ |
+| `docker-compose.yml` / `Dockerfile` | 未修改 | **更早** ✅ |
+| `deploy/.env.example` | `2026-11-04 20:36:43` | ⚠️ **在窗口内**（见证据 B） |
+| `deploy/update.sh` | `2026-11-04 20:52:05` | 窗口**之后** ✅ |
+| `scripts/release/verify-update-script.sh` | `2026-11-04 20:58:34` | 窗口**之后** ✅ |
+
+**证据 B —— `deploy/` 不在任何测试的输入路径里**：
+
+```bash
+$ grep -rn "deploy/" tests/
+tests/client-ip.spec.ts:7: * 而应用端口直接映射到宿主机（`deploy/docker-compose.yml` 的
+```
+
+**唯一一处 `deploy/` 出现在一个注释里**，没有任何测试**读取** `deploy/` 下任何文件。
+`tests/docker-config.spec.ts`（42 条用例，占比最大）读的是：
+`docker-compose.yml`、`docker-compose.debug.yml`、`Dockerfile`、
+`scripts/docker-entrypoint.sh`、`scripts/seed.ts`、`scripts/verify.sh`、
+`scripts/check-residual-exposure.sh`、`.github/workflows/ci.yml`、`package.json`
+—— **全部在仓库根，不在 `deploy/`**。
+
+**证据 C —— 工作区对测试输入零改动**：
+
+```bash
+$ git status --short -- tests/ src/ drizzle/ scripts/docker-entrypoint.sh scripts/seed.ts \
+    scripts/verify.sh docker-compose.yml docker-compose.debug.yml Dockerfile package.json \
+    .github/workflows/ci.yml
+（空 —— 全部测试输入与 HEAD 097c1b9 逐字节一致）
+```
+
+**结论**：`190 / 15` 这个基线**严格对应 commit `097c1b9`**，
+与运行期间并发产生的 `deploy/` 改动**完全无关**，可以安全引用。
+（唯一在窗口内的改动是 `deploy/.env.example`（20:36:43，比 START 晚 4 秒），
+但它不在任何测试的输入路径上，因此对结果零影响。）
+
+### 0.4 🔴 **新发现的高危缺陷：v0.0.4 的 CI 单元测试 job 必然红灯**
+
+架构师提出「`floor-continuity.spec.ts` 在 CI 上必崩」，我**独立复现并确认**，
+且把机理与影响面测得更清楚。
+
+**复现方法**（不是推测，是真实跑出来的）：
+用 `git archive HEAD` 导出一份**纯净检出**（= GitHub Actions 看到的 checkout，
+不含任何 gitignored 文件），再按 `ci.yml` 的方式提供 `DATABASE_URL`：
+
+```bash
+$ git archive HEAD | tar -x -C /tmp/ci-sim      # 纯净 CI 检出
+$ ls /tmp/ci-sim/.env.test
+  *** NO — .env.test ABSENT in CI checkout ***
+```
+
+> 根因：`.env.test` 被 `.gitignore` 第 16 行排除（`git ls-files` 只跟踪
+> `.env.example` 与 `deploy/.env.example`），**CI 检出里根本没有这个文件**。
+
+**真实失败输出**：
+
+```
+ FAIL  tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT）
+Error: ENOENT: no such file or directory, open '.../ci-sim/.env.test'
+ ❯ baseDatabaseUrl tests/floor-continuity.spec.ts:64:5
+    64|     readFileSync(path.join(repoRoot, '.env.test'), 'utf8'),
+       |     ^
+ ❯ testDatabaseUrl tests/floor-continuity.spec.ts:72:23
+ ❯ tests/floor-continuity.spec.ts:104:30
+
+ Test Files  1 failed (1)
+      Tests  5 skipped (5)
+```
+
+**精确机理**（`tests/floor-continuity.spec.ts:60-68`）：
+
+```ts
+function baseDatabaseUrl(): string {
+  const injected = process.env.DATABASE_URL;
+  if (injected && /:55433\//.test(injected)) return injected;   // ← 只认 55433
+  const fromTestFile = parseEnvFile(
+    readFileSync(path.join(repoRoot, '.env.test'), 'utf8'),      // ← CI 下 ENOENT
+  ).DATABASE_URL;
+  ...
+}
+```
+
+CI 的 `DATABASE_URL` 是 `postgres://...@localhost:5432/v2ex_ci`（`ci.yml` 第 146 行），
+**不匹配 `/:55433\//`** → 落到 `readFileSync('.env.test')` → **ENOENT**。
+
+**反证（证明机理正确，不是别的原因）**：把 `DATABASE_URL` 换成带 `:55433/` 的值，
+同一份纯净检出立刻通过：
+
+```
+$ DATABASE_URL=postgres://v2ex:***@127.0.0.1:55433/postgres npx vitest run tests/floor-continuity.spec.ts
+ Test Files  1 passed (1)
+```
+
+**影响面 —— 只有 1 个文件真正中招**（这点很关键，不要误伤其它文件）：
+
+| 测试文件 | 读 `.env.test`？ | CI 下表现 |
+|---|---|---|
+| `tests/floor-continuity.spec.ts` | ✅ **是**（且有 `:55433/` 硬门） | 🔴 **ENOENT → 5 条 skipped** |
+| `tests/seed-idempotency.spec.ts` | ❌ 否（只用 `process.env.DATABASE_URL`；第 48 行的 `.env.test` 只是**注释**） | ✅ 正常 |
+| 其余 13 个文件 | ❌ 否 | ✅ 正常 |
+
+**纯净 CI 检出的全量结果**（`DATABASE_URL` 指向真实 PG，剔除本机无 5432 造成的
+`ECONNREFUSED` 噪声）：
+
+```
+ Test Files  1 failed | 14 passed (15)
+      Tests  148 passed (148)
+      Duration  238.83s
+```
+
+唯一失败的是 `docker-config.spec.ts`，**但那是我纯净检出没有 `.git` 目录导致的
+本地伪影**（它执行 `git ls-files` 校验「原站素材不入库」）—— GitHub Actions 的
+checkout **有完整 `.git`**，不会失败。**已排除。**
+
+> **所以最终结论**：
+> 在纯净 CI 检出下，**只有 `tests/floor-continuity.spec.ts` 会真实失败**，
+> 表现为 **1 个文件 failed + 5 条用例 skipped**。
+> 其余 14 个文件 / 148 条用例**全部通过**。
+>
+> ⚠️ **影响**：`ci.yml` 的 `unit` job 会**红灯** → `e2e` job 因 `needs: unit` **被跳过**
+> → **整个 CI 红灯**。这会让「推送后 CI 全绿」无法成立，**必须在推送前修复**。
+>
+> ⚠️ **且注意 `5 skipped` 这个形态**：这正是 R-23 修复的那类**静默跳过** ——
+> 如果只看「148 passed」，会误以为通过；实际是 `1 failed + 5 skipped`。
+> **核对 CI 时必须看 `Test Files` 行，不能只看 `Tests` 行。**
+
+### 0.5 候选修复方案 —— **已实跑验证通过**（供架构师 T01/T03 直接采纳）
+
+修复思路：**去掉 `:55433/` 硬编码门 + `.env.test` 读取前先判断文件存在**。
+这同时满足两条要求：**CI 用环境变量**、**本地仍可用 `.env.test` 兜底**。
+
+```ts
+// tests/floor-continuity.spec.ts
+import { existsSync, readFileSync } from 'node:fs';
+
+function baseDatabaseUrl(): string {
+  const injected = process.env.DATABASE_URL;
+  if (injected) return injected;                       // ← 优先用环境变量（CI 走这条）
+
+  const testFilePath = path.join(repoRoot, '.env.test');
+  if (existsSync(testFilePath)) {                      // ← 本地兜底前先判存在
+    const fromTestFile = parseEnvFile(readFileSync(testFilePath, 'utf8')).DATABASE_URL;
+    if (fromTestFile) return fromTestFile;
+  }
+
+  throw new Error('无法解析隔离测试实例的 DATABASE_URL（环境变量与 .env.test 均缺失）');
+}
+```
+
+**验证结果（在纯净 CI 检出 `/tmp/ci-sim` 上实跑，不是纸面推演）**：
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| **CI 条件**（`DATABASE_URL` 不含 `:55433/`、无 `.env.test`） | 🔴 `ENOENT .env.test` → `1 failed + 5 skipped` | ✅ **`1 passed (1)` / `5 passed (5)`** |
+| **本地条件**（`.env.test` 存在） | ✅ 5 passed | ✅ **`1 passed (1)` / `5 passed (5)`**（无回归） |
+
+> ⚠️ **我没有修改仓库里的这个文件** —— `tests/**` 是架构师/工程师的所有权，
+> 且 T01/T03 正在做统一改造（`provisionTestDatabase()` 封装），
+> 我在他们的设计里直接改会造成并行冲突。
+> **以上补丁是在 `/tmp/ci-sim` 的副本上验证的，仓库原文未被触碰。**
+> 建议以 T01 的「shell > ENV_FILE」裁决为准，把这段逻辑并入统一封装。
+
 ---
 
 ## 1. 单元测试实测（✅ 真实运行）
