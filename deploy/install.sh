@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.3 — 一键安装脚本（Linux / macOS）
+# V2EX Clone v0.0.4 — 一键安装脚本（Linux / macOS）
 #
 # 用法：
 #   chmod +x install.sh && ./install.sh
@@ -23,8 +23,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_VERSION="0.0.3"
-DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.3"
+APP_VERSION="0.0.4"
+DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.4"
 # 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
 # 之前这里硬编码写回 DEFAULT_IMAGE，会**静默忽略**调用方的取值，
 # 导致「用本地镜像跑安装验证」的 CI 场景必然拉取远端不存在的镜像而失败。

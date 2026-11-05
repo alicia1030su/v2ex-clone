@@ -22,41 +22,41 @@
 
 ---
 
-## 当前版本：v0.0.3（开发预览版 / Pre-release）
+## 当前版本：v0.0.4（开发预览版 / Pre-release）
 
-> ⚠️ **版本号尚未同步（v0.0.4 开发中，主理人裁决 R-20）**：本文件中的版本载体**仍为 `0.0.3`**，
-> 这**不是遗漏** —— 任务书明令「v0.0.4 期间禁止提前创建最终 Tag，同一版本号不得反复删建或移动 Tag」。
-> 在**最终 SHA 固定之前**升版本号会造成「版本号已是 0.0.4、却没有对应 Tag 与 Release」的中间态。
-> 处置：`[Unreleased]` 段落累积变更 → 固定最终 SHA → **一次性**同步版本载体、Tag 与 Draft Release。
+> ✅ **版本号已同步（v0.0.4，主理人裁决 R-20）**：版本载体已由 `0.0.3` 一次性同步为 `0.0.4`。
+> 同步时机严格遵守「**最终 SHA 固定之后**」的规约 —— 避免出现「版本号已是 0.0.4、
+> 却没有对应 Tag 与 Release」的中间态。**v0.0.4 的 Tag 与 Release 见下方版本历史与 GitHub Releases。**
 > 门禁见 `docs/RELEASE_PROCESS_v0.0.4.md` §5.3（G-VER-01）。
 > **v0.0.4 的完整变更见 `CHANGELOG.md` 的 `[Unreleased]` 段落。**
 
 | 项 | 值 |
 |---|---|
-| 版本号 | `v0.0.3`（**v0.0.4 开发中，尚未同步**，见上方裁决） |
+| 版本号 | `v0.0.4`（**已同步**；版本载体于最终 SHA 固定时一次性同步，见上方裁决） |
 | 发布形态 | **开发预览版（Pre-release）** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.3` |
-| 数据库迁移 | `drizzle/0000_init.sql`（v0.0.2 基线） + `drizzle/0001_striped_magdalene.sql`（v0.0.3） + `drizzle/0002_v004_perf_indexes.sql`（**v0.0.4 开发中**） |
+| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` |
+| 数据库迁移 | `drizzle/0000_init.sql`（v0.0.2 基线） + `drizzle/0001_striped_magdalene.sql`（v0.0.3） + `drizzle/0002_v004_perf_indexes.sql`（**v0.0.4**） |
 
-> **v0.0.3 是开发预览版。**
+> **v0.0.4 是开发预览版。**
 >
 > - **不保证与 V2EX 完全一致** —— 页面内容、交互细节与原站存在差异
 > - **不具备生产就绪条件** —— 未经生产环境验证，未做长时间稳定性验证
 > - **不建议用于生产环境** —— 若要使用，请自行评估风险并完成 `docs/INSTALL.md` 第 12 节的安全清单
 > - 版本号遵循语义化版本：`0.0.x` 表示接口与行为**仍可能破坏性变更**
 >
-> ### 升级到 v0.0.3
+> ### 升级到 v0.0.4
 >
-> v0.0.3 支持从 v0.0.2 **原地升级**（不删库、不清卷、不重置口令）。
-> 详见 [`docs/UPGRADE-v0.0.3.md`](docs/UPGRADE-v0.0.3.md)。
+> v0.0.4 支持从 v0.0.3 **原地升级**（不删库、不清卷、不重置口令）。
+> `./update.sh --version v0.0.4` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚。
+> 详见 [`docs/UPGRADE_RECOVERY_v0.0.4.md`](docs/UPGRADE_RECOVERY_v0.0.4.md)。
 
 ### 版本历史
 
 | 版本 | 主要内容 |
 |---|---|
-| **v0.0.4（开发中，未发布）** | 修复 11 项真实缺陷（含 3 项本轮新发现：`docker-verify.yml` 定义级失败 / 迁移物路径断言错误 / 运行时上传数据误入仓）；3 项性能优化；真实社区规模压测；升级脚本自动同步镜像 tag；发布前只读门禁 |
+| **v0.0.4** | 修复 11 项真实缺陷（含 3 项本轮新发现：`docker-verify.yml` 定义级失败 / 迁移物路径断言错误 / 运行时上传数据误入仓）；3 项性能优化；真实社区规模压测；升级脚本自动同步镜像 tag；发布前只读门禁 |
 | v0.0.3 | 主题/回复生命周期（编辑、软删除、恢复、锁定置顶、投票、感谢）、邮件找回密码、积分体系、节点与 Feed 订阅、后台管理、响应式适配 |
 | v0.0.2 | 限流信任边界修复、供应链漏洞清零、Windows 安装脚本修复、生产镜像裁剪、发布流水线修复 |
 | v0.0.1 | 首个公开版本（开发预览） |
@@ -136,7 +136,7 @@
 
 ### 仍未实现（本版本**完全未实现**）
 
-> 以下能力在 v0.0.3 中**没有实现**。
+> 以下能力在 v0.0.4 中**没有实现**。
 > 项目**不提供**任何形式的假实现 —— 没有占位按钮、没有假接口、没有静态演示数据冒充。
 > 若你在页面上看到一个不工作的按钮，那是因为**功能没做**，而不是「点了没反应」。
 
@@ -192,7 +192,7 @@
 
 ### 方式 A：一键安装包（推荐）
 
-下载 `v2ex-clone-v0.0.3-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.4-deploy.zip` 并解压。
 
 **Linux / macOS：**
 
@@ -209,7 +209,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 安装完成后访问 **http://localhost:3000**。
 
-安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.3>
+安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4>
 
 ### 方式 B：手动 Docker Compose
 
@@ -250,9 +250,9 @@ docker compose up -d
 
 | 内容 | 位置 |
 |---|---|
-| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.3> |
-| 一键部署安装包 | `v2ex-clone-v0.0.3-deploy.zip` |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.3` |
+| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4> |
+| 一键部署安装包 | `v2ex-clone-v0.0.4-deploy.zip` |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
 > 镜像拉取需要 GHCR 包为 **public** 才能匿名 `docker pull`。

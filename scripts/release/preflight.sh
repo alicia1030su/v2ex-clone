@@ -366,9 +366,21 @@ for f in deploy/*.sh; do
   bash -n "$f" 2>/dev/null || { fail "bash -n 失败：${f}"; SYNTAX_BAD=$((SYNTAX_BAD+1)); }
 done
 [ "$SYNTAX_BAD" -eq 0 ] && ok "deploy/*.sh 共 $(ls -1 deploy/*.sh | wc -l | tr -d ' ') 个脚本 bash -n 语法通过"
-TRACKED_ENV="$(git ls-files | grep -E '(^|/)\.env' | grep -v '\.env\.example$' || true)"
+# 跟踪的 env 文件白名单：**只允许 `.example` 模板**。
+#
+# ⚠️ 豁免规则必须覆盖 `*.example` 与 `*.example.*` 两种形态：
+#   - `.env.example`              （根目录模板）
+#   - `deploy/.env.example`       （部署模板）
+#   - `tests/env/.env.test.example`（v0.0.4 新增的**测试环境模板**）
+#
+# 上一轮只豁免了 `\.env\.example$`，于是 `tests/env/.env.test.example`
+# 被误判为「被跟踪的 .env 文件」而报 FAIL —— 而它**恰恰应该入库**：
+# 它是「哪些变量是测试专用」的文档，全部用 `__占位符__` 形式，
+# 不含任何真实口令（与 `.env.example` 的基线一致）。
+# `tests/helpers/test-env.ts` 在 `.env.test` 缺失时从它生成本机副本。
+TRACKED_ENV="$(git ls-files | grep -E '(^|/)\.env' | grep -vE '\.example($|\.)' || true)"
 [ -z "$TRACKED_ENV" ] \
-  && ok 'Git 跟踪的文件中无 .env 系列（仅允许 .env.example）' \
+  && ok 'Git 跟踪的文件中无 .env 系列（仅允许 *.example 模板）' \
   || fail "存在被跟踪的 .env 文件：${TRACKED_ENV}"
 if grep -q '!drizzle/\*\.sql' .dockerignore 2>/dev/null; then
   ok '.dockerignore 白名单保留 drizzle/*.sql（0002 会进入镜像）'
