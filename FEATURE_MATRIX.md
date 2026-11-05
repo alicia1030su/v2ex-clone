@@ -54,7 +54,7 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 |---|---|---|---|
 | 邮件找回密码 | ✅ 已实现 | `src/app/api/auth/forgot-password/route.ts` (POST)；`src/lib/mailer.ts` (sendMail) |
 | 一次性密码重置令牌 | ✅ 已实现 | `src/lib/reset-token.ts` (generateResetToken（纯函数）)；`src/lib/reset-token-store.ts` (createResetToken / consumeResetToken)；`tests/password-reset.spec.ts` (11 条安全属性) |
-| SMTP 可配置发送服务 | ✅ 已实现 | `src/lib/mailer.ts` (readSmtpConfig)；`src/lib/smtp-client.ts` (零依赖 SMTP 客户端) |
+| SMTP 可配置发送服务 | ✅ 已实现（v0.0.5 接通生产路径并实测） | `src/lib/mailer.ts`：`readSmtpConfig()` / `deliverViaSmtp()`（**零依赖 SMTP 客户端**，生产实现）/ `sendMail()`。**v0.0.5 已删除死代码 `src/lib/smtp-client.ts`**（无任何生产调用方），协议级测试改为直测 `sendMail()` ⇒ 「测试通过」= 「生产可用」 |
 | 令牌过期 / 撤销 / 重放防护 | ✅ 已实现 | `src/lib/reset-token-store.ts` (三重状态 + 原子消费)；`tests/password-reset.spec.ts` (过期/撤销/重放/并发) |
 | 修改密码后旧会话失效 | ✅ 已实现 | `src/app/api/auth/reset-password/route.ts` (删除该用户全部会话)；`tests/password-reset.spec.ts` (改密后会话清空) |
 | 修改用户简介/网站/个人资料 | ✅ 已实现 | `src/app/api/users/me/route.ts` (GET / PATCH) |

@@ -245,7 +245,10 @@
 - **一次性重置令牌**：只存哈希；过期/撤销/已使用三重防护；
   消费用 `UPDATE ... WHERE used_at IS NULL` —— **8 并发消费只有一个成功**
 - **改密后旧会话全部失效**（删除该用户 `sessions` 记录）
-- **零依赖 SMTP 客户端**（`src/lib/smtp-client.ts`）—— 不引入 `nodemailer`，避免扩大供应链面
+- **零依赖 SMTP 客户端**（`src/lib/mailer.ts` 的 `deliverViaSmtp()`）—— 不引入 `nodemailer`，避免扩大供应链面
+  > **v0.0.5 更正**：此前文档标注的 `src/lib/smtp-client.ts` 是一个**没有生产调用方的死代码**
+  > （真正的生产实现在 `src/lib/mailer.ts`）。本轮已**删除该死代码**，并把协议级测试改为
+  > **直测生产路径**，同时修复了生产实现里的 3 个真实缺陷。
 - **头像上传**：magic number 嗅探（**不信任 MIME 声明**）、大小上限、
   **服务端生成随机存储路径**（防路径穿越与覆盖）
 - **修改资料**（`PATCH /api/users/me`）：只改本人；`url` 仅允许 http/https（防 `javascript:` 伪协议）

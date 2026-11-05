@@ -53,3 +53,31 @@ export function getDebugToken(): string | null {
   const token = process.env.DEBUG_ENDPOINT_TOKEN?.trim();
   return token ? token : null;
 }
+
+/**
+ * 是否允许在隔离测试环境里走**真实 SMTP 投递**（不发到真实用户）。
+ *
+ * ## 为什么需要这个开关
+ *
+ * `sendMail()` 在测试运行时会走内存 outbox（`isTestRuntime()`），
+ * 这对绝大多数测试是对的 —— 但它意味着**生产 SMTP 代码路径
+ * （`deliverViaSmtp`）从未被测试执行过**。
+ *
+ * v0.0.5 的 SMTP 协议级测试就踩到了这个坑：
+ * 它测的是 `src/lib/smtp-client.ts` —— 而那个文件**根本没有生产调用方**
+ * （真正的实现在 `src/lib/mailer.ts` 的 `deliverViaSmtp`）。
+ * 于是「测试全绿」与「生产可用」是两回事。
+ *
+ * ## 安全边界
+ *
+ * 必须**同时**满足：
+ *  1. `SMTP_ALLOW_REAL_IN_TEST=1`
+ *  2. 处于**隔离测试环境**（`APP_RUNTIME_ENV=test` 且 `TEST_ENV_ISOLATED=1`）
+ *
+ * 生产与预发环境即使误配 `SMTP_ALLOW_REAL_IN_TEST=1` 也不生效 ——
+ * 隔离测试环境的判定本身就要求 `APP_RUNTIME_ENV=test`。
+ */
+export function isRealSmtpAllowedInTest(): boolean {
+  if (process.env.SMTP_ALLOW_REAL_IN_TEST !== '1') return false;
+  return isIsolatedTestEnv();
+}

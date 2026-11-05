@@ -211,7 +211,7 @@ FEATURE_MATRIX 有一处**不实标注**（积分调整）。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
-| SMTP 客户端 | **VERIFIED**（代码级） | `src/lib/smtp-client.ts`：零依赖，EHLO / STARTTLS / AUTH LOGIN / DATA / QUIT；无 DKIM / 多收件人 |
+| SMTP 客户端 | **VERIFIED**（**协议级实测**，v0.0.5 更正） | 生产实现是 `src/lib/mailer.ts` 的 `deliverViaSmtp()`（零依赖，EHLO / STARTTLS / AUTH LOGIN / MAIL FROM / RCPT TO / DATA / QUIT）；**v0.0.5 已删除死代码 `src/lib/smtp-client.ts`**（经全仓检索确认**无任何生产调用方** —— 此前的 ✅ 标注与文档引用均不实）。本轮新增 `tests/v005-smtp-protocol.spec.ts` **直测生产路径 `sendMail()`**（6 条全绿）；无 DKIM / 多收件人 / **真实外部 SMTP 投递未验证**（无凭据，不向真实用户发邮件） |
 | 配置读取 | **VERIFIED**（代码级） | `src/lib/mailer.ts`：`SMTP_HOST/PORT/FROM/USER/PASS/SECURE`；「绝不假装已发送」，未配置如实返回 |
 | 收件人脱敏 + `email_logs` | **VERIFIED** | 同上 |
 | 测试运行时进内存 outbox | **VERIFIED** | `NODE_ENV`/`APP_RUNTIME_ENV=test` 时不连真 SMTP |
