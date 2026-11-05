@@ -714,3 +714,127 @@ install.sh 完成、`.env` 600、INSTALL_CREDENTIALS.txt 600、口令 32/32/48/1
 
 > ⚠️ **R-01 仍为 DEFERRED** —— 禁止改写远端历史 / 删 Tag / 改 Release / 改仓库可见性。
 > 本轮改动**未触碰**任何 R-01 相关表述。
+
+---
+
+# 第 8 轮状态快照（2026-11-05，主理人）—— 最新状态以此为准
+
+> 本轮 = **发布阶段**：从「V4-20 修复完成」推进到「v0.0.4 候选版本交付」。
+> 第 7 轮快照的「下一步动作」表（版本同步 / Tag）**已在本轮完成**。
+
+## A. 本轮起点与恢复
+
+只读核查结果：HEAD `5ce8b3f`、分支 `feat/v0.0.4-high-fidelity`、**工作区完全干净**（0 个未提交条目）。
+上一轮成果已全部提交入库，**无需抢救**。仓库无其他 worktree、无 stash。
+
+## B. 本轮提交序列
+
+| Commit | 内容 |
+|---|---|
+| `ee6ce76` | docs(v0.0.4): 交付文档口径全面校正（E2E 分母 154 + 过期 CI 状态归位 + 新增 V4-20/R-27）—— 21 文件，+620/−323 |
+| `bddb3d0` | **fix(ui): 修复节点申请 UI 提交链断裂（V4-20 / R-27）** —— 表单命名属性遮蔽 `form.nodeName` |
+| `c4b91b4` | docs(v0.0.4): V4-20 / R-27 状态闭环 —— CI 三 job 全绿 + 新增第 7 轮快照 |
+| `c3f23b8` | docs(v0.0.4): 修正 CI 复验标记瑕疵 + 升级脚本自检数字同步到本轮实测 87 项 |
+| `54c3d02` | **chore(release): v0.0.4 版本载体一次性同步（0.0.3 → 0.0.4）** + preflight 豁免规则修正 |
+| `3c2acd6` | chore(release): 放行 v0.0.4 的 release tag 白名单（人工摩擦的放行动作） |
+
+## C. V4-20 根因（完整证据链，本轮最有价值的产出）
+
+### 现象
+生产构建（`next build` + `next start`）下 `/nodes/request` 的「提交申请」按钮**完全无法工作**：
+点击后走**浏览器原生表单 GET 提交**（URL 变成 `/nodes/request?nodeName=...`），
+整条链路**没有任何** `POST /api/node-requests`；浏览器抛 React #418 + `TypeError`。
+
+**API 路径是通的**（`POST /api/node-requests` 正常）⇒ **真实产品缺陷**，非测试误报。
+
+### 根因
+HTML 规范给 `HTMLFormElement` 加了 `[OverrideBuiltins]` ——
+表单内的**命名控件**会遮蔽原型上的同名属性：
+
+    <form><input name="nodeName"></form>
+    → form.nodeName === HTMLInputElement（不是字符串 "FORM"）
+
+Next.js 15.5 内置的 React 19 水合代码（`react-dom-client.production.js`
+的 `canHydrateInstance`）有一行：
+
+    instance.nodeName.toLowerCase() !== type.toLowerCase()
+
+`nodeName` 此时是 Element ⇒ `.toLowerCase()` 不存在 ⇒ TypeError ⇒
+水合失败（#418）⇒ **事件处理器不绑定** ⇒ 表单走原生 GET ⇒ 写操作彻底失效。
+
+### 实测矩阵（Chromium，2026-11-05）
+
+| form 内控件 | `form.nodeName` | react-dom 崩溃 |
+|---|---|---|
+| `name="nodeName"` | HTMLInputElement | ❌ **致命** |
+| `id="nodeName"` | HTMLInputElement | ❌ **致命**（`id` 同样遮蔽！） |
+| `name="title"` / `id="title"` | "FORM"（正常） | ✅ 不致命（只遮蔽 `form.title`） |
+| `name="nodeTitle"` / `categoryId` / `description` | "FORM"（正常） | ✅ 不致命 |
+
+**关键教训**：最初只改了 `name`、把 `id="nodeName"` 留下来 ⇒ **崩溃照旧**。
+`name` 与 `id` **两者都会遮蔽**，改一个不够。
+
+### 修复
+`NodeRequestForm`（`nodeName`→`node_slug`、`nodeTitle`→`node_title`，name 与 id 都改）、
+`NewTopicForm` / `TopicEditForm`（`name="title"`→`name="topic_title"`，
+`id="title"` **保留** —— E2E 用 `#title` 定位）、
+E2E 选择器同步、**新增 `tests/form-name-shadowing.spec.ts`**（4 项防回归断言）。
+
+## D. 本轮实测基线（本地 + CI 双实证）
+
+| 项 | 数值 | 证据 |
+|---|---|---|
+| 单元测试 | **194 passed / 194（16 文件）**，81.68s | 本地实跑 + CI run `41951044045` |
+| E2E | **154 passed / 0 failed / 0 skipped（11 文件）**，3.5~3.9m | 本地实跑 + CI run `41951044045` |
+| 类型检查 | ✅ `npx tsc --noEmit` | 本地对最终 SHA `3c2acd6` 实跑 |
+| API 契约 | ✅ 72 后端路由 / 34 前端调用全匹配 | `node scripts/ui-verify.cjs` |
+| CI 三 job | ✅ 全绿 | run `41951044045`（SHA `bddb3d0`）、run `41951044028` / `41951044124` |
+| 升级脚本自检 | ✅ **87 项断言全 PASS / 0 FAIL** | `bash scripts/release/verify-update-script.sh` |
+| docker-verify | ✅ 九项全 PASS | run `41871503684`（SHA `2773cd1`） |
+| 发布门禁 | `--phase=release`：PASS=78 **FAIL=0** | `bash scripts/release/preflight.sh --phase=release` |
+
+## E. 发布动作（本轮已完成）
+
+| # | 动作 | 结果 |
+|---|---|---|
+| 1 | 版本载体一次性同步（5 载体 + deploy/ 侧 10 文件） | `54c3d02` |
+| 2 | preflight 豁免规则修正（`\.example($|\.)`） | `54c3d02` |
+| 3 | release tag 白名单人工放行（加 `v0.0.4`） | `3c2acd6` |
+| 4 | CI 复验（最终 SHA 全 workflow 绿） | run `41952499563` / `41952499615` / `41952499574` 等 |
+| 5 | **合并 PR #5**（squash） | master → **`c0e7396`** |
+| 6 | **创建不可变 Tag `v0.0.4`** | 指向 `c0e7396`（annotated tag） |
+| 7 | 推送 Tag → 触发 Release 流水线 | 已触发，四个 workflow 并行 |
+| 8 | **Draft Release** | 由流水线 `publish-release` job 创建（**默认 `--draft`**） |
+
+**唯一的 BLOCK 是 R-01**（Git 历史原站素材，DEFERRED）⇒ Release **保持 Draft**，
+未获主人单独授权前**不得公开发布**。`release.yml` 的 `push.tags` 路径
+**默认不转正式发布**（只有显式 `workflow_dispatch` 传 `publish=true` 才会）。
+
+## F. 本轮顺手修掉的两个真实问题
+
+1. **preflight 误判 `tests/env/.env.test.example`** —— 豁免规则只写了 `\.env\.example$`，
+   把「恰恰应该入库」的测试环境模板判成「被跟踪的 .env 文件」而报 FAIL。
+   修复：豁免扩展为 `\.example($|\.)`。
+2. **`deploy/INSTALL.md` §8 的过期陈述** —— 原写「`update.sh` 的自动 tag 同步逻辑尚未实装
+   … R-18（OPEN）」，**已不成立**（R-18 已修，87 项自检全 PASS）。已更正并标注残余边界。
+
+## G. 本地执行环境的三条纪律（同第 7 轮，仍然有效）
+
+| # | 纪律 | 原因 |
+|---|---|---|
+| 1 | **PG 的生命周期必须在同一次调用内启动与测试** | PG 实例不跨 Bash 调用存活（工具回收进程树） |
+| 2 | **`next build` 须先清 `NODE_OPTIONS`** 并关掉 `CODEBUDDY_SAFE_DELETE_ENABLED` / `CODEBUDDY_BROKERED_FS_HOOK_ENABLED` | WorkBuddy 的 fs shim 会拦截 `.next` 的批量删除与 `fs.open()`（`EPERM` on `.next/trace`） |
+| 3 | **输出不用管道** | `bash x.sh \| tail` 会让 postgres 继承 stdout，管道永不结束 ⇒ 整条命令被 SIGTERM |
+
+## H. 下一步动作
+
+| # | 动作 | 说明 |
+|---|---|---|
+| 1 | **核验 Release 流水线结果** | 四个 workflow（Release / CI / 安装验证 / Docker 隔离验证）跑完后确认全绿 |
+| 2 | **核验 Draft Release 资产** | 安装包 `v2ex-clone-v0.0.4-deploy.zip` + `SHA256SUMS` 齐全，`draft=true` |
+| 3 | **回填 run id 到交付文档** | Release 流水线 run id + Draft Release 资产清单 |
+| 4 | ⬜ **正式发布需主人单独授权** | R-01 未裁决 ⇒ 只能停在 Draft |
+
+> ⚠️ **R-01 仍为 DEFERRED** —— 禁止改写远端历史 / 删 Tag / 改 Release / 改仓库可见性。
+> 本轮改动**未触碰**任何 R-01 相关表述，也**未移动或删除**任何既有 Tag / Release
+> （`v0.0.1` / `v0.0.2` / `v0.0.3` 与 v0.0.3 的 Draft Release 完好）。
