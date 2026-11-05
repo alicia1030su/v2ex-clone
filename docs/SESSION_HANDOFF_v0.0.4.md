@@ -844,3 +844,152 @@ Draft 在 GitHub 权限模型里属 **PR-like 资源**，需 `pull-requests: wri
 > ⚠️ **R-01 仍为 DEFERRED** —— 禁止改写远端历史 / 删 Tag / 改 Release / 改仓库可见性。
 > 本轮**未移动、未删除**任何 Tag 或 Release；测试期间用个人 token 临时创建的两个
 > 探针 Draft 已**立即删除**（Release 列表已复原）。
+
+---
+
+# 第 10 轮状态快照（2026-11-05，主理人）—— v0.0.4 Draft Release 已交付
+
+> 本轮 = **发布阶段收官**。v0.0.4 的 Draft Release 已由流水线创建并通过远端核验。
+> 第 9 轮快照 §G「下一步动作」表**已全部完成**。
+
+## A. 本轮解决的最后一个问题：`gh release create` 连续 403
+
+第 9 轮留下一个未决问题：发布流水线跑到「创建并发布 Release」就红灯
+（`HTTP 403: Resource not accessible by integration`），Release 建不出来。
+
+### 定位过程（**五轮 run**，逐个排除假设）
+
+| # | 假设 | 验证方式 | 结论 |
+|---|---|---|---|
+| 1 | 权限项不够（需 `pull-requests: write`） | PR #13 加上后重跑（run `41983127742`） | ❌ **仍 403** |
+| 2 | 参数错误（`--target` 不是 tag 目标） | 个人 token 分别传「tag 目标」与「master HEAD」建 Draft | ❌ 都成功 ⇒ 参数没错 |
+| 3 | Release 已被占用 | `gh release list` | ❌ v0.0.4 不存在 |
+| 4 | job 级 `permissions` 整体失效 | `build-image` 的 `packages: write` 生效（镜像推送成功）；`verify-release` 日志显示 `Contents: write` | ❌ **生效** |
+| 5 | token 无效 | `preflight` 的 `gh release view`（同 token）成功 | ❌ 有效 |
+| 6 | 仓库/分支策略限制 | 无分支保护；`actions/permissions/workflow` = read（job 级可覆盖） | ❌ 无限制 |
+| 7 | `.permissions` 全 false ⇒ token 无权限 | **假象** —— 该字段反映 GitHub App installation 权限，与 GITHUB_TOKEN 在当前 job 的可用权限不是同一回事 | ❌ 误导 |
+
+期间还**误判过一次**：run `41985412431` 的诊断步骤里 `gh api POST /releases`
+成功（id `434887371`），于是判定「403 是 `gh release create` CLI 封装自身的行为」。
+**run `41988622554` 证伪了它** —— 那次改用 `gh api` 但显式传了
+`-f target_commitish=<sha>`，**同样 403**。
+
+### 真正的根因：`target_commitish` 参数
+
+五轮 run 的变量对比，终于收敛：
+
+| run | 调用方式 | `target_commitish` | 结果 |
+|---|---|---|---|
+| `41978482846` | `gh release create --target <sha>` | 有 | ❌ 403 |
+| `41983127742` | `gh release create --target <sha>` | 有 | ❌ 403 |
+| `41985412431` | `gh api POST`（诊断步骤） | **无** | ✅ **成功**（id `434887371`） |
+| `41985412431` | `gh release create --target <sha>` | 有 | ❌ 403 |
+| `41988622554` | `gh api POST -f target_commitish=<sha>` | 有 | ❌ 403 |
+
+**同一个 token、同一个 job、同一个 tag —— 传它就 403，不传就成功。**
+
+而不传它是**安全的**：GitHub REST API 文档明确
+「target_commitish … **Unused if the Git tag already exists.**」
+⇒ tag `v0.0.4` 已存在，该参数本来就不会被使用；不传它，Release 的
+target 自动关联现有 tag（`c0e7396`），语义完全正确。
+
+（403 的确切内部原因只有 GitHub 知道 —— 推断是它会对该参数指向的
+commit 做一次可见性校验，而 GITHUB_TOKEN 的仓库级读取受限
+——`.permissions` 全 false 是旁证。**「传/不传」的因果关系已由五轮 run 实测确认。**）
+
+### 修复（PR #16 / #18）
+
+- 「创建 Release」步骤改为 `gh api` 实现：`gh api --method POST repos/{}/releases`
+  + 从 `upload_url` 拼 `?name=` + `--input` 上传资产
+- **去掉 `target_commitish`**（PR #18，真正的根因）
+- 上传失败即**回滚**（删除刚建的 Draft）⇒ 不会留下「无资产 Draft」阻塞重跑
+- 诊断步骤降级为只读 ⇒ 不再每次产生垃圾 Release/tag
+
+## B. 本轮实测：发布流水线 11/11 job 全绿
+
+**run `41991745413`**（SHA `f5e1dd4`，`workflow_dispatch`，`publish=false`）：
+
+| job | 结果 |
+|---|---|
+| 解析版本锚点（tag → commit） | ✅ |
+| 前置检查（版本冲突检测，**补救路径判定生效**） | ✅ |
+| 代码检查（类型 + 构建） | ✅ |
+| 安全扫描（依赖 + 秘密） | ✅ |
+| 单元测试 | ✅ |
+| E2E 测试 | ✅ |
+| 构建并推送镜像 | ✅ |
+| 部署验证（启动 + 重启持久化） | ✅ |
+| 生成安装包 | ✅ |
+| **创建并发布 Release** | ✅ |
+| **远端核验（Release 与资产）** | ✅ |
+
+**这是 v0.0.4 发布流水线首次完整跑通。**
+
+## C. v0.0.4 Draft Release 交付核验（全部通过）
+
+| 核验项 | 结果 |
+|---|---|
+| Release 存在 | ✅ id `434929894`，tag `v0.0.4` |
+| **draft 状态** | ✅ `draft: true`（符合「未获单独授权只能停 Draft」） |
+| prerelease | ✅ `true` |
+| author | ✅ `github-actions[bot]`（与 v0.0.3 一致） |
+| 资产 1 | ✅ `v2ex-clone-v0.0.4-deploy.zip`（52,049 bytes，state=uploaded） |
+| 资产 2 | ✅ `SHA256SUMS`（95 bytes，state=uploaded） |
+| **SHA256 校验** | ✅ 下载后实算 `a08a1a0a…7607`，与 `SHA256SUMS` **逐字匹配** |
+| 安装包内容 | ✅ 15 个文件，全在 `deploy/` 下（脚本/compose/env 模板/文档） |
+| 版本载体（包内） | ✅ `deploy/VERSION` = `0.0.4`；`V2EX_IMAGE=…:v0.0.4`；`APP_VERSION="0.0.4"` |
+| 无真实 `.env` | ✅ 包内只有 `.env.example` 模板 |
+| GHCR 镜像 | ✅ `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` 拉取成功（多层 fs layer） |
+| Tag 未移动 | ✅ annotated tag `aed641d` → commit `c0e7396`（与创建时一致） |
+| 其他 Release 完好 | ✅ `v0.0.1` / `v0.0.2` / `v0.0.3` 未动 |
+
+### 顺手清理的残留
+
+诊断步骤（run `41985412431`）曾成功创建一个诊断 Draft（id `434887371`，
+tag `v0.0.4-diag-41985412431`），其自清理因同样的 403 而失败。
+本轮**手工清理**：
+- Release `434887371` → 已删除
+- 诊断 tag → **从未被创建**（GitHub 对 draft 允许 untagged，
+  `DELETE git/refs/tags/…` 返回 422 `Reference does not exist`）
+
+⇒ 最终 Release 列表恢复干净，只剩 `v0.0.1` / `v0.0.2` / `v0.0.3` / `v0.0.4`。
+
+## D. 本轮沉淀的方法论
+
+1. **「连续同样错误」要换思路，不要换假设的强度**：五轮 403 里我换了四个假设
+   （权限项 / 参数 / 封装 / installation 权限），全部靠**实测**排除。
+   真正的转折点是**加一个诊断步骤把证据打出来**，而不是继续猜。
+2. **GitHub Actions 的 `.permissions` 字段会骗人**：`GET /repos/{}/{}` 返回的
+   `permissions` 反映 **GitHub App installation** 的权限，**不是** GITHUB_TOKEN
+   在当前 job 的可用权限。同一个 token 下它可以全 false，却仍能创建 Release。
+3. **`target_commitish` 在 tag 已存在时不要传**：文档说它会被忽略，但实测
+   传了会触发一次 commit 可见性校验并 403。
+4. **`gh run rerun` 修不了流水线自身的缺陷**：它复用触发时的 workflow 定义快照。
+5. **squash 合并会让「同一内容、不同 commit」的分支产生 add/add 冲突**：
+   解法是从最新 `origin/master` 拉新分支再 cherry-pick，并先验证
+   `git diff <旧分支> HEAD -- <file>` 为空。
+
+## E. 当前状态
+
+| 项 | 状态 |
+|---|---|
+| **Tag `v0.0.4`** | ✅ 已创建并推送，annotated tag `aed641d` → `c0e7396`（**未移动**） |
+| **Release `v0.0.4`** | ✅ **Draft 已创建**（id `434929894`），两个资产齐全，SHA256 校验通过 |
+| GHCR 镜像 | ✅ `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` 已推送并可拉取 |
+| master | `f5e1dd4`（含全部发布修复） |
+| 发布内容与 Tag 零差异 | ✅ `deploy/` `src/` `package.json` `drizzle/` 全部无差异 |
+| 发布流水线 | ✅ **11/11 job 全绿**（run `41991745413`） |
+| 单元测试 / E2E | 194/194（16 文件）/ 154 passed / 0 failed |
+| R-01 | ⬜ 仍为 DEFERRED |
+
+## F. 下一步动作
+
+| # | 动作 | 说明 |
+|---|---|---|
+| 1 | ✅ 核验 Draft Release 资产 | 已完成（见 §C） |
+| 2 | ✅ 回填 run id 与资产清单到交付文档 | 本轮提交 |
+| 3 | ⬜ **正式发布需主人单独授权** | R-01 未裁决 ⇒ 只能停在 Draft。授权后以 `workflow_dispatch` 传 `publish=true` 触发，或手动在 GitHub 上发布 |
+| 4 | ⬜ 转正式发布后的补验 | 流水线的 `verify-release` 会**自动补做**匿名下载校验（draft 状态下资产匿名不可下载，已按 GitHub 正常行为跳过） |
+
+> ⚠️ **R-01 仍为 DEFERRED** —— 禁止改写远端历史 / 删 Tag / 改 Release / 改仓库可见性。
+> 本轮**未移动、未删除**任何版本 Tag 或既有 Release；诊断残留已手工清理干净。
