@@ -120,6 +120,16 @@ services:
       TRUST_PROXY_HEADERS: '${TRUST_PROXY_HEADERS:-0}'
     ports:
       - '${APP_PORT:-3000}:3000'
+    # v0.0.5：用户上传的头像持久化。
+    #
+    # 背景：头像文件写在 `public/uploads/avatars/<userId>/<hash>.<ext>`，
+    # 属于**运行时用户数据**（.gitignore 里已注明）——
+    # 不挂卷的话，`docker compose down` / 重建容器后头像**全部丢失**。
+    #
+    # 用 named volume（而非 bind mount）避免宿主机路径与权限差异；
+    # 目录属主由 Dockerfile 预创建时设定为 nextjs(1001)。
+    volumes:
+      - uploads-data:/app/public/uploads
     networks:
       - v2ex-net
     healthcheck:
@@ -142,6 +152,8 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  # v0.0.5：用户上传文件（头像）持久化
+  uploads-data:
 
 # 内部网络：数据库与缓存只在这张网内可达，不对宿主机暴露。
 networks:

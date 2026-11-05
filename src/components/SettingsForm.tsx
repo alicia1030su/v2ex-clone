@@ -1,6 +1,7 @@
 'use client';
 
 import { csrfFetch } from '@/components/CsrfProvider';
+import AvatarCropper from '@/components/AvatarCropper';
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -71,6 +72,8 @@ export default function SettingsForm({ user }: { user: User }) {
 
   const [avatar, setAvatar] = useState<string | null>(user.avatar);
   const [avatarPending, setAvatarPending] = useState(false);
+  // v0.0.5：待裁剪的原始文件（非空时显示裁剪器）
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [avatarMsg, setAvatarMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(
     null,
   );
@@ -305,7 +308,24 @@ export default function SettingsForm({ user }: { user: User }) {
                   disabled={avatarPending}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) void uploadAvatar(file);
+                    if (!file) return;
+                    // v0.0.5：**先裁剪再上传** ——
+                    // 让用户能看到并调整取景，而不是「上传后才发现裁歪了」。
+                    // 客户端预检在裁剪前做，避免白跑一趟。
+                    if (file.size > AVATAR_MAX_BYTES) {
+                      setAvatarMsg({ kind: 'err', text: '文件过大（上限 2MB）' });
+                      if (fileRef.current) fileRef.current.value = '';
+                      return;
+                    }
+                    if (!/^image\/(png|jpeg|jpg|webp|gif)$/i.test(file.type)) {
+                      setAvatarMsg({
+                        kind: 'err',
+                        text: '只支持 PNG / JPEG / WebP / GIF 格式的图片',
+                      });
+                      if (fileRef.current) fileRef.current.value = '';
+                      return;
+                    }
+                    setCropFile(file);
                   }}
                 />
                 <div className="sep5" />
@@ -544,6 +564,30 @@ export default function SettingsForm({ user }: { user: User }) {
           忘记密码？<Link href="/forgot">通过邮箱找回</Link>
         </div>
       </div>
+
+      {/* v0.0.5：头像裁剪器（模态）。确认后上传裁剪结果。 */}
+      {cropFile ? (
+        <AvatarCropper
+          file={cropFile}
+          onCancel={() => {
+            setCropFile(null);
+            if (fileRef.current) fileRef.current.value = '';
+          }}
+          onError={(message) => {
+            setAvatarMsg({ kind: 'err', text: message });
+            setCropFile(null);
+            if (fileRef.current) fileRef.current.value = '';
+          }}
+          onCrop={(blob) => {
+            // 用裁剪结果（PNG Blob）替换原文件再上传。
+            // ⚠️ 服务端仍会再裁一次并按 magic number 二次校验 ——
+            //    前端裁剪是**体验**，服务端校验是**安全**，两者都要在。
+            const cropped = new File([blob], 'avatar.png', { type: 'image/png' });
+            setCropFile(null);
+            void uploadAvatar(cropped);
+          }}
+        />
+      ) : null}
     </>
   );
 }

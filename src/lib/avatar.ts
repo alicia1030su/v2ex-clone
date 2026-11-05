@@ -180,6 +180,10 @@ export type ProcessedAvatar = {
   height: number | null;
   /** 是否做了裁剪/缩放（sharp 不可用时为 false） */
   resized: boolean;
+  /** 源图（裁剪前）像素宽度 —— sharp 不可用时为 null */
+  sourceWidth?: number | null;
+  /** 源图（裁剪前）像素高度 —— sharp 不可用时为 null */
+  sourceHeight?: number | null;
 };
 
 /**
@@ -198,28 +202,52 @@ export async function processAvatar(
   }
 
   try {
-    const image = sharp(buffer, { limitInputPixels: 100_000_000 });
+    // `limitInputPixels` —— 图片炸弹防护（解压炸弹会撑爆内存）
+    const image = sharp(buffer, { limitInputPixels: 100_000_000, animated: false });
     const meta = await image.metadata();
 
-    const pipeline = image.resize(AVATAR_SIZE, AVATAR_SIZE, {
+    // ── ① EXIF 方向校正（v0.0.5）───────────────────────────────
+    //
+    // 手机拍的照片把方向记在 EXIF 的 `Orientation` 标签里（值 6 表示
+    // 「顺时针 90°」）。**不校正就直接裁剪**，出来的头像是躺着的。
+    //
+    // sharp 的 `rotate()` 不带参数时，会**自动按 EXIF Orientation 旋转**
+    // 并**丢弃**该标签 —— 正是我们要的行为。
+    const oriented = image.rotate();
+
+    // ── ② 裁剪成正方形并缩放 ──
+    const pipeline = oriented.resize(AVATAR_SIZE, AVATAR_SIZE, {
       fit: 'cover',
       position: 'centre',
+      // 允许放大：头像统一为 AVATAR_SIZE × AVATAR_SIZE
       withoutEnlargement: false,
     });
 
-    // 输出格式跟随输入格式；WebP / GIF 保留原格式
+    // ── ③ 重新编码 + **剥离全部元数据**（v0.0.5）───────────────
+    //
+    // ⚠️ EXIF 里可能带 **GPS 坐标**（手机照片几乎必有）、相机型号、
+    //    拍摄时间、软件版本等隐私信息。头像会被公开分发
+    //    （`public/uploads/` 且 URL 可猜/可分享）⇒ **绝不能保留**。
+    //
+    // sharp 默认**不**写元数据（除非显式 `withMetadata()`），
+    // 所以这里只要**不要**调用 `withMetadata()` 即可。
+    // 这里显式写出来是为了让意图在代码里可见，不依赖默认值。
     let data: Buffer;
     switch (format) {
       case 'png':
+        // PNG：压缩 + 去掉所有文本块
         data = await pipeline.png({ compressionLevel: 9 }).toBuffer();
         break;
       case 'jpeg':
-        data = await pipeline.jpeg({ quality: 85 }).toBuffer();
+        // JPEG：`mozjpeg` 编码器体积更小；不调用 withMetadata ⇒ 剥离 EXIF
+        data = await pipeline.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
         break;
       case 'webp':
         data = await pipeline.webp({ quality: 85 }).toBuffer();
         break;
       case 'gif':
+        // ⚠️ 动画 GIF 只保留**第一帧**（`animated: false`）。
+        //    这是有意的：动图当头像没有意义，且体积不可控。
         data = await pipeline.gif().toBuffer();
         break;
     }
@@ -230,6 +258,9 @@ export async function processAvatar(
       width: AVATAR_SIZE,
       height: AVATAR_SIZE,
       resized: true,
+      /** 源图的像素尺寸（裁剪前），用于日志与调试 */
+      sourceWidth: meta.width ?? null,
+      sourceHeight: meta.height ?? null,
     };
   } catch {
     // 解码失败（例如伪造了 magic number 的文件）→ 拒绝上传
