@@ -27,7 +27,7 @@
 | 能力 | 状态 | 源码/入口 | 证据 |
 |---|---|---|---|
 | 首页 / 节点 / 主题详情 / 回复浏览 | **VERIFIED** | `src/app/page.tsx`、`/nodes`、`/t/[id]/page.tsx` | E2E `auth.spec.ts`（8 条）实跑通过 |
-| 搜索 | **PARTIAL** | `src/app/api/search/route.ts:106` ILIKE + pg_trgm | 代码级 ✅；中文质量未测（见 §五） |
+| 搜索 | **VERIFIED**（v0.0.5 已实测） | `src/lib/search-tokenize.ts`（CJK bigram）+ `src/app/api/search/route.ts`（两阶段：整串 → AND 回退）+ pg_trgm 索引 | **中文质量已实测**（四方案横向对比 + 5000 主题性能对照，见 `docs/SEARCH_BENCHMARK_v0.0.5.md`） |
 | 注册 / 登录 | **VERIFIED** | `/signup`、`/signin` + `api/auth/*` | E2E `auth.spec.ts` 实跑通过 |
 | 未登录点击发帖 / 回复的提示 | **UNVERIFIED** | `NewTopicForm`/`ReplyItem` 按钮不渲染 | ⚠️ 仅「按钮不渲染」，**无「未登录点击后的引导反馈」验证** —— v0.0.5 必须补 |
 | 未登录收藏 / 感谢 / 关注 / 投票的反馈 | **UNVERIFIED** | 同上 | ⚠️ 同上 |
@@ -155,8 +155,8 @@ FEATURE_MATRIX 有一处**不实标注**（积分调整）。
 | 索引 | **VERIFIED** | `0002_v004_perf_indexes.sql:80-91`：`topics_title_trgm_idx` / `topics_content_trgm_idx`（GIN `gin_trgm_ops`）；扩展创建失败降级全表扫描 + NOTICE |
 | SQL 注入防护 | **VERIFIED** | 参数化查询 |
 | 压测表现 | **VERIFIED** | 0.064ms（v0.0.4 压测） |
-| **中文搜索质量** | **UNVERIFIED** | ⚠️ **未测**：中文完整/部分关键词、中英混合、错别字模糊匹配 —— v0.0.5 必须实测 |
-| 用户名 / 节点名搜索 | **UNVERIFIED** | 未测 |
+| **中文搜索质量** | **VERIFIED**（v0.0.5 实测） | ✅ **已实测**：`tests/v005-search-quality.spec.ts`（8 条方案对比）+ `tests/v005-search-tokenize.spec.ts`（26 条）+ `e2e/v005-search.spec.ts`（9 条端到端）。实测结论：FTS `simple` 对中文**几乎无用**（不切中文）；本机 PG **无** `zhparser`/`pg_jieba` ⇒ 自研 bigram；bigram OR 假阳性严重 ⇒ 最终「整串 + AND 回退」两阶段 |
+| 用户名 / 节点名搜索 | **PARTIAL** | ⚠️ 主题搜索已实测（E2E 9 条）；但**用户名 / 节点名的独立搜索入口**未做实测（`/api/search` 只搜主题） |
 | 分页与排序 | **PARTIAL** | 有分页；排序仅 relevance |
 | FTS 是否可用 | **UNVERIFIED** | 未对比测试 |
 

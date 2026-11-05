@@ -89,6 +89,7 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 | 节点主题数量与最新回复统计 | ✅ 已实现 | `src/lib/node-service.ts` (listNodes 实时统计) |
 | 首页最新、热门与分类列表 | ✅ 已实现 | `src/app/page.tsx` (v0.0.2 已有)；`src/app/nodes/page.tsx` (节点列表) |
 | 搜索结果分页、排序与过滤 | ✅ 已实现 | `src/app/api/search/route.ts` (GET)；`tests/feed-search.spec.ts` (注入防护与分页上限) |
+| **中文搜索（bigram 分词）** | ✅ 已实现（**v0.0.5 实测选型**） | `src/lib/search-tokenize.ts`（CJK 相邻二元组 + 拉丁整词，**零扩展依赖**）；`src/app/api/search/route.ts`（**两阶段**：整串快查 → 无结果时 bigram AND 回退）；`docs/SEARCH_BENCHMARK_v0.0.5.md`（**四方案横向实测 + 性能对照报告**）；`tests/v005-search-quality.spec.ts`（8 条方案对比）、`tests/v005-search-tokenize.spec.ts`（26 条）、`e2e/v005-search.spec.ts`（9 条端到端）。**实测结论**：本机 PG **没有** `zhparser`/`pg_jieba` ⇒ 中文分词必须自研；bigram OR 有严重假阳性（5000/5000 全中）⇒ 最终采用「整串 + AND 回退」 |
 | 节点 RSS | ✅ 已实现 | `src/app/api/nodes/[name]/feed/route.ts` (GET) |
 | 全站 RSS / Atom | ✅ 已实现 | `src/app/api/feed/route.ts` (GET)；`src/app/api/feed/atom/route.ts` (GET) |
 | JSON Feed | ✅ 已实现 | `src/app/api/feed/json/route.ts` (GET) |

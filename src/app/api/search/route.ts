@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { and, count, desc, eq, isNull, ne, sql, type SQL } from 'drizzle-orm';
+import { buildSearchPatterns, buildAndSearchPatterns } from '@/lib/search-tokenize';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,11 +99,53 @@ export async function GET(request: Request) {
     }
   }
 
-  // 关键词匹配：标题权重更高，内容次之 —— 用 ILIKE 参数化匹配
-  const pattern = `%${keyword.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-  conditions.push(
-    sql`(${schema.topics.title} ILIKE ${pattern} ESCAPE '\\' OR ${schema.topics.content} ILIKE ${pattern} ESCAPE '\\')`,
+  // ── 关键词匹配（v0.0.5：两阶段中文分词搜索）────────────────────
+  //
+  // ## 为什么要两阶段
+  //
+  // 实测（`scripts/perf/search-benchmark.ts`，5000 主题规模）：
+  //
+  // | 策略 | 召回行数 | P50 | P95 |
+  // |---|---|---|---|
+  // | ILIKE 整串（v0.0.4 现状） | 60 | **1ms** | 15ms |
+  // | bigram **OR**（任一 token 命中） | **5000**（严重假阳性） | 1ms | 1ms |
+  // | bigram **AND**（全部 token 命中） | **60**（精度正确） | 15ms | 17ms |
+  //
+  // bigram OR 的假阳性不可接受（搜「数据库性能优化」会把只含「优化」的
+  // 文档全部召回）；bigram AND 精度正确但比整串慢（P50 15ms vs 1ms）。
+  //
+  // **最终策略**：
+  //  1. **先跑 ILIKE 整串** —— 快、命中 trigram 索引
+  //  2. **结果为空时回退 bigram AND** —— 慢一点，但能召回「词序被打散」
+  //     的中文文档（如「优化…数据库性能」）
+  //
+  // 这样既不劣化 v0.0.4 的性能，又能提升中文召回。
+  //
+  // ⚠️ 所有模式都**参数化**传入（drizzle `sql` 模板），
+  //    且 LIKE 元字符已转义 ⇒ 无 SQL 注入、无全表扫描。
+  const exactPatterns = buildSearchPatterns(keyword);
+  const andPatterns = buildAndSearchPatterns(keyword);
+  if (exactPatterns.length === 0) {
+    // 无法分词（输入全是符号）⇒ 视为无结果
+    return NextResponse.json({
+      ok: true,
+      total: 0,
+      page,
+      limit,
+      items: [],
+    });
+  }
+
+  // ── 阶段 1：整串匹配（快）──
+  const exactConditions = exactPatterns.map(
+    (pat) =>
+      sql`(${schema.topics.title} ILIKE ${pat} ESCAPE '\\' OR ${schema.topics.content} ILIKE ${pat} ESCAPE '\\')`,
   );
+  const exactKeyword = sql`(${exactConditions.reduce((a, b) => sql`(${a} OR ${b})`)})`;
+  conditions.push(exactKeyword);
+
+  // 排序用的「标题命中」模式：取**整串**（命中标题 ⇒ 强匹配，排前面）
+  const titlePattern = exactPatterns[0];
 
   const where = and(...conditions);
 
@@ -115,44 +158,87 @@ export async function GET(request: Request) {
         : // relevance：标题命中排在前面，其次按回复数与时间
           [
             desc(
-              sql`(CASE WHEN ${schema.topics.title} ILIKE ${pattern} ESCAPE '\\' THEN 2 ELSE 1 END)`,
+              sql`(CASE WHEN ${schema.topics.title} ILIKE ${titlePattern} ESCAPE '\\' THEN 2 ELSE 1 END)`,
             ),
             desc(schema.topics.repliesCount),
             desc(schema.topics.createdAt),
             desc(schema.topics.id),
           ];
 
-  const rows = await db
-    .select({
-      id: schema.topics.id,
-      title: schema.topics.title,
-      content: schema.topics.content,
-      nodeId: schema.topics.nodeId,
-      nodeName: schema.nodes.name,
-      nodeTitle: schema.nodes.title,
-      authorId: schema.topics.authorId,
-      authorName: schema.users.username,
-      repliesCount: schema.topics.repliesCount,
-      votes: schema.topics.votes,
-      createdAt: schema.topics.createdAt,
-      lastReplyAt: schema.topics.lastReplyAt,
-    })
-    .from(schema.topics)
-    .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(where)
-    .orderBy(...orderBy)
-    .limit(limit)
-    .offset(offset);
+  // ── 阶段 2：结果为空时回退 bigram AND ──────────────────────
+  //
+  // 中文关键词若在文档里**词序被打散**（「优化…数据库性能」），
+  // 阶段 1 的整串匹配会漏掉它们。
+  //
+  // 实测依据：bigram AND 的召回精度与整串持平（60 行 vs 60 行），
+  // 只是慢一点（P50 15ms vs 1ms）——
+  // 所以只在**整串完全没结果**时才回退，正常查询路径不受影响。
+  //
+  // ⚠️ 回退只在「含 CJK 的关键词」时才有意义 ——
+  //    纯 ASCII 关键词的 andPatterns 就是整串本身（重复查一次没意义）。
+  const fallbackConditions = andPatterns.map(
+    (pat) =>
+      sql`(${schema.topics.title} ILIKE ${pat} ESCAPE '\\' OR ${schema.topics.content} ILIKE ${pat} ESCAPE '\\')`,
+  );
+  const hasFallback =
+    andPatterns.length > 0 &&
+    // AND 语义与整串不同（纯 ASCII 时两者相同 ⇒ 无需回退）
+    andPatterns.length !== exactPatterns.length;
 
-  const countRows = await db
-    .select({ n: count() })
-    .from(schema.topics)
-    .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(where);
+  const baseWhere = and(
+    ...conditions.slice(0, -1), // 去掉阶段 1 的关键词条件
+    ...(hasFallback
+      ? []
+      : [exactKeyword]),
+  );
 
-  const total = Number(countRows[0]?.n ?? 0);
+  const runQuery = async (whereCond: ReturnType<typeof and>) => {
+    const rows = await db
+      .select({
+        id: schema.topics.id,
+        title: schema.topics.title,
+        content: schema.topics.content,
+        nodeId: schema.topics.nodeId,
+        nodeName: schema.nodes.name,
+        nodeTitle: schema.nodes.title,
+        authorId: schema.topics.authorId,
+        authorName: schema.users.username,
+        repliesCount: schema.topics.repliesCount,
+        votes: schema.topics.votes,
+        createdAt: schema.topics.createdAt,
+        lastReplyAt: schema.topics.lastReplyAt,
+      })
+      .from(schema.topics)
+      .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(whereCond)
+      .orderBy(...orderBy)
+      .limit(limit)
+      .offset(offset);
+
+    const countRows = await db
+      .select({ n: count() })
+      .from(schema.topics)
+      .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(whereCond);
+
+    return { rows, total: Number(countRows[0]?.n ?? 0) };
+  };
+
+  // 阶段 1
+  let { rows, total } = await runQuery(where);
+
+  // 阶段 2：整串无结果 ⇒ 回退 bigram AND
+  if (total === 0 && hasFallback) {
+    const andKeyword = sql`(${fallbackConditions.reduce((a, b) => sql`(${a} AND ${b})`)})`;
+    const fallbackWhere = and(baseWhere, andKeyword);
+    const fallbackResult = await runQuery(fallbackWhere);
+    if (fallbackResult.total > 0) {
+      rows = fallbackResult.rows;
+      total = fallbackResult.total;
+    }
+  }
 
   return NextResponse.json({
     ok: true,
