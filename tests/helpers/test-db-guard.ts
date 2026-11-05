@@ -89,10 +89,26 @@ const PROTECTED_DB_NAMES = new Set([
 /**
  * CI 环境的库名 —— 护栏 3
  *
- * CI 的 `DATABASE_URL` 指向 `v2ex_ci`，它不在上面的精确枚举里。
+ * CI 的 `DATABASE_URL` 指向下列库名，它们不在上面的精确枚举里。
  * 护栏 3 负责让 CI 通过，同时**不放松**本机环境的任何约束。
+ *
+ * | 库名 | 来源 |
+ * |---|---|
+ * | `v2ex_ci` | `.github/workflows/ci.yml` 的 unit / e2e job（service container） |
+ * | `v2ex_release_unit` | `.github/workflows/release.yml` 的 unit-tests job |
+ * | `v2ex_release_e2e` | `.github/workflows/release.yml` 的 e2e-tests job |
+ *
+ * ⚠️ v0.0.4 修正：此前只列了 `v2ex_ci`，
+ * 于是 **release.yml 的单元测试 job 会在「建基础库」之前被护栏 2 拦死**
+ * （run `41954236858` 实测红灯）。而该错误又被 vitest 的错误格式化器
+ * 崩溃（`TypeError: code.charCodeAt is not a function`）掩盖，
+ * 报出来的是一句完全看不懂的 Startup Error —— 真实原因被藏住了。
+ *
+ * 这三个库名**只可能是 CI 的 service container**（本机实例用的是
+ * `v2ex_test_base` 与 `v2ex_*` 白名单里的名字），且判据是 `process.env.CI`
+ * 为真才生效 ⇒ 本机不设 `CI` 时，约束一丝不放宽。
  */
-const CI_DATABASE_NAMES = new Set(['v2ex_ci']);
+const CI_DATABASE_NAMES = new Set(['v2ex_ci', 'v2ex_release_unit', 'v2ex_release_e2e']);
 
 /** 解析端点白名单（每次调用都重算 —— 便于测试注入环境变量） */
 function allowedEndpoints(): Set<string> {

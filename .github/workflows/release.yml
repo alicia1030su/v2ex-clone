@@ -404,12 +404,24 @@ jobs:
           #    - 键名允许驼峰/下划线前后缀
           #    - 值含 $ 变量引用、随机数生成器、PowerShell cmdlet、
           #      管道/重定向片段时一律视为安全
+          #    - 值为空（'' / "" / 无值）视为安全
+          #
+          # ⚠️ v0.0.4 修正：原先排除「空值」的这条 grep 写成了
+          #      grep -vE '[:=][[:space:]]*(""|'"''"'|)$'
+          #    那段引号**没有闭合**（`''"'` 之后缺一个单引号），
+          #    在 bash 里会直接抛 `syntax error near unexpected token ')'`。
+          #    结果：整个 `hits="$( ... )"` 赋值失败 ⇒ 检查静默失效。
+          #    修法：把正则放进**双引号**里（`''` 在双引号内是安全的），
+          #    单引号成对写作 `''`。已本地双向验证：
+          #      空单引号 / 空双引号 / 无值 → 正确排除
+          #      dbPassword="SuperSecret123!" → 正确捕获
           KEY_RE='([A-Za-z_][A-Za-z0-9_]*)?(pass(word|wd)?|pwd|secret|token|api[_-]?key|credential)([A-Za-z0-9_]*)[[:space:]]*[:=][[:space:]]*(.*)$'
+          EMPTY_VALUE_RE="[:=][[:space:]]*(\"\"|''|)\$"
           hits="$(grep -rniE "$KEY_RE" deploy/ \
                    --include='*.sh' --include='*.ps1' --include='*.yml' --include='*.yaml' 2>/dev/null \
                  | grep -vE '\$[A-Za-z_{(]' \
                  | grep -vE 'Get-RandomHex|CHANGE_ME|PLACEHOLDER|Get-AdminPassword|random|Random|openssl' \
-                 | grep -vE '[:=][[:space:]]*(""|'"''"'|)$' \
+                 | grep -vE "$EMPTY_VALUE_RE" \
                  | grep -vE '[|><`]' \
                  | grep . || true)"
           if [ -n "$hits" ]; then
@@ -417,8 +429,21 @@ jobs:
             echo "$hits"
             fail=1
           fi
-          # 4) .env 系列文件不得入库（.env.example 除外）
-          if git ls-files | grep -E '(^|/)\.env' | grep -v '\.env\.example$'; then
+          # 4) .env 系列文件不得入库（**仅允许 *.example 模板**）
+          #
+          # ⚠️ 豁免规则必须覆盖 `*.example` 与 `*.example.*` 两种形态：
+          #   - `.env.example`                （根目录模板）
+          #   - `deploy/.env.example`         （部署模板）
+          #   - `tests/env/.env.test.example` （v0.0.4 新增的**测试环境模板**）
+          #
+          # 上一轮只豁免了 `\.env\.example$`，于是 `tests/env/.env.test.example`
+          # 被误判为「被跟踪的环境文件」而让**整个发布流水线在安全扫描阶段红灯**。
+          # 而它**恰恰应该入库**：全部用 `__占位符__` 形式，不含任何真实口令
+          # （与 `.env.example` 的基线一致），且 `tests/helpers/test-env.ts`
+          # 在 `.env.test` 缺失时正是从它生成本机副本。
+          #
+          # 与 `scripts/release/preflight.sh` 的同款豁免保持一致。
+          if git ls-files | grep -E '(^|/)\.env' | grep -vE '\.example($|\.)'; then
             echo "::error::存在被跟踪的环境文件"
             fail=1
           fi
