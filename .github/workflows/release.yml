@@ -92,10 +92,85 @@ env:
 
 jobs:
   # ===========================================================================
+  # 0b. resolve-tag —— 解析远端 tag 指向的 commit（**单一事实来源**）
+  # ===========================================================================
+  #
+  # ## 为什么单独抽一个 job
+  #
+  # 解析「远端 tag 指向哪个 commit」这件事，流水线上有多处要用：
+  #   - preflight：校验 tag 指向没变（push 路径）/ 补救路径判定（dispatch 路径）
+  #   - publish-release：竞态检查 + Release 的 --target
+  #   - deploy-verify：确认 tag 存在
+  #
+  # 若每处都自己查，会重复代码；而**用 git 查是不可靠的** ——
+  # `publish-release` 与 `deploy-verify` 未必有 checkout（没有 `.git`、
+  # 没有 `origin` remote），`git ls-remote origin` 会直接报
+  # `fatal: 'origin' does not appear to be a git repository`（exit 128）。
+  # 实测踩到：run `41962239958` 的「创建并发布 Release」job 就死在这里。
+  #
+  # 本 job 用 `gh api`（只依赖 `GH_TOKEN` 与仓库名）解析，
+  # 结果通过 output 传给下游 —— **单一事实来源，且不依赖任何 job 的 checkout**。
+  #
+  # annotated tag 需要**两级解引用**：
+  #   refs/tags/v0.0.4 → tag object (aed641d…) → commit (c0e7396…)
+  # 轻量 tag 则第一级就直接是 commit。
+  resolve-tag:
+    name: 解析版本锚点（tag → commit）
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.r.outputs.sha }}
+      exists: ${{ steps.r.outputs.exists }}
+    steps:
+      - name: 解析
+        id: r
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+        run: |
+          set -euo pipefail
+          REF_JSON="$(gh api "repos/${{ github.repository }}/git/ref/tags/$VERSION" 2>/dev/null || true)"
+          SHA=""
+          if [ -n "$REF_JSON" ]; then
+            SHA="$(printf '%s' "$REF_JSON" | python3 -c "
+          import json,sys
+          try:
+              print(json.load(sys.stdin).get('object', {}).get('sha',''))
+          except Exception:
+              print('')
+          " 2>/dev/null)"
+            TYPE="$(printf '%s' "$REF_JSON" | python3 -c "
+          import json,sys
+          try:
+              print(json.load(sys.stdin).get('object', {}).get('type',''))
+          except Exception:
+              print('')
+          " 2>/dev/null)"
+            # annotated tag ⇒ 再解引用一层拿 commit
+            if [ "$TYPE" = "tag" ] && [ -n "$SHA" ]; then
+              SHA="$(gh api "repos/${{ github.repository }}/git/tags/$SHA" 2>/dev/null | python3 -c "
+          import json,sys
+          try:
+              print(json.load(sys.stdin).get('object', {}).get('sha',''))
+          except Exception:
+              print('')
+          " 2>/dev/null)"
+            fi
+          fi
+          if [ -n "$SHA" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $VERSION 指向 $SHA"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            echo "Tag $VERSION 不存在"
+          fi
+
+  # ===========================================================================
   # 1. preflight —— 版本冲突检测（幂等性闸门）
   # ===========================================================================
   preflight:
     name: 前置检查（版本冲突检测）
+    needs: [resolve-tag]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
@@ -103,7 +178,7 @@ jobs:
       # v0.0.4：Release 的 target commit。
       # tag 触发时 = tag 指向的 commit（= github.sha）；
       # 手动「补救路径」时 = 远端 tag 指向的 commit（github.sha 是触发分支的 commit，不对）。
-      tag_sha: ${{ steps.tag.outputs.sha }}
+      tag_sha: ${{ needs.resolve-tag.outputs.sha }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v7
@@ -180,11 +255,8 @@ jobs:
             # tag 触发：tag 必然已存在于远端（它就是触发器）。
             # 此时要校验的是 —— **tag 指向的 commit 必须就是当前这次构建的 commit**，
             # 防止 tag 被移动到别处、或 Release 已发布后 tag 又被改动。
-            REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
-            if [ -z "$REMOTE_SHA" ]; then
-              # 退回到未解引用的 tag（轻量 tag）
-              REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
-            fi
+            # 由 resolve-tag job 用 `gh api` 解析（不依赖本 job 是否有 checkout）
+            REMOTE_SHA="${{ needs.resolve-tag.outputs.sha }}"
             if [ -z "$REMOTE_SHA" ]; then
               echo "::error::无法读取远端 tag $VERSION 的目标 commit"
               exit 1
@@ -222,7 +294,7 @@ jobs:
             #
             # 「Release 是否已存在」由**下一个步骤**独立检查 ——
             # 已发布的 Release 绝不允许被覆盖。
-            if [ -n "$(git ls-remote --tags origin "refs/tags/$VERSION")" ]; then
+            if [ "${{ needs.resolve-tag.outputs.exists }}" = "true" ]; then
               echo "Tag $VERSION 已存在于远端 —— 进入「补救路径」判定。"
 
               # ① Release 已存在 ⇒ 已发布，绝不允许覆盖
@@ -232,10 +304,7 @@ jobs:
               fi
 
               # ② Tag 指向的 commit
-              TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
-              if [ -z "$TAG_SHA" ]; then
-                TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
-              fi
+              TAG_SHA="${{ needs.resolve-tag.outputs.sha }}"
               if [ -z "$TAG_SHA" ]; then
                 echo "::error::无法读取远端 tag $VERSION 的目标 commit"
                 exit 1
@@ -282,10 +351,8 @@ jobs:
           # - tag 触发：tag 指向的 commit 就是 github.sha；
           # - 手动「补救路径」：tag 已存在，github.sha 是触发分支的 commit，
           #   必须用远端 tag 指向的 commit，否则 Release 会指向错误的版本。
-          TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
-          if [ -z "$TAG_SHA" ]; then
-            TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
-          fi
+          # 由 resolve-tag job 用 `gh api` 解析（单一事实来源，不依赖 checkout）
+          TAG_SHA="${{ needs.resolve-tag.outputs.sha }}"
           if [ -z "$TAG_SHA" ]; then
             echo "::error::无法读取远端 tag $VERSION 的目标 commit"
             exit 1
@@ -1310,7 +1377,7 @@ jobs:
   # ===========================================================================
   publish-release:
     name: 创建并发布 Release
-    needs: [preflight, package]
+    needs: [resolve-tag, preflight, package]
     runs-on: ubuntu-latest
     # dry_run=true 时**完全跳过**本 job ——
     # 修复前本 job 没有任何条件判断，勾选「仅验证」也会真的发 Release。
@@ -1346,10 +1413,10 @@ jobs:
           # 产出的包就与版本锚点脱钩 ⇒ 必须中止。
           # 与 preflight 的「补救路径」判定用同一套判据：
           #   tag 指向的 commit 必须与 preflight 判定过的那一个一致。
-          TAG_SHA_NOW="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
-          if [ -z "$TAG_SHA_NOW" ]; then
-            TAG_SHA_NOW="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
-          fi
+          # ⚠️ 本 job **没有 checkout** ⇒ 没有 `.git` / `origin` ⇒
+          #   `git ls-remote origin` 会报 exit 128。
+          #   改用 resolve-tag job 的输出（它用 `gh api` 解析，与 checkout 无关）。
+          TAG_SHA_NOW="${{ needs.resolve-tag.outputs.sha }}"
           if [ -z "$TAG_SHA_NOW" ]; then
             echo "::error::无法读取远端 tag $VERSION 的目标 commit（竞态检查）"
             exit 1
