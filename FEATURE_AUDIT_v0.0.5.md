@@ -270,7 +270,7 @@ V2EX 原站**没有**私信功能（其社区互动依赖公开回复与 @ 提�
 |---|---|---|
 | 单元测试 | **194 条 / 16 文件**（194 passed / 0 failed / 0 skipped） | CI run `41949555282` 复验 |
 | E2E | **154 条 / 11 文件**（154 passed / 0 failed / 0 skipped） | 3.9m；⚠️ `v004-endpoint-smoke` 用例数随 GET 路由数浮动 |
-| Playwright projects | **仅 1 个**（chromium × Desktop Chrome 1280×900） | ⚠️ 无移动端、无 Firefox/WebKit |
+| Playwright projects | ✅ **v0.0.5 已扩展**（core + 15 个跨浏览器视口 project） | `E2E_CROSS=1` 时展开 **3 浏览器（Chromium / Firefox / WebKit）× 5 视口**；实测 160/160 通过，并因此发现 **3 个真实缺陷**（body min-width / 断点不匹配 / WebKit CSRF Cookie 被丢弃）。⚠️ CI 默认只跑 `core`（避免用例数爆炸）；⚠️ WebKit ≠ 真实 Safari |
 | 升级脚本自检 | **87 项断言全 PASS** | 沙箱，不调真实 Docker |
 | 压测 | 10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复；24785 请求 / 13 场景 / **0 个 5xx** | `tools/loadtest/bench.mjs` |
 | 视觉对照 | 4 视口 × 17 页面 = 68 条（40 有对照 / 28 无对照） | 严格口径桌面 Δx=0 52/52（仅几何维度） |
