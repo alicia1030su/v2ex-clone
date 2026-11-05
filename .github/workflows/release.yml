@@ -1300,7 +1300,7 @@ jobs:
         with:
           name: release-package
           path: |
-            ${{ env.ZIP_NAME }}
+            ${{ steps.pkg.outputs.zip_name }}
             SHA256SUMS
           if-no-files-found: error
           retention-days: 30
@@ -1336,11 +1336,30 @@ jobs:
             echo "::error::Release $VERSION 已存在（竞态），中止发布"
             exit 1
           fi
-          # tag 也不能在竞态窗口内被别人创建
-          if [ -n "$(git ls-remote --tags origin "refs/tags/$VERSION")" ]; then
-            echo "::error::Tag $VERSION 在竞态窗口内被创建，中止发布"
+          # tag 也不能在竞态窗口内被别人**移动**。
+          #
+          # ⚠️ v0.0.4：不能简单地「tag 存在就中止」——
+          #   「补救路径」（Tag 已存在、Release 未创建）正是靠 tag 存在才成立，
+          #   一律拦死会让补救路径永远走不到这一步。
+          #
+          # 改为**校验 tag 指向没变**：竞态窗口内若有人移动了 tag，
+          # 产出的包就与版本锚点脱钩 ⇒ 必须中止。
+          # 与 preflight 的「补救路径」判定用同一套判据：
+          #   tag 指向的 commit 必须与 preflight 判定过的那一个一致。
+          TAG_SHA_NOW="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
+          if [ -z "$TAG_SHA_NOW" ]; then
+            TAG_SHA_NOW="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
+          fi
+          if [ -z "$TAG_SHA_NOW" ]; then
+            echo "::error::无法读取远端 tag $VERSION 的目标 commit（竞态检查）"
             exit 1
           fi
+          if [ "$TAG_SHA_NOW" != "${{ needs.preflight.outputs.tag_sha }}" ]; then
+            echo "::error::Tag $VERSION 在竞态窗口内被移动（现在指向 $TAG_SHA_NOW，"
+            echo "::error::发布开始时指向 ${{ needs.preflight.outputs.tag_sha }}），中止发布。"
+            exit 1
+          fi
+          echo "✓ Tag $VERSION 指向未变（$TAG_SHA_NOW）"
 
       - name: 生成中文 Release Notes
         run: |
