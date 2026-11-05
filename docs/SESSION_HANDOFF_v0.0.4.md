@@ -993,3 +993,87 @@ tag `v0.0.4-diag-41985412431`），其自清理因同样的 403 而失败。
 
 > ⚠️ **R-01 仍为 DEFERRED** —— 禁止改写远端历史 / 删 Tag / 改 Release / 改仓库可见性。
 > 本轮**未移动、未删除**任何版本 Tag 或既有 Release；诊断残留已手工清理干净。
+
+---
+
+# 第 11 轮状态快照（2026-11-05，主理人）—— v0.0.4 已正式发布（Pre-release）
+
+> 本轮 = **获得主人授权，v0.0.4 由 Draft 转为正式发布**。
+> 第 10 轮快照 §F「下一步动作」表**已全部完成**。
+
+## A. 授权与执行
+
+主理人明确授权「转正式发布」。执行方式：
+
+**不是**重跑发布流水线（`workflow_dispatch` + `publish=true`），而是**直接把现有
+Draft Release 转正**。原因：流水线的「再次检查冲突（防止竞态）」步骤在 Release
+已存在时会中止（`Release $VERSION 已存在（竞态），中止发布`），
+而 Draft 的资产**已经核验通过**，重建毫无意义且会破坏幂等性。
+
+```bash
+gh api --method PATCH repos/alicia1030su/v2ex-clone/releases/434929894 -F draft=false
+```
+
+## B. 发布后核验（全部通过）
+
+| 核验项 | 结果 |
+|---|---|
+| draft 状态 | ✅ `draft: false` |
+| prerelease | ✅ `true`（「开发预览版」，标记为 Pre-release 恰当） |
+| published_at | ✅ `2026-11-05T08:34:24Z` |
+| author | ✅ `github-actions[bot]`（与 v0.0.1/2/3 一致） |
+| **匿名下载安装包** | ✅ **HTTP 200，52,049 bytes** —— draft 状态下匿名不可下载，转正后才可 |
+| **匿名下载 SHA256SUMS** | ✅ HTTP 200，95 bytes |
+| **匿名下载后 SHA256 校验** | ✅ 实算 `a08a1a0a…7607`，与 `SHA256SUMS` **逐字匹配** |
+| Tag 未移动 | ✅ annotated `aed641d` → `c0e7396` |
+| 既有 Release 完好 | ✅ `v0.0.1` / `v0.0.2` / `v0.0.3` 未动（v0.0.3 仍是 Draft） |
+
+> 这一项正是流水线 `verify-release` 步骤注释里说的
+> 「draft 状态下资产匿名不可下载，转正式发布后会自动补做」——
+> 因我们没走流水线重跑，故**手工补做**，结果通过。
+
+## C. 补强：Release Notes 追加必要披露（P7）
+
+转正后发现 Release Notes（流水线生成的模板）**缺少 P7 要求的披露**。
+P7（`docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §9.3）明确要求正式发布的 Notes 必须
+逐条披露授权遗留项与已知限制。已用 `gh api --method PATCH` 补上：
+
+| 新增段落 | 内容 |
+|---|---|
+| **⚠️ 授权遗留项（须主人裁决）** | R-01 原站素材经 Git 历史持续暴露的完整说明（成因、为何改文件不够、清理需何种高风险操作、DEFERRED 状态、E-02 到期日 2026-12-04） |
+| 仓库可见性与历史改写声明 | 保持 Public；**未执行**任何远端历史改写 / force push / Tag 删除重建 / Release 修改；v0.0.1/2/3 的 Tag 与 Release 均未变动；历史清理仅本地隔离演练 |
+| **已知限制** | 四身份 UI 覆盖缺口（版主/管理员无 UI 点击流、游客/普通用户未验证、楼层连续性、单视口）+ 无法实跑项（真实 SMTP、多浏览器、原站需登录页 28 条无对照及「不拿游客态冒充」的合规说明） |
+| 实测基线 | 单测 194/194、E2E 154/154、自检 87 项、压测 24,785 请求 0 个 5xx、Docker 九项全 PASS |
+| 灰度期观测与回滚判定 | 指向验收清单 §8 的 9 项观测基线与回滚触发条件 |
+
+Notes 长度：1,595 → **3,418 字符**。
+
+## D. 发布 URL
+
+- Release 页面：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4>
+- 安装包：`v2ex-clone-v0.0.4-deploy.zip`（52,049 bytes）
+- 镜像：`ghcr.io/alicia1030su/v2ex-clone:v0.0.4`
+
+## E. 当前状态
+
+| 项 | 状态 |
+|---|---|
+| **v0.0.4 Release** | ✅ **已正式发布（Pre-release）**，`draft=false`，`published_at=2026-11-05T08:34:24Z` |
+| Release Notes | ✅ 含 P7 要求的全部披露（授权遗留项 + 已知限制 + 实测基线 + 灰度观测） |
+| 资产匿名可下载 | ✅ 安装包 + SHA256SUMS 均 HTTP 200，SHA256 匹配 |
+| Tag `v0.0.4` | ✅ annotated `aed641d` → `c0e7396`，**未移动** |
+| master | 含全部发布修复与文档 |
+| 发布内容与 Tag 零差异 | ✅ `deploy/` `src/` `package.json` `drizzle/` 全部无差异 |
+| R-01 | ⬜ 仍为 DEFERRED（已在 Release Notes 显著披露） |
+
+## F. 待办（流程改进，不阻塞）
+
+| # | 动作 | 说明 |
+|---|---|---|
+| 1 | **`release.yml` 的 Notes 模板补上 P7 披露段** | 本轮是**手工 PATCH** 补的；模板本身仍缺这段 ⇒ 下一个版本会重蹈覆辙。应在「生成中文 Release Notes」步骤里内置 |
+| 2 | 观察下载量与灰度期指标 | 见 Release Notes 的观测基线（验收清单 §8） |
+| 3 | R-01 裁决 | E-02 到期日 2026-12-04 前由主人决定是否清理 Git 历史 |
+
+> ⚠️ **R-01 仍为 DEFERRED** —— 禁止未经授权改写远端历史 / force push / 删 Tag / 改 Release。
+> 本轮改动**仅限于**把 Draft 的 `draft` 标志改为 `false` 与更新其 Notes 正文，
+> **未触碰**任何 Tag、其他 Release、仓库可见性或 Git 历史。

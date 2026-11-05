@@ -29,7 +29,7 @@ v0.0.1 → v0.0.3 的发版过程暴露了三类问题，v0.0.4 必须用流程�
 | **R1** | **v0.0.4 期间禁止提前创建最终 Tag** | 功能完成、审查、测试、构建、部署验证、安全扫描、安装包验证、合并、固定最终 SHA 全部完成之前，`refs/tags/v0.0.4` 在**本地与远端都不允许存在**。`preflight.sh` 会检查本地；远端状态由主理人在授权后核验 |
 | **R2** | **同一版本号不得反复删建或移动 Tag** | 一旦 `v0.0.4` Tag 被推送，**禁止** `git tag -d` / `git push --delete` / `git tag -f` / `git push --force`。发布后发现阻断项，只能保持 Draft、出修正版本（如 `v0.0.4.1` 或 `v0.0.5`，**由主人裁决**），并在 Release Notes 说明；绝不「删了重发」 |
 | **R3** | **不动 v0.0.3 的 Tag 与 Release** | 不删除、不移动、不编辑 v0.0.3 Tag/Release/资产；也不动 v0.0.1 / v0.0.2。`preflight.sh` 会打印本地 v0.0.3 Tag 作为基线提示 |
-| **R4** | **未经主人单独授权不得公开发布有阻断风险的 Release** | `RISK_REGISTER.md` R-01 目前为 **DEFERRED**。因此 `publish` 输入**必须保持 `false`**，Release **必须停在 Draft**。`gh release edit --draft=false` 属于需单独授权的动作 |
+| **R4** | **未经主人单独授权不得公开发布有阻断风险的 Release** | `RISK_REGISTER.md` R-01 目前为 **DEFERRED**。因此 `publish` 输入**默认保持 `false`**，Release **默认停在 Draft**；`gh release edit --draft=false` 属需单独授权的动作。✅ **v0.0.4 已获授权**（2026-11-05 主理人「转正式发布」），以 `gh api --method PATCH ... -F draft=false` 直接转正（未重跑流水线，资产已核验通过），发布后核验：匿名下载 HTTP 200 + SHA256 逐字匹配。 |
 | **R5** | **发布流程缺陷先在独立测试版本与非正式流水线验证** | 见 §6。禁止用 `v0.0.4` 这个正式版本号去调试流水线 |
 | **R6** | **固定最终 SHA 之后才建 Tag** | Tag 必须指向**合并后**的、经过全部验证的、不再变动的 commit；`release.yml: preflight` 会校验 `REMOTE_SHA == github.sha` |
 | **R7** | **数据库变更与应用发布解耦** | `0002` 是纯增量索引（见升级报告 §6.3），可先迁移后发代码；回滚代码不需要回滚数据库。破坏性变更必须走「扩展 → 兼容 → 切换 → 清理」四步 |

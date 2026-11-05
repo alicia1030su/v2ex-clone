@@ -48,7 +48,7 @@
 > - GHCR 镜像 `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` 已推送并拉取成功
 > - 包内版本载体核对：`deploy/VERSION` = `0.0.4`、`V2EX_IMAGE=…:v0.0.4`、`APP_VERSION="0.0.4"`
 >
-> ⚠️ **Release 保持 Draft** —— R-01 仍为 DEFERRED，未获主人单独授权前**不得公开发布**。
+> ✅ **已正式发布（Pre-release）**（2026-11-05，主人授权）—— R-01 仍在 Release Notes 显著披露，E-02 到期日 2026-12-04 前由主人裁决。
 > 授权后以 `workflow_dispatch` 传 `publish=true` 触发，或手动在 GitHub 上发布；
 > 流水线的 `verify-release` 届时会**自动补做**匿名下载校验
 > （draft 状态下资产匿名不可下载，已按 GitHub 正常行为跳过）。

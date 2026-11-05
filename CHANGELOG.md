@@ -38,7 +38,7 @@
 | **Tag `v0.0.4`** | ✅ 已创建（annotated `aed641d` → `c0e7396`，**未移动**） |
 | **Draft Release `v0.0.4`** | ✅ **已创建** —— id `434929894`，两个资产齐全，SHA256 校验通过；发布流水线 run `41991745413` **11/11 job 全绿** |
 | GHCR 镜像 | ✅ `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` 已推送并拉取成功 |
-| 正式发布 | ⬜ **未授权** —— R-01 仍为 DEFERRED，Release **保持 Draft** |
+| 正式发布 | ✅ **已正式发布（Pre-release）** —— `draft=false`，`published_at=2026-11-05T08:34:24Z`，Release id `434929894` |
 
 > 发布流水线自身的修复过程（护栏 3 / 安全扫描两处 / Tag 死锁 / `resolve-tag` /
 > `target_commitish` 403）详见 `docs/SESSION_HANDOFF_v0.0.4.md` **第 9、10 轮快照**。
