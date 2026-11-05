@@ -5,6 +5,7 @@ import { db, schema } from '@/db';
 import { getSessionUser, isAdmin, isStaff } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { listNodes, listCategories, nodeBreadcrumb } from '@/lib/node-service';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -207,6 +208,9 @@ export async function PATCH(request: Request) {
   //   避免向未授权调用方泄露「端点存在但缺 token」这类信息。
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：管理动作频率限制（隐藏/恢复节点）
+  const rl = await guardCommunityAction('moderation', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as {
     id?: number;

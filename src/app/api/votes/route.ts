@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { voteTopic, unvoteTopic, ContentError } from '@/lib/content-service';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('vote', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as {
     topicId?: number;
@@ -63,6 +67,9 @@ export async function DELETE(request: Request) {
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('vote', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as { topicId?: number } | null;
   const topicId = Number(body?.topicId);

@@ -12,6 +12,19 @@ import { eq, desc, and, type SQL } from 'drizzle-orm';
 /** 审计动作常量 —— 避免各处手写字符串导致拼写漂移 */
 export const AuditAction = {
   // 主题
+  //
+  // ⚠️ v0.0.5：删除了 `TOPIC_HIDE` / `TOPIC_SHOW` ——
+  // 它们**从来没有对应的功能实现**（纯死枚举）。
+  // 隐藏内容的实际路径是「举报受理 ⇒ 置 deleted_at」，
+  // 记的是 `REPORT_HANDLE`（见 admin/reports/[id]/handle）。
+  //
+  // 保留未实现的 Action 会造成两个误导：
+  //  1. 读代码的人以为「隐藏主题」是个已实现的功能
+  //  2. 审计查询里出现永不出现的 action 值
+  //
+  // 现在有**回归护栏**（tests/v005-security-audit.spec.ts）：
+  // 「所有审计 Action 都必须被真正调用」——
+  // 将来新增 Action 若忘记实现，测试立刻红。
   TOPIC_EDIT: 'topic.edit',
   TOPIC_DELETE: 'topic.delete',
   TOPIC_RESTORE: 'topic.restore',
@@ -19,14 +32,10 @@ export const AuditAction = {
   TOPIC_UNLOCK: 'topic.unlock',
   TOPIC_PIN: 'topic.pin',
   TOPIC_UNPIN: 'topic.unpin',
-  TOPIC_HIDE: 'topic.hide',
-  TOPIC_SHOW: 'topic.show',
   // 回复
   REPLY_EDIT: 'reply.edit',
   REPLY_DELETE: 'reply.delete',
   REPLY_RESTORE: 'reply.restore',
-  REPLY_HIDE: 'reply.hide',
-  REPLY_SHOW: 'reply.show',
   // 用户
   USER_BAN: 'user.ban',
   USER_UNBAN: 'user.unban',
@@ -37,11 +46,6 @@ export const AuditAction = {
   REPORT_HANDLE: 'report.handle',
   NODE_REQUEST_APPROVE: 'node_request.approve',
   NODE_REQUEST_REJECT: 'node_request.reject',
-  NODE_HIDE: 'node.hide',
-  NODE_SHOW: 'node.show',
-  // 内容
-  CONTENT_HIDE: 'content.hide',
-  CONTENT_SHOW: 'content.show',
 } as const;
 
 export type AuditActionValue = (typeof AuditAction)[keyof typeof AuditAction];

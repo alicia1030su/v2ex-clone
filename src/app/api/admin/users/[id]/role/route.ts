@@ -4,6 +4,7 @@ import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { canChangeRole } from '@/lib/permissions';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,9 @@ export async function PATCH(
 ) {
   const guard = await adminGuardWrite(request, 'users.role');
   if (guard.response) return guard.response;
+  // v0.0.5：管理动作频率限制 —— 防脚本批量滥用（封号 / 改角色 / 调积分…）
+  const rl = await guardCommunityAction('admin_action', guard.user?.id ?? null);
+  if (rl) return rl;
   const actor = guard.user;
 
   const { id } = await params;

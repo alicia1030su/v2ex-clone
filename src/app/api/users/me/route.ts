@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
 import { eq } from 'drizzle-orm';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,9 @@ export async function PATCH(request: Request) {
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制
+  const rl = await guardCommunityAction('profile_update', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as Record<
     string,

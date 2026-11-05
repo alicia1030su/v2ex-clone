@@ -10,6 +10,7 @@ import {
   ContentError,
 } from '@/lib/content-service';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +141,9 @@ export async function PUT(
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('topic_mutation', user?.id ?? null);
+  if (rl) return rl;
 
   const { id } = await params;
   const topicId = Number(id);
@@ -161,6 +165,20 @@ export async function PUT(
       title: body.title,
       content: body.content,
     });
+
+    // v0.0.5：补写**操作审计**。
+    //
+    // ⚠️ `editTopic()` 只写 `edit_history`（内容快照，不可变）——
+    //    那是「内容改了什么」，**不是**「谁在什么时候改的」。
+    //    任务书 §十一 要求「重要行为审计」；
+    //    `AuditAction.TOPIC_EDIT` 此前**定义了却从未被调用**。
+    await writeAuditLog(user.id, {
+      action: AuditAction.TOPIC_EDIT,
+      targetType: 'topic',
+      targetId: topicId,
+      reason: body.title !== undefined ? '编辑标题' : '编辑正文',
+    });
+
     return NextResponse.json({ ok: true, topic: result });
   } catch (err) {
     if (err instanceof ContentError) {
@@ -187,6 +205,9 @@ export async function DELETE(
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('topic_mutation', user?.id ?? null);
+  if (rl) return rl;
 
   const { id } = await params;
   const topicId = Number(id);

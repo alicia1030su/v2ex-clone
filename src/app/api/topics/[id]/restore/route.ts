@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { restoreTopic, ContentError } from '@/lib/content-service';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,9 @@ export async function POST(
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('moderation', user?.id ?? null);
+  if (rl) return rl;
 
   const { id } = await params;
   const topicId = Number(id);
