@@ -94,3 +94,90 @@
 - **R-01 仍 DEFERRED**：禁止未授权改写远端历史 / force push / 删 Tag / 改 Release / 改仓库可见性
 - v0.0.5 Pre-release 已获授权自主发布（任务书 §十四），**但 R-01 相关危险操作仍需单独授权**
 - 不得向真实用户发测试邮件；不得用会产生额外付费的外部服务
+
+---
+
+# 第 2 轮状态快照（2026-11-05，主理人）—— P0-1/2/3/5 + P1-2/3 完成
+
+> 本轮把 §D 开发顺序里的 **P0-1、P0-2、P0-3、P0-5** 与 **P1-2、P1-3** 做完。
+> 累计提交 7 个（`3400c16` … `0db8418`），分支 `feat/v0.0.5-product-completion`。
+
+## A. 已完成工作（按 §D 顺序）
+
+| # | 任务 | 状态 | 关键产出 |
+|---|---|---|---|
+| P0-1 | 用户端举报全链路 | ✅ | `POST/GET /api/reports`、**部分唯一索引**防重复、`ReportButton`、`/reports` 我的举报页、处理时通知举报者、`REPORT_SUBMIT` 审计 |
+| P0-2 | 管理员积分调整 | ✅ | `POST /api/admin/credits`（仅 admin）+ AdminConsole「积分」tab（二次确认 + 理由必填） |
+| P0-3 | 四身份真实浏览器 E2E | ✅ | `e2e/v005-four-roles-deep.spec.ts` 11 条 + **修复 4 个真实缺陷** |
+| P0-5 | 楼层规则文档化 + 100 并发 | ✅ | `docs/FLOOR_NUMBERING_v0.0.5.md` + `tests/v005-floor-concurrency.spec.ts` 6 条（调**真实** `allocateFloor`） |
+| P1-2 | 头像与图片体验 | ✅ | 前端 Canvas 裁剪器（零依赖）+ 服务端 EXIF 校正/元数据剥离 + sharp 提为直接依赖 + **修复 3 个真实缺陷** |
+| P1-3 | 邮件系统真实集成验证 | ✅ | `tests/v005-smtp-protocol.spec.ts` 6 条（**直测生产路径**）+ 忘记密码全链路 E2E 4 条 + **修复 4 个生产级缺陷 + 1 个环境缺陷** |
+| — | BROKEN-1~4 修复 | ✅ | 见 §C |
+| — | 楼层连续性文档 | ✅ | 验收清单 §5/§7.1 已更正 |
+
+## B. 本轮发现并修复的**真实缺陷**（不是测试问题）
+
+| # | 缺陷 | 影响 |
+|---|---|---|
+| 1 | 软删除后**版主无法在 UI 恢复主题**（`t/[id]/page.tsx` 对 `status==='deleted'` 直接 `notFound()`） | 管理动作不可达 |
+| 2 | 软删除后 **UI 不刷新**（`onDeleted` 回调从未被传入） | 用户必须手动刷新 |
+| 3 | 重复举报返回 **500 而非 409**（Drizzle 把 pg 错误码放在 `err.cause.code`） | 用户看到「网络错误」 |
+| 4 | 积分 tab 对版主**可见**（权限做成内容级而非入口级） | 权限边界无法断言 |
+| 5 | **SMTP 超时完全失效**（Node 空闲超时在「服务器一个字节没发」时不启动） | 邮件发送可无限挂起 |
+| 6 | `SMTP_TIMEOUT_MS` 在**模块加载时固化** | 超时行为无法测试 |
+| 7 | 邮件日志写入**无限挂起** | **数据库故障时「忘记密码」永远不返回** |
+| 8 | `src/lib/smtp-client.ts` 是**死代码**（无任何生产调用方） | 文档失实 + 生产 SMTP 零覆盖 |
+| 9 | 删除主题用 `window.location.reload()` 引发**导航竞态** | E2E 间歇失败 |
+| 10 | 后台「举报」tab 文本带数量（`举报（3）`），`exact: true` 匹配不到 | 单跑绿、全量红 |
+| 11 | `AvatarCropper` 的 `onError` 导致**无限重渲染** | 页面卡死 |
+| 12 | **生产环境头像上传后立刻 404**（Next 只服务构建时已存在的静态文件） | 头像功能在生产**完全不可用** |
+| 13 | Docker compose **没给 `public/uploads` 挂卷** | 重建容器头像全丢 |
+| 14 | `start-test-pg.sh` 稳态判定用 **UTF-8 字面量匹配 GBK 日志** ⇒ 永远匹配不到 | **每次启动 PG 死等 300 秒** ⇒ 伪装成「产品代码死锁」 |
+
+## C. 本轮同步的文档
+
+- `FEATURE_AUDIT_v0.0.5.md`（SMTP 条目更正为「协议级实测」）
+- `FEATURE_MATRIX.md`（举报 6 行 + 积分调整 + SMTP 条目）
+- `CHANGELOG.md` / `docs/SECURITY_EXCEPTIONS.md`（死代码引用更正）
+- `docs/FLOOR_NUMBERING_v0.0.5.md`（**新增**：楼层编号规则）
+- `README.md` / `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md`（BROKEN-3/4）
+
+## D. 当前测试基线
+
+| 项 | 结果 |
+|---|---|
+| 单元测试 | **248 passed / 248（20 文件）** |
+| E2E | **175 passed / 0 failed（4.4m）** |
+| 类型检查 | ✅ `npx tsc --noEmit` |
+
+## E. 本地执行纪律（**重要 —— 本轮踩了很多坑**）
+
+1. **PG 生命周期必须在同一次 Bash 调用内** —— 工具会回收进程树，
+   跨调用 PG 必被杀掉（表现为 `ECONNREFUSED 127.0.0.1:55440` / 页面 500）。
+2. **不要用管道输出脚本**（`bash x.sh | tail` 会让 postgres 继承 stdout ⇒ SIGTERM）。
+3. `next build` 须清 `NODE_OPTIONS` 并关 `CODEBUDDY_SAFE_DELETE_ENABLED` / `CODEBUDDY_BROKERED_FS_HOOK_ENABLED`。
+4. **bash 的 `/tmp` 与 Windows Python 路径不通** —— 需 `cygpath -w /tmp`。
+5. **Git Bash 会把 heredoc 里的 `\s` 转成 `/s`** —— 正则要写 `[ \t]*` 或用 Edit 工具。
+6. **Playwright 的 `getAttribute()` 带 auto-wait** —— 元素不存在时等满 30 秒；
+   先 `count()` 再取。
+7. **`waitForHydration` 只能用于客户端组件内部的节点** —— 服务端渲染的 input 不行。
+8. **E2E 里不要反复 `register()`** —— 会触发注册限流；用 seed 用户。
+
+## F. 下一步（§D 剩余）
+
+| # | 任务 | 优先级 |
+|---|---|---|
+| P0-6 | 安全与社区治理完整复核（CSRF/XSS/SQLi/SSRF/开放重定向/上传/会话/提权/暴力登录/注册滥用/举报滥用/积分重复/并发扣费/管理员越权/日志脱敏）+ 补充频率限制与审计 | **P0** |
+| P1-1 | 搜索能力升级（ILIKE vs pg_trgm vs FTS vs 中文分词） | P1 |
+| P1-4 | 多浏览器（Chromium/Firefox/WebKit）× 5 视口 + 移动端专项 + 视觉回归基线 | P1 |
+| P1-5 | 私信与其他社区能力评估 | P1 |
+| P2 | 性能压测（继承 v0.0.4 规模，覆盖新增的搜索/通知/积分路径） | P2 |
+| P3 | 部署与升级验证（Linux/Windows 全新装、v0.0.4→v0.0.5 原地升级、备份恢复、镜像拉取） | P3 |
+| P4 | 最终集成：CI 全绿 → 固定 SHA → 安装包 + SHA256SUMS → GHCR 镜像 + Digest → Tag → **Pre-release** → 匿名下载校验 → 真实安装运行 | P4 |
+
+## G. 风险与授权边界（不变）
+
+- **R-01 仍 DEFERRED**：禁止未授权改写远端历史 / force push / 删 Tag / 改 Release / 改仓库可见性。
+- v0.0.5 Pre-release 已获授权自主发布，但 R-01 相关危险操作仍需单独授权。
+- 不得向真实用户发测试邮件；不得用会产生额外付费的外部服务。
+- **R-01 必须在 v0.0.5 Pre-release Notes 中继续披露。**
