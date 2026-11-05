@@ -63,7 +63,7 @@
 
 1. ~~带 Docker / Redis 的环境完成部署与故障恢复实跑（R-16 / R-17）~~ —— ✅ **已闭环**：
    run `41871503684`（SHA `2773cd1`）九项 completed/success、汇总表全 PASS（修复提交 `827eef7` + `2773cd1`）
-2. ~~`update.sh` 自动同步镜像 tag 并实跑验证（R-18）~~ —— ✅ **收尾轮已修并验证**（`b0d68c2`；自检 62 项断言全 PASS）；
+2. ~~`update.sh` 自动同步镜像 tag 并实跑验证（R-18）~~ —— ✅ **收尾轮已修并验证**（`b0d68c2`；自检 87 项断言全 PASS）；
    ⚠️ 残余：**真实容器级升级**仍需带 Docker 的环境复跑
 3. ~~管理员 `/admin` 入口与版主管理操作 UI 的产品决策（R-21）~~ —— ✅ **已由 `ed385cf` 修复**，待主理人终验确认
 4. 自动化视觉回归纳入 CI（FEATURE_AUDIT #53 仍 PARTIAL）
@@ -176,7 +176,7 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 | 单元 / 集成 | **194 条 / 16 个文件**（194 passed / 0 failed / 0 skipped，**连续 4 轮全绿**）。**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒（共享实例 55433 口径）。⚠️ 静态 grep 得出 180（嵌套 for 循环生成用例），**口径必须取运行时 `numTotalTests**`。⚠️ **修复前基线为 190 条 / 15 文件**（V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言 ⇒ 190 → 194） | `docs/evidence/ci/test-baseline-v0.0.4.md` |
 | 单元 / 集成（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`190 passed / 0 skipped`）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— **分母 190 正确**；**已由 `8ce5ce9` 修复并经 CI 复验**，`e2e` job **已真实跑过** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
 | 真实浏览器 E2E | **154 条 / 11 个文件**（`--list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）；`--list` 分解 = 原有 67 + v004 四文件 79 + 四身份 UI 8。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`（唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂，V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`）） | `e2e-full-run-v0.0.4.md` + `test-list-v0.0.4.txt` + `TEST_COUNT_DEFINITION_v0.0.4.md` |
-| 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker） | `bash scripts/release/verify-update-script.sh` |
+| 升级脚本自检 | **87 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker；本轮实测，历史为 62 项） | `bash scripts/release/verify-update-script.sh` |
 | 视觉 | 4 视口 × 17 页面 = 68 条；**40 对比 / 28 无对照**；严格口径 Δx=0 52/52（⚠️ 只覆盖几何位置，六类区分未全部闭环） | `geometry-summary.json` |
 | 性能 | 13 场景 / 24785 请求 / 并发 10 / **0 个 5xx** | `bench-result.json` + `METRICS_DEFINITION_v0.0.4.md` |
 | 升级/恢复 | 4 项实跑通过 + 容器项静态核查 | `UPGRADE_RECOVERY_v0.0.4.md` |
@@ -200,7 +200,7 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
   **该红灯已由 `8ce5ce9` 修复并经 CI 复验**（run `41860242099` / `41873009808` 单元 job ✅）。
   **无论哪种，v0.0.4 的用例总数在 V4-20 修复后为 194（修复前是 190），权威值为 194。**
   `numPendingTests: 0` 证明**没有任何用例被静默跳过**（比「全绿」更强的结论）。
-- 升级脚本自检：**62 项断言全 PASS / 0 FAIL**。
+- 升级脚本自检：**87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项）。
 - R-21（管理员无 `/admin` 入口）与 R-24（关注无 UI 入口）**已由 `ed385cf` 修复**（管理员入口 / 关注 /
   节点申请审批 / 通知已读全部补齐），**待主理人终验确认**。
 - ✅ **本轮唯一红灯 = R-27 / V4-20**（节点申请 UI 提交链断裂）**已由 `bddb3d0` 修复并本地实测验证**，**阻断正式 Release 的表述同步解除**；⚠️ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅），剩余阻断项见 `RELEASE_GATE.md`。
@@ -214,7 +214,7 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 | R-01 原站版权素材经 Git 历史持续暴露 | 高 | 高 | 隔离演练已验证清理可行且不损坏项目；远端改写需主人单独授权 | **DEFERRED（维持）** —— 收尾轮只读复核：风险未消除；演练改动了 3 个已发布 Tag 的 SHA，与「不得移动已发布 Tag」冲突，**待主人裁决** |
 | R-16 Docker 容器与安装包未实跑 | 高 | 大 | `docker-verify` **九项全部 completed/success**（run `41871503684`，SHA `2773cd1`），汇总表全 PASS；修复提交 `827eef7` + `2773cd1` | 🟢 **已闭环** |
 | R-17 Redis 故障恢复未验证 | 中 | 中 | 同 run 九项全绿，含 `[R-17a/b/c]` 三个专项（Redis / PG 中断恢复、缓存失效与内存观测） | 🟢 **已闭环** |
-| R-18 升级路径断点（`update.sh` 不更新镜像 tag） | 高 | 大 | `b0d68c2` 重写 `update.sh`（自动同步 tag + 失败回滚）；`verify-update-script.sh` **62 项断言全 PASS** | 🟢 **已修并验证** —— 真实容器级升级待复跑 |
+| R-18 升级路径断点（`update.sh` 不更新镜像 tag） | 高 | 大 | `b0d68c2` 重写 `update.sh`（自动同步 tag + 失败回滚）；`verify-update-script.sh` **87 项断言全 PASS**（本轮实测） | 🟢 **已修并验证** —— 真实容器级升级待复跑 |
 | R-21 管理员 `/admin` 无导航入口、版主管理 UI 缺失 | 高 | 中 | `ed385cf` 补齐管理员入口 / 关注 / 节点申请审批 / 通知已读；导航收敛到 `src/lib/nav-links.ts`；服务端鉴权仍是唯一权威 | 🟢 **已修复（`ed385cf`）** —— 待主理人终验确认 |
 | R-22 单测 `beforeAll` 建库超时 | 高 | 中 | 三次归因勘误后定案（crash recovery / I/O 积压态）；稳态 `CREATE DATABASE` **2.0~2.3s**；`hookTimeout` 提到 120s | 🟢 **已定案并复验** —— 连续 4 轮全绿 |
 | 以不可复核的几何数字作放行依据 | — | — | D-01 已闭环：脚本入仓 + 机器证据 + 三套口径 | 已闭环 |

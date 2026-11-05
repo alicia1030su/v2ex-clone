@@ -292,7 +292,7 @@ inputs:
 - **数据库与发布顺序**：`0002` 全是 `CREATE … IF NOT EXISTS`，无破坏性 DDL（升级报告 §6.3 实跑数据指纹不变）。因此**允许先迁移后发代码**，且**回滚代码无需回滚数据库**；旧代码不依赖新索引，只是变慢。
 - **升级路径（用户侧）**：`./backup.sh` → **手工修改 `.env` 的 `V2EX_IMAGE` 为 `v0.0.4`** → `./update.sh` → 等待 healthy → 核验 7 个索引与 `pg_trgm`（SQL 见升级报告 §2.3）→ 核验 `password_hash` 与主题数不变。
   > ⚠️ **收尾轮更新（R-18 已修）**：`deploy/update.sh` 已重写（提交 `b0d68c2`），新增 `./update.sh --version vX.Y.Z` 路径 —— **自动改写 `.env` 的 `V2EX_IMAGE` 为目标镜像**，并补齐**失败自动回滚**（镜像 + `.env` 双恢复）、**备份失败中止**、**非法版本号拒绝**、**镜像未变化时告警中止（退出码 3）**。**不指定 `--version` 时仍沿用 `.env` 中的旧镜像（向后兼容路径）**，因此上面的手工步骤**仍然必须执行**。
-  > 自检：`bash scripts/release/verify-update-script.sh` → **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker）。⚠️ **残余**：真实容器级升级仍需带 Docker 的环境复跑（并入 R-16 重跑批次）。
+  > 自检：`bash scripts/release/verify-update-script.sh` → **87 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker；本轮实测，历史为 62 项）。⚠️ **残余**：真实容器级升级仍需带 Docker 的环境复跑（并入 R-16 重跑批次）。
 - **回滚**：见 §8。
 
 ---
@@ -351,7 +351,7 @@ inputs:
   - ⚠️ **「185」有两个来源**：**v0.0.3 历史总数**（master @ `37710fb4`）与 **修复前的历史观测**（`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。**v0.0.4 的用例总数在 V4-20 修复后为 194（修复前为 190）。**
   - ✅ **CI 侧已通过**（190 条口径）：run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success（vitest 15 文件全过、`190 passed / 0 skipped`）。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped —— 当前仅**本地实测全绿**。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`floor-continuity` 在 CI 崩溃 ⇒ `unit` job 红 ⇒ `e2e` job 被 `needs: unit` 连带跳过 —— **已由 `8ce5ce9` 修复并经 CI 复验**（V4-17 VERIFIED / R-26 已闭环），`e2e` job **已真实跑过**
 - [x] E2E 全绿 —— ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**（V4-20 修复后本地实跑）；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮 —— 基于 153 条口径，早于 `ed385cf`）—— 已写入 `TEST_REPORT.md`「v0.0.4 真实浏览器 E2E（权威口径）」小节。**当前权威分母 = 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`
-  - ✅ **修复前的历史快照**（run `41873009808`，SHA `2773cd1`）：**153 passed | 1 failed | 154 total**，唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27 —— **✅ 已由 `bddb3d0` 修复并本地实测验证**（根因：HTML 规范 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** ⇒ react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ React #418 水合失败 ⇒ 事件处理器不绑定 ⇒ 表单走原生 GET 提交；修复：表单命名属性改名 + 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言）。实测：单元 194/194（16 文件）、E2E 154/154（11 文件，3.9m）全绿，React #418 **由 2 次归零**，提交恢复 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现）。⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** ⇒ **正式 Release 前必须确认 CI 侧同样 154/154 全绿**
+  - ✅ **修复前的历史快照**（run `41873009808`，SHA `2773cd1`）：**153 passed | 1 failed | 154 total**，唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27 —— **✅ 已由 `bddb3d0` 修复并本地实测验证**（根因：HTML 规范 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** ⇒ react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ React #418 水合失败 ⇒ 事件处理器不绑定 ⇒ 表单走原生 GET 提交；修复：表单命名属性改名 + 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言）。实测：单元 194/194（16 文件）、E2E 154/154（11 文件，3.9m）全绿，React #418 **由 2 次归零**，提交恢复 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现）。✅ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅） ⇒ **正式 Release 前必须确认 CI 侧同样 154/154 全绿**
 - [ ] **口径区分（防止把专项当全量）**：qa-engineer 第二轮是**专项实跑** —— `tests/floor-continuity.spec.ts` 5/5、`e2e/v004-four-roles-ui.spec.ts` 8/8（连续三轮，最新 `expected=8, skipped=0, unexpected=0, flaky=0`）、`npx tsc --noEmit` EXIT=0。**全量判定只认 team-lead 任务 #1 写入 `TEST_REPORT.md` 的结果**；qa-engineer 无权修改 `TEST_REPORT.md`（其所有权仅 3 个文件）
   - [x] `test-list-v0.0.4.txt` 已由主理人重新 `npx playwright test --list` 生成并更新为 **154**（`Total: 154 tests in 11 files`）；正式发布前仍须再跑一次 `--list` 固定口径（端点冒烟用例数随 GET 路由数浮动）
 - [ ] **测试环境注入**：`tests/setup.ts` 默认加载 `.env.local`，其 `DATABASE_URL` 指向 **5432**（本机无实例）；裸跑 vitest（未注入 `ENV_FILE` / `DATABASE_URL`）时 15 个单测文件中 11 个会连 5432 失败（实证 `ECONNREFUSED 127.0.0.1:5432`）。CI / 本地全量复验**必须注入 `ENV_FILE`**（如 `.env.test`，指向隔离实例 —— **按 `.env.test` 实际解析的端口，当前 55440**）。**`preflight.sh` 本身不触发任何测试**（只做只读存在性检查与 `bash -n`），不受此项影响
@@ -431,7 +431,7 @@ inputs:
 | **B-02** | 发行版 10+ 处版本字面量仍为 `0.0.3`（N-01） | 🟢 开发态非缺陷 / 🔴 发布态门禁 | ✅ **开发态预期（INFO）**；⏳ **发布态须清零** | 主理人裁决：开发阶段刻意保持 `0.0.3`（`CHANGELOG.md [Unreleased]`）。由 **G-VER-01** 在**第 9 步固定最终 SHA 时一次性同步**，随后 `--phase=release` 必须 FAIL=0。若不同步 ⇒ 安装包拉 v0.0.3 镜像，0002 不生效（见 §5.3） |
 | **B-03** | `release.yml` tag 白名单无 `v0.0.4`（N-03） | 🔧 **工程阻断项（保留）**｜🟢 dev 预期 / 🔴 release 门禁 | ⏳ **发布态尚未解除**；开发态预期（INFO） | 白名单是**刻意的摩擦**，不会自动加。由主理人在 G-VER-01 的版本同步提交中手工加入 `- 'v0.0.4'`（§5.3）；`--phase=release` 缺失即 FAIL。不加入 ⇒ 推 tag 不触发任何 job |
 | **B-04** | `release.yml` 内置 Release Notes 硬编码 `v0.0.1`（N-03） | 🔧 **工程阻断项（保留，防回归）**｜🔴 流水线 | ✅ **已修复，但门禁项保留** | 主理人已改为 `## __VERSION__ — 开发预览版` 占位符 + `sed -i "s\|__VERSION__\|${VERSION}\|g"` 动态注入（`VERSION` 取 `needs.preflight.outputs.version`，全文件 16 处动态引用）。本地实跑：6 处替换、0 残留、YAML 合法。preflight 已改为检查动态版本，两种模式均报 **PASS** |
-| **B-05** | `deploy/update.sh` 未引导改镜像 tag，v0.0.3 用户无法升级（N-04） | 🔧 **工程阻断项（保留）**｜🟠 高 | 🟢 **已修并验证（收尾轮）** | 提交 `b0d68c2` 重写 `deploy/update.sh`（+688 行）：新增 `--version vX.Y.Z` 自动改写 `.env` 的 `V2EX_IMAGE` + **失败自动回滚**（镜像与 `.env` 双恢复）+ 备份失败中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）。**自检 62 项断言全 PASS / 0 FAIL**。⚠️ 残余：不带 `--version` 时仍沿用 `.env` 旧镜像（向后兼容），故 `deploy/INSTALL.md` §8 的「先改 `.env` 再 `./update.sh`」说明**仍需保留**；真实容器级升级待带 Docker 的环境复跑 |
+| **B-05** | `deploy/update.sh` 未引导改镜像 tag，v0.0.3 用户无法升级（N-04） | 🔧 **工程阻断项（保留）**｜🟠 高 | 🟢 **已修并验证（收尾轮）** | 提交 `b0d68c2` 重写 `deploy/update.sh`（+688 行）：新增 `--version vX.Y.Z` 自动改写 `.env` 的 `V2EX_IMAGE` + **失败自动回滚**（镜像与 `.env` 双恢复）+ 备份失败中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）。**自检 87 项断言全 PASS / 0 FAIL**（本轮实测）。⚠️ 残余：不带 `--version` 时仍沿用 `.env` 旧镜像（向后兼容），故 `deploy/INSTALL.md` §8 的「先改 `.env` 再 `./update.sh`」说明**仍需保留**；真实容器级升级待带 Docker 的环境复跑 |
 | **B-06** | 容器级回滚演练未做（本机无 Docker） | 🟠 高 | ⚠️ **未验证** | 由 `install-verify.yml` Linux 真实 Docker job 补做并登记 run id |
 | **B-07** | `install-verify.yml` 未在 v0.0.4 重跑 | 🟠 高 | ⚠️ **未验证** | 发布前重跑全绿 |
 | **B-08** | 0002 的 `pg_trgm` 权限不足会静默跳过 trigram 索引（N-05） | 🟡 中 | ⚠️ **未监控** | 发布后核验 `pg_extension` + 7 索引；长期补告警 |
@@ -447,7 +447,7 @@ inputs:
 - **按主理人要求，B-02～B-05 中只有「版本一致性」（B-02）按裁决降级为开发态预期；B-03 / B-04 / B-05 一律保留为工程阻断项并如实带进最终报告**：
   - **B-03 白名单**：开发态 INFO、**发布态尚未解除**（须由主理人人工加入 `- 'v0.0.4'`，`--phase=release` 缺失即 FAIL）；
   - **B-04 Release Notes**：**已修复**（`__VERSION__` + `sed` 动态注入）但**门禁项保留以防回归** —— preflight 两种模式都持续校验「无 `v0.0.1` 硬编码 + 动态版本注入存在」，现报 PASS；
-  - **B-05 `update.sh` 升级**：✅ **收尾轮已修（R-18）** —— `deploy/update.sh` 已重写（`b0d68c2`），新增 `./update.sh --version vX.Y.Z` **自动改写 `.env` 的 `V2EX_IMAGE`** + **失败自动回滚**（镜像与 `.env` 双恢复）+ 备份失败中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）；`bash scripts/release/verify-update-script.sh` → **62 项断言全 PASS / 0 FAIL**。⚠️ **残余**：不带 `--version` 时是**向后兼容路径**（沿用 `.env` 旧镜像），故 `deploy/INSTALL.md` §8 的「先改 `.env` 再 `./update.sh`」说明**仍需保留**；**真实容器级升级仍需带 Docker 的环境复跑**。
+  - **B-05 `update.sh` 升级**：✅ **收尾轮已修（R-18）** —— `deploy/update.sh` 已重写（`b0d68c2`），新增 `./update.sh --version vX.Y.Z` **自动改写 `.env` 的 `V2EX_IMAGE`** + **失败自动回滚**（镜像与 `.env` 双恢复）+ 备份失败中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）；`bash scripts/release/verify-update-script.sh` → **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项）。⚠️ **残余**：不带 `--version` 时是**向后兼容路径**（沿用 `.env` 旧镜像），故 `deploy/INSTALL.md` §8 的「先改 `.env` 再 `./update.sh`」说明**仍需保留**；**真实容器级升级仍需带 Docker 的环境复跑**。
 - **即使工程门禁全部清零，只要 B-01 仍为 DEFERRED，v0.0.4 Release 也只能停在 Draft，不得公开发布。**
 
 ---
@@ -624,7 +624,7 @@ phase  : dev                                       phase  : release
 | 修复提交 | `b0d68c2`（`deploy/update.sh` +688 行） |
 | 新增能力 | `--version vX.Y.Z` **自动改写 `.env` 的 `V2EX_IMAGE`**；**失败自动回滚**（镜像 + `.env` 双恢复）；备份失败中止升级；非法版本号拒绝；镜像未变化时告警中止（退出码 3） |
 | 自检脚本 | `scripts/release/verify-update-script.sh`（749 行）—— **不依赖 Docker**：`mktemp -d` 沙箱 + 假 `.env` + 真实 `backup.sh` 副本 + docker stub，跑**真实的** `update.sh` |
-| 实测结果 | **62 项断言全 PASS / 0 FAIL**（收尾轮独立复跑确认） |
+| 实测结果 | **87 项断言全 PASS / 0 FAIL**（本轮实测；收尾轮独立复跑确认，历史为 62 项） |
 | 硬约束 | 绝不执行真实 Docker 命令；绝不触碰仓库真实文件（自检末尾有校验和断言） |
 | ⚠️ 残余 | **不带 `--version` 时是向后兼容路径**（沿用 `.env` 旧镜像）⇒ `INSTALL.md` §8 的手工步骤**仍需保留**；**真实容器级升级**仍需带 Docker 的环境复跑 |
 

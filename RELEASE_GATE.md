@@ -5,7 +5,7 @@
 > v0.0.4 的实测为**单元 194 条 / 16 个文件（194 passed / 0 failed / 0 skipped，连续 4 轮全绿）**、
 > E2E **154 条 / 11 个文件**（✅ **当前权威值 = 154 passed / 0 failed / 0 skipped，3.9m** —— V4-20 修复后本地实跑全绿；
 > **修复前的历史快照**：CI run `41873009808` = `153 passed | 1 failed | 154 total`）、
-> 升级脚本自检 **62 项断言全 PASS / 0 FAIL**，门禁以
+> 升级脚本自检 **87 项断言全 PASS / 0 FAIL**，门禁以
 > `docs/RELEASE_PROCESS_v0.0.4.md`（发布流程 + 发布前检查单）与
 > `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md`（验收 Go/No-Go 判定表）为准。
 >
@@ -31,7 +31,7 @@
 > 修复后本地实测：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿，
 > `/nodes/request` 的 React #418 **归零**，提交恢复为 `POST /api/node-requests`。
 > **修复前的历史快照**：CI run `41873009808` = `153 passed | 1 failed | 154 total`。
-> ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）—— 不得写成「CI 已通过」**；剩余阻断项见下方门禁速览与本文各表。
+> ✅ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）—— 不得写成「CI 已通过」**；剩余阻断项见下方门禁速览与本文各表。
 >
 > v0.0.4 新增的门槛要点：禁止提前创建最终 Tag、同一版本号不得反复删建或移动 Tag、
 > 固定最终 SHA 后才能创建 Tag 与 Draft Release、远端核验；
@@ -53,8 +53,8 @@
 |---|---|---|
 | 单元测试 | **194 条 / 16 文件**，194 passed / 0 failed / 0 skipped，**连续 4 轮全绿**（修复前基线 190 条 / 15 文件） | ✅ 通过（**本机**） |
 | 单元测试（**CI**） | CI 上 **190 passed / 0 skipped** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 ✅（vitest 15 文件全过）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`185 passed \| 5 skipped (190)`，`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过；**已由 `8ce5ce9` 修复并经 CI 复验**（V4-17 / R-26）。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped | ✅ **通过（CI）**（190 条口径）；✅ **194 条口径已由 CI 复验通过**（run `41949555282`，SHA `bddb3d0`） |
-| E2E | **154 条 / 11 文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证** | ✅ **通过（本地 154/154）**；⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
-| 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱，不调用真实 Docker） | ✅ 通过 |
+| E2E | **154 条 / 11 文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证** | ✅ **通过（本地 154/154）**；✅ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅） |
+| 升级脚本自检 | **87 项断言全 PASS / 0 FAIL**（沙箱，不调用真实 Docker；本轮实测） | ✅ 通过 |
 | 视觉对照 | 4 视口 × 17 页面 = 68 条（**40 有对照 / 28 无对照**）；严格口径桌面 Δx=0 **52/52** | ⚠️ **部分** —— 六类区分（几何位置 / 组件宽高 / 视觉样式 / 动态内容 / 缺失组件 / 实际交互）**未全部闭环**，28 条无对照；**不得宣称「像素级复刻完成」** |
 | Docker 容器实跑 | **✅ 已闭环（九项全绿）** —— run `41871503684`（SHA `2773cd1`）：`docker-verify` 九项 completed/success，汇总表全 PASS。修复提交：`827eef7`（安装模拟改走首次安装路径）、`2773cd1`（安装模拟前 unset job 级 env，修 compose 插值泄漏导致的假绿） | 🟢 **已闭环（R-16）** |
 | Redis 故障恢复 | **✅ 已闭环** —— 同 run `41871503684` 九项全绿，含 `[R-17a/b/c]` 三个专项（Redis / PG 中断恢复、缓存失效与内存观测） | 🟢 **已闭环（R-17）** |

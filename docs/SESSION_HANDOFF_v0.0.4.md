@@ -693,7 +693,7 @@ install.sh 完成、`.env` 600、INSTALL_CREDENTIALS.txt 600、口令 32/32/48/1
 - 单元：**194 passed / 0 failed / 0 skipped（16 文件）**，耗时 81.68s（隔离实例口径）。
 - E2E：**154 passed / 0 failed / 0 skipped（11 文件，3.9m）**。
 - `/nodes/request` 的 React #418 **由 2 次归零**；提交请求恢复 `POST /api/node-requests`；URL 停在 `/nodes/request`；成功 toast 出现。
-- ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** —— 本地全绿 ≠ CI 已通过。
+- ✅ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅） —— 本地全绿 ≠ CI 已通过。
 
 ## G. 本地执行环境的三条纪律（务必遵守）
 

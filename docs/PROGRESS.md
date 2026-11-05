@@ -201,7 +201,7 @@
 | 阶段 | 状态 | 关键产出 |
 |---|---|---|
 | 测试基线定案 | ✅ 完成 | 单元 **194 条 / 16 文件**（V4-20 修复前为 190 条 / 15 文件）、E2E **154 条 / 11 文件**；「185 vs 190」口径澄清为「**环境差异**（CI 5 条跳过 vs 本机全过）」，**总数在 V4-20 修复后为 194** |
-| 升级脚本修复与自检 | ✅ 完成 | `b0d68c2`；`verify-update-script.sh` **62 项断言全 PASS / 0 FAIL** |
+| 升级脚本修复与自检 | ✅ 完成 | `b0d68c2`；`verify-update-script.sh` **87 项断言全 PASS / 0 FAIL**（本轮实测） |
 | 版本库卫生 | ✅ 完成 | `49d66d3` 移出 18 个误提交的上传占位图（**不改写历史**） |
 | CI 取证通道 | ✅ 完成（**九项全绿**） | `docker-verify.yml` 就绪并修复**四个**工作流自身缺陷（V4-15 / V4-16 / V4-18 / V4-19）；**run `41871503684`（SHA `2773cd1`）九项 completed/success、汇总表全 PASS**（修复提交 `827eef7` + `2773cd1`）⇒ **R-16 / R-17 已闭环** |
 | 交付文档统一 | ✅ 完成 | 14 份文档口径统一；3 个新缺陷登记；风险状态同步 |
@@ -213,7 +213,7 @@
 | 单元测试 | **194 条 / 16 文件**，194 passed / 0 failed / 0 skipped，**连续 4 轮全绿**（⚠️ 修复前基线 190 条 / 15 文件 —— V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言） | `ENV_FILE=.env.test npx vitest run` |
 | 单元测试（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`190 passed / 0 skipped`）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`185 passed \| 5 skipped (190)`（分母 190 正确）；`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过 —— **已由 `8ce5ce9` 修复并经 CI 复验** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
 | 真实浏览器 E2E | **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` |
-| 升级脚本自检 | **62 项断言全 PASS / 0 FAIL** | `bash scripts/release/verify-update-script.sh` |
+| 升级脚本自检 | **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项） | `bash scripts/release/verify-update-script.sh` |
 | 视觉对照 | 4 视口 × 17 页面 = **68 条**（**40 有对照 / 28 无对照**）；严格口径桌面 Δx=0 **52/52** | `tools/visual/summarize-visual-diff.py` |
 
 > ⚠️ **「185」有两个不同来源，不可混用**：① **v0.0.3 历史总数**（master @ `37710fb4`，14 文件）；

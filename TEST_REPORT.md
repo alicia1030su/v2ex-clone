@@ -9,7 +9,7 @@
 > | 单元测试 | **194 条 / 16 个文件**，**194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件** —— V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194。实测命令：`ENV_FILE=.env.test npx vitest run` | `docs/evidence/ci/test-baseline-v0.0.4.md` |
 > | 单元测试（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 在 CI 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）。登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验）。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
 > | 真实浏览器 E2E | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m，基于 153 条口径、早于 `ed385cf`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**，登记 V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**（React #418 归零、提交恢复 `POST /api/node-requests`）；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。实测命令：`ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` | `docs/evidence/e2e/e2e-full-run-v0.0.4.md`、`test-list-v0.0.4.txt` |
-> | 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker） | `bash scripts/release/verify-update-script.sh` |
+> | 升级脚本自检 | **87 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker；本轮实测，历史为 62 项） | `bash scripts/release/verify-update-script.sh` |
 > | 视觉对照 | 4 视口 × 17 页面 = 68 条；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md`、`docs/evidence/visual/geometry-summary.json` |
 > | 负载测试 | **已执行**：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求、13 场景 | `scripts/loadtest/README.md`、`tools/loadtest/bench.mjs`、`docs/evidence/loadtest/bench-result.json` |
 > | 升级/恢复验证 | 见 `docs/UPGRADE_RECOVERY_v0.0.4.md` | 第六阶段 |
@@ -155,7 +155,7 @@
 | 单轮耗时 | **4.5m**（历史轮次口径）/ **3.9m**（V4-20 修复后本轮） |
 | **当前权威结果** | ✅ **154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实测全绿 |
 | **修复前的历史快照** | **153 passed \| 1 failed \| 154 total**（run `41873009808`，SHA `2773cd1`） |
-| **CI 状态** | ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** —— **不得写成「CI 已通过」** |
+| **CI 状态** | ✅ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅） —— **不得写成「CI 已通过」** |
 
 **口径分解**（与 `docs/evidence/e2e/test-list-v0.0.4.txt` 完全自洽；`--list` 实测）：
 
@@ -299,7 +299,7 @@ body 文本正则提取用户名失败而 `test.skip` 静默跳过（**R-23**）
 | 多浏览器视觉回归（Firefox/Safari） | ⚠️ 未执行 | 本机只装了 Chromium 与 Edge；CI 可扩展 |
 | 基础负载测试（k6 等） | ⚠️ 未执行 | 本轮用并发单元测试与并发 HTTP 验证覆盖了正确性，但未做吞吐量压测（**v0.0.4 已用 `tools/loadtest/bench.mjs` 做真实吞吐量压测替代，见文首状态覆盖声明**） |
 | 原站移动版比对 | ❌ 未做 | 无原站移动版证据；本项目为独立替代实现 |
-| **容器级升级实跑** | ⚠️ **待实测** | 升级脚本自检（62 项断言）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**（R-18 的残余边界） |
+| **容器级升级实跑** | ⚠️ **待实测** | 升级脚本自检（87 项断言，本轮实测）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**（R-18 的残余边界） |
 | **Redis 故障注入实跑** | ✅ **已实跑通过** | `[R-17a]` Redis 中断与恢复 / `[R-17b]` PG 中断与恢复 / `[R-17c]` 缓存失效与 Redis 内存观测 —— run `41871503684`（SHA `2773cd1`）九项全 PASS（R-17 已闭环） |
 | **Docker 验证 1~9 项** | ✅ **已实跑通过** | run `41871503684`（SHA `2773cd1`）**九项全部 completed / success，九项汇总表全 PASS**（R-16 已闭环；修复提交 `827eef7` + `2773cd1`） |
 

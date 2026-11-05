@@ -64,7 +64,7 @@
 
 | 项 | 内容 | 证据 |
 |---|---|---|
-| 升级脚本自动同步镜像 tag | 重写 `deploy/update.sh`（+688 行）：自动改写 `.env` 的 `V2EX_IMAGE`、失败回滚、备份失败中止、非法版本号拒绝、镜像未变化时告警中止（退出码 3） | `b0d68c2`；`scripts/release/verify-update-script.sh` **62 项断言全 PASS / 0 FAIL** |
+| 升级脚本自动同步镜像 tag | 重写 `deploy/update.sh`（+688 行）：自动改写 `.env` 的 `V2EX_IMAGE`、失败回滚、备份失败中止、非法版本号拒绝、镜像未变化时告警中止（退出码 3） | `b0d68c2`；`scripts/release/verify-update-script.sh` **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项） |
 | 升级脚本沙箱自检 | **不依赖 Docker** 的自检脚本：`mktemp -d` 沙箱 + 假 `deploy/.env` + 真实 `backup.sh` 副本 + 记录调用参数的 docker stub，跑**真实的** `update.sh` 并断言 8 类行为 + 「仓库真实文件未被改动」校验和 | `scripts/release/verify-update-script.sh`（749 行），实测 `PASS=62 FAIL=0` |
 | Docker / Redis 取证通道 | 新建 `.github/workflows/docker-verify.yml`（9 项验证），含 `[R-17a]` Redis 中断恢复、`[R-17b]` PG 中断恢复、`[R-17c]` 缓存失效与内存观测 | `b0d68c2` + `2532f5f` + `930f29e`；**首轮实跑已通过第 9 项的 6 个子断言**（非 root、8 项 devDependency 未检出、3 个运行时文件已检出、5 个 env/凭据文件未检出、迁移 SQL 完整、体积打印） |
 | 发布前只读门禁 | `scripts/release/preflight.sh` 双模式（`--phase=dev` / `--phase=release`）：版本一致性 / 流水线闸门 / 迁移幂等 / 安装包结构四类，**只读、不写、不联网** | `docs/RELEASE_PROCESS_v0.0.4.md` §14 |
@@ -77,7 +77,7 @@
 | **单元测试** | **194 条 / 16 个文件**，**194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件**（新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194） | `ENV_FILE=.env.test npx vitest run`；`docs/evidence/ci/test-baseline-v0.0.4.md` |
 | **单元测试（CI）** | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验**。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
 | **真实浏览器 E2E** | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威值 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实测全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`；`docs/evidence/e2e/e2e-full-run-v0.0.4.md` |
-| **升级脚本自检** | **62 项断言全 PASS / 0 FAIL** | `bash scripts/release/verify-update-script.sh` |
+| **升级脚本自检** | **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项） | `bash scripts/release/verify-update-script.sh` |
 | **视觉对照** | 4 视口 × 17 页面 = **68 条**；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52**、Δw=0 48/52 | `tools/visual/summarize-visual-diff.py` + `docs/evidence/visual/geometry-summary.json` |
 | **负载压测** | 13 场景 / 24785 请求，**0 个 5xx**；数据集 351 万行（10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复） | `scripts/loadtest/seed-large.ts` + `tools/loadtest/bench.mjs` + `bench-result.json` |
 
@@ -166,7 +166,7 @@
 
 ### 七、不包含（未实现，如实标注）
 
-- **容器级升级实跑** —— 升级脚本自检（62 项断言）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**。
+- **容器级升级实跑** —— 升级脚本自检（87 项断言，本轮实测）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**。
 - **真实 SMTP 投递** —— 未配置，仅做静态核查。
 - **多浏览器 E2E（Firefox / Safari）** —— 本机仅 Chromium / Edge。
 - **原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照** —— 无权访问他人账号，不拿游客态冒充。

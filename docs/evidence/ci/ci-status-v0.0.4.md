@@ -165,7 +165,7 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 > `/nodes/request` 的 React #418 **由 2 次归零（0 次）**；提交请求由「无（原生 GET）」恢复为 `POST /api/node-requests` ✅；
 > 提交后 URL 由 `?nodeName=...` 变为停在 `/nodes/request` ✅；成功 toast **出现** ✅。
 >
-> ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）—— 不得写成「CI 已通过」**；剩余阻断项见 `RELEASE_GATE.md`。
+> ✅ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）—— 不得写成「CI 已通过」**；剩余阻断项见 `RELEASE_GATE.md`。
 
 **已验证的修复方案**（本地纯净检出实跑通过，CI 与本地均 `5 passed`）：
 见 `test-baseline-v0.0.4.md` §0.5。修复后预期 CI 变为：

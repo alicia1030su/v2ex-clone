@@ -544,7 +544,7 @@ deploy/update.sh:57-72  docker compose pull → up -d → 容器重启自动重�
 
 1. 现在打出的 v0.0.4 安装包，`install.sh` / `install.ps1` 会去拉 **v0.0.3 镜像** —— 镜像内没有 0002，用户拿到的其实是旧版，0002 索引与性能优化全部缺失。
 2. 已安装 v0.0.3 的用户执行 `./update.sh`（**不带 `--version`**）**不会升级到 v0.0.4**：`update.sh` 从 `.env` 读 `V2EX_IMAGE`，而 `.env` 是首次安装时写入的 `v0.0.3` 且脚本幂等不覆盖。`docker compose pull` 只会重拉 v0.0.3。
-   ⚠️ **收尾轮已修（R-18）**：新写法 `./update.sh --version v0.0.4` 会**自动改写 `.env` 的 `V2EX_IMAGE`** 并在失败时**自动回滚**（镜像与 `.env` 双恢复）。自检 `bash scripts/release/verify-update-script.sh` → **62 项断言全 PASS / 0 FAIL**。⚠️ **真实容器级升级仍需带 Docker 的环境复跑**（并入 R-16 重跑批次）。
+   ⚠️ **收尾轮已修（R-18）**：新写法 `./update.sh --version v0.0.4` 会**自动改写 `.env` 的 `V2EX_IMAGE`** 并在失败时**自动回滚**（镜像与 `.env` 双恢复）。自检 `bash scripts/release/verify-update-script.sh` → **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项）。⚠️ **真实容器级升级仍需带 Docker 的环境复跑**（并入 R-16 重跑批次）。
 3. `deploy/VERSION` 无任何脚本读取（grep 零命中），是纯元数据，但仍必须同步以免文档/审计不一致。
 
 > 修复动作属于 `deploy/**`、`package.json`、`.github/workflows/**`，**均在我的所有权边界之外**，本轮只报告不修改，已列入 `docs/RELEASE_PROCESS_v0.0.4.md` 的阻断项清单。
@@ -733,10 +733,10 @@ bash scripts/release/preflight.sh
 
 | 编号 | 风险 | 等级 | 建议动作 |
 |---|---|---|---|
-| **N-01** | 发行版所有版本标记仍为 `0.0.3`：安装包会拉 v0.0.3 镜像（无 0002），且已装用户 `update.sh` 因 `.env` 中 `V2EX_IMAGE` 固定而无法升级 | 🔴 **阻断发布** | 发布前统一改 10+ 处版本字面量；升级文档明确「先改 `.env` 的 `V2EX_IMAGE` 再 `./update.sh`」。⚠️ **收尾轮进展（R-18 已修）**：`deploy/update.sh` 已重写（`b0d68c2`），新增 `--version vX.Y.Z` **自动改写 `V2EX_IMAGE`** + 失败自动回滚；`verify-update-script.sh` **62 项断言全 PASS**。**版本字面量的统一同步仍待第 9 步「固定最终 SHA」时一次性执行（R-20 裁决）** |
+| **N-01** | 发行版所有版本标记仍为 `0.0.3`：安装包会拉 v0.0.3 镜像（无 0002），且已装用户 `update.sh` 因 `.env` 中 `V2EX_IMAGE` 固定而无法升级 | 🔴 **阻断发布** | 发布前统一改 10+ 处版本字面量；升级文档明确「先改 `.env` 的 `V2EX_IMAGE` 再 `./update.sh`」。⚠️ **收尾轮进展（R-18 已修）**：`deploy/update.sh` 已重写（`b0d68c2`），新增 `--version vX.Y.Z` **自动改写 `V2EX_IMAGE`** + 失败自动回滚；`verify-update-script.sh` **87 项断言全 PASS**（本轮实测）。**版本字面量的统一同步仍待第 9 步「固定最终 SHA」时一次性执行（R-20 裁决）** |
 | **N-02** | `getKV()` 一次性选择后端并缓存 + `retryStrategy: () => null` → Redis 运行中失效不会自动降级 | 🟠 高 | 恢复步骤强制「重启 app」；长期建议加健康探测与自动重选后端 |
 | **N-03** | `release.yml` tag 白名单无 `v0.0.4`（流水线不触发）；内置 Release Notes 硬编码 `v0.0.1`（说明会写错版本） | 🔴 **阻断发布** | 发布前加白名单条目 + 改 Release Notes 模板 |
-| **N-04** | `deploy/update.sh` 没有引导用户改镜像 tag，升级路径存在断点 | 🟠 高 | ✅ **收尾轮已修（R-18）**：`deploy/update.sh` 已重写并实现 `--version` 自动 tag 同步 + 失败自动回滚；`INSTALL.md` §8 的手工步骤**仍保留**（不带 `--version` 时是向后兼容路径）；自检 62 项断言全 PASS |
+| **N-04** | `deploy/update.sh` 没有引导用户改镜像 tag，升级路径存在断点 | 🟠 高 | ✅ **收尾轮已修（R-18）**：`deploy/update.sh` 已重写并实现 `--version` 自动 tag 同步 + 失败自动回滚；`INSTALL.md` §8 的手工步骤**仍保留**（不带 `--version` 时是向后兼容路径）；自检 87 项断言全 PASS（本轮实测） |
 | **N-05** | 0002 的 `pg_trgm` 权限不足时**静默跳过** trigram 索引（设计如此），但无告警/监控，生产可能「迁移成功但索引没建」 | 🟡 中 | 发布后核验 `pg_extension` 与 7 个索引（本报告 §2.3 的查询可直接复用），并接入告警 |
 | **N-06** | 本机共享 PG 空闲断连导致非原子恢复留下半成品 | 🟡 中（本机环境） | 生产一律 `--single-transaction`；`deploy/restore.sh` 已具备 |
 | **N-07** | `deploy/VERSION` 无任何脚本读取（grep 零命中），纯元数据易漏改 | 🟢 低 | 纳入 `preflight.sh` 版本一致性检查（已实现） |
