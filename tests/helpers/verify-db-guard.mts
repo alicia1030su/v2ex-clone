@@ -167,6 +167,30 @@ async function main(): Promise<void> {
     }
     check('真实 CI 路径（无 TEST_DB_ALLOWED_DATABASES）v2ex_ci 不被误伤', !threwRealCi);
 
+    // ── v0.0.4：release.yml 的两个库名也必须走「真实 CI 路径」放行 ──
+    //
+    // 实测事故（CI run `41954236858`）：release.yml 的 unit job 用
+    // `v2ex_release_unit`，此前不在 CI_DATABASE_NAMES 里 ⇒
+    // globalSetup 在建基础库前被护栏 2 拦死 ⇒ 单元测试 job 红灯。
+    // 且该错误被 vitest 错误格式化器的崩溃掩盖，报出来的是
+    // `TypeError: code.charCodeAt is not a function` —— 真实原因完全看不见。
+    for (const releaseDb of ['v2ex_release_unit', 'v2ex_release_e2e']) {
+      let threwRelease = false;
+      try {
+        assertSafeTestTarget(
+          `postgres://v2ex:pw@localhost:5432/${releaseDb}`,
+          releaseDb,
+        );
+      } catch {
+        threwRelease = true;
+      }
+      check(
+        `真实 CI 路径（无注入）${releaseDb} 不被误伤`,
+        !threwRelease,
+        '（release.yml 的 unit / e2e job 库名）',
+      );
+    }
+
     // ── 反向：非 CI 环境且无注入时，v2ex_ci 仍须被拒 ──────────────
     // 证明修复没有在本机放松任何约束。
     delete process.env.CI;
