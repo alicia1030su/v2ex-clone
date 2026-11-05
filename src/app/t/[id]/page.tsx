@@ -10,6 +10,7 @@ import { getTopicById, listReplies, REPLIES_PER_PAGE } from '@/server/queries';
 import Wrapper from '@/components/Wrapper';
 import PageNav from '@/components/PageNav';
 import CollectButton from '@/components/CollectButton';
+import ReportButton from '@/components/ReportButton';
 import { readCsrfToken } from '@/lib/csrf';
 import TopicActions from '@/components/TopicActions';
 import ReplyItem from '@/components/ReplyItem';
@@ -142,6 +143,10 @@ export default async function TopicPage({
         </div>
         <div className="cell_ops">
           <CollectButton target="topic" id={topicId} />
+          {/* v0.0.5：举报入口 —— 未登录点击会引导去登录；作者本人不渲染 */}
+          {topic.authorId !== user?.id ? (
+            <ReportButton target="topic" id={topicId} />
+          ) : null}
         </div>
       </div>
 

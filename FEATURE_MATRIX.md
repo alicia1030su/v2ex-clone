@@ -77,7 +77,7 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 | 用户活跃度统计 | ✅ 已实现 | `src/lib/credit-service.ts` (leaderboard 附带统计) |
 | 重复奖励防护 | ✅ 已实现 | `src/lib/credit-service.ts` (idempotencyKey 唯一索引)；`tests/credits-concurrency.spec.ts` (10 并发只 1 条流水) |
 | 余额不足时拒绝扣费 | ✅ 已实现 | `src/lib/credit-service.ts` (InsufficientCreditsError)；`tests/credits-concurrency.spec.ts` (30 并发恰好 10 成功) |
-| 管理员调整积分及审计 | ✅ 已实现 | `src/lib/credit-service.ts` (adminAdjustCredits)；`src/lib/audit.ts` (USER_CREDITS_ADJUST) |
+| 管理员调整积分及审计 | ✅ 已实现（v0.0.5 接通） | `src/lib/credit-service.ts` (adminAdjustCredits，行锁 + 余额校验 + 不可篡改账本)；`src/app/api/admin/credits/route.ts`（POST，权限 `credits.adjust` **仅 admin**）；`src/components/AdminConsole.tsx`「积分」tab（二次确认 + 理由必填 + 单次上限 100 万）；`src/lib/audit.ts` (USER_CREDITS_ADJUST)。⚠️ v0.0.5 前该 service **无任何调用方、无 API、无 UI**，此前的 ✅ 标注不实 —— 已由本轮接通 |
 
 ## 节点与内容分发
 
@@ -100,7 +100,12 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 |---|---|---|---|
 | 用户列表、搜索及角色管理 | ✅ 已实现 | `src/app/api/admin/users/route.ts` (GET)；`src/app/api/admin/users/[id]/role/route.ts` (PATCH)；`src/components/AdminConsole.tsx` (UI) |
 | 用户封禁、解除封禁 | ✅ 已实现 | `src/app/api/admin/users/[id]/ban/route.ts` (POST)；`src/app/api/admin/users/[id]/unban/route.ts` (POST) |
-| 主题与回复举报 | ✅ 已实现 | `src/app/api/admin/reports/route.ts` (GET)；`src/app/api/admin/reports/[id]/handle/route.ts` (POST) |
+| 主题与回复举报（**用户端提交**） | ✅ 已实现（v0.0.5 新增） | `src/app/api/reports/route.ts`（POST 提交 / GET 我的举报）；`src/components/ReportButton.tsx`（原因单选 + 补充说明，内联表单）；`src/lib/report-reasons.ts`（固定原因列表，服务端与前端共用）。防护：CSRF + 限流（10 次/小时）+ 防重复（部分唯一索引 `reports_reporter_target_uidx`）+ 不能举报自己 + 目标必须存在 |
+| 举报处理（管理端） | ✅ 已实现 | `src/app/api/admin/reports/route.ts` (GET)；`src/app/api/admin/reports/[id]/handle/route.ts` (POST，accept 隐藏内容)；`AdminConsole`「举报」tab |
+| 举报结果用户可见反馈 | ✅ 已实现（v0.0.5 新增） | `src/app/reports/page.tsx`「我的举报」页（状态 + 处理备注 + 目标标题）；处理时写 `notifications`（`type: 'system'`）通知举报者 |
+| 防重复举报 / 防刷举报 | ✅ 已实现（v0.0.5 新增） | `drizzle/0003_v005_reports.sql`：`reports_reporter_target_uidx`（**部分唯一索引** `WHERE status='pending'` —— 只拦进行中的重复，不阻断驳回后再举报）+ `rateLimitByUser('report', ...)` |
+| 举报者身份保护 | ✅ 已实现 | 「我的举报」页与 `GET /api/reports` 只返回**自己**的举报；**不显示处理人 ID 与用户名**（避免骚扰/报复处理人）；处理通知的消息不含处理人身份 |
+| 举报提交审计 | ✅ 已实现（v0.0.5 新增） | `AuditAction.REPORT_SUBMIT`（提交）+ `AuditAction.REPORT_HANDLE`（处理）构成完整链路 |
 | 待审核列表 | ✅ 已实现 | `src/app/api/admin/pending/route.ts` (GET) |
 | 内容隐藏与恢复 | ✅ 已实现 | `src/lib/content-service.ts` (softDelete / restore)；`src/app/api/admin/reports/[id]/handle/route.ts` (accept 时隐藏) |
 | 节点审核 | ✅ 已实现 | `src/app/api/admin/node-requests/route.ts` (GET) |

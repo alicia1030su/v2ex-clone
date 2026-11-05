@@ -137,11 +137,12 @@ type AdminNode = {
   topicsCount: number;
 };
 
-type TabKey = 'overview' | 'users' | 'reports' | 'nodes' | 'nodemgmt' | 'logs' | 'config';
+type TabKey = 'overview' | 'users' | 'credits' | 'reports' | 'nodes' | 'nodemgmt' | 'logs' | 'config';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: '概览' },
   { key: 'users', label: '用户' },
+  { key: 'credits', label: '积分' },
   { key: 'reports', label: '举报' },
   { key: 'nodes', label: '节点申请' },
   { key: 'nodemgmt', label: '节点管理' },
@@ -171,7 +172,14 @@ function fmtDate(v: string | null | undefined): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean }) {
+export default function AdminConsole({
+  canChangeRole,
+  canAdjustCredits,
+}: {
+  canChangeRole: boolean;
+  /** v0.0.5：能否调整积分（`credits.adjust` 权限，仅 admin） */
+  canAdjustCredits: boolean;
+}) {
   const [tab, setTab] = useState<TabKey>('overview');
   const [pending, setPending] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -191,6 +199,13 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
   const [appliedQuery, setAppliedQuery] = useState({ q: '', role: '', status: '', offset: 0 });
   /** 表单输入状态（仅本地，不触发请求） */
   const [userForm, setUserForm] = useState({ q: '', role: '', status: '' });
+
+  // 积分调整（v0.0.5）
+  /**
+   * 只有 admin 能调积分（`credits.adjust` 权限），
+   * 因此本 tab 与处理函数都受 `canAdjustCredits` 控制。
+   */
+  const [creditForm, setCreditForm] = useState({ userId: '', amount: '', reason: '' });
 
   // 举报
   const [reports, setReports] = useState<Report[]>([]);
@@ -452,6 +467,54 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
   async function unbanUser(userId: number) {
     const ok = await act(`unban-${userId}`, `/api/admin/users/${userId}/unban`, 'POST');
     if (ok) void loadUsers(appliedQuery.offset);
+  }
+
+  /**
+   * 调整用户积分（v0.0.5）
+   *
+   * 调 `POST /api/admin/credits`（权限 `credits.adjust`，**仅 admin**）。
+   * service 层 `adminAdjustCredits()` 负责行锁 + 余额校验 + 不可篡改账本，
+   * 这里只做表单校验与结果展示。
+   *
+   * 高危操作：提交前用 `window.confirm` 二次确认（任务书 §三要求
+   * 「敏感操作二次确认」），并把 UID、数额、理由都显式列出来供核对。
+   */
+  async function adjustCredits() {
+    const userId = Number(creditForm.userId);
+    const amount = Number(creditForm.amount);
+    const reason = creditForm.reason.trim();
+    if (!Number.isInteger(userId) || userId <= 0) {
+      setMsg({ kind: 'err', text: '请填写有效的用户 UID' });
+      return;
+    }
+    if (!Number.isInteger(amount) || amount === 0) {
+      setMsg({ kind: 'err', text: '调整数额必须是非零整数（正数增加，负数扣减）' });
+      return;
+    }
+    if (Math.abs(amount) > 1_000_000) {
+      setMsg({ kind: 'err', text: '单次调整数额不能超过 1,000,000' });
+      return;
+    }
+    if (reason.length < 2 || reason.length > 200) {
+      setMsg({ kind: 'err', text: '调整理由长度需在 2-200 之间' });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `确认调整积分？\n\n用户 UID：${userId}\n数额：${amount > 0 ? '+' : ''}${amount}\n理由：${reason}\n\n此操作会写入不可篡改的积分账本与审计日志。`,
+    );
+    if (!confirmed) return;
+
+    const ok = await act('adjust-credits', '/api/admin/credits', 'POST', {
+      userId,
+      amount,
+      reason,
+    });
+    if (ok) {
+      setCreditForm({ userId: '', amount: '', reason: '' });
+      // 刷新用户列表，让积分变化立即可见
+      void loadUsers(appliedQuery.offset);
+    }
   }
 
   async function handleReport(id: number, action: 'accept' | 'reject') {
@@ -760,6 +823,99 @@ export default function AdminConsole({ canChangeRole }: { canChangeRole: boolean
             </div>
           </div>
         </>
+      ) : null}
+
+      {/* ---------------- 积分（v0.0.5，仅 admin） ---------------- */}
+      {tab === 'credits' ? (
+        canAdjustCredits ? (
+          <>
+            <div className="cell">
+              <strong>调整用户积分</strong>
+              <div className="sep10" />
+              <table cellPadding={5} cellSpacing={0} border={0} width="100%">
+                <tbody>
+                  <tr>
+                    <td width={120} align="right">
+                      用户 UID
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={creditForm.userId}
+                        onChange={(e) =>
+                          setCreditForm({ ...creditForm, userId: e.target.value })
+                        }
+                        placeholder="用户数字 ID（可在「用户」tab 查看）"
+                        aria-label="用户 UID"
+                        style={{ width: 260 }}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="right">数额</td>
+                    <td>
+                      <input
+                        type="number"
+                        value={creditForm.amount}
+                        onChange={(e) =>
+                          setCreditForm({ ...creditForm, amount: e.target.value })
+                        }
+                        placeholder="正数增加，负数扣减"
+                        aria-label="调整数额"
+                        style={{ width: 160 }}
+                      />
+                      <span className="f12 gray" style={{ marginLeft: 8 }}>
+                        单次上限 1,000,000
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="right">理由</td>
+                    <td>
+                      <input
+                        type="text"
+                        value={creditForm.reason}
+                        onChange={(e) =>
+                          setCreditForm({ ...creditForm, reason: e.target.value })
+                        }
+                        placeholder="必填，2-200 字（写入不可篡改账本与审计日志）"
+                        aria-label="调整理由"
+                        style={{ width: 360 }}
+                        maxLength={200}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="right">&nbsp;</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => void adjustCredits()}
+                        disabled={pending === 'adjust-credits'}
+                        aria-label="提交积分调整"
+                      >
+                        {pending === 'adjust-credits' ? '处理中…' : '提交调整'}
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="cell">
+              <span className="fade">
+                积分调整会写入 <code>credit_ledger</code>（只追加、不可篡改，
+                含调整前后余额快照）与管理员审计日志。
+                扣减受「余额不足拒绝」约束。此功能**仅管理员**可用，版主无权限。
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="cell">
+            <span className="fade">积分调整仅管理员可操作。</span>
+          </div>
+        )
       ) : null}
 
       {/* ---------------- 举报 ---------------- */}

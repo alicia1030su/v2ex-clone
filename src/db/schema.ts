@@ -546,6 +546,13 @@ export const reports = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     reason: text('reason').notNull(),
+    /**
+     * 举报补充说明（可选，最长 500）
+     *
+     * v0.0.5 新增 —— `reason` 存**中文原因标签**（前端从固定列表选择），
+     * 用户自由发挥的部分放这里。
+     */
+    detail: text('detail'),
     status: reportStatus('status').notNull().default('pending'),
     /** 处理人 */
     handledBy: integer('handled_by').references(() => users.id),
@@ -557,8 +564,12 @@ export const reports = pgTable(
     index('reports_status_idx').on(t.status, t.createdAt),
     index('reports_target_idx').on(t.targetType, t.targetId),
     index('reports_reporter_idx').on(t.reporterId),
+    // v0.0.5：「我的举报」按时间倒序（过滤 + 排序一次走索引）
+    index('reports_reporter_created_idx').on(t.reporterId, t.createdAt.desc()),
   ],
 );
+// 举报原因的固定列表与校验在 `src/lib/report-reasons.ts`（纯数据模块，
+// 服务端 API 与客户端举报表单共用，避免把 drizzle 运行时带进浏览器 bundle）。
 
 /**
  * 节点创建申请（节点需审批后才可见）

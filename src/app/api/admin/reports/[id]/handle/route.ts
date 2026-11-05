@@ -87,6 +87,32 @@ export async function POST(
     }
   });
 
+  // ── v0.0.5：通知举报者「你的举报有结果了」──────────────────────
+  //
+  // 这是「用户可见的处理反馈」的最后一环。要点：
+  //   * 通知发给**举报人**（report.reporterId），不是被举报者
+  //   * `type: 'system'`（schema 早已定义，此前从未写入）
+  //   * **绝不透露处理人身份**（actor.id 不入 message）——
+  //     避免举报者骚扰或报复处理人
+  //   * 消息只说结果与（若有）备注，不暴露被处理内容的细节
+  //
+  // 放在事务外：通知失败不应让处理回滚（处理本身已成功落库）。
+  try {
+    await db.insert(schema.notifications).values({
+      userId: report.reporterId,
+      type: 'system',
+      actorId: null,
+      topicId: report.targetType === 'topic' ? report.targetId : null,
+      replyId: report.targetType === 'reply' ? report.targetId : null,
+      message:
+        action === 'accept'
+          ? `你举报的内容已被处理${note ? `（${note}）` : ''}`
+          : `你举报的内容经审核未违规${note ? `（${note}）` : ''}`,
+    });
+  } catch {
+    // 通知失败不影响处理结果 —— 静默降级（管理端已可见处理状态）
+  }
+
   await writeAuditLog(actor.id, {
     action: AuditAction.REPORT_HANDLE,
     targetType: 'report',

@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { csrfFetch } from '@/components/CsrfProvider';
+import ReportButton from '@/components/ReportButton';
 
 /**
  * 回复项（v0.0.3）
  *
  * 提供：楼层锚点、引用跳转、感谢/取消感谢、编辑、软删除、管理员恢复。
+ * v0.0.5：新增**举报**入口（ReportButton）。
  *
  * 与主题操作栏一致：前端只负责交互，鉴权与计数一致性由服务端保证。
  */
@@ -233,6 +235,10 @@ export default function ReplyItem({
                 删除
               </button>
             )}
+
+            {/* v0.0.5：举报入口 —— 未登录时点击会引导去登录；
+                作者本人不应看到（服务端也会拒绝） */}
+            {!isAuthor && <ReportButton target="reply" id={reply.id} />}
           </div>
         )}
 

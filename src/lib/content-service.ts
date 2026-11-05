@@ -193,7 +193,7 @@ export async function restoreTopic(
     throw new ContentError('NOT_DELETED', '主题未被删除', 409);
   }
   if (user.role !== 'moderator' && user.role !== 'admin') {
-    throw new ContentError('FORBIDDEN', '只有管理员可以恢复主题', 403);
+    throw new ContentError('FORBIDDEN', '只有管理员或版主可以恢复主题', 403);
   }
 
   await db

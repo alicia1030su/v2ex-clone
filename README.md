@@ -145,7 +145,7 @@
 | 邮件送达的端到端验证 | ⚠️ 部分 | SMTP 客户端与令牌流程已实现并测试；**本机未配置真实 SMTP 服务器**，未验证真实投递 |
 | 头像自动裁剪 | ⚠️ 部分 | 已实现 magic number 校验与存储；**未安装 `sharp`**，当前保存原图（降级路径可用） |
 | 报告回复（举报 UI） | ❌ **未实现** | `reports` 表与后台处理 API 已就绪，缺前端入口 |
-| 节点申请的前端入口 | ❌ **未实现** | `POST /api/node-requests` 已就绪，缺页面 |
+| 节点申请的前端入口 | ✅ **已实现** | `/nodes/request` 页 + `NodeRequestForm`（v0.0.4 `ed385cf` 补齐、`bddb3d0` 修复 V4-20 水合崩溃）+ 后台审批 tab |
 | RSS 阅读器集成 | ❌ **未实现** | Feed 已输出标准格式，未做站内聚合页 |
 | 全文搜索（PostgreSQL FTS） | ❌ **未实现** | 当前为 ILIKE 模糊匹配 |
 | 多语言 / i18n | ❌ **未实现** | — |
@@ -351,7 +351,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 ```
 v2ex-clone/
 ├── src/
-│   ├── app/                    # 路由（App Router，24 个页面 —— 含静态页）
+│   ├── app/                    # 路由（App Router，27 个页面 —— 含静态页）
 │   │   ├── page.tsx            # 首页
 │   │   ├── go/[name]/          # 节点页
 │   │   ├── go/search/  go/new/ # 搜索 / 发帖
@@ -385,7 +385,7 @@ v2ex-clone/
 >
 > | 数字 | 取数命令 | 实测值 | 口径说明 |
 > |---|---|---|---|
-> | **24 个页面** | `find src/app -name "page.tsx" \| wc -l` | **24** | ⚠️ **含静态页**（`/about` `/faq` `/privacy` `/forgot` `/worldclock` 等）—— **不是「24 个业务页」** |
+> | **27 个页面** | `find src/app -name "page.tsx" \| wc -l` | **27**（v0.0.5 起，含新增的 `/reports`「我的举报」）| ⚠️ **含静态页**（`/about` `/faq` `/privacy` `/forgot` `/worldclock` 等）—— **不是「24 个业务页」** |
 > | **55 个 API 路由** | `find src/app/api -name "route.ts" \| wc -l` | **55** | ⚠️ **含** `/api/admin/**`（**13** 个）与 `/api/debug/**`（**3** 个，**仅测试环境启用**）。<br>构成：`admin` 13 + `debug` 3 + 其余业务端点 39 |
 > | **26 张表** | `grep -c "pgTable(" src/db/schema.ts` | **26** | ⚠️ 这是**当前 Drizzle schema 里的表数**，与「迁移文件 3 个（`0000`/`0001`/`0002`）」是**不同的东西** —— 后者是迁移脚本数，不是表数 |
 >

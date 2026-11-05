@@ -33,6 +33,7 @@ export const AuditAction = {
   USER_ROLE_CHANGE: 'user.role_change',
   USER_CREDITS_ADJUST: 'user.credits_adjust',
   // 举报与节点
+  REPORT_SUBMIT: 'report.submit',
   REPORT_HANDLE: 'report.handle',
   NODE_REQUEST_APPROVE: 'node_request.approve',
   NODE_REQUEST_REJECT: 'node_request.reject',
