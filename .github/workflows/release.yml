@@ -1417,16 +1417,12 @@ jobs:
     if: needs.preflight.outputs.dry_run != 'true'
     permissions:
       contents: write
-      # ⚠️ v0.0.4：创建 **Draft** Release 需要 `pull-requests: write` ——
-      #   draft 在 GitHub 的权限模型里属于 PR-like 资源，
-      #   只给 `contents: write` 时 API 返回
-      #   `HTTP 403: Resource not accessible by integration`
-      #   （实测 run `41978482846`：安装包已正确下载、
-      #    `POST /repos/{}/releases` 这一步被 403 拦死）。
-      #
-      #   注意：这是**仅用于创建 Draft** 的最小增量 ——
-      #   正式发布（`--draft=false`）仍由 `publish` 输入显式控制，
-      #   且本次运行传的是 `publish=false` ⇒ Release 保持 Draft。
+      # ⚠️ v0.0.4（保留但**未证实**）：原假设「创建 Draft Release 需要
+      #   `pull-requests: write`」—— 加上后 run `41983127742` **仍然 403**，
+      #   且 v0.0.3 仅用 `contents: write` 就成功创建过 Draft。
+      #   ⇒ 该假设**不成立**，权限项不是根因。
+      #   此项暂予保留（无害，且 Draft 语义上确属 PR-like 资源）；
+      #   真实根因由紧随其后的「诊断 token 权限与 API 错误详情」步骤查明。
       pull-requests: write
     steps:
       - name: 下载安装包
@@ -1434,6 +1430,64 @@ jobs:
         with:
           name: release-package
           path: release-assets
+
+      # ── 诊断步骤（v0.0.4）──────────────────────────────────────────
+      # 背景：`gh release create` 连续三轮 403（run `41978482846` /
+      # `41983127742`），而：
+      #   - `build-image` 的 `packages: write` 生效（镜像推送成功）
+      #   - `preflight` 的 `gh release view`（同 token）成功
+      #   - v0.0.3 用**仅** `contents: write` 成功创建过 Draft
+      #   - 加 `pull-requests: write` 后**仍** 403
+      # ⇒ 说明「权限项不够」这个假设是错的，必须拿到**实际证据**。
+      #
+      # 本步骤一次性采集三份证据（用 `set -uo pipefail`，不让诊断自身失败）：
+      #   ① token 对本仓库的权限映射（`.permissions` 字段）
+      #      —— 若 `push: false`，说明 job 级 permissions 未生效
+      #   ② 仓库的 Actions workflow 权限设置
+      #   ③ 用 `gh api` 直接 POST 创建 Draft，**打印完整错误体**
+      #      —— `gh release create` 只显示单行摘要，拿不到
+      #         `message` + `documentation_url` + `errors[]`
+      #
+      # ③ 用一个**专属诊断 tag**，不占用正式 tag；创建成功后立即删除，
+      # 不污染 Release 列表。
+      - name: 诊断 token 权限与 API 错误详情
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          echo "=== ① token 对本仓库的权限映射 ==="
+          gh api "repos/${{ github.repository }}" --jq '.permissions' \
+            || echo "(查询失败)"
+          echo "=== ② 仓库的 Actions workflow 权限设置 ==="
+          gh api "repos/${{ github.repository }}/actions/permissions/workflow" --jq '.' \
+            || echo "(查询失败)"
+          echo "=== ③ 用 gh api 直接 POST 创建 Draft（完整错误体）==="
+          DIAG_TAG="v0.0.4-diag-${{ github.run_id }}"
+          gh api --method POST "repos/${{ github.repository }}/releases" \
+            -f tag_name="$DIAG_TAG" \
+            -f name="诊断用（自动清理）" \
+            -f body="发布流水线 403 诊断，非正式资产" \
+            -F draft=true -F prerelease=true \
+            --jq '{id, draft, tag_name, html_url}' 2>&1 \
+            || echo "(创建失败 —— 完整错误体见上方)"
+          echo "=== ④ 清理诊断 Release ==="
+          DID="$(gh api "repos/${{ github.repository }}/releases" \
+                  --jq ".[] | select(.tag_name==\"$DIAG_TAG\") | .id" 2>/dev/null || true)"
+          if [ -n "$DID" ]; then
+            gh api --method DELETE "repos/${{ github.repository }}/releases/$DID" >/dev/null 2>&1 \
+              && echo "已清理诊断 Release $DID" \
+              || echo "(清理失败，需手工删除 Release $DID)"
+            # ⚠️ `POST /releases` 在 tag 不存在时会**自动创建 tag**；
+            #    删 Release **不会**删 tag ⇒ 必须显式删除 ref。
+            #    这是**诊断用的临时 tag**（非版本 tag），删除它不违反
+            #    「同一版本号不得反复删建或移动 Tag」的规约。
+            gh api --method DELETE "repos/${{ github.repository }}/git/refs/tags/$DIAG_TAG" >/dev/null 2>&1 \
+              && echo "已清理诊断 tag $DIAG_TAG" \
+              || echo "(诊断 tag 未创建或已清理)"
+          else
+            echo "无诊断 Release 需清理（创建失败 ⇒ 未产生 tag）"
+          fi
+          echo "=== 诊断结束（本步骤不影响后续创建）==="
 
       - name: 再次检查冲突（防止竞态）
         env:
