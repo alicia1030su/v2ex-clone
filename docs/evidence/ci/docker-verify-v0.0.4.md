@@ -9,7 +9,7 @@
 
 ## 0. 状态速览（**最重要的一行**）
 
-> ## 🟡 部分已实跑 —— R-16 第 1、9 项已在**真实 CI** 上通过；第 2 项断言口径已修待重跑；其余项待取证。
+> ## ✅ 九项全部通过 —— R-16 / R-17 已闭环（run `41871503684`，SHA `2773cd1`）
 >
 > **时间线**：
 > 1. **初始状态**：本机无 Docker（`docker: command not found`）+ 分支未推送
@@ -18,13 +18,24 @@
 >    **暴露了我交付物自身的 3 个缺陷**（三元式写进 `${{ }}`；`_journal.json` 路径写错；
 >    app 健康断言口径不成立），前两个由主理人修复为 `2532f5f` / `930f29e`，
 >    第三个由我在本轮修复（§5.1.1）。
-> 3. **当前状态**：`[1/9]` ✅、`[9/9]` ✅ **已在真实 CI 确认通过**；
+> 3. **中间状态**：`[1/9]` ✅、`[9/9]` ✅ **已在真实 CI 确认通过**；
 >    `[2/9]` 断言口径已修正，**需重新触发 CI 取证**；
 >    `[4/9]`–`[8/9]` 与 R-17 三项**待重跑取证**。
+> 4. **✅ 最终状态（run `41871503684`，SHA `2773cd1`）**：**九项全部 completed / success，
+>    九项汇总表全 PASS** ⇒ **R-16 / R-17 已闭环**。修复提交：
+>    **`827eef7`**（安装模拟改走首次安装路径 —— 删掉不完整的 `.env` 预置）、
+>    **`2773cd1`**（安装模拟前 unset job 级 env —— 修 compose 插值被 shell 环境变量覆盖导致的**假绿**）。
+>    安装模拟段实证输出：`app health = healthy` /
+>    `POSTGRES_USER=v2ex POSTGRES_DB=v2ex SEED_ADMIN_USERNAME=admin` / 管理员账号数 = 1。
 >
-> ⚠️ **仍然不能下结论说「R-16/R-17 已通过」** ——
-> 9 项里只有 2 项有真实证据，其余 7 项 + R-17 三项必须等 run 跑完。
-> **任何人不得把本文档当作 v0.0.4 已通过 Docker 验证的完整证据。**
+> ⚠️ **假绿陷阱留痕**：run `41868374546`（SHA `827eef7`）曾出现「安装模拟全程成功，
+> 但最后 psql 报 `FATAL: database "v2ex" does not exist`」—— 根因是 Docker Compose 变量插值优先级
+> **shell 环境变量 > .env 文件**，job 级 env（`POSTGRES_DB=v2ex_dv` 等）泄漏进 compose 插值，
+> 使安装栈初始化出 `v2ex_dv` 而非 `v2ex`（`pg_isready` 不校验库是否存在，healthcheck 照样 Healthy），
+> 整个安装模拟被悄悄降级（验的不再是 install.sh 生成的随机口令）。
+> **修复**：跑 install.sh 前 unset 全部会泄漏进 compose 插值的 job 级变量（仅作用于本 step 的 shell；
+> 末尾恢复根 compose 用 `--env-file .env.dv`，11 键齐全）；安装后管理员检查改为从 .env 派生
+> `POSTGRES_USER`/`POSTGRES_DB`/`SEED_ADMIN_USERNAME`，不再硬编码。
 
 本文档严格区分三类内容，每一段都标注了状态标记：
 
@@ -149,20 +160,21 @@ jobs     : ['verify']
 
 | R-16 项 | 验证内容 | 对应 step | 断言方式 | 状态 |
 |---|---|---|---|---|
-| **1** | 镜像真实构建 | `[1/9] 镜像真实构建` | `docker build` 退出码 0 + `docker images` 输出镜像尺寸；同时把 `IMAGE_SIZE_BYTES` / `IMAGE_ID` 写入 `$GITHUB_OUTPUT` 供后续引用 | 🔴 待 CI 实跑 |
-| **2** | Compose 启动 | `[2/9][3/9] Compose 启动 + PG/Redis 健康检查` | `docker compose up -d --build` 成功 + 三容器 `State.Health.Status == healthy` | 🔴 待 CI 实跑 |
-| **3** | PG / Redis 健康检查 | 同上 | compose healthcheck 定义本身（`pg_isready` / `redis-cli ping`）+ **实查**：`psql -c "select version()"` 与 `redis-cli ping` 返回 `PONG` | 🔴 待 CI 实跑 |
-| **4** | 数据卷持久化 | `[4/9] 数据卷持久化` | 写入 PG 探针行 + Redis 探针键 → `docker compose down`（**不带 `-v`**，卷保留）→ `up -d` → 断言两者**都还在** | 🔴 待 CI 实跑 |
-| **5** | 容器重启 | `[5/9] 容器重启（数据与口令不变）` | `docker compose restart` 后断言管理员 `password_hash` **逐字节不变** 且 `topics` 计数**不变** | 🔴 待 CI 实跑 |
-| **6** | Redis 中断与恢复 | `[R-17a] Redis 中断与恢复` | `stop redis` → 断言 `/`、`/nodes`、`/api/nodes` **均不返回 5xx**（应用须降级而非崩溃）→ `start redis` → 断言回到 200 且 `PING` = `PONG` | 🔴 待 CI 实跑 |
-| **6′** | PG 中断与恢复 | `[R-17b] PostgreSQL 中断与恢复` | `stop postgres` → 记录首页行为 → `start postgres` → **断言应用自动回到 200（不需重启容器）** | 🔴 待 CI 实跑 |
-| **7** | 安装包实际部署 | `[7/9] 安装包实际部署` | ① **先停根 compose**（避端口 3000 + 容器名冲突，见 §5.1.0）→ ② `tar` 打包 `deploy/` → 解包到全新目录 → `bash -n` 全部脚本 → ③ 预置 `.env`（`APP_PORT=3100`）并 **真实执行 `install.sh`**（`V2EX_IMAGE=v2ex-clone:dv`）→ ④ 断言 `.env` 权限 = **600**、凭据文件权限 = **600**、4 个口令长度 ≥ 16、**`V2EX_IMAGE` 不是外部仓库** → ⑤ 断言发行版 compose 的 app healthy + 管理员账号存在 → ⑥ **停掉安装包容器并恢复根 compose**（供 `[8/9]` 与 R-17 用） | 🔴 待 CI 实跑 |
-| **8** | 容器资源观察 | `[8/9] 容器资源观察（CPU / 内存）` | `docker stats --no-stream` 输出三容器 CPU%/MEM/MEM% + **连续 5 次采样**观察波动 + 镜像体积 + `SizeRw`（可写层）+ 容器内 `/proc/1/status` 的 `VmRSS`/`VmHWM` | 🔴 待 CI 实跑 |
-| **9** | 镜像内容与权限检查 | `[9/9] 镜像内容与权限检查` | 见 §2.5 展开 | 🔴 待 CI 实跑 |
+| **1** | 镜像真实构建 | `[1/9] 镜像真实构建` | `docker build` 退出码 0 + `docker images` 输出镜像尺寸；同时把 `IMAGE_SIZE_BYTES` / `IMAGE_ID` 写入 `$GITHUB_OUTPUT` 供后续引用 | ✅ **PASS**（run `41871503684`） |
+| **2** | Compose 启动 | `[2/9][3/9] Compose 启动 + PG/Redis 健康检查` | `docker compose up -d --build` 成功 + 三容器 `State.Health.Status == healthy` | ✅ **PASS**（run `41871503684`） |
+| **3** | PG / Redis 健康检查 | 同上 | compose healthcheck 定义本身（`pg_isready` / `redis-cli ping`）+ **实查**：`psql -c "select version()"` 与 `redis-cli ping` 返回 `PONG` | ✅ **PASS**（run `41871503684`） |
+| **4** | 数据卷持久化 | `[4/9] 数据卷持久化` | 写入 PG 探针行 + Redis 探针键 → `docker compose down`（**不带 `-v`**，卷保留）→ `up -d` → 断言两者**都还在** | ✅ **PASS**（run `41871503684`） |
+| **5** | 容器重启 | `[5/9] 容器重启（数据与口令不变）` | `docker compose restart` 后断言管理员 `password_hash` **逐字节不变** 且 `topics` 计数**不变** | ✅ **PASS**（run `41871503684`） |
+| **6** | Redis 中断与恢复 | `[R-17a] Redis 中断与恢复` | `stop redis` → 断言 `/`、`/nodes`、`/api/nodes` **均不返回 5xx**（应用须降级而非崩溃）→ `start redis` → 断言回到 200 且 `PING` = `PONG` | ✅ **PASS**（run `41871503684`） |
+| **6′** | PG 中断与恢复 | `[R-17b] PostgreSQL 中断与恢复` | `stop postgres` → 记录首页行为 → `start postgres` → **断言应用自动回到 200（不需重启容器）** | ✅ **PASS**（run `41871503684`） |
+| **7** | 安装包实际部署 | `[7/9] 安装包实际部署` | ① **先停根 compose**（避端口 3000 + 容器名冲突，见 §5.1.0）→ ② `tar` 打包 `deploy/` → 解包到全新目录 → `bash -n` 全部脚本 → ③ 预置 `.env`（`APP_PORT=3100`）并 **真实执行 `install.sh`**（`V2EX_IMAGE=v2ex-clone:dv`）→ ④ 断言 `.env` 权限 = **600**、凭据文件权限 = **600**、4 个口令长度 ≥ 16、**`V2EX_IMAGE` 不是外部仓库** → ⑤ 断言发行版 compose 的 app healthy + 管理员账号存在 → ⑥ **停掉安装包容器并恢复根 compose**（供 `[8/9]` 与 R-17 用） | ✅ **PASS**（run `41871503684`；修复提交 `827eef7` + `2773cd1`） |
+| **8** | 容器资源观察 | `[8/9] 容器资源观察（CPU / 内存）` | `docker stats --no-stream` 输出三容器 CPU%/MEM/MEM% + **连续 5 次采样**观察波动 + 镜像体积 + `SizeRw`（可写层）+ 容器内 `/proc/1/status` 的 `VmRSS`/`VmHWM` | ✅ **PASS**（run `41871503684`） |
+| **9** | 镜像内容与权限检查 | `[9/9] 镜像内容与权限检查` | 见 §2.5 展开 | ✅ **PASS**（run `41871503684`） |
 
 **附加覆盖（R-17c，缓存失效）**：`[R-17c] 缓存失效与 Redis 内存观测` ——
 `info memory` / `info keyspace` / `dbsize` 观测 → 连续 40 次请求触发缓存写入 → 再观测 →
 `FLUSHDB` → 断言 `dbsize == 0` → 断言首页仍 200（缓存清空不得导致 5xx）。
+**状态：✅ PASS（run `41871503684`）**
 
 ### 2.5 第 9 项「镜像内容与权限检查」的 6 个子断言（展开）
 
@@ -525,15 +537,17 @@ if [ "$PG" = "healthy" ] && [ "$RD" = "healthy" ] \
 
 ### 5.2 ✅ 已被真实 CI 确认通过的部分
 
-**Run** `41836588637` / `41836706240`（`2532f5f9`）与 `41837202602` / `41837212362`（`930f29e`）：
+**最终全绿**：run `41871503684`（SHA `2773cd1`）—— **九项全部 completed / success，九项汇总表全 PASS** ⇒ **R-16 / R-17 已闭环**。
+
+**历史轮次（修复前的部分通过）**：run `41836588637` / `41836706240`（`2532f5f9`）与 `41837202602` / `41837212362`（`930f29e`）：
 
 | 步骤 | 结论 | 说明 |
 |---|---|---|
 | 环境信息 | ✅ success | Docker / Compose 版本、磁盘可用量 |
 | `[1/9] 镜像真实构建` | ✅ **success** | `docker build` 真实成功 |
 | `[9/9] 镜像内容与权限检查` | ✅ **success**（`930f29e` 修复路径后） | 见下方明细 |
-| `[2/9][3/9]` Compose 启动 + 健康检查 | 🔄 **真实执行中** | |
-| `[4/9]`–`[8/9]`、`[R-17a-c]` | 🔄 排队中 | |
+| `[2/9][3/9]` Compose 启动 + 健康检查 | 🔄 **当时执行中**（**后续 run `41871503684` 已 PASS**） | |
+| `[4/9]`–`[8/9]`、`[R-17a-c]` | 🔄 **当时排队中**（**后续 run `41871503684` 已全 PASS**） | |
 | 生成验证汇总 / 上传验证证据 / compose 日志 / 停止并清理 | ✅ success | `if: always()` 生效，失败时也能留证据 |
 
 **`[9/9] 镜像内容与权限检查` —— 真实 CI 已确认通过的子断言**（从 run `41836588637` 日志）：

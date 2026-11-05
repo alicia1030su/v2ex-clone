@@ -36,18 +36,18 @@ Listing tests:
   [chromium] › security-regression.spec.ts:105:3 › P0-3 调试端点鉴权 › 缺少令牌时 reset-rate-limits 被拒绝
   [chromium] › security-regression.spec.ts:111:3 › P0-3 调试端点鉴权 › 错误令牌时 reset-rate-limits 被拒绝
   [chromium] › security-regression.spec.ts:118:3 › P0-3 调试端点鉴权 › floors 端点同样需要鉴权
-  [chromium] › security-regression.spec.ts:125:3 › P0-4 PostgreSQL 限流窗口重置 › 窗口过期后计数归零而非无限累积
-  [chromium] › security-regression.spec.ts:145:3 › P1-10 注册限流双维度 › 同一 IP 换用户名批量注册会被 IP 维度限流拦截
-  [chromium] › security-regression.spec.ts:174:3 › P1-11 回复接口 redirect 验证 › 外部 redirect 被规范化为站内路径
-  [chromium] › security-regression.spec.ts:194:3 › P1-11 回复接口 redirect 验证 › 协议相对 URL 被拒绝
-  [chromium] › security-regression.spec.ts:213:3 › P1-13 显式 CSRF 防护 › 写请求缺少 CSRF token 被拒绝
-  [chromium] › security-regression.spec.ts:223:3 › P1-13 显式 CSRF 防护 › CSRF token 错误时被拒绝
-  [chromium] › security-regression.spec.ts:233:3 › P1-13 显式 CSRF 防护 › 携带正确 CSRF token 时放行
-  [chromium] › security-regression.spec.ts:247:3 › P1-13 显式 CSRF 防护 › 页面会下发 CSRF Cookie
-  [chromium] › security-regression.spec.ts:255:3 › P1-14 HTML 清洗器 › data:image/svg+xml 被拒绝（SVG 内可嵌脚本）
-  [chromium] › security-regression.spec.ts:274:3 › P1-14 HTML 清洗器 › javascript: 协议被拒绝
-  [chromium] › security-regression.spec.ts:290:3 › P1-14 HTML 清洗器 › style 属性被丢弃（防 CSS 注入）
-  [chromium] › security-regression.spec.ts:306:3 › P1-14 HTML 清洗器 › 外链自动加 rel=noopener（防 tabnabbing）
+  [chromium] › security-regression.spec.ts:141:3 › P0-4 PostgreSQL 限流窗口重置 › 窗口过期后计数归零而非无限累积
+  [chromium] › security-regression.spec.ts:168:3 › P1-10 注册限流双维度 › 同一 IP 换用户名批量注册会被 IP 维度限流拦截
+  [chromium] › security-regression.spec.ts:197:3 › P1-11 回复接口 redirect 验证 › 外部 redirect 被规范化为站内路径
+  [chromium] › security-regression.spec.ts:217:3 › P1-11 回复接口 redirect 验证 › 协议相对 URL 被拒绝
+  [chromium] › security-regression.spec.ts:236:3 › P1-13 显式 CSRF 防护 › 写请求缺少 CSRF token 被拒绝
+  [chromium] › security-regression.spec.ts:246:3 › P1-13 显式 CSRF 防护 › CSRF token 错误时被拒绝
+  [chromium] › security-regression.spec.ts:256:3 › P1-13 显式 CSRF 防护 › 携带正确 CSRF token 时放行
+  [chromium] › security-regression.spec.ts:270:3 › P1-13 显式 CSRF 防护 › 页面会下发 CSRF Cookie
+  [chromium] › security-regression.spec.ts:278:3 › P1-14 HTML 清洗器 › data:image/svg+xml 被拒绝（SVG 内可嵌脚本）
+  [chromium] › security-regression.spec.ts:297:3 › P1-14 HTML 清洗器 › javascript: 协议被拒绝
+  [chromium] › security-regression.spec.ts:313:3 › P1-14 HTML 清洗器 › style 属性被丢弃（防 CSS 注入）
+  [chromium] › security-regression.spec.ts:329:3 › P1-14 HTML 清洗器 › 外链自动加 rel=noopener（防 tabnabbing）
   [chromium] › security.spec.ts:9:3 › 安全性 › 主题正文中的脚本被执行前被清洗（XSS）
   [chromium] › security.spec.ts:38:3 › 安全性 › 回复中的脚本被清洗（XSS）
   [chromium] › security.spec.ts:58:3 › 安全性 › 用户名中的 HTML 被转义而非执行
@@ -66,26 +66,27 @@ Listing tests:
   [chromium] › topic.spec.ts:87:3 › 主题与回复 › 发帖缺少必填项被拒绝
   [chromium] › topic.spec.ts:93:3 › 主题与回复 › 回复限流生效
   [chromium] › topic.spec.ts:108:3 › 主题与回复 › 并发回复不会产生重复楼层号
-  [chromium] › v004-account-admin.spec.ts:31:3 › v0.0.4 积分与签到 › 签到：按钮可点击、积分增加、流水入账，重复点击不叠加
-  [chromium] › v004-account-admin.spec.ts:89:3 › v0.0.4 积分与签到 › 签到幂等：API 层连发 3 次只记一次
-  [chromium] › v004-account-admin.spec.ts:103:3 › v0.0.4 积分与签到 › 排行榜页展示真实数据且可访问
-  [chromium] › v004-account-admin.spec.ts:120:3 › v0.0.4 积分与签到 › 积分规则在页面上有说明（独立实现，非原站数值）
-  [chromium] › v004-account-admin.spec.ts:131:3 › v0.0.4 通知 › 通知：他人回复后收到通知，标记已读后未读数归零
-  [chromium] › v004-account-admin.spec.ts:180:3 › v0.0.4 通知 › 通知：未登录访问被拒
-  [chromium] › v004-account-admin.spec.ts:191:3 › v0.0.4 关注 › 关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层，UI 无入口）
-  [chromium] › v004-account-admin.spec.ts:256:3 › v0.0.4 头像与资料 › 资料编辑：修改后页面与 API 均体现新值
-  [chromium] › v004-account-admin.spec.ts:279:3 › v0.0.4 头像与资料 › 头像上传：非法文件被拒绝
-  [chromium] › v004-account-admin.spec.ts:300:3 › v0.0.4 头像与资料 › 头像上传：合法 PNG 被接受
-  [chromium] › v004-account-admin.spec.ts:332:3 › v0.0.4 后台管理 › 后台：普通用户被拒（403），管理员可访问
-  [chromium] › v004-account-admin.spec.ts:355:3 › v0.0.4 后台管理 › 后台：管理员页面可打开且展示真实数据
-  [chromium] › v004-account-admin.spec.ts:361:3 › v0.0.4 后台管理 › 后台：封禁用户后其会话失效，解封后恢复
-  [chromium] › v004-account-admin.spec.ts:404:3 › v0.0.4 后台管理 › 后台：角色变更生效，且不能自我降级
-  [chromium] › v004-account-admin.spec.ts:425:3 › v0.0.4 后台管理 › 后台：系统配置返回时凭据已脱敏
-  [chromium] › v004-account-admin.spec.ts:449:3 › v0.0.4 节点申请与审批 › 普通用户申请节点，管理员批准后节点真实存在
-  [chromium] › v004-account-admin.spec.ts:491:3 › v0.0.4 节点申请与审批 › 普通用户不能审核节点申请
-  [chromium] › v004-account-admin.spec.ts:502:3 › v0.0.4 Feed 与搜索 › 三种 Feed 格式正确且内容非空
-  [chromium] › v004-account-admin.spec.ts:517:3 › v0.0.4 Feed 与搜索 › JSON Feed 符合规范结构
-  [chromium] › v004-account-admin.spec.ts:525:3 › v0.0.4 Feed 与搜索 › 搜索：关键词能命中且分页上限被钳制
+  [chromium] › v004-account-admin.spec.ts:32:3 › v0.0.4 积分与签到 › 签到：按钮可点击、积分增加、流水入账，重复点击不叠加
+  [chromium] › v004-account-admin.spec.ts:90:3 › v0.0.4 积分与签到 › 签到幂等：API 层连发 3 次只记一次
+  [chromium] › v004-account-admin.spec.ts:104:3 › v0.0.4 积分与签到 › 排行榜页展示真实数据且可访问
+  [chromium] › v004-account-admin.spec.ts:121:3 › v0.0.4 积分与签到 › 积分规则在页面上有说明（独立实现，非原站数值）
+  [chromium] › v004-account-admin.spec.ts:132:3 › v0.0.4 通知 › 通知：他人回复后收到通知，标记已读后未读数归零
+  [chromium] › v004-account-admin.spec.ts:181:3 › v0.0.4 通知 › 通知：未登录访问被拒
+  [chromium] › v004-account-admin.spec.ts:192:3 › v0.0.4 关注 › 关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层）
+  [chromium] › v004-account-admin.spec.ts:267:3 › v0.0.4 关注 › 关注（UI）：真实点击关注/取消，刷新后状态持久化，关注列表出现该用户
+  [chromium] › v004-account-admin.spec.ts:382:3 › v0.0.4 头像与资料 › 资料编辑：修改后页面与 API 均体现新值
+  [chromium] › v004-account-admin.spec.ts:405:3 › v0.0.4 头像与资料 › 头像上传：非法文件被拒绝
+  [chromium] › v004-account-admin.spec.ts:426:3 › v0.0.4 头像与资料 › 头像上传：合法 PNG 被接受
+  [chromium] › v004-account-admin.spec.ts:458:3 › v0.0.4 后台管理 › 后台：普通用户被拒（403），管理员可访问
+  [chromium] › v004-account-admin.spec.ts:481:3 › v0.0.4 后台管理 › 后台：管理员页面可打开且展示真实数据
+  [chromium] › v004-account-admin.spec.ts:487:3 › v0.0.4 后台管理 › 后台：封禁用户后其会话失效，解封后恢复
+  [chromium] › v004-account-admin.spec.ts:530:3 › v0.0.4 后台管理 › 后台：角色变更生效，且不能自我降级
+  [chromium] › v004-account-admin.spec.ts:551:3 › v0.0.4 后台管理 › 后台：系统配置返回时凭据已脱敏
+  [chromium] › v004-account-admin.spec.ts:575:3 › v0.0.4 节点申请与审批 › 普通用户申请节点，管理员批准后节点真实存在
+  [chromium] › v004-account-admin.spec.ts:617:3 › v0.0.4 节点申请与审批 › 普通用户不能审核节点申请
+  [chromium] › v004-account-admin.spec.ts:628:3 › v0.0.4 Feed 与搜索 › 三种 Feed 格式正确且内容非空
+  [chromium] › v004-account-admin.spec.ts:643:3 › v0.0.4 Feed 与搜索 › JSON Feed 符合规范结构
+  [chromium] › v004-account-admin.spec.ts:651:3 › v0.0.4 Feed 与搜索 › 搜索：关键词能命中且分页上限被钳制
   [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（含统计）：GET /api/nodes 返回 200 且是合法 JSON
   [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（分类过滤）：GET /api/nodes?categoryId=1 返回 200 且是合法 JSON
   [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（子节点过滤）：GET /api/nodes?parentId=1 返回 200 且是合法 JSON
@@ -144,12 +145,12 @@ Listing tests:
   [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/users/follows/topics 不返回 5xx
   [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/users/me 不返回 5xx
   [chromium] › v004-endpoint-smoke.spec.ts:122:3 › v0.0.4 端点响应格式 › JSON 端点必须返回可解析的 JSON（不是 HTML 错误页）
-  [chromium] › v004-four-roles-ui.spec.ts:71:3 › 四身份 UI 验收 · 游客 › 游客访问 /go/new 被服务端重定向到登录页
-  [chromium] › v004-four-roles-ui.spec.ts:77:3 › 四身份 UI 验收 · 游客 › 游客直达 /admin 被重定向到登录页，不泄露后台内容
-  [chromium] › v004-four-roles-ui.spec.ts:83:3 › 四身份 UI 验收 · 游客 › 游客在主题页看不到回复表单，导航栏无后台入口
-  [chromium] › v004-four-roles-ui.spec.ts:98:3 › 四身份 UI 验收 · 游客 › UI 缺口：节点申请提交在前端无入口（仅 API /api/node-requests）
-  [chromium] › v004-four-roles-ui.spec.ts:113:3 › 四身份 UI 验收 · 普通注册用户 › 普通用户：/admin 直达被拒、导航无后台入口、主题页无管理按钮
-  [chromium] › v004-four-roles-ui.spec.ts:144:3 › 四身份 UI 验收 · 版主 moderator › 版主：主题管理真实点击流 + /admin 权限边界 + 节点申请 tab 反馈
-  [chromium] › v004-four-roles-ui.spec.ts:216:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/admin 真实点击「封禁 → 解封」+ 配置页无明文口令
-  [chromium] › v004-four-roles-ui.spec.ts:292:3 › 四身份 UI 验收 · 管理员 admin › UI 缺口实证：管理员在 /、/admin、/settings 的 DOM 中均无 /admin 入口
-Total: 153 tests in 11 files
+  [chromium] › v004-four-roles-ui.spec.ts:82:3 › 四身份 UI 验收 · 游客 › 游客访问 /go/new 被服务端重定向到登录页
+  [chromium] › v004-four-roles-ui.spec.ts:88:3 › 四身份 UI 验收 · 游客 › 游客直达 /admin 被重定向到登录页，不泄露后台内容
+  [chromium] › v004-four-roles-ui.spec.ts:94:3 › 四身份 UI 验收 · 游客 › 游客在主题页看不到回复表单，导航栏无后台入口
+  [chromium] › v004-four-roles-ui.spec.ts:122:3 › 四身份 UI 验收 · 游客 › 节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库
+  [chromium] › v004-four-roles-ui.spec.ts:224:3 › 四身份 UI 验收 · 普通注册用户 › 普通用户：/admin 直达被拒、导航无后台入口、主题页无管理按钮
+  [chromium] › v004-four-roles-ui.spec.ts:255:3 › 四身份 UI 验收 · 版主 moderator › 版主：主题管理真实点击流 + /admin 权限边界 + 节点申请 tab 反馈
+  [chromium] › v004-four-roles-ui.spec.ts:327:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/admin 真实点击「封禁 → 解封」+ 配置页无明文口令
+  [chromium] › v004-four-roles-ui.spec.ts:412:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/、/admin、/settings 三页 DOM 中都有 /admin 入口且可点击到达
+Total: 154 tests in 11 files

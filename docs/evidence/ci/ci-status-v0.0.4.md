@@ -134,17 +134,22 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 | `41837212170` | CI | `930f29e` | 🔴 failure | 同上 |
 | `41837212362` | docker-verify | `930f29e` | 🔄 in_progress | 同上 |
 | `41837212635` | 安装验证 | `930f29e` | ✅ **success** | Linux 真实 Docker 安装 + Windows 脚本 |
+| `41860242099` | CI | `6289ea3` | 🟡 unit ✅ / **E2E ❌ failure** | **v0.0.4 在真实 CI 上首次转绿**：vitest 15 文件全过、globalSetup 正常建迁 `v2ex_ci`（护栏 3 修复 `634a202` 实证有效）；**E2E job 史上首次真实运行** —— 153 条中 152 通过、1 失败（`v004-four-roles-ui` 节点申请用例） |
+| `41871503684` | docker-verify | `2773cd1` | ✅ **success** | **九项全部 completed/success，九项汇总表全 PASS** ⇒ **R-16 / R-17 已闭环**（修复提交 `827eef7` + `2773cd1`） |
+| `41873009808` | CI | `2773cd1` | 🟡 unit ✅ / **E2E ❌ failure** | unit job ✅（190 passed / 0 skipped）；**E2E：153 passed \| 1 failed \| 154 total** —— 唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27） |
 
 ### 🔴 当前**唯一**的剩余阻断项
 
-> **`tests/floor-continuity.spec.ts` 的修复**在工作区已完成，但**尚未提交** →
-> `unit` job 持续红灯 → `E2E 测试` job 被 `needs: unit` 连带跳过。
+> ⚠️ **历史观测（已修复）** —— 以下是 `41837212170`（HEAD `930f29e`）当时的状态，**现已闭环**：
+> `tests/floor-continuity.spec.ts` 当时在工作区已修但**尚未提交** → `unit` job 持续红灯 →
+> `E2E 测试` job 被 `needs: unit` 连带跳过 ⇒ **当时 153 条 E2E 在 CI 上从未跑过一条**。
 >
-> 后果：**v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。
-> （`--list` 证明的 153 条至今没有任何一条被真实执行过。）
+> **✅ 已由 `8ce5ce9` 修复并经 CI 复验**：run `41860242099` 与 `41873009808` 的
+> 「类型检查 / 单元测试」job 均 ✅（vitest 15 文件全过、`190 passed / 0 skipped`），
+> **E2E job 已真实跑过**（不再被 `needs: unit` 连带跳过）。
 >
-> ⚠️ **口径更正（2026-11-04T22:57Z）** —— 见下方「工作区 vs 提交历史」的区分。
-> 简言之：**阻断项是「未提交」，不是「未修复」。**
+> **🔴 当前唯一阻断项 = R-27 / V4-20**：节点申请 UI 提交链断裂（run `41873009808`：
+> `153 passed | 1 failed | 154 total`）。
 
 **已验证的修复方案**（本地纯净检出实跑通过，CI 与本地均 `5 passed`）：
 见 `test-baseline-v0.0.4.md` §0.5。修复后预期 CI 变为：
@@ -200,9 +205,11 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 > 3. **错误分流已改善**：修复前是 `ENOENT … .env.test`（像代码缺陷），
 >    修复后是「PG 未就绪 … ECONNREFUSED」（明确是环境问题 + 3 步排查指引）。
 >
-> **结论：CI 红灯的唯一原因是「这批 `tests/` 改动未提交」** ——
-> CI 只看提交内容。**不提交 = CI 继续红 = 153 条 E2E 继续被跳过。**
+> **结论（历史观测，已闭环）**：CI 红灯的唯一原因是「这批 `tests/` 改动未提交」——
+> CI 只看提交内容。**不提交 = CI 继续红 = E2E 继续被跳过。**
 > 归 `software-engineer-testenv` 的 T01/T02/T03 范围。
+> **✅ 后续已闭环**：`8ce5ce9` 提交并经 CI 复验（run `41860242099` / `41873009808` 单元 job ✅），
+> E2E job **已真实跑过**。
 
 ### ✅ 已被真实 CI 证明通过的部分
 
@@ -480,13 +487,13 @@ elif [ "$PHASE" = 'release' ]; then
 
 | # | 项目 | 现状 | 主理人推进动作 |
 |---|---|---|---|
-| **A** | 🔴 **`tests/floor-continuity.spec.ts` 在 CI 必红** | **已实测确认**（run `41836588566`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。**修复在工作区已完成（QA 复验 5/5 全绿 + 护栏有效），但 `tests/` 那 12 个改动 + 9 个新文件全部未提交** → **阻断项是「未提交」不是「未修复」**。**归属 `software-engineer-testenv` 的 T01/T02/T03** | ⚠️ **不要单独打「existsSync」补丁** —— 我原方案已被架构师实测证伪（本地默认路径下会把 **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 DROP/CREATE DATABASE）。**正确做法**：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏）。详见 `test-baseline-v0.0.4.md` §0.5。修完 CI 即恢复：`Test Files 15 passed (15)` / `Tests 190 passed (190)`，**并解锁被跳过的 E2E job** |
-| **B** | 🟡 **E2E 153 条在 CI 上从未跑过** | `E2E 测试` job 状态 = **skipped**（`needs: unit` 连带） | 修完 A 后自动恢复执行。核对时看 `153 passed` 且 **0 skipped** |
+| **A** | ✅ **已闭环** —— `tests/floor-continuity.spec.ts` 在 CI 必红 | **已实测确认（历史观测）**（run `41836588566` / `41837212170`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。**已由 `8ce5ce9` 修复**（护栏 3 修复 `634a202`），**并经 CI 复验**：run `41860242099` 与 `41873009808` 的 unit job 均 ✅ —— `Test Files 15 passed (15)` / `Tests 190 passed (190)` / **0 skipped** | ✅ **闭环**。**注意**：不要单独打「existsSync」补丁 —— 原方案已被架构师实测证伪（本地默认路径下会把 **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 DROP/CREATE DATABASE）。正确做法：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏）。详见 `test-baseline-v0.0.4.md` §0.5 |
+| **B** | ✅ **已闭环** —— E2E 在 CI 上从未跑过 | **历史观测**：`E2E 测试` job 状态 = **skipped**（`needs: unit` 连带） | **已恢复执行**：run `41860242099` 与 `41873009808` 的 E2E job **均已真实跑过**。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`）—— 唯一失败为节点申请 UI 提交链断裂（V4-20 / R-27），**不是 skipped** |
 | **C** | 🟡 **`release.yml` tag 白名单仍不含 `v0.0.4`** | 刻意摩擦，**未改**（R-19） | **推 tag 之前**人工加 `- 'v0.0.4'`。⚠️ 漏加的后果是**静默失败**（推 tag 不触发任何 job，不报红）—— 详见 §6.1 |
 | **D** | 🟡 **GHCR 包可见性无法核实** | 当前 gh token 缺 `read:packages` scope → `GET /users/alicia1030su/packages` = 403 | 用有该 scope 的 token 核验，或浏览器访问 https://github.com/users/alicia1030su/packages |
 | **E** | 🟡 **`master` 分支保护未设置** | `GET /branches/master/protection` → 404。这是**现状**，非本轮造成 | 若要加保护规则需主人授权；本轮**未改动**任何保护设置 |
-| **F** | 🟡 **R-16 第 2–8 项 + R-17 三项的真实证据** | **正在真实 CI 中执行**（run `41837202602`，第 2 项进行中） | 等 run 完成后按 §8.2 清单逐条核对；证据可从 artifact `docker-verify-evidence` 下载 |
-| **G** | ✅ **已完成** | — | R-16/R-17 取证通道已就绪并**真实跑起来**；`[1/9]` `[9/9]` 已通过 |
+| **F** | ✅ **已闭环** —— R-16 九项 + R-17 三项的真实证据 | **已取得**：run `41871503684`（SHA `2773cd1`）九项 completed/success、汇总表全 PASS（修复提交 `827eef7` + `2773cd1`） | 证据可从 artifact `docker-verify-evidence` 下载；`docs/evidence/ci/docker-verify-v0.0.4.md` 已同步 |
+| **G** | ✅ **已完成** | — | R-16/R-17 取证通道已就绪并**真实跑起来**；**九项已全绿** |
 
 ---
 
@@ -497,27 +504,27 @@ elif [ "$PHASE" = 'release' ]; then
 
 ### 8.1 CI（workflow `CI`，run id 见推送后新建的 run）
 
-> 🔴 **C0（推送前必须完成）**：`tests/floor-continuity.spec.ts` 的 `:55433/` 硬编码 +
-> 读未入仓的 `.env.test` —— **已实测确认 CI 必红**（`1 failed + 5 skipped`）。
-> 修复方案见 `test-baseline-v0.0.4.md` §0.5。
-> ⚠️ **注意**：该节已更新 —— 我原方案存在「本地默认路径会连开发库」的安全缺陷，
+> ✅ **C0（已完成）**：`tests/floor-continuity.spec.ts` 的 `:55433/` 硬编码 +
+> 读未入仓的 `.env.test` —— **曾**实测确认 CI 必红（`1 failed + 5 skipped`）。
+> 修复方案见 `test-baseline-v0.0.4.md` §0.5；**已由 `8ce5ce9` 实施并经 CI 复验**（run `41860242099` / `41873009808` unit job ✅）。
+> ⚠️ **注意**：该节已更新 —— 原方案存在「本地默认路径会连开发库」的安全缺陷，
 > **已被架构师实测证伪并撤回**；正确处置是统一走 T01 的 `tests/helpers/test-env.ts`。
-> **不修就推，CI 必然红灯，且 `e2e` job 会被 `needs: unit` 连带跳过。**
+> **E2E job 现已真实跑过**（不再被 `needs: unit` 连带跳过）。
 
-- [ ] **C1** run 的 `head SHA` == 推送后的最终 SHA（不是 master 的 `37710fb4`）
-- [ ] **C2** job `类型检查 / 单元测试` = success，且日志里 `Test Files 15 passed (15)` / `Tests 190 passed (190)`
-      —— 15 文件 / 190 条（依据见 `test-baseline-v0.0.4.md`）
-- [ ] **C2b** ⚠️ **必须同时确认 `Test Files` 那一行是 `15 passed (15)`，且 `Tests` 是 `190 passed (190)`**
-      —— 只看 `Tests` 行会漏掉 `failed`/`skipped` 形态的失败（见 §0.1）
-- [ ] **C3** job `E2E 测试` = success，且日志里 `153 passed`，**且 0 skipped**
-      —— 重点核对 **0 skipped**（R-23 的修复就是针对「静默跳过」）
-- [ ] **C3b** ⚠️ 确认 `E2E 测试` job **没有被 skip**（`needs: unit` 失败会连带跳过它）
-- [ ] **C4** job `Docker 构建与启动验证` = success
+- [x] **C1** run 的 `head SHA` == 推送后的最终 SHA（不是 master 的 `37710fb4`）
+- [x] **C2** job `类型检查 / 单元测试` = success，且日志里 `Test Files 15 passed (15)` / `Tests 190 passed (190)`
+      —— 15 文件 / 190 条（依据见 `test-baseline-v0.0.4.md`）；**run `41860242099` 与 `41873009808` 均 ✅**
+- [x] **C2b** ⚠️ **必须同时确认 `Test Files` 那一行是 `15 passed (15)`，且 `Tests` 是 `190 passed (190)`**
+      —— 只看 `Tests` 行会漏掉 `failed`/`skipped` 形态的失败（见 §0.1）—— **已确认 0 skipped**
+- [ ] **C3** job `E2E 测试` = success，且日志里 `154 passed`，**且 0 skipped**
+      —— ⚠️ **当前实测：run `41873009808` = `153 passed | 1 failed | 154 total`**（唯一失败 = 节点申请 UI 提交链断裂 V4-20 / R-27），修复后须复跑至 **154 passed / 0 failed / 0 skipped**
+- [x] **C3b** ⚠️ 确认 `E2E 测试` job **没有被 skip**（`needs: unit` 失败会连带跳过它）—— **已确认已真实跑过**
+- [x] **C4** job `Docker 构建与启动验证` = success
 - [ ] **C5** `npx tsc --noEmit` 无输出即通过（`node scripts/ui-verify.cjs` 也必须无失败）
 - [ ] **C6** 单元测试与 E2E 的**限流阈值未被调高**
       （日志/环境里 `RATE_LIMIT_LOGIN_MAX` 必须仍为 10，否则 E2E 的两条限流用例会永远等不到 429）
-- [ ] **C7** 🔴 **CI 里 `tests/` 的 15 个文件全部存在 `.env.test` 无关性验证** ——
-      若 T01 改了 `tests/setup.ts` 的加载语义，确认 CI 上 `DATABASE_URL`（5432）优先于任何 env 文件
+- [x] **C7** 🔴 **CI 里 `tests/` 的 15 个文件全部存在 `.env.test` 无关性验证** ——
+      若 T01 改了 `tests/setup.ts` 的加载语义，确认 CI 上 `DATABASE_URL`（5432）优先于任何 env 文件 —— **已确认（unit job ✅，0 skipped）**
 
 ### 8.2 Docker/Redis 隔离验证（workflow `Docker/Redis 隔离验证`，本轮新增）
 

@@ -6,9 +6,9 @@
 >
 > | 项 | v0.0.4 实测 | 证据 |
 > |---|---|---|
-> | 单元测试 | **190 条 / 15 个文件**，**190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（每轮约 170~210 秒）。实测命令：`ENV_FILE=.env.test npx vitest run` | `docs/evidence/ci/test-baseline-v0.0.4.md` |
-> | 单元测试（**CI 现状**） | 🔴 **CI 红灯** —— run `41837212170` 实测 `Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`。**分母 190 正确**，5 条因 `floor-continuity` 在 CI 崩溃而跳过。**本轮修复中，待 CI 复验**（`BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26） | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
-> | 真实浏览器 E2E | **153 条 / 11 个文件**，**153 passed / 0 failed / 0 skipped（4.5m）**，**连续 2 轮全绿**。实测命令：`ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` | `docs/evidence/e2e/e2e-full-run-v0.0.4.md`、`test-list-v0.0.4.txt` |
+> | 单元测试 | **190 条 / 15 个文件**，**190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。实测命令：`ENV_FILE=.env.test npx vitest run` | `docs/evidence/ci/test-baseline-v0.0.4.md` |
+> | 单元测试（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 在 CI 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）。登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验） | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
+> | 真实浏览器 E2E | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m，基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`，SHA `2773cd1`），唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**，登记 V4-20 / R-27，修复中。实测命令：`ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` | `docs/evidence/e2e/e2e-full-run-v0.0.4.md`、`test-list-v0.0.4.txt` |
 > | 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker） | `bash scripts/release/verify-update-script.sh` |
 > | 视觉对照 | 4 视口 × 17 页面 = 68 条；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md`、`docs/evidence/visual/geometry-summary.json` |
 > | 负载测试 | **已执行**：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求、13 场景 | `scripts/loadtest/README.md`、`tools/loadtest/bench.mjs`、`docs/evidence/loadtest/bench-result.json` |
@@ -22,7 +22,7 @@
 > | 数字 | 来源 | 含义 | 归属 |
 > |---|---|---|---|
 > | **190** | 本机连续 4 轮实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 15 passed (15)` / `Tests 190 passed (190)` —— **总数即 190** | ✅ **v0.0.4 权威基线** |
-> | **185**<br>（作为**通过数**） | CI run `41837212170`（当前分支 HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**，5 条因 `floor-continuity` 在 CI 崩溃而跳过 | 🔴 **CI 环境观测值，CI 红灯中**（见下） |
+> | **185**<br>（作为**通过数**） | **修复前的历史观测**：CI run `41837212170`（HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**，5 条因 `floor-continuity` 在 CI 崩溃而跳过 | ✅ **历史快照**（红灯已由 `8ce5ce9` 修复，run `41860242099` / `41873009808` 单元 job 已 ✅） |
 > | **185**<br>（作为**总数**） | CI run `41760677505`（master @ `37710fb4`，**14 个** spec 文件） | `Tests 185 passed (185)` —— 当时总数就是 185 | ⏪ **v0.0.3 历史快照**，已过时 |
 >
 > **结论**：
@@ -30,13 +30,15 @@
 >    **不构成「总数有争议」**。当前分支与 v0.0.3 的**总数差异**来自 `tests/floor-continuity.spec.ts`（5 条，提交 `1b15f79` 引入）。
 > 2. **185 不是「v0.0.4 的用例数」** —— 它要么是 CI 上的**通过数**（`floor-continuity` 5 条在 CI 崩溃），
 >    要么是 **v0.0.3 master 的历史总数**。两者含义不同。
-> 3. 🔴 **当前 CI 是红灯的**：run `41837212170` 实测 `Test Files 1 failed | 14 passed (15)` /
+> 3. ✅ **CI 单元测试已转绿**（run `41860242099` / `41873009808`，SHA `2773cd1`）：
+>    `Test Files 15 passed (15)` / `Tests 190 passed (190)` / **0 skipped**，`e2e` job **已真实跑过**（不再被 `needs: unit` 连带跳过）。
+>    **修复前的历史观测**（run `41837212170`，HEAD `930f29e`）为 `Test Files 1 failed | 14 passed (15)` /
 >    `Tests 185 passed | 5 skipped (190)`，根因是 `tests/floor-continuity.spec.ts` 硬编码
 >    `readFileSync('.env.test')` + 对 `DATABASE_URL` 的 `:55433/` 端口白名单 ——
->    `.env.test` 被 gitignore ⇒ **CI 检出里根本没有这个文件**，而 CI 的 `DATABASE_URL` 是 5432，
+>    `.env.test` 被 gitignore ⇒ CI 检出里根本没有这个文件，而 CI 的 `DATABASE_URL` 是 5432，
 >    两条路都走不通 ⇒ ENOENT 崩溃 ⇒ 5 条 skipped ⇒ `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过。
->    **登记为 `BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26，状态：本轮修复中，待 CI 复验。**
->    修复后 CI 与本地都应为 **190 passed / 0 skipped**。
+>    **已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）——
+>    登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验）。
 > 4. ⚠️ **静态 grep 不可用作口径**：`grep -cE "^\s*(it|test)\s*[(']"` 得出 **180**（少于 190），
 >    因为 `tests/admin-permissions.spec.ts` 等用**嵌套 for 循环**生成用例。**口径必须取 Vitest 运行时的 `numTotalTests`**。
 >    完整三方交叉校验（日志块 ↔ JSON reporter ↔ 逐文件明细求和）见 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1 / §0.2。
@@ -48,11 +50,11 @@
 >
 > | 项 | 说明 |
 > |---|---|
-> | **是什么** | **本地隔离测试配置** —— 指向本机 PostgreSQL 17 的**隔离实例** `127.0.0.1:55433`（与生产库、生产端口 5432 完全隔离） |
+> | **是什么** | **本地隔离测试配置** —— 指向本机 PostgreSQL 17 的**隔离实例**（与生产库、生产端口 5432 完全隔离）。**按 `.env.test` 实际解析的端口（当前 55440）** —— `.env.test` 第 3 行实测值：`DATABASE_URL=postgres://v2ex:...@127.0.0.1:55440/v2ex_test_base` |
 > | **是否入仓** | ❌ **不入仓** —— 被 `.gitignore` 排除（`git ls-files` 只跟踪 `.env.example` 与 `deploy/.env.example`） |
 > | **本地如何用** | `ENV_FILE=.env.test npx vitest run` —— 由 `ENV_FILE` 指向它（**override 生效**） |
 > | **CI 如何用** | **环境变量注入** —— CI 的 `DATABASE_URL` 由 `ci.yml` 的 PG service 直接提供，**不读 `.env.test`** |
-> | **⚠️ 由此产生的缺陷** | `tests/floor-continuity.spec.ts` 硬编码 `readFileSync('.env.test')` + `:55433/` 端口白名单 ⇒ **CI 干净克隆里两条路都走不通**（无文件 + 端口不匹配）⇒ ENOENT 崩溃 ⇒ 5 条 skipped。登记 `BUG_REGISTER` **V4-17** / `RISK_REGISTER` **R-26**，**本轮修复中，待 CI 复验**。<br>**修复后 CI 与本地都应为 `190 passed / 0 skipped`** |
+> | **⚠️ 由此产生的缺陷（已闭环）** | `tests/floor-continuity.spec.ts` 曾硬编码 `readFileSync('.env.test')` + `:55433/` 端口白名单 ⇒ **CI 干净克隆里两条路都走不通**（无文件 + 端口不匹配）⇒ ENOENT 崩溃 ⇒ 5 条 skipped。登记 `BUG_REGISTER` **V4-17** / `RISK_REGISTER` **R-26**，**已由 `8ce5ce9` 修复并经 CI 复验**（run `41860242099` / `41873009808` 单元 job ✅，`190 passed / 0 skipped`） |
 >
 > 视觉的 `96.9% / 90.6%` 是 **v0.0.3 的历史口径**（分母 84，且把「两侧都不存在」也计为一致），
 > 与 v0.0.4 的严格口径（分母 52）不可直接比较 —— 三套口径的完整说明见
@@ -71,7 +73,7 @@
 | 通过 | **190** |
 | 失败 | **0** |
 | 跳过（pending） | **0** |
-| 连续全绿轮次 | **4 轮**（每轮约 170~210 秒） |
+| 连续全绿轮次 | **4 轮**（**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒，共享实例 55433 口径） |
 | v0.0.3 基线 | 185 条 / 14 文件（**全部保留，无删减**） |
 | v0.0.4 新增 | 5 条（`tests/floor-continuity.spec.ts`，楼层号严格连续 `1..n`） |
 
@@ -134,30 +136,32 @@
 ## v0.0.4 真实浏览器 E2E（权威口径）
 
 > 实测命令：`ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`
-> 环境：本机隔离实例 `127.0.0.1:55433`（PostgreSQL 17）+ `next start`（端口 3010）
+> 环境：本机隔离实例（**按 `.env.test` 实际解析的端口，当前 55440**；PostgreSQL 17）+ `next start`（端口 3010）
 
 | 项 | 值 |
 |---|---|
 | 测试文件数 | **11** |
-| 用例总数 | **153** |
+| 用例总数 | **154**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`） |
 | 通过 | **153** |
-| 失败 | **0** |
+| 失败 | **1**（`e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂 —— 真实产品缺陷，V4-20 / R-27，修复中） |
 | 跳过 | **0** |
-| 连续全绿轮次 | **2 轮**（每轮约 4.5 分钟） |
+| 连续全绿轮次 | **2 轮**（每轮约 4.5 分钟）—— **本地历史轮次口径，基于 153 条口径、早于 `ed385cf`** |
 | 单轮耗时 | **4.5m** |
+| **当前 CI 结果** | **153 passed \| 1 failed \| 154 total**（run `41873009808`，SHA `2773cd1`） |
 
-**口径分解**（与 `docs/evidence/e2e/test-list-v0.0.4.txt` 完全自洽）：
+**口径分解**（与 `docs/evidence/e2e/test-list-v0.0.4.txt` 完全自洽；`--list` 实测）：
 
 | 来源 | 文件数 | 用例数 |
 |---|---|---|
 | v0.0.3 原有 E2E | 6 | 67 |
-| v0.0.4 新增四文件（`v004-api-contract` / `v004-content-interaction` / `v004-endpoint-smoke` / `v004-account-admin`） | 4 | 78 |
+| v0.0.4 新增四文件（`v004-api-contract` / `v004-content-interaction` / `v004-endpoint-smoke` / `v004-account-admin`） | 4 | 79 |
 | 四身份 UI（`v004-four-roles-ui.spec.ts`） | 1 | 8 |
-| **合计** | **11** | **153** |
+| **合计** | **11** | **154** |
 
 > ⚠️ `v004-endpoint-smoke.spec.ts` 的条数随 GET 路由数浮动 ⇒ **正式发布前须重新 `--list` 固定口径**。
-> 历史数字说明：**144** = `67 + 77`（更早时点）、**152** = 新增 DOM 实证用例之前的时点 ——
-> 三个数字各有其时点，均非错误，**当前权威值为 153**。
+> 历史数字说明：**144** = `67 + 77`（更早时点）、**152** = 新增 DOM 实证用例之前的时点、
+> **153** = `ed385cf` 之前的时点（其中 `v004-account-admin` 为 20 条）——
+> 四个数字各有其时点，均非错误，**当前权威值为 154**（`ed385cf` 新增关注 UI 用例 +1）。
 
 ### 修复前的历史失败轮（如实保留，不回写历史）
 
@@ -184,7 +188,9 @@ body 文本正则提取用户名失败而 `test.skip` 静默跳过（**R-23**）
 
 > run `41754998422` —— ubuntu-latest + PostgreSQL 17 + Redis 7 服务容器。
 > ⚠️ **本小节是 v0.0.3 历史快照**（HEAD `89d6b4e` 之前的 CI run）。
-> v0.0.4 的权威 E2E 数字见文首「状态覆盖声明」：**153 条 / 11 文件、153 passed / 0 failed / 0 skipped、连续 2 轮全绿（4.5m）**。
+> v0.0.4 的权威 E2E 数字见文首「状态覆盖声明」：**154 条 / 11 文件**；
+> **本地历史轮次口径**：153 passed / 0 failed / 0 skipped、连续 2 轮全绿（4.5m，基于 153 条口径、早于 `ed385cf`）；
+> **当前 CI：153 passed | 1 failed | 154 total**（run `41873009808`）。
 
 | 项 | 结果 |
 |---|---|
@@ -280,11 +286,11 @@ body 文本正则提取用户名失败而 `test.skip` 静默跳过（**R-23**）
 
 | 项 | 状态 | 原因 |
 |---|---|---|
-| 镜像漏洞扫描（Trivy/Grype） | ⚠️ 本机无 Docker | 需在 CI 的 Docker job 执行；`docker-verify.yml` 已就绪（**R-16 取证通道**），但该 job 尚未实跑通过 |
+| 镜像漏洞扫描（Trivy/Grype） | ⚠️ 本机无 Docker | 需在 CI 的 Docker job 执行；`docker-verify.yml` 已就绪（**R-16 取证通道**），九项已实跑通过（run `41871503684`），但**镜像漏洞扫描本身不在九项内** |
 | 多浏览器视觉回归（Firefox/Safari） | ⚠️ 未执行 | 本机只装了 Chromium 与 Edge；CI 可扩展 |
 | 基础负载测试（k6 等） | ⚠️ 未执行 | 本轮用并发单元测试与并发 HTTP 验证覆盖了正确性，但未做吞吐量压测（**v0.0.4 已用 `tools/loadtest/bench.mjs` 做真实吞吐量压测替代，见文首状态覆盖声明**） |
 | 原站移动版比对 | ❌ 未做 | 无原站移动版证据；本项目为独立替代实现 |
-| **容器级升级实跑** | ⚠️ **待实测** | 升级脚本自检（62 项断言）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**（并入 R-16 重跑批次） |
-| **Redis 故障注入实跑** | ⚠️ **待实测** | `[R-17a/b/c]` 三个专项子任务已实装于 `docker-verify.yml`，**本轮尚未实跑**（R-17） |
-| **Docker 验证 1~8 项** | ⚠️ **待实测** | 第 9 项的 6 个子断言已首轮实跑通过；1~8 项待重跑（R-16） |
+| **容器级升级实跑** | ⚠️ **待实测** | 升级脚本自检（62 项断言）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**（R-18 的残余边界） |
+| **Redis 故障注入实跑** | ✅ **已实跑通过** | `[R-17a]` Redis 中断与恢复 / `[R-17b]` PG 中断与恢复 / `[R-17c]` 缓存失效与 Redis 内存观测 —— run `41871503684`（SHA `2773cd1`）九项全 PASS（R-17 已闭环） |
+| **Docker 验证 1~9 项** | ✅ **已实跑通过** | run `41871503684`（SHA `2773cd1`）**九项全部 completed / success，九项汇总表全 PASS**（R-16 已闭环；修复提交 `827eef7` + `2773cd1`） |
 

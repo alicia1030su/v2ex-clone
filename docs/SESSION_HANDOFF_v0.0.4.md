@@ -52,7 +52,7 @@ f57552e feat(visual): v0.0.4 视觉对照矩阵完成（4 视口 × 17 页面）
 | 项 | 状态 |
 |---|---|
 | Node | v22.22.2 / npm 10.9.7 |
-| PostgreSQL | **17.5**，二进制 `C:/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin`，端口 **55433**，角色 `v2ex` |
+| PostgreSQL | **17.5**，二进制 `C:/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin`，角色 `v2ex`。**端口有两个实例**：**55440** = 隔离测试实例（当前 `.env.test` 实际解析的端口，库 `v2ex_test_base`）；**55433** = v0.0.3 证据实例（含 `v2ex_e2e` 等证据库，**当前仍未恢复**） |
 | PG 数据目录 | `_tools/pgsql/data-v003` —— **1.4GB / 24 个库**，其中压测库 `base/279166` = **891MB**（**是 v0.0.4 证据，绝对不可动**） |
 | Redis | `_tools/redis/redis.zip`（仅压缩包，**未解压运行**） |
 | Docker | **本机无**（`docker` 命令不存在）→ 风险 R-16 |
@@ -119,7 +119,7 @@ WorkBuddy 的 Bash 工具在**单次调用结束时回收整棵进程树** → `
 
 | 数字 | 来源 | 含义 |
 |---|---|---|
-| **185（作为通过数）** | CI run `41837212170`（本轮） | `185 passed \| 5 skipped (190)` —— 分母是 190 |
+| **185（作为通过数）** | **修复前的历史观测**：CI run `41837212170`（本轮） | `185 passed \| 5 skipped (190)` —— 分母是 190。**已由 `8ce5ce9` 修复**，run `41860242099` / `41873009808` 单元 job 已 ✅ |
 | **185（作为总数）** | CI run `41760677505`（master @ `37710fb4`，14 文件） | `185 passed (185)` —— 当时总数就是 185 |
 
 **结论：v0.0.4 的用例总数始终是 190（15 文件）。**
@@ -128,7 +128,10 @@ WorkBuddy 的 Bash 工具在**单次调用结束时回收整棵进程树** → `
 **根因链**：
 `floor-continuity.spec.ts` 硬编码读被 gitignore 的 `.env.test` → CI 干净克隆 ENOENT
 → 5 条 skipped → **unit job 红** → **e2e job 被 `needs: unit` 连带跳过**
-→ **v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**（历史所有 run 的 E2E 状态都是 `skipped`）。
+→ **当时 153 条 E2E 在 CI 上从未跑过一条**（历史所有 run 的 E2E 状态都是 `skipped`）。
+
+> ✅ **后续已闭环**：`8ce5ce9` 修复 + run `41860242099` / `41873009808` 单元 job ✅ ⇒ **E2E job 已真实跑过**。
+> **当前 CI：153 passed | 1 failed | 154 total**（run `41873009808`）—— 唯一失败为节点申请 UI 提交链断裂（R-27 / V4-20）。
 
 ### ⚠️ 本轮已实测推翻的两个推断（留痕，避免后人重犯）
 
@@ -155,17 +158,17 @@ config({ path: '.env', quiet: true });
 ```
 
 - `.env.local` → `DATABASE_URL` 指向 **5432**（用户日常开发库，**禁止修改该文件**）
-- `.env.test` → 指向 **127.0.0.1:55433/v2ex_e2e**（正确目标），但被 `.gitignore` 忽略、未入仓
+- `.env.test` → 指向隔离实例（**按 `.env.test` 实际解析的端口，当前 55440 / `v2ex_test_base`**；本轮记录时点为 `127.0.0.1:55433/v2ex_e2e`），但被 `.gitignore` 忽略、未入仓
 - `drizzle.config.ts` 有完全相同的加载逻辑
 - 子进程（`runDrizzleKit` / `runTsx`）显式传 `ENV_FILE: ''` 与测试库 `DATABASE_URL`，父/子最终目标需验证一致
-- ⚠️ 上一轮归因勘误：曾误判为「`.env.local` → 5432 污染」或「并行 PG 负载」，用 `ENV_FILE`（override:true）指向 55433 后**仍然超时**，两假设均被实测推翻
+- ⚠️ 上一轮归因勘误：曾误判为「`.env.local` → 5432 污染」或「并行 PG 负载」，用 `ENV_FILE`（override:true）指向隔离实例后**仍然超时**，两假设均被实测推翻
 
 ### 问题 B：CREATE DATABASE 38.6s —— ✅ 根因已定案（第三次归因勘误）
 
 - 上一轮观测：`DROP DATABASE` 1.2s / **`CREATE DATABASE` 38.6s** / `drizzle-kit migrate` 5.4s
 - **本轮实测推翻旧假设**：在同一 1.4GB / 24 库实例上连测 3 次 `DROP+CREATE` = **2277 / 1978 / 2243 ms**，单独 `CREATE` = **2083 ms**；同期 checkpoint `total=0.053s / 0.158s`
 - ✅ **正确根因**：38.6s 是 **PG 处于 crash recovery / I/O 积压态**时的观测值，**不是稳态**。本轮首次启动 PG 时它在上次被强杀后做 redo 恢复，日志显示逐目录 fsync 耗时 70 秒（`syncing data directory (fsync), elapsed time: 70.01 s`）。**数据目录大小不是瓶颈**（建库只复制 `template1`，实测 7689 kB / public schema 0 张表）
-- 纠错留痕：① 第一轮误判「`.env.local` → 5432 污染」→ 用 `ENV_FILE`（override:true）指向 55433 后仍超时，**被实测推翻**；② 第二轮误判「并行 PG 负载」→ 单独跑 seed-idempotency 同样超时，**被实测推翻**；③ 第三轮「数据目录 1.4GB 导致」→ 本轮实测 2 秒，**被实测推翻**
+- 纠错留痕：① 第一轮误判「`.env.local` → 5432 污染」→ 用 `ENV_FILE`（override:true）指向隔离实例后仍超时，**被实测推翻**；② 第二轮误判「并行 PG 负载」→ 单独跑 seed-idempotency 同样超时，**被实测推翻**；③ 第三轮「数据目录 1.4GB 导致」→ 本轮实测 2 秒，**被实测推翻**
 - 现存配置：`vitest.config.ts` `testTimeout: 30_000` / `hookTimeout: 120_000` / `fileParallelism: false`
 - **方案**（架构师 `docs/TEST_ENV_ISOLATION_v0.0.4.md`）：新建**独立测试实例**（独立数据目录 + 独立端口，复用现有 PG 17.5 二进制）。定位是**隔离性与可复现性**，**不是性能修复** —— 不得包装成「解决 38.6s 超时」
 - 配套：阶段耗时日志（DROP/CREATE/migrate/seed 各阶段毫秒数）+ **区分「PG 未就绪」与「真实超时」**
@@ -200,15 +203,17 @@ v2ex_rateclear
 | 2 | **`docker-verify.yml` 定义级失败** —— 汇总步骤把三元式写进 `${{ }}`（`${{ job.status == 'success' && echo PASS \|\| echo '见日志' }}`），GitHub 表达式**不支持** `&&`/`\|\|` 三元。症状极具迷惑性：run **0 秒**结束、`total_count=0`、**无任何 job 被创建**，报错仅「This run likely failed because of a workflow file issue」，而 **YAML 本身能正常解析** | ✅ **已修**（`2532f5f`） | CI run `41836244258` |
 | 3 | **`docker-verify.yml` 迁移物路径断言错误** —— drizzle 的 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录；初版混用同一路径断言 → 误判「镜像内缺少」 | ✅ **已修**（`930f29e`） | CI run `41836588637` |
 | 4 | **`docker-verify.yml` app 健康判定口径错误** —— 根目录 `docker-compose.yml` 的 app **无 healthcheck**（只有 `deploy/docker-compose.yml` 才有），`State.Health.Status` **永远返回 `none`**，断言「三容器全 healthy」恒假。CI 日志证明 app 实际完全健康（`✓ Ready in 414ms`） | ✅ **已修**（`300d938`） | CI run `41837202602` |
-| 5 | **CI 上 `floor-continuity.spec.ts` 崩溃** —— 硬编码 `readFileSync('.env.test')`，而 `.env.test` 被 gitignore、从未入仓 → CI 干净克隆里 ENOENT → 5 条 skipped → **CI 红灯**。且它对 `process.env.DATABASE_URL` 要求匹配 `/:55433\//`，使 CI 的 5432 地址永不被采用 | 🔴 **修复中** | CI run `41837212170` |
+| 5 | **CI 上 `floor-continuity.spec.ts` 崩溃** —— 硬编码 `readFileSync('.env.test')`，而 `.env.test` 被 gitignore、从未入仓 → CI 干净克隆里 ENOENT → 5 条 skipped → **CI 红灯**。且它对 `process.env.DATABASE_URL` 要求匹配 `/:55433\//`，使 CI 的 5432 地址永不被采用 | ✅ **已修**（`8ce5ce9`；护栏 3 修复 `634a202`）—— CI 复验：run `41860242099` / `41873009808` 单元 job ✅（vitest 15 文件全过、0 skipped） | CI run `41837212170`（历史观测） |
 
 ### 第 5 个缺陷的连锁影响（本轮最重要的发现）
 
-- **CI 的 E2E job 因 `needs: unit` 被连带跳过** → **v0.0.4 的 153 条 E2E 在 CI 上一条都没跑过**。
+> ⚠️ **以下为「修复前的历史观测」，现已闭环**（`8ce5ce9` + run `41860242099` / `41873009808` 单元 job ✅）。
+
+- **CI 的 E2E job 因 `needs: unit` 被连带跳过** → **当时 153 条 E2E 在 CI 上一条都没跑过**。
   历史 run 显示 `E2E 测试 | skipped` 始终如此。
 - **这解释了「185 vs 190」之谜**：CI 上 = `185 passed | 5 skipped (190)`，本机 = `190 passed`。
   两个数字**都是真实观测**，差异是环境导致，**不是**「v0.0.3 vs v0.0.4」。
-- **修复后 CI 与本地都应为 `190 passed / 0 skipped`**。
+- **修复后 CI 与本地都应为 `190 passed / 0 skipped`** —— ✅ **已达成**。
 
 ### 4 个 CI 缺陷的共同规律（值得记住）
 
@@ -242,17 +247,18 @@ v2ex_rateclear
 ## 6. 本轮实测基线（**已复核，以此为准**）
 
 > ✅ **185 vs 190 争议已解决 —— 两个数字都是真实的，差异有确切根因。**
-> **185 是 CI 上的数字**（`185 passed | 5 skipped (190)`），**190 是本机的数字**（`190 passed`）。
+> **185 是 CI 上的数字**（`185 passed | 5 skipped (190)`，**修复前的历史观测**：run `41837212170`），**190 是本机的数字**（`190 passed`）。
 > 差异来自 `tests/floor-continuity.spec.ts` 的 5 条用例在 CI 上崩溃：
 > 它硬编码 `readFileSync('.env.test')`，而 `.env.test` 被 `.gitignore` 忽略、从未入仓，
 > CI 干净克隆里不存在 → `ENOENT` → `beforeAll` 抛错 → 5 条 skipped。
 > 且它对 `process.env.DATABASE_URL` 要求匹配 `/:55433\//`，使 CI 的 5432 地址永远不被采用。
-> **修复后 CI 与本机都应是 190 passed / 0 skipped。**
+> **修复后 CI 与本机都应是 190 passed / 0 skipped** —— ✅ **已由 `8ce5ce9` 达成**
+> （run `41860242099` / `41873009808` 单元 job ✅，`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。
 
 | 项 | 上一轮记录 | **本轮实测（2026-11-04）** |
 |---|---|---|
-| 单元测试 | 185（旧）/ 190（报告另处） | ✅ **190 条 / 15 文件，全部通过，0 failed / 0 skipped**；连续 **4 轮**全绿（~170–210s/轮）。证据：`docs/evidence/baseline/vitest-v0.0.4-round3.txt` |
-| E2E | 153 条 / 11 文件，153 passed（10.0m） | ✅ **153 条 / 11 文件，153 passed / 0 failed / 0 skipped（4.5m）**，连续 **2 轮**全绿。`--list` 权威清单：`docs/evidence/baseline/playwright-list-v0.0.4.txt` |
+| 单元测试 | 185（旧）/ 190（报告另处） | ✅ **190 条 / 15 文件，全部通过，0 failed / 0 skipped**；连续 **4 轮**全绿。**本轮隔离实例实测 81.68s**；历史轮次 170–210s/轮（共享实例 55433 口径）。证据：`docs/evidence/baseline/vitest-v0.0.4-round3.txt` |
+| E2E | 153 条 / 11 文件，153 passed（10.0m） | ✅ **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped（4.5m），连续 **2 轮**全绿（基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`，唯一失败为节点申请 UI 提交链断裂 V4-20 / R-27）。`--list` 权威清单：`docs/evidence/baseline/playwright-list-v0.0.4.txt` |
 | 视觉对照 | 4 视口 × 17 页面 = 68 条（40 有对照 / 28 无对照）；严格口径桌面 Δx=0 **52/52** | ⏸ 保留既有证据 |
 | 负载测试 | 已执行：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求 / 13 场景 | ⏸ 保留既有证据 |
 | 迁移幂等 + 备份恢复 | 已验证 | 🔄 QA 复核中 |
@@ -265,6 +271,10 @@ v2ex_rateclear
 - `:292` 「UI 缺口实证：管理员在 /、/admin、/settings 的 DOM 中均无 /admin 入口」
 
 **UI 工程师补齐入口后，这两条会失败 —— 这是预期结果，不是回归。** 届时必须改写为「**已具备入口**」的正向断言，而不是删掉或加 `skip` 掩盖。
+
+> ✅ **已按此处置**：`ed385cf` 已把这两条改写为**正向断言**（节点申请「入口存在且可提交」/「三页都有 `/admin` 链接且可点击到达」）。
+> 当前 `--list` 实测 `v004-four-roles-ui.spec.ts` = **8 条**（条数不变，断言方向已翻转）；
+> 总数 153 → **154** 的增量来自 `ed385cf` 在 `e2e/v004-account-admin.spec.ts` 新增的「关注（UI）」用例（20 → 21）。
 
 ---
 
@@ -358,7 +368,7 @@ v2ex_rateclear
 - ✅ 镜像**不含** `.env` / `.env.local` / `.env.test` / `.env.production` / `INSTALL_CREDENTIALS.txt`
 - ✅ 无凭据文件
 - ✅ 迁移 SQL `0000`/`0001`/`0002` 均在镜像内
-- 🔴 其余 8 项待重跑取证（run 41836588637 在第 9 项红灯后中止）
+- ✅ **其余 8 项已取证**（**修复前的历史观测**：run `41836588637` 在第 9 项红灯后中止；**最终 run `41871503684`（SHA `2773cd1`）九项全部 completed/success、汇总表全 PASS** ⇒ R-16 / R-17 已闭环）
 
 ### ⚠️ 未解阻点
 
@@ -370,7 +380,7 @@ v2ex_rateclear
 ## 10. 下一步具体动作
 
 1. ✅ 全仓 dotenv 加载语义统一（产品侧单一实现 `src/lib/env-loader.mjs`，父子进程一致）
-2. ✅ PG 隔离 + 护栏 + 单测基线 **190 全绿**（连续 4 轮）+ E2E **153 全绿**（连续 2 轮）
+2. ✅ PG 隔离 + 护栏 + 单测基线 **190 全绿**（连续 4 轮）+ E2E **154 条**（本地历史轮次口径 153 全绿 / 连续 2 轮）
 3. ✅ 185/190 之谜结题：本机 190 全绿；CI 上的 `185 passed | 5 skipped` 是 `floor-continuity` 崩溃所致（已修，769c779）
 4. ✅ UI 缺口 8 项补齐并经主理人真实浏览器独立复核；R-18 升级脚本修复（87 项自检）
 5. 🔄 第 4 轮：修复 CI 真实阻断（护栏 3 未落地，v2ex_ci 在 CI 必被拦死）→ 见文末《第 4 轮状态快照》
@@ -462,7 +472,7 @@ v2ex_rateclear
 | Job | 结果 | 说明 |
 |---|---|---|
 | 类型检查 / 单元测试 | ✅ **success** | **v0.0.4 在真实 CI 上首次转绿**：vitest 15 文件全过、globalSetup 正常建迁 `v2ex_ci`。护栏 3 修复（634a202）被实证有效。 |
-| E2E 测试 | ❌ failure | **史上首次真实运行**：153 条中 **152 通过、1 失败**（`v004-four-roles-ui` 节点申请用例）。 |
+| E2E 测试 | ❌ failure | **史上首次真实运行**：153 条中 **152 通过、1 失败**（`v004-four-roles-ui` 节点申请用例）。⚠️ 该 run 的分母仍是 153 条（`ed385cf` 之前）；**最新 CI run `41873009808` 的分母已是 154 条** |
 | Docker 构建与启动验证 | ❌ failure | 第 2 项断言「Compose 启动」红灯：app 容器 `restarting` 无限重启。 |
 
 ### B1. Docker 失败根因（已修，`dda4f70`）
@@ -552,7 +562,7 @@ install.sh 完成、`.env` 600、INSTALL_CREDENTIALS.txt 600、口令 32/32/48/1
 
 ## D. 待观察 / 待办
 
-- **E2E 仍是唯一红灯**：等 ui2 的 hydration 修复提交推送 → CI e2e job 验收 153/153 全绿。
+- **E2E 仍是唯一红灯**：等 ui2 的 hydration 修复提交推送 → CI e2e job 验收 **154/154 全绿**（最新 run `41873009808` 为 `153 passed | 1 failed | 154 total`）。
 - 版本同步（5 载体，architect 审计表）→ 测该提交 → 定 SHA → 人工放行 tag 白名单 → 建不可变 Tag → v0.0.4 Draft Release：等 CI 全绿后执行。
 - 55433（v003 证据库）仍未恢复 → 本地 E2E/起应用验证继续暂停（主人已取消 PG 恢复，**不要重启或重试**）。
 - R-01 仍 DEFERRED，等待主人单独授权。

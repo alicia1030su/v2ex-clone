@@ -11,8 +11,10 @@
 >
 > 本文中出现的 **185** 有**两个不同来源**，含义不同，不可混用：
 > ① **v0.0.3 历史总数**（CI run `41760677505`，master @ `37710fb4`，14 个 spec 文件，`185 passed (185)`）；
-> ② **当前分支 CI 上的通过数**（run `41837212170`，`185 passed | 5 skipped (190)` —— ⚠️ **分母仍是 190**，
+> ② **修复前的历史观测**（run `41837212170`，HEAD `930f29e`，`185 passed | 5 skipped (190)` —— ⚠️ **分母仍是 190**，
 > 5 条因 `floor-continuity` 在 CI 崩溃而跳过，见 **V4-17**）。
+> **该红灯已由 `8ce5ce9` 修复**，run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均已 ✅
+> （vitest 15 文件全过、`190 passed / 0 skipped`）；**历史数字保留不改写**，但已逐处标注其来源。
 >
 > 无论哪种，**v0.0.4 的用例总数始终是 190**。口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节
 > 与 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1。
@@ -191,9 +193,10 @@
 > | V4-14 | 严重 | 运行时上传数据被误提交入仓（18 个占位 PNG） |
 > | V4-15 | 严重 | `docker-verify.yml` 定义级失败（GitHub 表达式不支持 `&&`/`\|\|` 三元） |
 > | V4-16 | 一般 | `docker-verify.yml` 迁移物路径断言错误（**验证脚本自身错误，非产品缺陷**） |
-> | V4-17 | 阻断 | `tests/floor-continuity.spec.ts` 在 CI 必然崩溃（**修复中**） |
+> | V4-17 | 阻断 | `tests/floor-continuity.spec.ts` 在 CI 必然崩溃（**已修，`8ce5ce9`**） |
 > | V4-18 | 严重 | `docker-verify.yml` 的 app 健康判定口径不可能成立（app 其实完全健康） |
 > | V4-19 | 严重 | `docker-verify.yml` 的 `[7/9]` 安装包部署必然失败（端口占用 + 容器名冲突） |
+> | V4-20 | 严重 | 节点申请 UI 提交链断裂（**本轮唯一红灯，修复中**） |
 
 | ID | 级别 | 缺陷 | 位置 | 发现方式 | 修复 | 验证方式 | 状态 |
 |---|---|---|---|---|---|---|---|
@@ -201,9 +204,10 @@
 | **V4-15** | 严重 | **`docker-verify.yml` 定义级失败** —— 工作流在**定义阶段**就失败，**一个 job 都没被创建**。症状：run 0 秒结束、`total_count=0`、报错仅一句「This run likely failed because of a workflow file issue」 | `.github/workflows/docker-verify.yml`（证据汇总步骤） | CI 实跑（run `41836244258`） | 提交 `2532f5f`：把三元判断从 GitHub 表达式上下文**下沉到 shell 层** —— `${{ job.status == 'success' && echo PASS \|\| echo '见日志' }}` → `$([ "${{ job.status }}" = 'success' ] && echo PASS \|\| echo FAIL)`；`${{ }}` 只用于传值 | ① 根因实测：GitHub Actions 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持，三元不支持）<br>② **陷阱**：YAML 本身能正常解析（python yaml 校验通过，1 job / 17 steps），问题只在表达式求值阶段 —— 这是排查耗时的主因<br>③ 全仓库复核：`ci.yml` / `install-verify.yml` / `release.yml` 其余表达式均为合法写法（`release.yml` 的 `${{ inputs.publish \|\| 'false' }}` 是 `\|\|` 取默认值，合法且历史跑通过）<br>④ 修复后 R-16 / R-17 的验证可正常进入 CI 真实取证 | **VERIFIED** |
 | **V4-16** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项报「✗ 镜像内缺少迁移文件: `_journal.json`」，而**同一步骤前面的 `ls` 输出已经证明它存在** | `.github/workflows/docker-verify.yml`（第 9 项 9e） | CI 实跑（run `41836588637`，第 9 项红灯） | 提交 `930f29e`：把 SQL 与 meta 元数据分成两段断言，各用正确路径 —— SQL 在 `/app/drizzle/` 根目录，`_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录 | ① 性质判定：**验证脚本自身的路径错误，不是产品缺陷**<br>② 修复后 meta 段同时断言 3 个 snapshot + `_journal.json`，**覆盖面反而更严**<br>③ 该 run 已实测通过第 9 项的 6 个子断言（详见 `docs/evidence/ci/docker-verify-v0.0.4.md` §2.5） | **VERIFIED** |
 
-| **V4-17** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元测试 `unit` job 红灯 → `e2e` job 被 `needs: unit` 连带跳过 → **整个 CI 红灯**，且 v0.0.4 的 153 条 E2E **在 CI 上从未跑过一条** | `tests/floor-continuity.spec.ts`（`baseDatabaseUrl()`） | CI 实跑（run `41837212170`，HEAD `930f29e`） | 🔧 **修复中（测试环境工程师负责）** —— 修复方向已实跑验证：去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断（`docs/evidence/ci/test-baseline-v0.0.4.md` §0.5，含在纯净 CI 检出 `/tmp/ci-sim` 上的双向验证：CI 条件与本地条件均 `5 passed`） | **根因**：① 硬编码 `readFileSync(path.join(repoRoot, '.env.test'))`，而 `.env.test` **被 `.gitignore` 排除** ⇒ **CI 检出里根本没有这个文件** ⇒ `ENOENT`；② 对 `process.env.DATABASE_URL` 有 `:55433/` 端口白名单，而 CI 的 `DATABASE_URL` 是 `localhost:5432` ⇒ **即使环境变量已注入也不会被采用**。两条路都走不通 ⇒ 崩溃。**实测输出**：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母 190 正确**，5 条因崩溃被跳过 | **本轮修复中，待 CI 复验** |
+| **V4-17** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元测试 `unit` job 红灯 → `e2e` job 被 `needs: unit` 连带跳过 → **整个 CI 红灯** | `tests/floor-continuity.spec.ts`（`baseDatabaseUrl()`） | CI 实跑（run `41837212170`，HEAD `930f29e`） | ✅ **已修** —— 提交 `8ce5ce9`（护栏 3 修复提交 `634a202`）：去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断（修复方向此前已在 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.5 于纯净 CI 检出 `/tmp/ci-sim` 上双向验证：CI 条件与本地条件均 `5 passed`） | **实测输出**：`Test Files 15 passed (15)` / `Tests 190 passed (190)` / **0 skipped** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 ✅。**修复前的历史观测**（run `41837212170`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母 190 正确**。`e2e` job **已真实跑过**（不再被 `needs: unit` 连带跳过） | **VERIFIED** |
 | **V4-18** | 严重 | **`docker-verify.yml` 的 app 健康判定口径不可能成立** —— 第 2 项红灯：`✗ app 未达 healthy（none）`。**断言口径本身错了**：根目录 `docker-compose.yml` 的 **app 服务没有定义 healthcheck**（只有 `deploy/docker-compose.yml` 才有），所以 `docker inspect '{{.State.Health.Status}}' v2ex-app` **永远返回 `none`**。⚠️ **真实 CI 日志证明 app 其实是完全健康的**（`✓ Ready in 414ms`）—— 是断言读错了，不是应用没起来 | `.github/workflows/docker-verify.yml`（第 2 项） | CI 实跑（run `41837202602`）+ 静态复核 | 把 app 的就绪判定从「读 `State.Health.Status`」改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` 返回 **200**），PG / Redis 继续用 health 状态（它们**确实有** healthcheck）。**HTTP 探活是更强的证据** —— 不只证明容器活着，更证明 Next.js 真的在服务请求（`/` 是 force-dynamic 的 Server Component，会同时打到数据库） | **修复逻辑已用桩程序对照验证**：新逻辑 `postgres=healthy redis=healthy app_state=running http=200` → **EXIT=0 通过**；旧逻辑恒读出 `none` → 必红 | **VERIFIED** |
 | **V4-19** | 严重 | **`docker-verify.yml` 的 `[7/9]` 安装包实际部署必然失败** —— **两个冲突**：① **端口占用** —— `install.sh` L163 有硬性端口检查 `port_in_use "$APP_PORT"`，而此时根 compose 的 app 容器**仍在运行**、映射着宿主机 3000 ⇒ `install.sh` 会**直接 `die`**；② **容器名冲突** —— 新起的安装包实例与仍在运行的根 compose 实例**同名**，互相干扰 | `.github/workflows/docker-verify.yml`（第 7 项） | 逐项复核 `[7/9]` 执行上下文时**主动发现**（尚未被 CI 触发，但**一定会红**） | ✅ 断言与执行上下文分离，并**新增一条断言来保证它不会变成外部镜像** | 详见 `docs/evidence/ci/docker-verify-v0.0.4.md` §5.1.0 | **VERIFIED** |
+| **V4-20** | 严重 | **节点申请 UI 提交链断裂** —— 生产构建下 React #418 hydration 不匹配 → react-dom `nodeName.toLowerCase is not a function` 崩溃 → **表单 `onSubmit` 从未执行**。**API 路径通过、纯 UI 路径失败** | `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」（`/nodes/request` 表单提交链） | CI 实跑（run `41873009808`，SHA `2773cd1`）：**153 passed \| 1 failed \| 154 total** —— 本轮 E2E **唯一**失败用例 | 🔧 **修复中** —— 已移交 UI 工程师（`ed385cf` 引入的节点申请入口是本链路的触发点） | ① 浏览器原生表单 GET 提交被触发（trace 实证 URL：`/nodes/request?nodeName=...&nodeTitle=...&description=...`），整个 trace **无任何** `POST /api/node-requests` —— React `onSubmit` 从未执行<br>② 点击过程中抛出未捕获 `TypeError: nodeName.toLowerCase is not a function`（react-dom 的 hydration 遍历函数 `canHydrateInstance`）<br>③ 另一实例：`Minified React error #418`（hydration 不匹配）在首页 `/` 触发<br>④ 失败瞬间截图：表单空、按钮回 disabled、无 toast<br>**trace 级证据见 `docs/SESSION_HANDOFF_v0.0.4.md` 第 5 轮 B2 段** | 🔴 **未修复（修复中）** |
 
 > **V4-14 的残余说明（如实披露）**：18 个占位 PNG **仍然留在 Git 历史里**（`04b107b` / `1b15f79` / `301a8a5`）。
 > 本轮刻意**不改写历史** —— 改写远端历史属明令禁止的高风险不可逆操作，需主人单独授权（与 R-01 同类处置）。

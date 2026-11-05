@@ -42,7 +42,7 @@
 | **B-10** | 严重 | **`docker-verify.yml` 定义级失败** —— 工作流在定义阶段就失败，**一个 job 都没被创建**（run 0 秒结束、`total_count=0`、报错仅「This run likely failed because of a workflow file issue」）。根因：GitHub 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持） | 提交 `2532f5f`：三元判断下沉到 shell 层，`${{ }}` 只用于传值。**陷阱**：YAML 本身能正常解析（1 job / 17 steps），问题只在表达式求值阶段 ⇒ 排查耗时。登记 `BUG_REGISTER` V4-15 |
 | **B-13** | 严重 | **`docker-verify.yml` 的 app 健康判定口径不可能成立** —— 第 2 项红灯 `✗ app 未达 healthy（none）`。根因：根目录 `docker-compose.yml` 的 **app 服务没有 healthcheck**（只有 `deploy/docker-compose.yml` 才有）⇒ `State.Health.Status` **永远返回 `none`**。⚠️ **CI 日志证明 app 其实完全健康**（`✓ Ready in 414ms`）—— 是断言读错了 | ✅ **已修** —— 改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` 返回 200）；PG/Redis 仍用 health 状态。**HTTP 探活是更强的证据**（证明 Next.js 真在服务请求，而非只是容器活着）。桩程序对照验证通过 |
 | **B-14** | 严重 | **`docker-verify.yml` 的 `[7/9]` 安装包实际部署必然失败** —— ① **端口占用**：`install.sh` L163 的硬性端口检查会因根 compose 的 app 容器仍占 3000 而直接 `die`；② **容器名冲突**：新实例与运行中的实例同名 | ✅ **已修** —— 断言与执行上下文分离，并新增断言保证它不会变成外部镜像 |
-| **B-12** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元 `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过 ⇒ 整个 CI 红灯，**v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。根因：硬编码 `readFileSync('.env.test')`（该文件被 gitignore，CI 检出里不存在）+ `:55433/` 端口白名单（CI 的 `DATABASE_URL` 是 5432） | 🔴 **本轮修复中，待 CI 复验** —— 实测 run `41837212170`：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`（**分母 190 正确**）。登记 `BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26 |
+| **B-12** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元 `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过 ⇒ 整个 CI 红灯。根因：硬编码 `readFileSync('.env.test')`（该文件被 gitignore，CI 检出里不存在）+ `:55433/` 端口白名单（CI 的 `DATABASE_URL` 是 5432） | ✅ **已修并经 CI 复验** —— 提交 `8ce5ce9`（护栏 3 修复提交 `634a202`）。**修复前的历史观测**：run `41837212170`（HEAD `930f29e`）`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`（**分母 190 正确**）。run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 ✅（vitest 15 文件全过，0 skipped），`e2e` job **已真实跑过**。登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26 |
 | **B-11** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项误报「✗ 镜像内缺少迁移文件: `_journal.json`」，而同一步骤前面的 `ls` 已证明它存在。根因：drizzle 的 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录，初版混用同一路径断言。**性质：验证脚本自身的错误，不是产品缺陷** | 提交 `930f29e`：SQL 与 meta 分成两段断言，meta 段同时断言 3 个 snapshot + `_journal.json`（覆盖面更严）。登记 `BUG_REGISTER` V4-16 |
 
 ### 二、性能优化（EXPLAIN ANALYZE + 真实压测实测，10 万主题 / 100 万回复）
@@ -73,9 +73,9 @@
 
 | 项 | 权威值 | 实测命令 / 证据 |
 |---|---|---|
-| **单元测试** | **190 条 / 15 个文件**，**190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（每轮约 170~210 秒） | `ENV_FILE=.env.test npx vitest run`；`docs/evidence/ci/test-baseline-v0.0.4.md` |
-| **单元测试（CI 现状）** | 🔴 **CI 红灯** —— run `41837212170`：`185 passed \| 5 skipped (190)`。**分母 190 正确**，5 条因 `floor-continuity` 崩溃而跳过。**修复中，待 CI 复验** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
-| **真实浏览器 E2E** | **153 条 / 11 个文件**，**153 passed / 0 failed / 0 skipped**，**连续 2 轮全绿**（4.5m/轮） | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`；`docs/evidence/e2e/e2e-full-run-v0.0.4.md` |
+| **单元测试** | **190 条 / 15 个文件**，**190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径） | `ENV_FILE=.env.test npx vitest run`；`docs/evidence/ci/test-baseline-v0.0.4.md` |
+| **单元测试（CI）** | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
+| **真实浏览器 E2E** | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`），唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27，修复中） | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`；`docs/evidence/e2e/e2e-full-run-v0.0.4.md` |
 | **升级脚本自检** | **62 项断言全 PASS / 0 FAIL** | `bash scripts/release/verify-update-script.sh` |
 | **视觉对照** | 4 视口 × 17 页面 = **68 条**；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52**、Δw=0 48/52 | `tools/visual/summarize-visual-diff.py` + `docs/evidence/visual/geometry-summary.json` |
 | **负载压测** | 13 场景 / 24785 请求，**0 个 5xx**；数据集 351 万行（10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复） | `scripts/loadtest/seed-large.ts` + `tools/loadtest/bench.mjs` + `bench-result.json` |
@@ -87,7 +87,7 @@
 | 数字 | 来源 | 含义 | 归属 |
 |---|---|---|---|
 | **190** | 本机连续 4 轮实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 15 passed (15)` / `Tests 190 passed (190)` —— **总数即 190** | ✅ **v0.0.4 权威基线** |
-| **185**（作为**通过数**） | CI run `41837212170`（HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**；5 条因 `floor-continuity` 在 CI 崩溃而跳过 | 🔴 **CI 环境观测值，CI 红灯中**（**B-12 / V4-17 / R-26**） |
+| **185**（作为**通过数**） | **修复前的历史观测**：CI run `41837212170`（HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**；5 条因 `floor-continuity` 在 CI 崩溃而跳过 | ✅ **历史快照**（红灯已由 `8ce5ce9` 修复，run `41860242099` / `41873009808` 单元 job 已 ✅） |
 | **185**（作为**总数**） | CI run `41760677505`（master @ `37710fb4`，**14 个** spec 文件） | `Tests 185 passed (185)` —— 当时总数就是 185 | ⏪ **v0.0.3 历史快照**，已过时 |
 
 **结论**：
@@ -95,21 +95,36 @@
    **不构成「总数有争议」**。与 v0.0.3 的**总数差异**来自 `tests/floor-continuity.spec.ts`（5 条，提交 `1b15f79` 引入）：
    `185 (master, 14 文件) + 5 = 190 (当前, 15 文件)`。
 2. **185 不是「v0.0.4 的用例数」** —— 它要么是 CI 上的**通过数**，要么是 **v0.0.3 master 的历史总数**。
-3. 🔴 **当前 CI 是红灯的**（run `41837212170`）：`Test Files 1 failed | 14 passed (15)` /
-   `Tests 185 passed | 5 skipped (190)`。根因是 `tests/floor-continuity.spec.ts` 硬编码
+3. ✅ **CI 单元测试已转绿**（run `41860242099` / `41873009808`，SHA `2773cd1`）：`Test Files 15 passed (15)` /
+   `Tests 190 passed (190)` / **0 skipped**，`e2e` job **已真实跑过**（不再被 `needs: unit` 连带跳过）。
+   **修复前的历史观测**（run `41837212170`，HEAD `930f29e`）为 `Test Files 1 failed | 14 passed (15)` /
+   `Tests 185 passed | 5 skipped (190)`，根因是 `tests/floor-continuity.spec.ts` 硬编码
    `readFileSync('.env.test')` + `:55433/` 端口白名单 —— `.env.test` 被 gitignore ⇒ CI 检出里没有该文件，
    而 CI 的 `DATABASE_URL` 是 5432 ⇒ 两条路都走不通 ⇒ ENOENT 崩溃 ⇒ 5 条 skipped ⇒
-   `unit` job 红灯 ⇒ **`e2e` job 被 `needs: unit` 连带跳过** ⇒ **v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**。
-   **登记 `BUG_REGISTER` V4-17 / `RISK_REGISTER` R-26，状态：本轮修复中，待 CI 复验。**
+   `unit` job 红灯 ⇒ **`e2e` job 被 `needs: unit` 连带跳过**。
+   **已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）——
+   登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验）。
 4. ⚠️ 静态 grep 得出 **180**（少于 190），因 `admin-permissions.spec.ts` 用嵌套 for 循环生成用例 ——
    **口径必须取 Vitest 运行时的 `numTotalTests`**。三方交叉校验见 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1 / §0.2。
 5. ⚠️ **核对 CI 必须看 `Test Files` 行，不能只看 `Tests` 行**（`1 failed + 5 skipped` ≠ 「少了几条」）。
 
-#### 5.2 E2E 用例数口径（**153**）
+#### 5.2 E2E 用例数口径（**154**）
 
-分解：原有 6 文件 67 条 + v004 四文件 78 条 + 四身份 UI 8 条 = **153 条 / 11 文件**。
-历史数字 **144**（`67 + 77`，更早时点）与 **152**（新增 DOM 实证用例之前的时点）各有其时点，均非错误，**当前权威值为 153**。
+分解（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）：
+原有 6 文件 67 条 + v004 四文件 **79** 条 + 四身份 UI **8** 条 = **154 条 / 11 文件**。
+
+`ed385cf`（补齐八项 UI 缺口）的 **增量为 +1** —— 新增的「关注（UI）：真实点击关注/取消，刷新后状态持久化，
+关注列表出现该用户」落在 `e2e/v004-account-admin.spec.ts`（该文件由 20 条增至 21 条），
+`v004-four-roles-ui.spec.ts` 仍为 8 条。
+
+历史数字 **144**（`67 + 77`，更早时点）、**152**（新增 DOM 实证用例之前的时点）、
+**153**（`ed385cf` 之前的时点，`v004-account-admin` 为 20 条）各有其时点，均非错误，**当前权威值为 154**。
 ⚠️ `v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动 ⇒ **正式发布前须重新 `--list` 固定口径**。
+
+> ⚠️ 口径待复核（主理人）：本轮任务书给出的分组写法是「**67 + 78 + 9 = 154**」（即把 +1 记在「四身份 UI」组）。
+> 但**按 `ed385cf` 的实际 diff 与 `--list` 实测逐文件计数**，+1 落在 `v004-account-admin.spec.ts`（20 → 21），
+> 因此分组应为「**67 + 79 + 8 = 154**」。**总数 154 与任务书一致**，仅「哪一组 +1」的归属不同。
+> 本节采用**实测口径**，请主理人确认是否按此统一。
 
 #### 5.3 视觉结论的边界（**不得宣称「像素级复刻完成」**）
 
@@ -127,28 +142,26 @@
 | ID | 风险 | 收尾轮新状态 |
 |---|---|---|
 | **R-01** | 原站版权素材经 Git 历史持续暴露 | 🔴 **DEFERRED（维持）** —— 只读复核：风险未消除；隔离演练证明方案技术可行且不损坏项目，但与「不得移动已发布 Tag」的约束存在**待主人裁决**的冲突 |
-| **R-16** | Docker 容器与安装包未实跑 | 🟡 **部分项已实证通过，其余待重跑** —— 已通过：`ci.yml` Docker 构建与启动 ✅、`install-verify.yml` Linux 真实 Docker 安装（真跑 `install.sh`、权限 600、容器 healthy、管理员创建、数据持久化、重启后口令不变）✅、Windows 脚本校验 ✅、`docker-verify` [1/9] ✅ 与 [9/9] ✅（6 子断言全过）；**待重跑**：[2/9]~[8/9] |
-| **R-17** | Redis 故障恢复 / 缓存失效 / 内存观测未验证 | 🟡 **部分项已实证通过，其余待重跑** —— 已通过：`install-verify.yml` Linux 真实 Docker 安装（真实 compose 起 PG+Redis、容器 healthy、持久化与重启口令不变）✅；**待重跑**：`[R-17a/b/c]` 三项专项 |
+| **R-16** | Docker 容器与安装包未实跑 | 🟢 **已闭环** —— `docker-verify` **九项全部 completed / success**，九项汇总表全 PASS（run `41871503684`，SHA `2773cd1`）。修复提交：`827eef7`（安装模拟改走首次安装路径）、`2773cd1`（安装模拟前 unset job 级 env，修 compose 插值泄漏导致的假绿） |
+| **R-17** | Redis 故障恢复 / 缓存失效 / 内存观测未验证 | 🟢 **已闭环** —— 同 run `41871503684` 九项全绿，含 `[R-17a/b/c]` 三个专项（Redis / PG 中断恢复、缓存失效与内存观测） |
 | **R-18** | 升级路径断点（`update.sh` 不更新镜像 tag） | 🟢 **已修并验证** —— `b0d68c2`；62 项自检断言全 PASS |
 | **R-19** | `release.yml` tag 白名单不含 `v0.0.4` | 🟡 **部分已修（维持）** —— 白名单**发布时人工加入**，不会自动加 |
 | **R-20** | 版本载体全部为 `0.0.3` | 🟢 **已裁决（维持）** —— 开发态保持 0.0.3，最终 SHA 固定后一次性同步 |
-| **R-21** | 四身份 UI 验收缺口（管理员无 `/admin` 入口等） | 🟠 **本轮处理中** —— UI 工程师补齐中，**待主理人确认后才可标 FIXED** |
+| **R-21** | 四身份 UI 验收缺口（管理员无 `/admin` 入口等） | 🟢 **已修复**（`ed385cf`）—— 管理员入口 / 关注 / 节点申请审批 / 通知已读全部补齐，**待主理人终验确认** |
 | **R-22** | 单测建库超时 | 🟢 **已定案并复验** —— 三次归因勘误后定案（crash recovery / I/O 积压态），稳态 `CREATE DATABASE` **2.0~2.3s**；`hookTimeout` 提到 120s；连续 4 轮全绿 |
 | **R-23** | 关注链路断言被静默跳过 | 🟢 **已修复并实跑通过** —— 修复前的 152 passed / 1 skipped 如实保留在证据文件，不回写历史 |
-| **R-24** | 关注功能无 UI 入口 | 🟠 **本轮处理中** —— UI 工程师补齐中，**待主理人确认后才可标 FIXED** |
-| **R-26** | CI 上单元测试红灯（`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过） | 🟠 **本轮修复中，待 CI 复验** —— 根因已定位并给出已实跑验证的修复方案；**未经 CI 复验不标 FIXED** |
+| **R-24** | 关注功能无 UI 入口 | 🟢 **已修复**（`ed385cf`）—— 关注按钮可真实点击、刷新后状态持久化，**待主理人终验确认** |
+| **R-26** | CI 上单元测试红灯（`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过） | 🟢 **已修复并经 CI 复验** —— 提交 `8ce5ce9`（护栏 3 修复 `634a202`）；run `41860242099` 与 `41873009808` 的单元 job 均 ✅（vitest 15 文件全过、0 skipped），`e2e` job **已真实跑过** |
 | **R-25** | 运行时上传数据被误提交入仓 | 🟡 **已缓解 —— 历史仍可达，与 R-01 同源** —— `.gitignore` + `git rm --cached` 已执行；18 个占位 PNG **仍在 Git 历史**，彻底消除需授权改写历史 |
+| **R-27** | 节点申请 UI 提交链断裂（**新增，本轮唯一红灯**） | 🔴 **未修复（修复中）** —— CI run `41873009808`：`153 passed \| 1 failed \| 154 total`，唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」。生产构建下 React #418 hydration 不匹配 → react-dom `nodeName.toLowerCase is not a function` 崩溃 → 表单 onSubmit 从未执行。**API 路径通过、纯 UI 路径失败** ⇒ 阻断正式 Release。登记 `BUG_REGISTER` **V4-20** |
 
 ### 七、不包含（未实现，如实标注）
 
 - **容器级升级实跑** —— 升级脚本自检（62 项断言）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**。
-- **Docker 验证 1~8 项、Redis 故障注入** —— 取证通道已就绪，**本轮尚未实跑**。
 - **真实 SMTP 投递** —— 未配置，仅做静态核查。
 - **多浏览器 E2E（Firefox / Safari）** —— 本机仅 Chromium / Edge。
 - **原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照** —— 无权访问他人账号，不拿游客态冒充。
-- **四身份 UI 缺口（R-21 / R-24）** —— **本轮处理中，未闭环**。
-- **CI 单元测试红灯（R-26 / V4-17）** —— `tests/floor-continuity.spec.ts` 在 CI 崩溃，
-  5 条被跳过，`e2e` job 被连带跳过 ⇒ **153 条 E2E 在 CI 上从未跑过一条**。**本轮修复中，待 CI 复验**。
+- **节点申请 UI 提交链断裂（R-27 / V4-20）** —— 本轮唯一红灯，**修复中**（CI run `41873009808`：`153 passed | 1 failed | 154 total`）。
 - **R-25 的历史残留** —— 18 个公开占位 PNG **仍在 Git 历史里**（内容无害：无用户数据、无凭据），
   彻底消除需**主人单独授权**改写历史。
 - **远端 Git 历史改写** —— 仅在隔离副本演练成功（`docs/HISTORY_CLEANUP_DRILL_v0.0.4.md`），

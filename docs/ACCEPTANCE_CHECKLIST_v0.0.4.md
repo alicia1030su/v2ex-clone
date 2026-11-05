@@ -15,12 +15,13 @@
 
 **对「v0.0.4 是否可以进入 Draft Release 阶段」的判断：有条件可以。**
 
-- **可以进入的依据**：**190 条单元 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）/ **153 条 E2E / 11 文件**（153 passed / 0 failed / 0 skipped，连续 2 轮全绿，4.5m/轮）、7 个真实缺陷已修且多数有回归用例、4 视口视觉证据齐备且 28 条无对照项如实标注、真实社区规模压测数据集与结果文件齐备、幂等性能索引迁移已产出、GHCR 经完整 Bearer 协议复核为公开可拉取（E-10 已改写）、Git 历史清理完成**隔离演练**且未触碰远端。这些已满足「进入可编辑的 Draft」而非「正式发布」的功能与安全条件。
-- **必须带上的条件**：版本载体与缺陷登记未同步到 v0.0.4；视觉几何核心数字在原始 JSON 中无法复核；管理员/版主后台的**真实浏览器 UI 点击流**为零覆盖；多份文档存在互相矛盾的数字。这些不是功能缺陷或安全阻断，但必须在 Draft Notes 中逐条显式披露，并在 §9.3 的前置条件里闭环。
+- **可以进入的依据**：**190 条单元 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）/ **154 条 E2E / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿，4.5m/轮 —— 基于 153 条口径、早于 `ed385cf`；**当前 CI：153 passed | 1 failed | 154 total**，run `41873009808`）、7 个真实缺陷已修且多数有回归用例、4 视口视觉证据齐备且 28 条无对照项如实标注、真实社区规模压测数据集与结果文件齐备、幂等性能索引迁移已产出、GHCR 经完整 Bearer 协议复核为公开可拉取（E-10 已改写）、Git 历史清理完成**隔离演练**且未触碰远端。这些已满足「进入可编辑的 Draft」而非「正式发布」的功能与安全条件。
+- **必须带上的条件**：版本载体与缺陷登记未同步到 v0.0.4；管理员/版主后台的**真实浏览器 UI 点击流**为零覆盖；多份文档存在互相矛盾的数字；**此外，本轮唯一红灯是 R-27 / V4-20（节点申请 UI 提交链断裂，CI run `41873009808` 的 `153 passed | 1 failed | 154 total`）—— 必须在 Draft Notes 中显式披露，并在正式发布前闭环**。这些不是功能缺陷或安全阻断，但必须在 Draft Notes 中逐条显式披露，并在 §9.3 的前置条件里闭环。
+- **已闭环项（本轮收尾）**：视觉几何核心数字**已可复核**（D-01 已闭环 —— `8f1e214` 把汇总脚本入仓并产出 `docs/evidence/visual/geometry-summary.json` 三套口径机器可读，`docs/DELIVERY_PLAN_v0.0.4.md` 已标「✅ 已闭环，可用」）。
 - **为什么不是「不可以」**：所有未闭环项都不触及「禁止未经授权改写远端」的红线；R-01/E-02 按第九阶段要求维持 DEFERRED、仓库保持 Public，符合授权边界。Draft 阶段允许携带已知限制。
 - **为什么不是「可以」**：若放行前不补 §9.3 的前置条件，验收将出现「版本号与交付物不符」「核心通过标准无原始证据」「UI 验收被 API 测试冒充」三类硬伤，届时无法对外解释通过依据。
 
-> ⚠️ 本清单**不声明任何「相似率」百分比**。像素差包含内容差异（原站真实社区数据 vs 本地 seed），不构成相似度结论；几何量测只报位置/尺寸一致数，且本报告已标注其待复核（见 §3 / D-01）。
+> ⚠️ 本清单**不声明任何「相似率」百分比**。像素差包含内容差异（原站真实社区数据 vs 本地 seed），不构成相似度结论；几何量测只报位置/尺寸一致数。**D-01 已闭环**（`8f1e214` 脚本入仓 + `docs/evidence/visual/geometry-summary.json` 三套口径机器可读），详见 §3 / D-01。
 
 ---
 
@@ -30,7 +31,7 @@
 
 | 层级 | 范围 | 责任方 | 自动化目标 |
 |------|------|--------|-----------|
-| 单元 / 集成 | 权限矩阵、并发与幂等、账本自洽、Feed 结构、SQL 注入防护、楼层分配 | 主理人（现有 `tests/`） | **190 条 / 15 文件全绿**（连续 4 轮）；新增缺陷 100% 有回归用例。🔴 **CI 侧红灯**：`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过（**V4-17 / R-26，本轮修复中**） |
+| 单元 / 集成 | 权限矩阵、并发与幂等、账本自洽、Feed 结构、SQL 注入防护、楼层分配 | 主理人（现有 `tests/`） | **190 条 / 15 文件全绿**（连续 4 轮）；新增缺陷 100% 有回归用例。✅ **CI 侧已转绿**（run `41860242099` / `41873009808` 单元 job ✅，`190 passed / 0 skipped`）—— **修复前的历史观测**（run `41837212170`）：`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过（**V4-17 / R-26，已由 `8ce5ce9` 修复并经 CI 复验**） |
 | API 契约 / 冒烟 | 全部 GET 端点不 5xx、响应 JSON 合法、分页与 limit 钳制 | 第四阶段（`e2e/v004-*.spec.ts`） | 55 个 route.ts 中 29 个 GET 端点全覆盖 |
 | 真实浏览器 E2E | 四身份点击流、内容生命周期、互动、后台 | 第四阶段 + 本清单 §4 | 四身份各至少 1 正向 + 1 异常；**后台 UI 点击流需补齐** |
 | 视觉回归 | 4 视口 × 17 页面布局/内容差异分离 | 第三阶段（`tools/visual/`） | 常驻 CI 回归尚未建成（FEATURE_AUDIT #53 ⚠️ PARTIAL） |
@@ -56,13 +57,13 @@
 #### 视觉
 - [x] 4 视口 × 17 页面 = 68 条记录，40 条完成对比、28 条如实标注跳过（`visual-diff-multi.json` 与汇总一致）
 - [x] 桌面/平板判定「布局差异 0 · 数据差异 0」；375 视口标注为有意响应式重排
-- [ ] **几何量测数字可复核**：`VISUAL_DIFF_SUMMARY_v0.0.4.md` 的「52 条 / Δx=0 100% / Δw=0 92.3%」在 `docs/evidence/visual/` 下无对应原始证据（§3 / D-01）——**未闭环前不得作为通过依据**
+- [x] **几何量测数字可复核**：✅ **已闭环** —— `8f1e214` 把汇总脚本入仓（`tools/visual/summarize-visual-diff.py`）并产出 `docs/evidence/visual/geometry-summary.json`（**三套口径机器可读**：严格 52/52、历史 64/84、v0.0.3 96.9% 全部可复算）；`docs/DELIVERY_PLAN_v0.0.4.md` 已标「✅ 已闭环，可用」
 - [ ] 自动化视觉回归纳入 CI（`FEATURE_AUDIT` #53 仍 ⚠️ PARTIAL）
 
 #### E2E
 - [x] 原有 6 文件 67 条 + 新增 4 文件（静态声明 36 条、运行时展开约 78 条）
 - [x] 单 project（chromium 1280×900）下全绿，`retries: 0`、`fullyParallel: false`
-- [x] **用例数口径固定**：已产出 `playwright test --list` 输出（`docs/evidence/e2e/test-list-v0.0.4.txt`，`Total: 153 tests in 11 files`），**权威口径为 153 条 / 11 文件**；历史「144 条」是更早时点（§3 / D-08）
+- [x] **用例数口径固定**：已产出 `playwright test --list` 输出（`docs/evidence/e2e/test-list-v0.0.4.txt` 与 `docs/evidence/baseline/playwright-list-v0.0.4.txt`，`Total: 154 tests in 11 files`），**权威口径为 154 条 / 11 文件**；历史「144 条」「152 条」「153 条」是更早时点（§3 / D-08）
 - [ ] **四身份 UI 层验收补齐**：特别是版主与管理员后台（§4）
 - [ ] 多浏览器 / 多视口**交互** E2E（当前仅 1 个 project，4 视口只有截图对比）
 
@@ -80,11 +81,11 @@
 - [ ] PG / Redis 故障恢复、备份实际还原（§6.2）
 
 #### 发布
-- [ ] **版本一致性**：`package.json`、`deploy/VERSION`、`README.md`、`CHANGELOG.md`、`FEATURE_MATRIX.md`、`RELEASE_GATE.md`、`TEST_REPORT.md` 全部同步到目标版本，或显式记录「版本号推迟到正式发布」的决策与责任人（§3 / D-02）
-- [x] `RELEASE_GATE.md` 更新：**收尾轮已在文件顶部补「§0 v0.0.4 门禁速览」**（单元 190/15 文件、E2E 153/11 文件、升级脚本自检 62 项全 PASS、视觉部分、Docker/Redis 部分闭环、四身份 UI 本轮处理中、Git 历史阻断、版本载体按裁决）。B3「≥103 单元」/ B4「≥67 E2E」仍保留在下方作为 **v0.0.2 历史门禁**，并已加状态覆盖声明（§3 / D-13）
+- [ ] **版本一致性**：权威载体清单以 `scripts/release/preflight.sh` 实际校验的 **5 个载体**为准 —— `package.json` / `deploy/VERSION` / `README.md` / `RELEASE_GATE.md` / `TEST_REPORT.md`（`preflight.sh` L147–148「版本载体（5 个，主理人裁决）」）。当前全部为 `0.0.3`（开发态刻意保持，R-20 裁决），或显式记录「版本号推迟到正式发布」的决策与责任人（§3 / D-02）
+- [x] `RELEASE_GATE.md` 更新：**收尾轮已在文件顶部补「§0 v0.0.4 门禁速览」**（单元 190/15 文件、E2E 154/11 文件、升级脚本自检 62 项全 PASS、视觉部分、Docker/Redis **已闭环**、四身份 UI **已修（`ed385cf`）**、Git 历史阻断、版本载体按裁决）。B3「≥103 单元」/ B4「≥67 E2E」仍保留在下方作为 **v0.0.2 历史门禁**，并已加状态覆盖声明（§3 / D-13）
 - [x] GHCR 镜像经完整 Bearer 协议实测公开可拉取，E-10 旧结论已推翻
 - [ ] Draft Release Notes 显式披露 §6 全部遗留项与 §7 全部缺口
-- [x] `vitest.config.ts` 已由主理人提交（含 `hookTimeout: 120_000` 与 `fileParallelism: false`），以最终提交态复验 **190/190（15 文件，连续 4 轮全绿）+ 153/153（11 文件，连续 2 轮全绿）**
+- [x] `vitest.config.ts` 已由主理人提交（含 `hookTimeout: 120_000` 与 `fileParallelism: false`），以最终提交态复验 **190/190（15 文件，连续 4 轮全绿）+ E2E 154 条 / 11 文件**（**本地历史轮次口径**：153/153 连续 2 轮全绿，基于 153 条口径、早于 `ed385cf`；**当前 CI：153 passed | 1 failed | 154 total**，run `41873009808`，唯一失败为节点申请 UI 提交链断裂 V4-20 / R-27）
 
 #### 安全
 - [x] `docs/SECURITY_EXCEPTIONS.md` E-10 已改写为「公开可拉取」并给出三步 Bearer 实测
@@ -110,7 +111,7 @@
 | # | 阶段 | 证据文件路径 | 关键数字 | 状态 |
 |---|------|--------------|----------|------|
 | E-01 | 一 | `FEATURE_AUDIT_v0.0.4.md` | 53 项：38 VERIFIED / 14 PARTIAL / 1 MISSING；20+36=56 项 HTTP+DB 行为验证；单测 175/14、E2E 67/6（审计时点） | 部分（§3 D-14 口径差异） |
-| E-02 | 三 | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md` | 40 对比 / 28 跳过 / 4 视口 × 17 页面；52 条几何、Δx=0 100%、Δw=0 92.3% | 部分（几何数字不可复核，§3 D-01） |
+| E-02 | 三 | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md` | 40 对比 / 28 跳过 / 4 视口 × 17 页面；52 条几何、Δx=0 100%、Δw=0 92.3% | ✅ **已闭环**（`8f1e214` 脚本入仓 + `docs/evidence/visual/geometry-summary.json` 三套口径机器可读；D-01） |
 | E-03 | 三 | `docs/evidence/visual/visual-diff-multi.json` | 68 条 = 每视口 10 compared + 7 incomplete；40/28；无任何几何字段 | **已验证**（与 E-02 的 40/28 自洽） |
 | E-04 | 三 | `docs/evidence/visual/layout-measurements-{desktop-1280,desktop-1920,tablet-768,mobile-375}.json` | 每视口 **6 页面 × 14 锚点 = 84 行**；桌面 Δx=0 **64**、Δw=0 **60**；移动 Δx=0 **22**、Δw=0 **38** | **已验证**（但数字与 E-02 不符） |
 | E-05 | 三 | `docs/evidence/visual/layout-measurements.json`（legacy, 2026-11-02） | 84 行、Δx=0 62、Δw=0 59 | 已验证（历史基线） |
@@ -119,7 +120,7 @@
 | E-08 | 四 | `e2e/v004-content-interaction.spec.ts` | 静态 10 条；含真实 UI 点击流（投票/感谢/编辑模态框/删除）/ 并发 | 已验证 |
 | E-09 | 四 | `e2e/v004-api-contract.spec.ts` | 13 个公开端点循环 → 17 条运行时用例；`page.goto`=0，**纯 API 层** | 已验证 |
 | E-10 | 四 | `e2e/v004-endpoint-smoke.spec.ts` | 源码自动发现 **29 个 GET 路由** → 31 条运行时用例；`page.goto`=0，**纯 API 层** | 已验证 |
-| E-11 | 四 | `e2e/*.spec.ts` 全量 | 静态 `test(`：原有 67（6 文件）+ 新增 36（4 文件）= **103**；运行时展开约 145 | 部分（缺 `--list` 输出，§3 D-08） |
+| E-11 | 四 | `e2e/*.spec.ts` 全量 | 静态 `test(`：原有 67（6 文件）+ 新增 36（4 文件）= **103**；运行时展开约 145 | 部分（缺 `--list` 输出，§3 D-08）—— ✅ **已闭环**：`--list` 输出已入仓，权威口径 **154 条 / 11 文件** |
 | E-12 | 五 | `scripts/loadtest/README.md` + `seed-large.ts` | 3,513,106 行 / 3m4.0s / 19,089 行每秒 / seed 20261104 / 确定性指纹 4 张表 | 部分（内部 4 处不一致，§3 D-07） |
 | E-13 | 五 | `tools/loadtest/bench.mjs` | 自研压测器（非 k6），支持 P50/P95/P99；存在且可用 | 已验证 |
 | E-14 | 五 | `docs/evidence/loadtest/bench-result.json` | 13 场景 / 24,785 请求 / 412 错误（**1.66%**，全为 404）/ 20s / 并发 10；搜索 avg 41.98ms、节点 avg 67.97ms、leaderboard avg 1164.73ms | 部分（口径与错误率待明确） |
@@ -128,7 +129,7 @@
 | E-17 | 九 | `docs/HISTORY_CLEANUP_DRILL_v0.0.4.md` | 1118→1083 对象（-35）、48 文件、清理后 master 24 提交、3 个 Tag；未触碰远端 | 部分（产物缺失，§3 D-11） |
 | E-18 | 九 | `_backups/history-drill/clean-repo/`、`_backups/history-drill/REPORT.md` | **目录 `_backups/` 不存在，文件数 0** | **未验证** |
 | E-19 | — | `RISK_REGISTER.md` | R-01 DEFERRED（待主人授权）；R-02 MITIGATED；R-04/R-05/R-12/R-13 MITIGATED；R-09 内容错置 | 部分（§3 D-09） |
-| E-20 | — | `TEST_REPORT.md` | 单元 185/14；E2E 67；视觉 64 项 / 96.9% / 90.6%；「负载测试未执行」 | ✅ **已闭环（收尾轮）**：文首「状态覆盖声明」已列出 v0.0.4 权威值（单元 **190/15 文件**、E2E **153/11 文件**、升级脚本自检 62 项、视觉 68 条/40 有对照/28 无对照/严格口径 52/52、负载已执行），并新增「v0.0.4 单元测试」「v0.0.4 真实浏览器 E2E」「升级脚本自检」三个权威小节；下方 v0.0.3 历史快照数字**保留不改写**但已逐处标注（§3 D-12） |
+| E-20 | — | `TEST_REPORT.md` | 单元 185/14；E2E 67；视觉 64 项 / 96.9% / 90.6%；「负载测试未执行」 | ✅ **已闭环（收尾轮）**：文首「状态覆盖声明」已列出 v0.0.4 权威值（单元 **190/15 文件**、E2E **154/11 文件**、升级脚本自检 62 项、视觉 68 条/40 有对照/28 无对照/严格口径 52/52、负载已执行），并新增「v0.0.4 单元测试」「v0.0.4 真实浏览器 E2E」「升级脚本自检」三个权威小节；下方 v0.0.3 历史快照数字**保留不改写**但已逐处标注（§3 D-12） |
 | E-21 | — | `CHANGELOG.md` / `README.md` / `FEATURE_MATRIX.md` / `deploy/VERSION` / `package.json` / `RELEASE_GATE.md` | **全部停留 0.0.3 / v0.0.2 门禁；0 处 0.0.4** | **未验证**（版本一致性） |
 | E-22 | — | `BUG_REGISTER.md` | v0.0.4 七个缺陷关键词仅 1 处命中（「假按钮」），其余 0 命中 | **未验证**（缺陷登记） |
 | E-23 | — | `playwright.config.ts` | 单 project chromium / 1280×900 / workers=1 / retries=0 / fullyParallel=false | 已验证 |
@@ -142,22 +143,22 @@
 
 | ID | 严重度 | 位置 | 矛盾 / 缺口内容 | 对验收的影响 |
 |----|--------|------|-----------------|--------------|
-| **D-01** | **阻断验收依据** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md` §2/§3 vs `docs/evidence/visual/layout-measurements-*.json` | 汇总声称「**52** 条测量、桌面/平板 Δx=0 **52/52 (100%)**、Δw=0 **48/52 (92.3%)**、移动 **10/52 (19.2%)**、**26/52 (50%)**」；原始 JSON 实为**每视口 6 页面 × 14 锚点 = 84 行**，桌面 Δx=0 **64**、Δw=0 **60**，移动 Δx=0 **22**、Δw=0 **38**；`visual-diff-multi.json` 的 68 条记录**完全没有几何字段**（仅 diffPixels/diffRatio/rowProfile）；`TEST_REPORT.md` §视觉又是第三套「64 项 / 96.9% / 90.6%」；`FEATURE_AUDIT` #50 写「96.9%」。**分母 52 在 `docs/evidence/visual/` 下找不到任何原始证据文件** | 「Δx=0 100%」等核心通过标准不可复核，**不得作为放行依据**；需补 52 条测量的原始文件，或把三处统一到 84 行口径 |
-| **D-02** | **严重** | `package.json` L3、`deploy/VERSION`、`README.md` L25、`CHANGELOG.md` L11、`FEATURE_MATRIX.md` L12、`RELEASE_GATE.md` L1、`TEST_REPORT.md`、`BUG_REGISTER.md` | `version: "0.0.3"`、VERSION=`0.0.3`、README「当前版本：v0.0.3」（19 处）、CHANGELOG 最新段落 `[0.0.3]`、FEATURE_MATRIX「生成时间：v0.0.3 开发分支」；**八个载体全部 0 处 `0.0.4`**。`FEATURE_AUDIT` §5 的 P2「版本号一致性」仍标 ⬜ 待办，且只提 README/CHANGELOG/FEATURE_MATRIX，**遗漏 VERSION / package.json / RELEASE_GATE / TEST_REPORT** | 交付物版本号与 v0.0.4 不符；Draft Release 无法解释「发的是哪个版本」 |
+| **D-01** | ~~**阻断验收依据**~~ → ✅ **已闭环** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md` §2/§3 vs `docs/evidence/visual/layout-measurements-*.json` | **已闭环**：提交 `8f1e214` 把汇总脚本入仓（`tools/visual/summarize-visual-diff.py`）并产出 `docs/evidence/visual/geometry-summary.json`（**三套口径机器可读**：严格 52/52、历史 64/84、v0.0.3 96.9% 全部可复算）；`docs/DELIVERY_PLAN_v0.0.4.md` 已标「✅ 已闭环，可用」 | ✅ **「Δx=0 100%」已可复核，可作放行依据** |
+| **D-02** | **严重** | `package.json` L3、`deploy/VERSION`、`README.md` L25、`CHANGELOG.md` L11、`FEATURE_MATRIX.md` L12、`RELEASE_GATE.md` L1、`TEST_REPORT.md`、`BUG_REGISTER.md` | `version: "0.0.3"`、VERSION=`0.0.3`、README「当前版本：v0.0.3」（19 处）、CHANGELOG 最新段落 `[0.0.3]`、FEATURE_MATRIX「生成时间：v0.0.3 开发分支」；**八个载体全部 0 处 `0.0.4`**。`FEATURE_AUDIT` §5 的 P2「版本号一致性」仍标 ⬜ 待办，且只提 README/CHANGELOG/FEATURE_MATRIX，**遗漏 VERSION / package.json / RELEASE_GATE / TEST_REPORT** | ✅ **已闭环（非缺陷）** —— 权威载体清单以 `scripts/release/preflight.sh` 实际校验的 **5 个载体**为准：`package.json` / `deploy/VERSION` / `README.md` / `RELEASE_GATE.md` / `TEST_REPORT.md`（`preflight.sh` L147–148「版本载体（5 个，主理人裁决）」）。本清单**不再列举 8 个载体**，避免与 preflight 口径分叉。开发态刻意保持 `0.0.3`（R-20 裁决），`CHANGELOG.md [Unreleased]` L11–24 已明确记载裁决与理由；`preflight` 双模式 dev `FAIL=0` / release `FAIL=14`（两者 `BLOCK=1`） |
 | **D-03** | **严重** | `RISK_REGISTER.md` R-09 | R-09「CSRF 首次访问的严格性」的「实测结论 / 修复提交 / 修复内容 / 关键约束 / 修复后实测 / 取舍 / 回归测试 / 状态」**整段与 R-08 逐字重复**，全是「x-forwarded-for 伪造 25 次注册 → 429、d1a9882、client-ip.ts」，与 CSRF 无关 | CSRF 首次访问风险**实际未被评估**，却标记为 MITIGATED；风险登记不可信 |
 | **D-04** | **严重** | `scripts/loadtest/README.md` L544–546 vs `src/server/floor.ts` L48–55 | README 称「**截至本 README 最后更新时，这个缺陷尚未被修复**，`src/server/floor.ts` 里仍是 `greatest(...)+1`」，并建议「压测前先修掉它」；**源码已修复**：`allocateFloor` 改为计数表权威 + `last_floor + 1`，注释明确「v0.0.4 修复楼层跳号」。`ensureFloorCounter` 保留 `GREATEST(...)` 但语义是同步计数表（无 +1），不产生跳号 | 文档结论过期，会让验收误判存在未修复缺陷；README 的「压测前建议」已失效 |
 | **D-05** | **一般** | `drizzle/0002_v004_perf_indexes.sql` L10–15、`scripts/loadtest/README.md` L595–600、`bench-result.json` | leaderboard 同一指标三个数值：SQL 注释/RREADME「241.98s → 0.74s → **0.46s**」、任务背景「242s → **0.4s**」、压测结果 `/api/leaderboard?limit=50` **p50 1233.75ms / p95 1530.11ms / avg 1164.73ms**（并发 10、20s）。未注明「单次查询 vs 并发压测 vs limit 差异」 | 性能达标值无法唯一确定；不能任选其一宣称达标 |
 | **D-06** | **一般** | `docs/evidence/loadtest/bench-result.json` | 13 场景 24,785 请求中 **412 个错误（1.66%）**：「大型帖回复分页」104 个 404、「主题详情 API」308 个 404，errorSamples 全为 `404 /t/{id}` / `404 /api/topics/{id}`（随机 id 越界 / 软删除主题），**无 5xx**。文档未说明这属于压测数据构造而非应用缺陷 | 「错误率 0」不能据此宣称；需在通过标准明确排除口径 |
 | **D-07** | **一般** | `scripts/loadtest/README.md` | ① L151「完整规模实跑输出」表 `nodes 1000 目标 **10** 100%`（完整规模目标应为 1000，误用冒烟值）；② L343–355「中断安全」文案说「生成**完整规模**数据集过程中 kill -9」，实测却是 `topics 1000 / replies 5000 / users 100`（冒烟规模）；③ L641 `k6 run scripts/loadtest/k6.js` —— **k6.js 不存在**，实际执行器是 `tools/loadtest/bench.mjs`（自研，README 自身 L3/L632 却写「供 k6」「与 k6 配合」） | 压测文档内部自相矛盾；复现指引指向不存在的脚本 |
 | **D-08** | **一般** | `e2e/v004-*.spec.ts`、任务背景「144 条」 | 静态 `test(` 声明：新增 4 文件 **36 条**（20/4/10/2）；运行时展开：`v004-api-contract` 13 端点循环 → 17 条、`v004-endpoint-smoke` 自动发现 **29 个 GET 路由** → 31 条，合计约 **78 条**，全量约 **145 条**；「新增 77 / 总计 144」与静态 36 不符、与推算 78 差 1。仓库中**无 `playwright test --list` 输出**，且展开数随源码 GET 路由数浮动 | 用例数口径未定义，验收数字不可固定 |
-| **D-09** | **一般** | `RISK_REGISTER.md` | ① 表头「本轮：…（**v0.0.2**）」过时；② R-01 v0.0.4 演练段「引用原站素材的提交 **2 → 0**」 vs `HISTORY_CLEANUP_DRILL_v0.0.4.md` 基线「含原站素材的提交数 **0**」（清理前）；③ 原站 HTML 文件数四个数字并存：R-01 **46**、R-03 **47**、演练报告 **48**（合计，含 2 assets）、当前工作区实测 **47 HTML + 2 assets = 49**、E-04 称「45 个受版本控制文件」；④ R-02 缓解仍写「verify-release job 内含**匿名 docker pull** 实测，失败即发布失败」，与 E-10 已明确的 v0.0.4 修正（带凭据拉取为成败判据、匿名仅提示）冲突；⑤ R-14「负载测试未执行」与第五阶段压测证据冲突；⑥ 无 v0.0.4 新增风险条目（R-16+） | ✅ **收尾轮已闭环**：① 表头已更新为 v0.0.4；② 已在 R-01 下补「收尾轮只读复核」段，写明「2 → 0」是**清理后**的提交数、清理前为 0；③ 已在 R-01 演练段标注 48 = 46 HTML + 2 assets 的口径；④ R-02 缓解已按 E-10 改写；⑤ R-14 已补 v0.0.4 压测结论；⑥ 已补 **R-16 ~ R-25** 共 10 条 v0.0.4 风险条目（收尾轮已同步状态：R-18 已修并验证、R-22 已定案、R-16/R-17 部分闭环、R-21/R-24 本轮处理中、新增 R-25） |
+| **D-09** | **一般** | `RISK_REGISTER.md` | ① 表头「本轮：…（**v0.0.2**）」过时；② R-01 v0.0.4 演练段「引用原站素材的提交 **2 → 0**」 vs `HISTORY_CLEANUP_DRILL_v0.0.4.md` 基线「含原站素材的提交数 **0**」（清理前）；③ 原站 HTML 文件数四个数字并存：R-01 **46**、R-03 **47**、演练报告 **48**（合计，含 2 assets）、当前工作区实测 **47 HTML + 2 assets = 49**、E-04 称「45 个受版本控制文件」；④ R-02 缓解仍写「verify-release job 内含**匿名 docker pull** 实测，失败即发布失败」，与 E-10 已明确的 v0.0.4 修正（带凭据拉取为成败判据、匿名仅提示）冲突；⑤ R-14「负载测试未执行」与第五阶段压测证据冲突；⑥ 无 v0.0.4 新增风险条目（R-16+） | ✅ **收尾轮已闭环**：① 表头已更新为 v0.0.4；② 已在 R-01 下补「收尾轮只读复核」段，写明「2 → 0」是**清理后**的提交数、清理前为 0；③ 已在 R-01 演练段标注 48 = 46 HTML + 2 assets 的口径；④ R-02 缓解已按 E-10 改写；⑤ R-14 已补 v0.0.4 压测结论；⑥ 已补 **R-16 ~ R-27** 共 12 条 v0.0.4 风险条目（收尾轮已同步状态：**R-18** 已修并验证、**R-22** 已定案、**R-16 / R-17** 已闭环（run `41871503684` 九项全绿）、**R-21 / R-24** 已修（`ed385cf`）、**R-26** 已修并经 CI 复验、新增 **R-25 / R-27**） |
 | **D-10** | **一般** | `CHANGELOG.md`、`BUG_REGISTER.md` | v0.0.4 七个已修缺陷中，`api/nodes`、`topics/[id]`、跳号、绕开账本、`/hot` 在两文件里 **0 命中**，仅「假按钮」1 处；CHANGELOG 无 0.0.4 段落 | 缺陷分级与验证方式缺文档依据（本清单 §5 依据源码/E2E/阶段文档补全并标注） |
 | **D-11** | **一般** | `docs/HISTORY_CLEANUP_DRILL_v0.0.4.md` §产物位置 vs 工作区 | 报告称产物在 `_backups/history-drill/clean-repo/` 与 `REPORT.md`；实测 **`_backups/` 目录不存在、文件数 0**，`.gitignore` 亦无对应规则。`RISK_REGISTER` R-01 引用的「清理后副本 298 文件差异 0 行」「`npx tsc --noEmit` 零错误」「3 个 Tag SHA 变化」在演练报告里**均未见** | 隔离演练结论目前只有文档陈述，**无可复核产物**；应说明产物已清理或移到仓库外 |
-| **D-12** | **一般** | `TEST_REPORT.md` | L64「E2E **67 passed**」（v0.0.3 CI run 41754998422）、L128–132 视觉三视口 64/96.9%/90.6%、L150「基础负载测试（k6 等）**⚠️ 未执行**」—— 与 v0.0.4 的 **153 条 E2E**、4 视口汇总、压测证据直接冲突 | ✅ **收尾轮已闭环**：`TEST_REPORT.md` 文首已加「状态覆盖声明」列出 v0.0.4 权威值（单元 190/15 文件、E2E 153/11 文件、升级脚本自检 62 项、视觉 68 条/40 有对照/28 无对照、负载已执行），并新增三个 v0.0.4 权威小节；v0.0.3 历史数字保留不改写但逐处标注 |
+| **D-12** | **一般** | `TEST_REPORT.md` | L64「E2E **67 passed**」（v0.0.3 CI run 41754998422）、L128–132 视觉三视口 64/96.9%/90.6%、L150「基础负载测试（k6 等）**⚠️ 未执行**」—— 与 v0.0.4 的 **154 条 E2E**、4 视口汇总、压测证据直接冲突 | ✅ **收尾轮已闭环**：`TEST_REPORT.md` 文首已加「状态覆盖声明」列出 v0.0.4 权威值（单元 190/15 文件、E2E 154/11 文件、升级脚本自检 62 项、视觉 68 条/40 有对照/28 无对照、负载已执行），并新增三个 v0.0.4 权威小节；v0.0.3 历史数字保留不改写但逐处标注 |
 | **D-13** | **一般** | `RELEASE_GATE.md` | 标题「**v0.0.2** 发布门槛检查单」、目标版本 v0.0.2；B3 门槛「≥103 单元」、B4「≥67 E2E」，C/D 节全是 v0.0.2 的 CI run；8 处 v0.0.3、0 处 0.0.4。任务 #3「重新设计版本发布流程」仍 pending | ✅ **收尾轮已部分闭环**：文件顶部新增「§0 v0.0.4 门禁速览」并加状态覆盖声明，v0.0.4 判据不再依赖旧阈值；历史表保留作为版本演进记录 |
 | **D-14** | 轻微 | `FEATURE_AUDIT_v0.0.4.md` | §2.1 称「本轮对 **20 + 36 = 56 项**行为做了真实 HTTP + 数据库双重验证」，而逐项明细表是 **53 项**；§三 #49 标题「**22 个前端页面**」但证据写「实际路由 **21 个**」，§4.2 也写 21；`VISUAL_DIFF_SUMMARY` 用「17 页面」口径（10 对比 + 7 需登录/无对照） | 口径差异（非硬矛盾），建议注明「行为数 / 功能项数」「路由数 / 对比页面数」定义 |
 | **D-15** | 轻微 | `VISUAL_DIFF_SUMMARY_v0.0.4.md` §2 表头 | 「对比数 10」与「几何 Δx=0 52/52」并列于同一行，52 是测量锚点数而非对比数，易误读为「10 个对比里有 52 个元素」 | 建议几何与像素分表呈现 |
-| **D-16** | 轻微 | 工作区状态 | `git status --short` = ` M vitest.config.ts`（主理人并行复验中的未提交变更）。HEAD `89d6b4e` 与工作区不完全一致 | ✅ **收尾轮已闭环**：`vitest.config.ts` 已提交；以最终提交态复验 **190/190 + 153/153**，且 `numPendingTests: 0`（无静默跳过） |
+| **D-16** | 轻微 | 工作区状态 | `git status --short` = ` M vitest.config.ts`（主理人并行复验中的未提交变更）。HEAD `89d6b4e` 与工作区不完全一致 | ✅ **收尾轮已闭环**：`vitest.config.ts` 已提交；以最终提交态复验 **190/190 + E2E 154 条 / 11 文件**（本地历史轮次口径 153/153，基于 153 条口径、早于 `ed385cf`），且 `numPendingTests: 0`（无静默跳过） |
 
 **核查通过、确认自洽的部分**（避免只报问题）：`visual-diff-multi.json` 的 68 条 = 4 × (10 compared + 7 incomplete) 与汇总完全一致；`docs/SECURITY_EXCEPTIONS.md` E-10 改写完整且给出三步 Bearer 实测；`drizzle/0002_v004_perf_indexes.sql` 索引名与 README L596–598 列项一致；`src/server/floor.ts` 修复实现正确；`playwright.config.ts` 单 project 配置清晰；`bench-result.json` 的 generatedAt `2026-11-04T08:32:29Z`（本地 16:32）**晚于** `0002_v004_perf_indexes.sql` 的本地 mtime 16:22，时序上不存在「压测早于索引迁移」的问题（此项已按时区换算复核，勿误报）。
 
@@ -243,13 +244,13 @@
 
 | 项 | 原因 | 证据 |
 |----|------|------|
-| Docker 容器真实运行、最终镜像字节数、容器内 `USER nextjs` 实测 | 本机无 Docker | `SECURITY_EXCEPTIONS.md` E-05；`TEST_REPORT.md` L148 |
-| Redis 故障恢复 / 缓存失效 / 内存观测 | 压测环境未配 Redis | `tools/loadtest/bench.mjs` 注释第 11 条「本环境未配 Redis，如实标注」；`RELEASE_GATE.md` B8 是 v0.0.2 的 CI 证据，v0.0.4 未复验 |
-| PostgreSQL 故障恢复、备份实际还原、v0.0.3→v0.0.4 原地升级 | 任务 #2「第六阶段」仍 pending | `FEATURE_AUDIT` §5 P1 待办 |
-| 容器 CPU / 内存指标 | 无 Docker | `bench.mjs` 注释第 12 条 |
+| Docker 容器真实运行、最终镜像字节数、容器内 `USER nextjs` 实测 | ~~本机无 Docker~~ → ✅ **已闭环**：run `41871503684`（SHA `2773cd1`）`docker-verify` 九项 completed/success，含镜像构建、镜像内容与权限（6 个子断言）、容器资源观察 | `SECURITY_EXCEPTIONS.md` E-05；`docs/evidence/ci/docker-verify-v0.0.4.md` |
+| Redis 故障恢复 / 缓存失效 / 内存观测 | ~~压测环境未配 Redis~~ → ✅ **已闭环**：同 run 九项全绿，含 `[R-17a]` Redis 中断与恢复、`[R-17b]` PG 中断与恢复、`[R-17c]` 缓存失效与内存观测 | `docs/evidence/ci/docker-verify-v0.0.4.md`；`RISK_REGISTER` R-16 / R-17 |
+| PostgreSQL 故障恢复、备份实际还原、v0.0.3→v0.0.4 原地升级 | ✅ **已实跑通过（隔离库）**：§10.10.1 复核 —— PG 故障恢复/备份还原、原地升级均已实跑通过（隔离库 `v2ex_upg_v004_*`） | `docs/UPGRADE_RECOVERY_v0.0.4.md` §3 / §5 |
+| 容器 CPU / 内存指标 | ~~无 Docker~~ → ✅ **已闭环**：run `41871503684` `[8/9] 容器资源观察`（三容器 CPU%/MEM/MEM% + 连续 5 次采样 + 镜像体积 + `VmRSS`/`VmHWM`） | `docs/evidence/ci/docker-verify-v0.0.4.md` |
 | 真实 SMTP 邮件投递 | 未配置 SMTP | E-06；`FEATURE_AUDIT` #6 ⚠️ PARTIAL |
 | 多浏览器视觉回归（Firefox / Safari） | 本机仅 Chromium / Edge | `TEST_REPORT.md` L149 |
-| 压测库是否已应用 `0002_v004_perf_indexes.sql` | 无迁移执行日志，README 仅「建议确认」 | `scripts/loadtest/README.md` L602–604 |
+| 压测库是否已应用 `0002_v004_perf_indexes.sql` | ~~无迁移执行日志，README 仅「建议确认」~~ → ✅ **已闭环**：只读 SELECT 取证 —— 7 个 `0002` 索引全在、`pg_trgm 1.6`、`drizzle.__drizzle_migrations` = 3 行 | `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.2 |
 | Git 历史清理演练产物 | `_backups/` 不存在 | §3 D-11 |
 | 原站需登录 7 页 × 4 视口 = 28 条对照 | 无权访问他人账号，不拿游客态冒充 | `VISUAL_DIFF_SUMMARY_v0.0.4.md` §5（`no-auth-reference` / `no-origin-equivalent`）—— **这是合规的如实标注，不计为缺陷** |
 | 四身份中版主 / 管理员后台的真实浏览器点击流 | 用例缺失（非环境限制） | §4 |
@@ -270,9 +271,9 @@
 见 §6.2：Docker 容器、Redis 故障恢复、PG 故障恢复与备份还原、原地升级、真实 SMTP、多浏览器、容器 CPU/内存、压测库迁移状态确认。
 
 ### 7.3 文档 / 证据缺口
-- 版本载体 8 处未同步（D-02）；`CHANGELOG`/`BUG_REGISTER` 未登记 8 个已修缺陷（D-10）
-- 几何量测「52 条」无原始证据文件（D-01）；`TEST_REPORT` / `FEATURE_AUDIT` 各用一套数字（D-14）
-- ~~`playwright test --list` 输出缺失，144 条口径未固定（D-08）~~ → ✅ **已闭环**：清单已入仓，权威口径 **153 条 / 11 文件**
+- 版本载体未同步（D-02，已闭环：权威清单以 `preflight.sh` 的 5 载体为准）；`CHANGELOG`/`BUG_REGISTER` 未登记 8 个已修缺陷（D-10）
+- ~~几何量测「52 条」无原始证据文件（D-01）~~ → ✅ **已闭环**（`8f1e214` 脚本入仓 + `geometry-summary.json` 三套口径机器可读）；`TEST_REPORT` / `FEATURE_AUDIT` 各用一套数字（D-14）
+- ~~`playwright test --list` 输出缺失，144 条口径未固定（D-08）~~ → ✅ **已闭环**：清单已入仓，权威口径 **154 条 / 11 文件**
 - `_backups/history-drill/` 演练产物缺失（D-11）
 - `RISK_REGISTER` R-09 错置、R-02 与 E-10 冲突、R-14 过时（D-09）
 - `RELEASE_GATE.md` 仍是 v0.0.2 门禁（D-13）；`TEST_REPORT.md` 未更新（D-12）
@@ -307,9 +308,9 @@
 
 | 风险 | 等级 | 说明 |
 |------|------|------|
-| 以不可复核的几何数字（52/100%/92.3%）作为放行依据 | 高 | D-01；会形成「证据看起来齐、实际对不上」的验收失真 |
-| API 层断言被当作四身份 UI 验收通过 | 高 | §4；任务书明确禁止冒充 |
-| 版本载体与交付物不符 | 高 | D-02；Draft 对外无法自证版本 |
+| ~~以不可复核的几何数字（52/100%/92.3%）作为放行依据~~ | — | ✅ **已闭环**（D-01）：`8f1e214` 脚本入仓 + `geometry-summary.json` 三套口径机器可读，「不得作为放行依据」的限制解除 |
+| API 层断言被当作四身份 UI 验收通过 | 高 | §4；任务书明确禁止冒充。⚠️ **R-21 / R-24 已由 `ed385cf` 修复**（真实 UI 点击流已补齐），但**待主理人终验确认** |
+| 版本载体与交付物不符 | 高 | D-02；✅ **已闭环**（权威清单以 `preflight.sh` 的 5 载体为准；开发态保持 0.0.3 系 R-20 裁决，非缺陷） |
 | 楼层跳号回归用例仍不覆盖根因 | 中 | B-05；同类缺陷可再次逃逸 |
 | 压测性能/错误率口径未定义 | 中 | D-05 / D-06；达标值可任意选取 |
 | R-09 内容错置导致 CSRF 风险未被评估 | 中 | D-03 |
@@ -320,18 +321,18 @@
 
 > **判断：有条件可以进入 Draft Release 阶段。**
 >
-> 依据：功能与安全性条件已满足（**190 单元 / 153 E2E 全绿**、7 个真实缺陷已修、四视口视觉证据齐备且跳过项如实标注、大规模压测与幂等索引齐备、E-10 已复核、Git 历史仅做隔离演练未触碰远端），且所有未闭环项均**不触及禁止操作红线**。Draft 是可编辑、不对外宣称完成的状态，允许携带 §6 的授权遗留项与 §7 的已知限制。
+> 依据：功能与安全性条件已满足（**190 单元 / 154 E2E**（分母口径）、7 个真实缺陷已修、四视口视觉证据齐备且跳过项如实标注、大规模压测与幂等索引齐备、E-10 已复核、Git 历史仅做隔离演练未触碰远端），且所有未闭环项均**不触及禁止操作红线**。Draft 是可编辑、不对外宣称完成的状态，允许携带 §6 的授权遗留项与 §7 的已知限制。
 >
-> 明确的边界：**本判断不等于「可以正式发布」**。正式 Release 需另行满足版本载体同步、§6.2 无法验证项完成或经主人书面接受、§4 四身份 UI 缺口补齐、R-01 获主人裁决。
+> 明确的边界：**本判断不等于「可以正式发布」**。正式 Release 需另行满足版本载体同步、§6.2 无法验证项完成或经主人书面接受、§4 四身份 UI 缺口补齐、**R-27 / V4-20（节点申请 UI 提交链断裂，CI 唯一红灯）闭环**、R-01 获主人裁决。
 
 ### 9.3 进入 Draft 的前置条件（按优先级）
 
 | # | 前置条件 | 责任方 | 截止 |
 |---|----------|--------|------|
-| **P1** | ✅ **已完成**：主理人完成 **190/153** 复验并提交 `vitest.config.ts`；以最终提交态固定全绿结论 | team-lead | Draft 前 |
+| **P1** | ✅ **已完成**：主理人完成 **190 / 154** 复验并提交 `vitest.config.ts`；以最终提交态固定全绿结论 | team-lead | Draft 前 |
 | **P2** | 版本载体同步：CHANGELOG 增补 v0.0.4 段落并登记 8 个已修缺陷；README / FEATURE_MATRIX / RELEASE_GATE / TEST_REPORT 更新当前版本；`deploy/VERSION` + `package.json` 升到 `0.0.4`。**若有意在 Draft 阶段保留 0.0.3，则必须在 Draft Notes 显式记录该决策与责任人**（不能默默带过） | team-lead / devops-engineer | Draft 前 |
-| **P3** | 几何量测闭环：提供「52 条测量」的原始 JSON，或把 `VISUAL_DIFF_SUMMARY` / `TEST_REPORT` / `FEATURE_AUDIT` 统一到 `layout-measurements-*.json` 的 84 行口径。**补齐前不得把「Δx=0 100%」写入通过依据** | 第三阶段负责人 / team-lead | Draft 前 |
-| **P4** | ✅ **已完成**：产出 `playwright test --list` 输出（权威口径 **153 条 / 11 文件**）；补一条「楼层连续 1..n」断言（`tests/floor-continuity.spec.ts` 5 条） | team-lead | 已闭环 |
+| **P3** | ✅ **已完成**：几何量测闭环 —— `8f1e214` 把汇总脚本入仓（`tools/visual/summarize-visual-diff.py`）+ 机器证据 `docs/evidence/visual/geometry-summary.json`（三套口径全部可复算）；`docs/DELIVERY_PLAN_v0.0.4.md` 已标「✅ 已闭环，可用」 | 第三阶段负责人 / team-lead | 已闭环 |
+| **P4** | ✅ **已完成**：产出 `playwright test --list` 输出（权威口径 **154 条 / 11 文件**，`Total: 154 tests in 11 files`）；补一条「楼层连续 1..n」断言（`tests/floor-continuity.spec.ts` 5 条） | team-lead | 已闭环 |
 | **P5** | 文档纠错：`scripts/loadtest/README.md`（楼层已修 / nodes 目标 1000 / 中断安全规模 / k6→bench.mjs）、`RISK_REGISTER.md`（R-09 错置 / R-01 与 R-03 文件数 / R-02 与 E-10 / R-14 过时）、`TEST_REPORT.md`、`BUG_REGISTER.md` | 各阶段负责人 | Draft Notes 前或显式登记 |
 | **P6** | 压测口径说明：leaderboard 三个数值的测量条件、412 个 404 的排除口径、压测库是否已应用 `0002` 迁移 | 第五阶段负责人 | Draft Notes 前 |
 | **P7** | Draft Release Notes 逐条披露 §6（授权遗留项 + 无法验证项）与 §7（四身份缺口 / 无法实跑项 / 文档证据缺口），并写明「仓库保持 Public、未执行任何远端历史改写」 | team-lead | Draft 创建时 |
@@ -340,8 +341,8 @@
 ### 9.4 待确认事项（需主人 / 主理人答复）
 
 1. 版本号是在进入 Draft 时升到 `0.0.4`，还是有意推迟到正式发布？（决定 P2 的执行方式）
-2. 「52 条几何测量」的原始证据是否存在于仓库外？若不存在，以 84 行口径修订汇总是否可接受？
-3. ~~144 条 E2E 是否以某次 `playwright test --list` 输出为准？~~ → ✅ **已定案**：以 `--list` 运行时展开为权威口径，当前为 **153 条 / 11 文件**；⚠️ **允许用例数随源码自动发现浮动**（`v004-endpoint-smoke.spec.ts` 随 GET 路由数变动）⇒ **正式发布前须重新 `--list` 固定一次**
+2. ~~「52 条几何测量」的原始证据是否存在于仓库外？若不存在，以 84 行口径修订汇总是否可接受？~~ → ✅ **已闭环**：`8f1e214` 把汇总脚本入仓（`tools/visual/summarize-visual-diff.py`）并产出 `docs/evidence/visual/geometry-summary.json`（三套口径全部可复算）；`docs/DELIVERY_PLAN_v0.0.4.md` 已标「✅ 已闭环，可用」
+3. ~~144 条 E2E 是否以某次 `playwright test --list` 输出为准？~~ → ✅ **已定案**：以 `--list` 运行时展开为权威口径，当前为 **154 条 / 11 文件**（`Total: 154 tests in 11 files`）；⚠️ **允许用例数随源码自动发现浮动**（`v004-endpoint-smoke.spec.ts` 随 GET 路由数变动）⇒ **正式发布前须重新 `--list` 固定一次**
 4. 四身份 UI 缺口（尤其版主与后台点击流）是补测后再发 Draft，还是作为 Draft 已知限制披露、正式发布前补齐？
 5. 压测性能达标值采用哪一口径（单次查询 0.46s / 并发压测 p95 1.53s）？错误率是否排除数据构造类 404？
 6. R-01 / E-02 的授权裁决时间表（E-02 到期日 2026-12-04）。
@@ -352,7 +353,7 @@
 
 - 只新增本文件；未修改 `src/**`、`tests/**`、`e2e/**`、任何现有 `.md` / `.yml` / `.json`、`package.json`、`vitest.config.ts`。
 - 未执行 git commit / push / 建删 Tag / 改 Release / 写数据库 / 删除文件。
-- 未运行 `npx vitest run` 或 `npx playwright test`；**190/153** 全绿结论来自主理人复验与本清单引用的既有证据（收尾轮已在 `TEST_REPORT.md` 落为权威口径），最终以主理人提交态为准。
+- 未运行 `npx vitest run` 或 `npx playwright test`；**190 / 154** 全绿结论来自主理人复验与本清单引用的既有证据（收尾轮已在 `TEST_REPORT.md` 落为权威口径），最终以主理人提交态为准。
 - 所有数字均由只读打开原始文件复算得出；几何测量与压测聚合通过一次性 `node -e` 只读脚本统计，未产生任何文件写入。
 
 > **注**：以上「附」的四条边界声明仅适用于**第一轮只读核查**。第二轮按要求实跑了
@@ -397,7 +398,7 @@ E2E 文件全程 `page.goto` + locator 点击 / 可见性 / 文本断言，**未
 
 **诚实记录：单测前两次失败，均为环境/超时问题，非断言失败，已修复后才通过**
 
-- 第 1 次：`Error: connect ECONNREFUSED 127.0.0.1:5432` / `Tests 5 skipped (5)` / `Duration 1.46s`。根因：`tests/setup.ts` 加载的 `.env.local` 把 `DATABASE_URL` 指向 **5432**（本机无实例），隔离实例实际在 `.env.test` 的 **55433**（实测 PostgreSQL 17.5 可达）。修复：从 `.env.test` 解析基础连接串（只读文件、不改全局 env），并在 `beforeAll` 临时把 `DATABASE_URL` 指向独立库。
+- 第 1 次：`Error: connect ECONNREFUSED 127.0.0.1:5432` / `Tests 5 skipped (5)` / `Duration 1.46s`。根因：`tests/setup.ts` 加载的 `.env.local` 把 `DATABASE_URL` 指向 **5432**（本机无实例），隔离实例实际在 `.env.test` 指向的端口（**本报告执行时点为 55433**；**当前按 `.env.test` 实际解析的端口为 55440**，实测 PostgreSQL 17.5 可达）。修复：从 `.env.test` 解析基础连接串（只读文件、不改全局 env），并在 `beforeAll` 临时把 `DATABASE_URL` 指向独立库。
 - 第 2 次：`Error: Hook timed out in 30000ms` / `Duration 38.98s`。根因：建库 + `drizzle-kit migrate`（0000/0001/0002）超过 vitest 默认 `hookTimeout=30s`。修复：`beforeAll` / `afterAll` 显式放宽到 `120_000`。
 - 第 3 次即上表第 2 行，**5/5 通过**。独立库 `v2ex_floorcont_v004` 建库前无残留，`afterAll` 已 DROP，未污染任何现有库。
 - 3021 服务：首次 `curl localhost:3021` 得到 502，用 `--noproxy '*' http://127.0.0.1:3021/` 复测 **HTTP 200**（代理解析问题，非服务故障）；两轮 E2E 均连通。
@@ -426,6 +427,14 @@ E2E 文件全程 `page.goto` + locator 点击 / 可见性 / 文本断言，**未
 
 **仍不能算「真实浏览器 UI 验收通过」的项目**：版主审批节点申请的点击流（缺 pending 数据）、隐藏既有节点的权限拒绝（UI 无入口）、节点申请提交（UI 无入口）、多视口/多浏览器交互、以及 §6.2 的 Docker / Redis / PG 恢复 / SMTP / 备份还原等环境限制项。
 
+> ✅ **本轮收尾状态更新**：上表是**该轮只读核查时点的快照**（UI 工程师补齐前）。
+> **R-21 / R-24 已由 `ed385cf` 修复**（管理员 `/admin` 入口、关注按钮、节点申请提交界面、后台审批入口、
+> 隐藏节点入口、操作日志、通知标记已读全部补齐）；**R-16 / R-17 已闭环**（run `41871503684` 九项全绿）；
+> **§6.2 的 Docker / Redis / PG 恢复 / 备份还原项亦已闭环**（见 §6.2 与 §10.10.1）。
+> ⚠️ **但节点申请 UI 提交链本身在生产构建下断裂** —— 这是 `ed385cf` 补齐入口后暴露出的**新缺陷**，
+> 登记 `BUG_REGISTER` **V4-20** / `RISK_REGISTER` **R-27**（CI run `41873009808`：`153 passed | 1 failed | 154 total`），
+> **修复中** ⇒ 该项**不能算「真实浏览器 UI 验收通过」**。
+
 ### 10.6 楼层连续性（B-05）闭环
 
 - 调用**真实实现** `import { allocateFloor, ensureFloorCounter } from '@/server/floor'`（`vitest.config.ts` 已把 `server-only` 映射为空模块），**不是** `tests/floor-counter.spec.ts` 里复刻的旧实现。
@@ -442,7 +451,7 @@ E2E 文件全程 `page.goto` + locator 点击 / 可见性 / 文本断言，**未
 | 项 | 第一轮 | 本轮状态 |
 |----|--------|----------|
 | §9.3 P3 几何量测闭环 | 待提供 52 原始证据 | ✅ **已闭环**（`geometry-summary.json` + `summarize-visual-diff.py` 已入仓） |
-| §9.3 P4 「产出 `--list` 输出 + 补楼层连续 1..n 断言」 | 待补 | ✅ **已完成（P4 整体闭环）**：① 楼层连续 `1..N` 断言由 `tests/floor-continuity.spec.ts` 5 条实跑全绿守住；② `--list` 权威清单已入仓 `docs/evidence/e2e/test-list-v0.0.4.txt`（`Total: 153 tests in 11 files`），三种口径定义见 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`（静态声明 / 运行时展开 `--list` 权威 / 历史描述 144）；③ 按文件分解 = 原有 6 文件 67 + v004 四文件 78 + 四身份 UI **8**（含 §10.9.2 的 DOM 实证）= **153**。§9.3 前置条件表中的 P4 行以本行为准 |
+| §9.3 P4 「产出 `--list` 输出 + 补楼层连续 1..n 断言」 | 待补 | ✅ **已完成（P4 整体闭环）**：① 楼层连续 `1..N` 断言由 `tests/floor-continuity.spec.ts` 5 条实跑全绿守住；② `--list` 权威清单已入仓 `docs/evidence/e2e/test-list-v0.0.4.txt` 与 `docs/evidence/baseline/playwright-list-v0.0.4.txt`（`Total: 154 tests in 11 files`），三种口径定义见 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`（静态声明 / 运行时展开 `--list` 权威 / 历史描述 144）；③ 按文件分解 = 原有 6 文件 67 + v004 四文件 **79** + 四身份 UI **8** = **154**（`ed385cf` 新增关注 UI 用例 +1，落在 `v004-account-admin.spec.ts` 20 → 21）。§9.3 前置条件表中的 P4 行以本行为准 |
 | §9.3 P2 版本同步 | 待升级 0.0.4 | ✅ **改为显式决策**（保持 0.0.3 + `[Unreleased]`），由 team-lead 落实 |
 | §4 / §7.1 版主管理权限用例 | 几乎空白 | ✅ 主题页锁定→解锁真实点击流已覆盖；但「审批节点申请」仍未验证（§10.5 #4） |
 | §4 / §7.1 管理员后台 UI 点击流 | 零覆盖 | ✅ 封禁→解封 + 配置页脱敏已真实点击覆盖 |
@@ -468,7 +477,7 @@ Go / No-Go 判定不变：**§9.2 的 No-Go 触发条件 ④（把 API 403 断�
 |------|----------|
 | `tests/setup.ts` 加载顺序 | `ENV_FILE`（`override:true`）→ `.env.local`（默认不覆盖）→ `.env`（默认不覆盖） |
 | dotenv 模拟：**裸跑**（无 `ENV_FILE`、无注入 `DATABASE_URL`） | `DATABASE_URL = postgres://v2ex:v2ex_password@127.0.0.1:5432/v2ex`（坏值，本机无 5432 实例） |
-| dotenv 模拟：`ENV_FILE=.env.test` | `DATABASE_URL = postgres://v2ex:v2ex_password@127.0.0.1:55433/v2ex_e2e`（正确，PG 17.5 实测可达） |
+| dotenv 模拟：`ENV_FILE=.env.test` | `DATABASE_URL = postgres://v2ex:v2ex_password@127.0.0.1:55433/v2ex_e2e`（正确，PG 17.5 实测可达）—— **该值为本表记录时的实测原文**；**当前 `.env.test` 实际解析的端口为 55440** |
 | 依赖范围 | `tests/*.spec.ts` 共 15 个，**11 个**依赖 `DATABASE_URL` / 自建库：`admin-cli`、`admin-permissions`、`content-lifecycle`、`credits-concurrency`、`db-lazy-init`、`feed-search`、`floor-continuity`（本轮新增，已在文件内自解析绕开）、`floor-counter`、`password-reset`、`rate-limit-clear`、`seed-idempotency` |
 | **实证**（裸跑现有文件） | `npx vitest run tests/floor-counter.spec.ts` → `Error: connect ECONNREFUSED 127.0.0.1:5432`；`Tests 6 skipped (6)`；`Test Files 1 failed (1)`；`Duration 1.01s`；`BARE_EXIT=1` —— 与本轮新测试第 1 次失败完全一致 |
 
@@ -476,18 +485,20 @@ Go / No-Go 判定不变：**§9.2 的 No-Go 触发条件 ④（把 API 403 断�
 
 > ⚠️ **收尾轮口径更正（主理人，2026-11-04）**：「185 vs 190」**不是「v0.0.3 vs v0.0.4」的历史数字之争** ——
 > **185 与 190 都是真实观测，只是环境不同**：
-> - **CI 上 = `185 passed | 5 skipped (190)`**（run `41837212170`）—— `tests/floor-continuity.spec.ts` 的 5 条因读不到未入仓的 `.env.test` 而崩溃
+> - **CI 上 = `185 passed | 5 skipped (190)`**（**修复前的历史观测**：run `41837212170`）—— `tests/floor-continuity.spec.ts` 的 5 条因读不到未入仓的 `.env.test` 而崩溃
 > - **本机上 = `190 passed`**（连续 4 轮）—— 本机有 `.env.test`（被 gitignore，故本地有、CI 没有）
 >
 > ⚠️ **CI 的分母仍是 190** ⇒ **v0.0.4 的用例总数始终是 190，不存在「总数争议」**。
-> CI 的这个差异是一个**待修复的真实缺陷**（CI 红灯），登记 `BUG_REGISTER` **V4-17** / `RISK_REGISTER` **R-26**，
-> 状态「**本轮修复中，待 CI 复验**」。详见本清单 §5 后的新增条目与 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节。
+> CI 的这个差异曾是一个**真实缺陷**（CI 红灯），登记 `BUG_REGISTER` **V4-17** / `RISK_REGISTER` **R-26**，
+> **状态：✅ 已由 `8ce5ce9` 修复并经 CI 复验**（run `41860242099` 与 `41873009808` 单元 job 均 ✅，`190 passed / 0 skipped`，`e2e` job 已真实跑过）。
+> 详见本清单 §5 后的新增条目与 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节。
 >
-> **对「全量单测 4 文件失败」归因的终局更正（2026-11-04，以 team-lead 实测为准）**：两个早期假设均被实测推翻 —— ① **不是** `.env.local → 5432` 污染（注入 `ENV_FILE` 以 `override:true` 指向 55433 后仍超时）；② **不是**并行竞争。真实根因是**本机建库慢**：实测 `DROP DATABASE` 1.2s / **`CREATE DATABASE` 38.6s** / `drizzle-kit migrate` 5.4s，超过 vitest `hookTimeout: 30_000`；单独跑 `seed-idempotency.spec.ts` 也 32.5s 超时。team-lead 已写入 `RISK_REGISTER.md` R-22 勘误，并把 `vitest.config.ts` 的 `hookTimeout` 提到 `120_000`（附完整实测注释）。本轮我第 2 次单测失败 `Hook timed out in 30000ms`（38.98s）与此同源。
+> **对「全量单测 4 文件失败」归因的终局更正（2026-11-04，以 team-lead 实测为准）**：两个早期假设均被实测推翻 —— ① **不是** `.env.local → 5432` 污染（注入 `ENV_FILE` 以 `override:true` 指向 `.env.test` 实际解析的隔离实例端口后仍超时；该端口在本记录时点为 55433，**当前为 55440**）；② **不是**并行竞争。真实根因是**本机建库慢**：实测 `DROP DATABASE` 1.2s / **`CREATE DATABASE` 38.6s** / `drizzle-kit migrate` 5.4s，超过 vitest `hookTimeout: 30_000`；单独跑 `seed-idempotency.spec.ts` 也 32.5s 超时。team-lead 已写入 `RISK_REGISTER.md` R-22 勘误，并把 `vitest.config.ts` 的 `hookTimeout` 提到 `120_000`（附完整实测注释）。本轮我第 2 次单测失败 `Hook timed out in 30000ms`（38.98s）与此同源。
 >
 > **收尾轮第三次勘误（R-22 定案）**：本机 38.6s 属**异常态**（crash recovery / I/O 积压），
 > **稳态实测 `CREATE DATABASE` 仅 2.0~2.3 秒**（同一 1.4GB 实例连测 3 次：2277 / 1978 / 2243 ms）。
-> `hookTimeout` 提到 120s 后，**单元测试已连续 4 轮全绿（190 passed / 0 failed / 0 skipped，每轮约 170~210 秒）**，
+> `hookTimeout` 提到 120s 后，**单元测试已连续 4 轮全绿（190 passed / 0 failed / 0 skipped）**——
+> **本轮隔离实例实测 81.68s**；历史轮次 170~210 秒（共享实例 55433 口径），
 > 且 `numPendingTests: 0` —— **没有任何用例被静默跳过**。R-22 状态由「已定位，未修复」更新为
 > 🟢 **「已定案并复验」**。详见 `RISK_REGISTER.md` R-22 与 `docs/evidence/ci/test-baseline-v0.0.4.md`。
 >
@@ -518,7 +529,7 @@ Go / No-Go 判定不变：**§9.2 的 No-Go 触发条件 ④（把 API 403 断�
 #### 10.9.3 与 devops-engineer 发布门禁的接口澄清
 
 - **`TEST_REPORT.md` 不在我的所有权边界内**（严禁修改任何其它 `.md`），我不能把测试结论写入该文件。`docs/RELEASE_PROCESS_v0.0.4.md` A 组「由 qa-engineer 复验、结论写入 `TEST_REPORT.md`」的表述需改为「由 team-lead 全量复验（任务 #1）后写入 `TEST_REPORT.md`」，或由 team-lead 单独授权我改该文件。
-- 本轮是**专项实跑**（5 条楼层连续单测 + 8 条四身份 UI E2E），**不是 190/153 全量复验**；全量复验是 team-lead 的任务 #1，我没有 CI run id，不能提供「最终用例数 / 通过数 / 连续两轮结果 / CI run id」这组全量证据。
+- 本轮是**专项实跑**（5 条楼层连续单测 + 8 条四身份 UI E2E），**不是 190 / 154 全量复验**；全量复验是 team-lead 的任务 #1，我没有 CI run id，不能提供「最终用例数 / 通过数 / 连续两轮结果 / CI run id」这组全量证据。
 - 本轮专项实跑**未发现回归**：单测 5/5；E2E 三轮 7/7、7/7、8/8；`tsc --noEmit` 三次均零错误。
 - `scripts/release/preflight.sh` 只读检查 `TEST_REPORT.md` 存在、不解析通过数、不代替判定，做法正确，无需改动；devops 的隔离库（fresh/old/restore）与我的 `v2ex_floorcont_v004` 互不干扰。
 
@@ -548,9 +559,19 @@ Go / No-Go 判定不变：**§9.2 的 No-Go 触发条件 ④（把 API 403 断�
 
 **结论**：§6.2「压测库是否已应用 `0002` 无执行日志」→ ✅ **已闭环**。`0002` 确已应用于压测库，因此 D-05 的 `0.46s`（单次 `EXPLAIN ANALYZE`）与 `bench-result.json` 的 `p95 1530ms`（并发 10 端到端）差异确认为**测量口径差异**，不是迁移缺失导致的退化；保留「三个数值（0.46s / 0.4s / 1.16s avg）须在同一口径下表述」的意见。
 
-#### 10.10.3 E2E 用例数口径：`--list` 实测 **153 条 / 11 文件**（不是 144 / 152）
+#### 10.10.3 E2E 用例数口径：`--list` 实测 **154 条 / 11 文件**（不是 144 / 152 / 153）
 
-只读取证：`npx playwright test --list` → `Total: 153 tests in 11 files`，`LIST_EXIT=0`。精确分解（与第一轮静态 `test()` 计数完全自洽）：
+**本轮重新取证**（在仓库根执行 `npx playwright test --list`）：
+
+```
+Listing tests:
+  [chromium] › auth.spec.ts:9:3 › 账号体系 › 注册后自动登录并可访问设置页
+  ...
+  [chromium] › v004-four-roles-ui.spec.ts:412:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/、/admin、/settings 三页 DOM 中都有 /admin 入口且可点击到达
+Total: 154 tests in 11 files
+```
+
+`LIST_EXIT=0`。精确分解（按 `--list` 输出逐文件计数，与第一轮静态 `test()` 计数完全自洽）：
 
 | 文件 | 条数 | 性质 |
 |------|------|------|
@@ -561,35 +582,44 @@ Go / No-Go 判定不变：**§9.2 的 No-Go 触发条件 ④（把 API 403 断�
 | `e2e/security.spec.ts` | 10 | 静态 |
 | `e2e/topic.spec.ts` | 8 | 静态 |
 | **原有小计** | **67** | — |
-| `e2e/v004-account-admin.spec.ts` | 20 | 静态 |
+| `e2e/v004-account-admin.spec.ts` | **21** | 静态（`ed385cf` 新增「关注（UI）：真实点击关注/取消，刷新后状态持久化」1 条，由 20 增至 21） |
 | `e2e/v004-api-contract.spec.ts` | 17 | 13 端点循环 + 4 固定 |
 | `e2e/v004-content-interaction.spec.ts` | 10 | 静态 |
 | `e2e/v004-endpoint-smoke.spec.ts` | 31 | 源码自动发现 29 个 GET 路由 + 2 固定 |
-| `e2e/v004-four-roles-ui.spec.ts` | 8 | 本轮新增（含第 8 条 DOM 实证） |
-| **新增小计** | **86** | — |
-| **合计** | **153** | 67 + 86 |
+| **v004 四文件小计** | **79** | — |
+| `e2e/v004-four-roles-ui.spec.ts` | 8 | `ed385cf` 改写为正向断言（入口存在且可提交 / 三页都有 `/admin` 链接且可点击到达），条数不变 |
+| **合计** | **154** | 67 + 79 + 8 |
 
-  - `docs/evidence/e2e/test-list-v0.0.4.txt` 已由主理人**重新 `--list` 生成并更新为 153**（含 `v004-four-roles-ui.spec.ts:292` 的 DOM 实证用例）。旧值 152 是第三轮新增该用例之前的时点；旧 144 = `67 + 77` 属更早时点。三个数字各有其时点，均非错误，**当前权威值为 153**。
-- **D-08「144 口径未定义」→ ✅ 已闭环，以 `--list` 实测 153 为准**；§9.3 P4 的「`--list` 输出固定口径」亦闭环。
-  - ✅ **主理人已同步完成**：`RELEASE_PROCESS` / `UPGRADE_RECOVERY` / `CHANGELOG` / `TEST_REPORT` / 本清单里的「实测 152」以及 `test-list-v0.0.4.txt` 全部更新为 **153**。仍需注意：`v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动，正式发布前须重新 `--list` 固定。
+  - `docs/evidence/e2e/test-list-v0.0.4.txt` 与 `docs/evidence/baseline/playwright-list-v0.0.4.txt`
+    已由主理人**重新 `--list` 生成并更新为 154**（`Total: 154 tests in 11 files`）。
+    旧值 153 是 `ed385cf` 之前的时点；旧 152 是第三轮新增 DOM 实证用例之前的时点；旧 144 = `67 + 77` 属更早时点。
+    四个数字各有其时点，均非错误，**当前权威值为 154**。
+- **D-08「144 口径未定义」→ ✅ 已闭环，以 `--list` 实测 154 为准**；§9.3 P4 的「`--list` 输出固定口径」亦闭环。
+  - ✅ **主理人已同步完成**：`RELEASE_PROCESS` / `UPGRADE_RECOVERY` / `CHANGELOG` / `TEST_REPORT` / 本清单里的 E2E 分母
+    以及 `test-list-v0.0.4.txt` / `playwright-list-v0.0.4.txt` 全部更新为 **154**。仍需注意：
+    `v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动，正式发布前须重新 `--list` 固定。
+  - ⚠️ **口径待复核（主理人）**：任务书给出的分组写法是「**67 + 78 + 9 = 154**」（把 +1 记在「四身份 UI」组）；
+    但**按 `ed385cf` 的实际 diff 与 `--list` 实测逐文件计数**，+1 落在 `v004-account-admin.spec.ts`（20 → 21），
+    `v004-four-roles-ui.spec.ts` 仍为 8 条 ⇒ 本节采用实测分组「**67 + 79 + 8 = 154**」。**总数 154 与任务书一致**，
+    仅「哪一组 +1」的归属不同，请主理人确认是否按此统一。
 
 #### 10.10.4 风险登记与文档纠错的状态复核（主理人/devops 已落实）
 
 | 项 | 第一轮 | 本轮只读复核 |
 |----|--------|-------------|
-| D-02 版本载体 0.0.3 | 要求同步 | ✅ **非缺陷**：`CHANGELOG.md [Unreleased]` L11–24 明确记载主理人裁决与理由（最终 SHA 固定前不升版本）；preflight 双模式 dev `FAIL=0` / release `FAIL=14`（两者 `BLOCK=1`）；devops 已把遗漏的 VERSION / package.json / RELEASE_GATE / TEST_REPORT 补进 C 组与门禁 **G-VER-01** |
+| D-02 版本载体 0.0.3 | 要求同步 | ✅ **非缺陷**：权威载体清单以 `scripts/release/preflight.sh` L147–148 实际校验的 **5 个载体**为准（`package.json` / `deploy/VERSION` / `README.md` / `RELEASE_GATE.md` / `TEST_REPORT.md`）—— **本清单不再列举 8 个载体，避免两处口径分叉**。`CHANGELOG.md [Unreleased]` L11–24 明确记载主理人裁决与理由（最终 SHA 固定前不升版本）；preflight 双模式 dev `FAIL=0` / release `FAIL=14`（两者 `BLOCK=1`）；devops 已把遗漏的 VERSION / package.json / RELEASE_GATE / TEST_REPORT 补进 C 组与门禁 **G-VER-01** |
 | D-03 R-09 内容错置 | CSRF 风险未评估 | ✅ **已修**：`RISK_REGISTER.md` L144 标题改「已复核（设计从严，不影响正常流程）」，L158 有「登记勘误」按 D-03 实测重写 |
 | D-09 R-02 与 E-10 冲突 | 冲突 | ✅ **已修**：L46 改为「带凭据 `docker pull` 为发布成败判据；匿名 Bearer 三步仅 `::notice::` 提示；不再只看首次 401」 |
 | D-09 表头 v0.0.2 | 过时 | ✅ L4 已改为 v0.0.4 |
 | D-09 R-14「负载测试未执行」 | 与压测冲突 | 🟡 **部分**：L221 已改为「负载测试已执行（v0.0.4，100 万回复规模）」，但备注仍写「未做吞吐量压测」，与 `bench-result.json` 13 场景吞吐数据轻微冲突，建议改为「已做吞吐压测，未做长时间稳定性测试」 |
-| D-09 R-01「2 → 0」 vs DRILL 基线「0」 | 矛盾 | ⬜ **仍在**（RISK_REGISTER L31），devops 已转报主理人处置 |
+| D-09 R-01「2 → 0」 vs DRILL 基线「0」 | 矛盾 | ✅ **已闭环** —— 两个数字各有其时点，**不矛盾**：`RISK_REGISTER` R-01 的「2 → 0」指清理**前**有 **2 个提交**引入/修改了原站素材文件、清理**后**为 0；`docs/HISTORY_CLEANUP_DRILL_v0.0.4.md` 基线表的 `0` 指「清理**后**」。依据：`RISK_REGISTER.md` L44–45 + `docs/HISTORY_CLEANUP_DRILL_v0.0.4.md` §「关于「含原站素材的提交数」」（该节已明写「两者不矛盾」） |
 | D-10 缺陷未登记 | 未验证 | ✅ **已闭环**：`CHANGELOG.md [Unreleased]` L28 起列「修复的真实缺陷（8 项，均由真实浏览器 E2E / 真实压测发现）」 |
 | D-13 RELEASE_GATE 旧阈值 | 不匹配 | ✅ **口径已明确**：`docs/RELEASE_PROCESS_v0.0.4.md` §15 第 8 项写明 v0.0.4 门禁以 `TEST_REPORT.md` 实测与 preflight 双模式为准，`RELEASE_GATE` 旧阈值「仅作历史基线，不得作为 v0.0.4 判据」。**本清单采用同一口径** |
 
 #### 10.10.5 对 Draft Release 判断的影响
 
-**维持「有条件可以」进入 Draft Release（不等于正式发布）**，证据进一步增强：§6.2 两项由「无法验证」升级为「已实跑通过（隔离库）」、压测库 `0002` 缺口闭环、E2E 口径固定为 153、D-02/D-03/D-09/D-10/D-13 大部分纠错已落实。
+**维持「有条件可以」进入 Draft Release（不等于正式发布）**，证据进一步增强：§6.2 两项由「无法验证」升级为「已实跑通过（隔离库）」、压测库 `0002` 缺口闭环、E2E 口径固定为 154、D-01 几何量测已闭环、D-02/D-03/D-09/D-10/D-13 大部分纠错已落实、**R-16 / R-17 已闭环**（run `41871503684` 九项全绿）、**R-21 / R-24 已修**（`ed385cf`）。
 
-仍开放：容器内故障注入（PG / Redis）、Docker 镜像实测、真实 SMTP、多浏览器回归、§10.5 的四身份 UI 六项缺口、R-01 授权遗留与 R-01 演练数字矛盾。devops 的 `[BLOCK] R-01 DEFERRED`（Release 只能停 Draft、`publish=false`）与本判断不冲突，只是把同一结论写成自动化阻断项而非「条件」。
+仍开放：**R-27 / V4-20（节点申请 UI 提交链断裂，CI run `41873009808`：`153 passed | 1 failed | 154 total`）**、真实 SMTP、多浏览器回归、R-01 授权遗留。devops 的 `[BLOCK] R-01 DEFERRED`（Release 只能停 Draft、`publish=false`）与本判断不冲突，只是把同一结论写成自动化阻断项而非「条件」。
 
-  **主理人裁决（两处均已落实）**：① 全部 `152` → `153`，证据文件已重新生成；② 采纳建议，`RELEASE_PROCESS` A 组已改为「由 team-lead 任务 #1 全量复验后写入 `TEST_REPORT.md`」，QA 的专项实跑与全量判定明确区分。
+  **主理人裁决（两处均已落实）**：① 全部 `152` → `153` → **`154`**（`ed385cf` 新增关注 UI 用例 +1），证据文件已重新生成；② 采纳建议，`RELEASE_PROCESS` A 组已改为「由 team-lead 任务 #1 全量复验后写入 `TEST_REPORT.md`」，QA 的专项实跑与全量判定明确区分。

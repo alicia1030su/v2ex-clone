@@ -69,7 +69,7 @@ v0.0.1 → v0.0.3 的发版过程暴露了三类问题，v0.0.4 必须用流程�
 |---|---|---|---|
 | ① 校验 | `ci.yml: unit` → `npx tsc --noEmit`、`node scripts/ui-verify.cjs` | 0 类型错误；API 契约全匹配（基线 72 路由 / 30 调用） | 红灯，`needs` 阻断后续 |
 | ② 代码审查 | PR review / 主理人终审 | 审查通过、无未决评论 | 不合并不建 Tag |
-| ③ 完整自动化测试 | `ci.yml`（单元 + E2E + Docker 真实构建/启动）；`release.yml: unit-tests` / `e2e-tests` | 单元 **190 条 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）、E2E **153 条 / 11 文件**（153 passed / 0 failed / 0 skipped，连续 2 轮全绿，4.5m/轮）—— **均已写入 `TEST_REPORT.md`**；迁移幂等。🔴 **CI 现状红灯**：`floor-continuity` 在 CI 崩溃 ⇒ `e2e` job 连带跳过（**V4-17 / R-26，本轮修复中**） | 红灯，禁止进入构建阶段 |
+| ③ 完整自动化测试 | `ci.yml`（单元 + E2E + Docker 真实构建/启动）；`release.yml: unit-tests` / `e2e-tests` | 单元 **190 条 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）、E2E **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）—— **均已写入 `TEST_REPORT.md`**；迁移幂等。✅ **CI 单元已转绿**（run `41860242099` / `41873009808`）；🔴 **CI E2E 有 1 条失败**（`153 passed \| 1 failed \| 154 total`，节点申请 UI 提交链断裂 —— V4-20 / R-27，修复中） | 红灯，禁止进入构建阶段 |
 | ④ 独立构建 | `release.yml: code-checks`（`tsc` + `npm run build`）；`build-image`（`docker build`） | 构建成功；镜像不含 `.env` / `docs/evidence`；`dry_run=true` 时只 `load` 不 `push` | 红灯并上传报告 |
 | ⑤ Docker 部署验证 | `release.yml: deploy-verify`（真实 compose 启动 → healthy → 管理员创建 → 注册探针 → 重启持久化 → 端口不暴露）；`install-verify.yml` 的 Linux 真实 Docker job | 全通过、日志上传 | 红灯，`cancel-in-progress: false` 保证不中途取消 |
 | ⑥ 安全扫描 | `release.yml: security-scan` | `npm audit` critical/high = 0；gitleaks 只扫 Git 跟踪文件（避免假通过）；发布包内容检查（无 `.env` / 凭据 / 原站素材） | 红灯；报告作为 artifact 保留 7 天 |
@@ -95,7 +95,7 @@ v0.0.1 → v0.0.3 的发版过程暴露了三类问题，v0.0.4 必须用流程�
    │
    ├─ 1. 功能完成（v0.0.4 全部修复项 + 回归用例）
    ├─ 2. 代码审查（PR review / 主理人终审）
-   ├─ 3. 完整自动化测试（单元 / E2E 连续复验全绿（单元 190 条 / 15 文件、E2E 153 条 / 11 文件，均为 v0.0.4 实测权威值）；迁移幂等实跑）
+   ├─ 3. 完整自动化测试（单元 / E2E 连续复验全绿（单元 190 条 / 15 文件、E2E 154 条 / 11 文件，均为 v0.0.4 实测权威值）；迁移幂等实跑）
    ├─ 4. 独立构建（干净克隆：tsc / next build / docker build，不依赖开发机产物）
    ├─ 5. Docker 部署验证（真实 compose 启动 + 健康 + 重启持久化 + 端口不暴露）
    ├─ 6. 安全扫描（npm audit / gitleaks / 发布包内容检查）
@@ -347,13 +347,14 @@ inputs:
 - [ ] 代码审查通过，无未决评论
 - [ ] `npx tsc --noEmit` 零错误
 - [ ] `npm run build` 成功
-- [x] 单元测试 **190/190** 全绿（**15 个文件，190 passed / 0 failed / 0 skipped，连续 4 轮全绿**，每轮约 170~210 秒）—— 已写入 `TEST_REPORT.md`「v0.0.4 单元测试（权威口径）」小节
-  - ⚠️ **「185」有两个来源**：**v0.0.3 历史总数**（master @ `37710fb4`）与 **CI 的通过数**（`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。**v0.0.4 的用例总数始终是 190。**
-  - 🔴 **CI 侧未通过**：`tests/floor-continuity.spec.ts` 在 CI 崩溃 ⇒ `unit` job 红 ⇒ **`e2e` job 被 `needs: unit` 连带跳过** ⇒ **153 条 E2E 在 CI 上从未跑过一条**（run `41837212170` 实测）。**修复中，待 CI 复验**（V4-17 / R-26）
-- [x] E2E 全绿（**153 条 / 11 文件**，153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮）—— 已写入 `TEST_REPORT.md`「v0.0.4 真实浏览器 E2E（权威口径）」小节。口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`
+- [x] 单元测试 **190/190** 全绿（**15 个文件，190 passed / 0 failed / 0 skipped，连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒，共享实例 55433 口径）—— 已写入 `TEST_REPORT.md`「v0.0.4 单元测试（权威口径）」小节
+  - ⚠️ **「185」有两个来源**：**v0.0.3 历史总数**（master @ `37710fb4`）与 **修复前的历史观测**（`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。**v0.0.4 的用例总数始终是 190。**
+  - ✅ **CI 侧已通过**：run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success（vitest 15 文件全过、`190 passed / 0 skipped`）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`floor-continuity` 在 CI 崩溃 ⇒ `unit` job 红 ⇒ `e2e` job 被 `needs: unit` 连带跳过 —— **已由 `8ce5ce9` 修复并经 CI 复验**（V4-17 VERIFIED / R-26 已闭环），`e2e` job **已真实跑过**
+- [x] E2E 全绿（**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮 —— 基于 153 条口径，早于 `ed385cf`）—— 已写入 `TEST_REPORT.md`「v0.0.4 真实浏览器 E2E（权威口径）」小节。**当前权威分母 = 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`
+  - 🔴 **当前 CI 有 1 条失败**（run `41873009808`，SHA `2773cd1`）：**153 passed | 1 failed | 154 total**，唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27，**修复中** ⇒ **正式 Release 前必须闭环**
 - [ ] **口径区分（防止把专项当全量）**：qa-engineer 第二轮是**专项实跑** —— `tests/floor-continuity.spec.ts` 5/5、`e2e/v004-four-roles-ui.spec.ts` 8/8（连续三轮，最新 `expected=8, skipped=0, unexpected=0, flaky=0`）、`npx tsc --noEmit` EXIT=0。**全量判定只认 team-lead 任务 #1 写入 `TEST_REPORT.md` 的结果**；qa-engineer 无权修改 `TEST_REPORT.md`（其所有权仅 3 个文件）
-  - [x] `test-list-v0.0.4.txt` 已由主理人重新 `npx playwright test --list` 生成并更新为 **153**（含 `v004-four-roles-ui.spec.ts:292` 的 DOM 实证用例）；正式发布前仍须再跑一次 `--list` 固定口径（端点冒烟用例数随 GET 路由数浮动）
-- [ ] **测试环境注入**：`tests/setup.ts` 默认加载 `.env.local`，其 `DATABASE_URL` 指向 **5432**（本机无实例）；裸跑 vitest（未注入 `ENV_FILE` / `DATABASE_URL`）时 15 个单测文件中 11 个会连 5432 失败（实证 `ECONNREFUSED 127.0.0.1:5432`）。CI / 本地全量复验**必须注入 `ENV_FILE`**（如 `.env.test`，指向隔离实例 55433）。**`preflight.sh` 本身不触发任何测试**（只做只读存在性检查与 `bash -n`），不受此项影响
+  - [x] `test-list-v0.0.4.txt` 已由主理人重新 `npx playwright test --list` 生成并更新为 **154**（`Total: 154 tests in 11 files`）；正式发布前仍须再跑一次 `--list` 固定口径（端点冒烟用例数随 GET 路由数浮动）
+- [ ] **测试环境注入**：`tests/setup.ts` 默认加载 `.env.local`，其 `DATABASE_URL` 指向 **5432**（本机无实例）；裸跑 vitest（未注入 `ENV_FILE` / `DATABASE_URL`）时 15 个单测文件中 11 个会连 5432 失败（实证 `ECONNREFUSED 127.0.0.1:5432`）。CI / 本地全量复验**必须注入 `ENV_FILE`**（如 `.env.test`，指向隔离实例 —— **按 `.env.test` 实际解析的端口，当前 55440**）。**`preflight.sh` 本身不触发任何测试**（只做只读存在性检查与 `bash -n`），不受此项影响
 - [ ] 连续两轮全绿（本地 + CI），记录 CI run id
 - [ ] `node scripts/ui-verify.cjs` API 契约校验通过
 
@@ -550,7 +551,7 @@ phase  : dev                                       phase  : release
 [PASS]  deploy/ 必需文件检查完成（14 项）；install.ps1 BOM=EF BB BF；6 个 .sh bash -n 通过；
         无被跟踪 .env；.dockerignore 保留 !drizzle/*.sql；entrypoint 执行 migrate
 [PASS]  TEST_REPORT.md / 第六阶段报告 / 第八阶段文档均存在
-           单元基线 190 条 / 15 文件 / E2E 153 条 / 11 文件（均为 v0.0.4 实测权威值）
+           单元基线 190 条 / 15 文件 / E2E 154 条 / 11 文件（均为 v0.0.4 实测权威值）
 [BLOCK] RISK_REGISTER R-01 仍为 DEFERRED —— 需主人单独授权；未授权前 Release 只能停在 Draft
 
 --- 7. 汇总 ---
@@ -582,7 +583,7 @@ phase  : dev                                       phase  : release
 5. **容器级回滚演练与 `install-verify.yml` 重跑的 run id**：因本机无 Docker，需主理人在 CI 侧补做并回填发布记录。（B-06/B-07）
 6. **是否接入容器镜像漏洞扫描（Trivy/Grype）与预算告警**：`RELEASE_GATE.md` E9 仍为「部分未做」，本轮未变更。
 7. **可观测性建设**（集中日志 / 指标告警 / 值班与复盘）是否纳入 v0.0.5 范围：本轮仅给出最小应急闭环。
-8. **CHANGELOG / README / FEATURE_MATRIX / RELEASE_GATE / TEST_REPORT 版本一致性**：属 G-VER-01 范围，需主理人在「版本同步提交」中一并核对（C 组检查单）。另：qa-engineer 指出 `RELEASE_GATE.md` 仍是 v0.0.2 门槛（B3 ≥103 单元 / B4 ≥67 E2E），与 v0.0.4 实测 **190 / 153** 不匹配（收尾轮已在 `RELEASE_GATE.md` 顶部补 v0.0.4 门禁速览） —— **v0.0.4 门禁以 `TEST_REPORT.md` 实测与 `preflight.sh` 双模式为准，RELEASE_GATE.md 的旧阈值仅作历史基线，不得作为 v0.0.4 判据**（该文件不在我的所有权边界内，仅在此标注）。
+8. **CHANGELOG / README / FEATURE_MATRIX / RELEASE_GATE / TEST_REPORT 版本一致性**：属 G-VER-01 范围，需主理人在「版本同步提交」中一并核对（C 组检查单）。另：qa-engineer 指出 `RELEASE_GATE.md` 仍是 v0.0.2 门槛（B3 ≥103 单元 / B4 ≥67 E2E），与 v0.0.4 实测 **190 / 154** 不匹配（收尾轮已在 `RELEASE_GATE.md` 顶部补 v0.0.4 门禁速览） —— **v0.0.4 门禁以 `TEST_REPORT.md` 实测与 `preflight.sh` 双模式为准，RELEASE_GATE.md 的旧阈值仅作历史基线，不得作为 v0.0.4 判据**（该文件不在我的所有权边界内，仅在此标注）。
 
 ---
 
@@ -609,8 +610,12 @@ phase  : dev                                       phase  : release
 非 root（`Config.User` 非 root 且容器内 `id -u` ≠ 0）、8 项 devDependency 未检出、
 3 个运行时文件已检出、5 个 env/凭据文件未检出、迁移 SQL 完整、镜像体积打印。
 
-**⚠️ 其余项（1~8）与 `[R-17a/b/c]` 尚未实跑** ⇒ R-16 / R-17 状态为
-🟡「**取证通道就绪 · 部分项已通过 · 其余待重跑**」，**不是已闭环**。
+**✅ 后续已闭环（R-16 / R-17）**：run `41871503684`（SHA `2773cd1`）—— `docker-verify`
+**九项全部 completed / success，九项汇总表全 PASS**。修复提交：
+**`827eef7`**（安装模拟改走首次安装路径 —— 删掉不完整的 `.env` 预置）、
+**`2773cd1`**（安装模拟前 unset job 级 env —— 修 compose 插值被 shell 环境变量覆盖导致的**假绿**）。
+安装模拟段实证输出：`app health = healthy` / `POSTGRES_USER=v2ex POSTGRES_DB=v2ex SEED_ADMIN_USERNAME=admin` /
+管理员账号数 = 1。
 
 ### 16.2 升级脚本（R-18 已修并验证）
 
@@ -623,9 +628,9 @@ phase  : dev                                       phase  : release
 | 硬约束 | 绝不执行真实 Docker 命令；绝不触碰仓库真实文件（自检末尾有校验和断言） |
 | ⚠️ 残余 | **不带 `--version` 时是向后兼容路径**（沿用 `.env` 旧镜像）⇒ `INSTALL.md` §8 的手工步骤**仍需保留**；**真实容器级升级**仍需带 Docker 的环境复跑 |
 
-### 16.4 🔴 CI 单元测试红灯（V4-17 / R-26）—— **本轮修复中**
+### 16.4 ✅ CI 单元测试红灯（V4-17 / R-26）—— **已修复并经 CI 复验**
 
-> **实测证据**（CI run `41837212170`，HEAD `930f29e`）：
+> **修复前的历史观测**（CI run `41837212170`，HEAD `930f29e`）：
 > ```
 >  Test Files  1 failed | 14 passed (15)
 >       Tests  185 passed | 5 skipped (190)
@@ -644,14 +649,18 @@ phase  : dev                                       phase  : release
 > 而 CI 的 `DATABASE_URL` 是 `localhost:5432` ⇒ **即使环境变量已注入也不会被采用**。
 > 两条路都走不通 ⇒ ENOENT 崩溃。
 >
-> **影响面**：① `unit` job 红灯 → **PR 无法合并**；② `e2e` job 被 `needs: unit` **连带跳过**
-> → **v0.0.4 的 153 条 E2E 在 CI 上从未跑过一条**；③ 掩盖了「楼层连续性」这条关键回归的 CI 覆盖
+> **影响面（当时）**：① `unit` job 红灯 → **PR 无法合并**；② `e2e` job 被 `needs: unit` **连带跳过**
+> → E2E 在 CI 上跑不起来；③ 掩盖了「楼层连续性」这条关键回归的 CI 覆盖
 > —— 而它正是 B-05 楼层跳号缺陷（`allocateFloor` 双重 `+1`）的守护用例。
 >
 > **修复方向已实跑验证**（`docs/evidence/ci/test-baseline-v0.0.4.md` §0.5，在纯净 CI 检出 `/tmp/ci-sim` 上双向验证）：
 > 去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断 ⇒ **CI 条件与本地条件均 `5 passed`**。
-> **状态：本轮修复中（测试环境工程师负责），待 CI 复验为 `Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped 并解锁 `e2e` job。**
-> ⚠️ **未经 CI 复验不标 FIXED。**
+>
+> **✅ 状态：已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）。
+> **CI 复验结果**：run `41860242099` 与 `41873009808`（SHA `2773cd1`）的「类型检查 / 单元测试」job
+> 均 ✅ —— `Test Files 15 passed (15)` / `Tests 190 passed (190)` / **0 skipped**，
+> 且 `e2e` job **已真实跑过**（不再被 `needs: unit` 连带跳过）。
+> 登记 `BUG_REGISTER` **V4-17（VERIFIED）** / `RISK_REGISTER` **R-26（🟢 已修复并经 CI 复验）**。
 
 ### 16.3 版本库卫生（R-25）
 

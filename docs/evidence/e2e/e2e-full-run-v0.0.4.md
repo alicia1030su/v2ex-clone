@@ -4,6 +4,13 @@
 > 命令同上；日志 `C:/Users/TYMO001/AppData/Local/Temp/e2e-after-fix.log`。
 > 关注用例修复后不再被跳过，153 条全部真实执行并通过。
 > **下文 §「真实输出」是修复前的第一轮结果，作为历史证据保留，不回写。**
+>
+> ⚠️ **口径提示（2026-11-05 更新）**：本文件的 **153 是历史轮次口径**（早于 `ed385cf`），
+> **不回改**。**当前权威分母 = 154 条 / 11 文件**（`npx playwright test --list` 实测
+> `Total: 154 tests in 11 files`；`ed385cf` 新增关注 UI 用例 +1）。
+> **当前 CI：153 passed | 1 failed | 154 total**（run `41873009808`）——
+> 唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27）。
+> 最新 `--list` 输出见 `docs/evidence/e2e/test-list-v0.0.4.txt`。
 
 > 时间：2026-11-04 · 服务：`http://localhost:3021`（隔离库 `v2ex_e2e_v004`）
 > 命令：`ENV_FILE=.../v004e2e.env LOCAL_BASE=http://localhost:3021 BROWSER_CHANNEL=chromium npx playwright test --reporter=list`

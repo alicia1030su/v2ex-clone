@@ -3,7 +3,9 @@
 > 执行人：部署运维工程师（devops-engineer / 陆上线）
 > 仓库：`C:/Users/TYMO001/WorkBuddy/ai/v2ex-clone`
 > 分支 / HEAD：`feat/v0.0.4-high-fidelity` @ `89d6b4e`
-> 数据库：本机独立 PostgreSQL **17.5**（`127.0.0.1:55433`，用户 `v2ex`）
+> 数据库：本机独立 PostgreSQL **17.5**（用户 `v2ex`）—— **本报告记录的执行时点为 `127.0.0.1:55433`**（下方命令清单为该次实跑的原文）；
+> ⚠️ **当前测试环境指向哪个端口**：按 `.env.test` 实际解析的端口（**当前 55440**）—— `.env.test` 第 3 行实测值
+> `DATABASE_URL=postgres://v2ex:...@127.0.0.1:55440/v2ex_test_base`。**下方命令清单中的 `55433` 属历史实跑记录，不回改。**
 > 报告口径：**实跑通过** / **静态核查** / **未验证** 严格三分，不编造结果
 
 ---
@@ -72,7 +74,8 @@ C:/Users/TYMO001/AppData/Local/Temp/v2ex_upg_v004_old.env
 C:/Users/TYMO001/AppData/Local/Temp/v2ex_upg_v004_restore.env
 ```
 
-内容形如 `DATABASE_URL=postgres://v2ex:v2ex_password@127.0.0.1:55433/<库名>`。
+内容形如 `DATABASE_URL=postgres://v2ex:v2ex_password@127.0.0.1:<端口>/<库名>`（**本报告执行时点为 55433**；
+当前测试环境按 `.env.test` 实际解析的端口为 **55440**）。
 每次调用都同时设置 `ENV_FILE` 与 `DATABASE_URL` 两个变量（值相同），确保 `drizzle.config.ts` 的 `override:true` 与 `process.env` 都不会误连到 `.env.local` 指向的 `127.0.0.1:5432/v2ex`。
 
 > **密钥卫生说明**：上述文件含**本机共享测试口令**（非生产凭据），位于系统 Temp、**未进入仓库、未进入镜像、未进入任何交付文档之外的版本控制路径**。本轮为便于主理人复核予以保留；复现完成后应执行
@@ -588,7 +591,7 @@ deploy/update.sh:57-72  docker compose pull → up -d → 容器重启自动重�
 |---|---|---|---|
 | 校验 | `ci.yml: unit` → `npx tsc --noEmit`、`node scripts/ui-verify.cjs` | 0 类型错误；API 契约 72 路由/30 调用全匹配 | 红灯，后续 job 不跑 |
 | 构建 | `npm run build`；`Dockerfile` 真实 `docker build` | 构建成功；镜像含 `public/`；builder 阶段无 DB 可构建 | 红灯 |
-| 测试 | 单元 `vitest run`、E2E `playwright test` | **190 单元 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）/ **E2E 153 条 / 11 文件**（153 passed / 0 failed / 0 skipped，连续 2 轮全绿）—— v0.0.4 实测权威值 | 红灯，`needs` 依赖阻断 |
+| 测试 | 单元 `vitest run`、E2E `playwright test` | **190 单元 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）/ **E2E 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）—— v0.0.4 实测权威值。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（基于 153 条口径、早于 `ed385cf`）；**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`） | 红灯，`needs` 依赖阻断 |
 | 镜像 | `release.yml: build-image` | `provenance`/`sbom`，校验镜像内无 `.env` 与 `docs/evidence` | 红灯；`dry_run=true` 时只 `load` 不 `push` |
 | 部署验证 | `release.yml: deploy-verify` | compose 真实启动 → healthy → 管理员创建 → 注册探针用户 → 重启持久化 → 5432/6379 未暴露 | 红灯并上传日志 |
 | 安全 | `security-scan` | `npm audit` critical/high = 0；gitleaks 只扫 Git 跟踪文件；发布包内容检查 | 红灯 |
@@ -624,6 +627,10 @@ deploy/update.sh:57-72  docker compose pull → up -d → 容器重启自动重�
 ---
 
 ## 10. 可复现命令清单（从零到尾）
+
+> ⚠️ **端口口径**：下方命令清单是**本报告执行时点（55433）的原文**，**保留不改**。
+> **当前测试环境指向哪个端口**：按 `.env.test` 实际解析的端口（**当前 55440**）——
+> 复跑时请把命令中的 `55433` 替换为 `.env.test` 里实际解析出的端口。
 
 ```bash
 # 0) 工具与保活（PG 会空闲断连，每个长操作前跑一次）
