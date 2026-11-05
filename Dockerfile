@@ -48,6 +48,23 @@ COPY --from=builder --chown=nextjs:nodejs /app/src/db ./src/db
 # 整目录拷贝会把带 `import 'server-only'` 的模块也带进去 —— 那在纯 Node
 # 环境下会抛错，反而让容器里的运维脚本无法运行。
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib/password.ts ./src/lib/password.ts
+# env-loader.mjs —— **容器启动链的真实依赖**（2026-11-04 回归修复）
+#
+# 漏拷它的真实事故（CI docker-verify 首跑抓到的）：
+#   entrypoint 阶段 1「迁移」→ drizzle-kit 读 /app/drizzle.config.ts
+#   → 它 import './src/lib/env-loader.mjs'
+#   → Cannot find module './src/lib/env-loader.mjs'
+#   → 迁移失败、容器退出、compose 无限重启，第 2 项断言红灯。
+#
+# 镜像内依赖它的代码（全部）：
+#   · drizzle.config.ts              （阶段 1 迁移的子进程入口）
+#   · scripts/seed.ts                （阶段 2 首次初始化）
+#   · scripts/admin-cli.ts、db-admin.mjs（运维脚本）
+#   · src/db/index.ts                （上面所有路径都经它连库）
+#
+# 传递依赖审计：本模块只 import node:fs / node:module / node:path / dotenv，
+# 无其他 src/ 依赖 —— 不存在「补一个又漏一个」的递归风险。
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/env-loader.mjs ./src/lib/env-loader.mjs
 
 # ---------------------------------------------------------------------------
 # 生产依赖（2026-11-04 重做）

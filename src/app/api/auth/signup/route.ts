@@ -6,12 +6,26 @@ import { db, schema } from '@/db';
 import { hashPassword } from '@/lib/password';
 import { createSession, setSessionCookie } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
+import { grantCredits } from '@/lib/credit-service';
 import { headers } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{2,32}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * 注册赠送额度（v0.0.4）。
+ *
+ * 可用环境变量 REGISTRATION_BONUS 调整；默认 1000 铜币。
+ * 该额度会写入 credit_ledger（type = 'registration_bonus'），
+ * 保证「余额 == 账本累计」的不变式成立。
+ */
+function envInt(v: string | undefined, dflt: number): number {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : dflt;
+}
+const REGISTRATION_BONUS = envInt(process.env.REGISTRATION_BONUS, 1000);
 
 export async function POST(request: Request) {
   // CSRF 校验：登录/注册同样需要，防止跨站提交
@@ -112,6 +126,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // ⚠️ v0.0.4 修复：注册赠送的积分**必须走账本**。
+  //
+  // 原实现直接写 `balance: 1000` —— 余额变了，但 credit_ledger 里**没有对应流水**。
+  // 这破坏了账本的核心不变式「users.balance == sum(credit_ledger.amount)」，
+  // 而账本正是「积分不可篡改」的审计凭据 —— 绕过它等于让初始余额不可追溯。
+  //
+  // 实测（真实压测）：压测库中 5 个新注册用户的 ledger_rows=0 而 balance=1000，
+  // 一致性校验直接失败。
+  //
+  // 现在：先以 0 余额建用户，再用 grantCredits 发放注册赠送（写流水 + 更新余额）。
   const [row] = await db
     .insert(schema.users)
     .values({
@@ -119,9 +143,17 @@ export async function POST(request: Request) {
       email,
       passwordHash: hashPassword(body.password),
       role: 'user',
-      balance: 1000,
+      balance: 0,
     })
     .returning({ id: schema.users.id });
+
+  // 注册赠送：走账本，保证「余额 == 账本累计」始终成立
+  await grantCredits(row.id, {
+    type: 'registration_bonus',
+    amount: REGISTRATION_BONUS,
+    idempotencyKey: `registration_bonus:${row.id}`,
+    reason: '注册赠送',
+  });
 
   const sessionId = await createSession(row.id);
   await setSessionCookie(sessionId);

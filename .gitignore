@@ -17,6 +17,21 @@ dist/
 .env.*.test
 !.env.example
 
+# ---- v0.0.4 测试环境隔离 ----
+#
+# `.env.test` 仍是**本机实际文件**（含测试口令），保持忽略、不入库。
+# 但它的**模板**必须入库 —— 否则：
+#   - `tests/floor-continuity.spec.ts` 在 CI 上读 `.env.test` → ENOENT 必崩；
+#   - 新克隆的仓库开箱无法跑单元测试。
+#
+# 模板位置：tests/env/.env.test.example（**无任何真实口令**，只有 __占位符__）
+# 模板放行规则必须排在上面的忽略规则**之后**，否则会被 `.env` 规则覆盖。
+!.env.test.example
+!tests/env/.env.test.example
+# 生成物（若模板被复制到 tests/env/ 下）同样不入库
+tests/env/.env.test
+tests/env/.env
+
 # 部署包运行时生成的文件（含真实凭据，绝不入库）
 # 注意：`.env` 这条规则会匹配**任意层级**下的 .env，
 # 所以 deploy/.env 已被上面的 `.env` 规则覆盖；这里额外列出是为了明确意图。
@@ -61,6 +76,20 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts.bak
 
+# 运行时用户上传目录（v0.0.4 新发现的真实缺陷）
+#
+# 背景：`public/uploads/` 下的头像文件是**运行时用户数据**。
+# E2E 测试跑一轮就会生成一批 684 字节的占位图，
+# 而此前该目录**完全没有被 .gitignore 覆盖** —— 结果 18 个测试占位图
+# 被 `git add .` 误提交进版本库（引入提交：04b107b / 1b15f79 / 301a8a5），
+# 并会随发布包一起分发。
+#
+# 风险性质：与 R-01（原站素材经 Git 历史持续暴露）同类 ——
+# 运行时数据进入公开发布物。本轮已 `git rm --cached` 移出索引（不改写历史）。
+#
+# 注：Docker 部署时 uploads 目录由容器卷挂载提供，不依赖仓库内文件。
+public/uploads/
+
 # 日志
 npm-debug.log*
 yarn-debug.log*
@@ -94,8 +123,18 @@ Thumbs.db
 # 审计过程产生的临时探测脚本（不得入库）
 .audit/
 # 根目录的一次性探测脚本（.lazy-init-probe2.mts 曾在并发窗口里被误提交）
+#
+# ⚠️ v0.0.4 补充：原规则只覆盖 .mts / .ts，
+# 而本轮又出现了 .probe-env-matrix.mjs / .probe-next-env.mjs ——
+# **同一类问题的不同扩展名**。一次性探测脚本必须**全部扩展名**都拦住，
+# 否则换个后缀就会再次混进版本库。
 .*probe*.mts
 .*probe*.ts
+.*probe*.mjs
+.*probe*.cjs
+.*probe*.js
+# 隔离构建用的临时 next 配置（distDir 变体，验证环境专用）
+next.config.cisim.mjs
 
 # 临时运行时验证脚本（不入库）
 scripts/ui-runtime-verify.cjs

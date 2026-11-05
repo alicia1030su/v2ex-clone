@@ -1,0 +1,80 @@
+classDiagram
+    direction LR
+
+    class ResolvedTestEnv {
+        +string databaseUrl
+        +string endpoint
+        +string database
+        +string fingerprint
+        +string source
+    }
+
+    class TestEnvResolver {
+        +static resolve(options) ResolvedTestEnv
+        +static fingerprintOf(url) string
+        +static ensureLocalEnvFile() void
+        +static loadFile(path) Record~string,string~
+    }
+
+    class TestDbGuard {
+        +static assertSafeTestTarget(databaseUrl, dbName) void
+        +static assertEndpointAllowed(endpoint) void
+        +static assertDatabaseAllowed(dbName) void
+        +static isDeletableTestDatabase(dbName) boolean
+        +static isProtectedEvidenceDatabase(dbName) boolean
+    }
+
+    class DbPhaseTiming {
+        +string file
+        +string db
+        +string endpoint
+        +number dropMs
+        +number createMs
+        +number migrateMs
+        +number seedMs
+        +number totalMs
+    }
+
+    class TestDbLifecycle {
+        +provisionTestDatabase(options) Promise~DbPhaseTiming~
+        +dropTestDatabase(adminUrl, dbName) Promise~void~
+        +createTestDatabase(adminUrl, dbName, template) Promise~void~
+        +runMigrate(childEnv) void
+        +runSeed(childEnv) void
+    }
+
+    class LocalBinRunner {
+        +runDrizzleKit(args, env) string
+        +runTsx(scriptPath, env) string
+        +buildChildEnv(dbName) NodeJS.ProcessEnv
+        +static resolvePackageBin(pkgName) object
+    }
+
+    class PgInstanceManager {
+        +string pgDataDir
+        +number port
+        +string baseUrl
+        +initInstance() void
+        +ensureRunning() boolean
+        +isAlive() boolean
+        +stopInstance(mode) void
+        +listOccupiedPids() number[]
+        +cleanupTestDatabases(pattern) string[]
+    }
+
+    class TestSpecBase {
+        +string TEST_DB
+        +adminUrlFor(dbName) string
+        +testDatabaseUrl(dbName) string
+    }
+    <<interface>> TestSpecBase
+
+    ResolvedTestEnv <-- TestEnvResolver : creates
+    TestEnvResolver ..> TestDbGuard : uses endpoint/db allowlist
+    TestDbLifecycle ..> TestDbGuard : asserts before DROP/CREATE
+    TestDbLifecycle ..> LocalBinRunner : spawns migrate/seed
+    TestDbLifecycle ..> DbPhaseTiming : produces
+    LocalBinRunner ..> TestEnvResolver : reuses fingerprintOf
+    PgInstanceManager ..> TestDbGuard : shares db-name policy
+    TestSpecBase ..> TestDbLifecycle : calls provisionTestDatabase
+    TestSpecBase ..> TestEnvResolver : resolves connection base

@@ -5,6 +5,8 @@ import * as schema from '../src/db/schema';
 import { eq, sql as dsql } from 'drizzle-orm';
 import { verifyPassword, hashPassword } from '../src/lib/password';
 import { runDrizzleKit, runTsx } from './helpers/local-bin';
+import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
+import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 
 /**
  * Seed 只初始化、不修改已有账号 —— 回归测试（P0-1）
@@ -26,18 +28,11 @@ import { runDrizzleKit, runTsx } from './helpers/local-bin';
  * 数据库隔离（关键）：
  *  本测试**不导入** src/db（那会绑定开发库 DATABASE_URL），而是自建一个
  *  只连接专用库 v2ex_seedtest 的客户端。测试绝不触碰开发库或生产库。
+ *  连接串由 tests/helpers/test-spec-base.ts 从**父进程规范化后的基础连接串**
+ *  派生（只换库名，不换 host/port）—— 绝不使用各文件内重复的实现。
  */
 
 const TEST_DB = process.env.SEED_TEST_DB ?? 'v2ex_seedtest';
-
-/** 构造指向专用测试库的连接串（保留账号/口令/主机，仅换库名） */
-function testDatabaseUrl(): string {
-  const base = process.env.DATABASE_URL;
-  if (!base) throw new Error('DATABASE_URL 未配置，无法运行 seed 回归测试');
-  const url = new URL(base);
-  url.pathname = `/${TEST_DB}`;
-  return url.toString();
-}
 
 let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle<typeof schema>>;
@@ -47,7 +42,7 @@ function runSeed(env: Record<string, string>): string {
     ...process.env,
     // 清空 ENV_FILE：避免继承 .env.test 的配置
     ENV_FILE: '',
-    DATABASE_URL: testDatabaseUrl(),
+    DATABASE_URL: dbUrlFor(TEST_DB),
     SEED_ADMIN_USERNAME: 'seedadmin',
     SEED_ADMIN_EMAIL: 'seedadmin@test.local',
     SEED_ADMIN_PASSWORD: 'seed-admin-password-99999',
@@ -60,34 +55,30 @@ function runSeed(env: Record<string, string>): string {
 
 describe('seed 只初始化不修改已有账号（P0-1）', () => {
   beforeAll(async () => {
-    // 1) 建专用库
-    const adminUrl = new URL(testDatabaseUrl());
-    adminUrl.pathname = '/postgres';
-    const admin = postgres(adminUrl.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`);
-    await admin.unsafe(`CREATE DATABASE ${TEST_DB}`);
-    await admin.end();
+    logDbTarget('tests/seed-idempotency.spec.ts', TEST_DB);
 
-    // 2) 迁移
-    runDrizzleKit(['migrate'], {
-      ...process.env,
-      ENV_FILE: '',
-      DATABASE_URL: testDatabaseUrl(),
+    // 建库 → 迁移，逐阶段计时（护栏在 provision 内部强制生效）
+    await provisionTestDatabase({
+      file: 'tests/seed-idempotency.spec.ts',
+      db: TEST_DB,
+      adminUrl: adminUrlOf(TEST_DB),
+      migrate: () =>
+        runDrizzleKit(['migrate'], {
+          ...process.env,
+          ENV_FILE: '',
+          DATABASE_URL: dbUrlFor(TEST_DB),
+        }),
     });
 
-    // 3) 自建客户端 —— 只连专用库
-    client = postgres(testDatabaseUrl(), { prepare: false });
+    // 自建客户端 —— 只连专用库
+    client = postgres(dbUrlFor(TEST_DB), { prepare: false });
     db = drizzle(client, { schema });
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await client?.end().catch(() => undefined);
-    const url = new URL(testDatabaseUrl());
-    url.pathname = '/postgres';
-    const admin = postgres(url.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`).catch(() => undefined);
-    await admin.end();
-  });
+    await dropTestDatabase(adminUrlOf(TEST_DB), TEST_DB).catch(() => undefined);
+  }, 60_000);
 
   it('第一次 seed 创建管理员', async () => {
     runSeed({});

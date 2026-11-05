@@ -4,6 +4,8 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from '../src/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { runDrizzleKit } from './helpers/local-bin';
+import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
+import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 
 /**
  * 楼层号分配器的自愈能力 —— 回归测试
@@ -32,14 +34,6 @@ import { runDrizzleKit } from './helpers/local-bin';
 
 const TEST_DB = process.env.FLOOR_TEST_DB ?? 'v2ex_floortest';
 
-function testDatabaseUrl(): string {
-  const base = process.env.DATABASE_URL;
-  if (!base) throw new Error('DATABASE_URL 未配置，无法运行楼层回归测试');
-  const url = new URL(base);
-  url.pathname = `/${TEST_DB}`;
-  return url.toString();
-}
-
 let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle<typeof schema>>;
 
@@ -66,20 +60,22 @@ describe('楼层号分配器自愈', () => {
   let topicId: number;
 
   beforeAll(async () => {
-    const adminUrl = new URL(testDatabaseUrl());
-    adminUrl.pathname = '/postgres';
-    const admin = postgres(adminUrl.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`);
-    await admin.unsafe(`CREATE DATABASE ${TEST_DB}`);
-    await admin.end();
+    logDbTarget('tests/floor-counter.spec.ts', TEST_DB);
 
-    runDrizzleKit(['migrate'], {
-      ...process.env,
-      ENV_FILE: '',
-      DATABASE_URL: testDatabaseUrl(),
+    // 建库 → 迁移，逐阶段计时（护栏在 provision 内部强制生效）
+    await provisionTestDatabase({
+      file: 'tests/floor-counter.spec.ts',
+      db: TEST_DB,
+      adminUrl: adminUrlOf(TEST_DB),
+      migrate: () =>
+        runDrizzleKit(['migrate'], {
+          ...process.env,
+          ENV_FILE: '',
+          DATABASE_URL: dbUrlFor(TEST_DB),
+        }),
     });
 
-    client = postgres(testDatabaseUrl(), { prepare: false });
+    client = postgres(dbUrlFor(TEST_DB), { prepare: false });
     db = drizzle(client, { schema });
 
     // 造一个分类、节点、用户与主题
@@ -134,12 +130,8 @@ describe('楼层号分配器自愈', () => {
 
   afterAll(async () => {
     await client?.end().catch(() => undefined);
-    const url = new URL(testDatabaseUrl());
-    url.pathname = '/postgres';
-    const admin = postgres(url.toString(), { prepare: false });
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`).catch(() => undefined);
-    await admin.end();
-  });
+    await dropTestDatabase(adminUrlOf(TEST_DB), TEST_DB).catch(() => undefined);
+  }, 60_000);
 
   it('初始状态下计数表落后于实际楼层（漂移已建立）', async () => {
     const rows = await db

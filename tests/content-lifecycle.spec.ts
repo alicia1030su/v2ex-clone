@@ -4,6 +4,8 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from '../src/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { runDrizzleKit } from './helpers/local-bin';
+import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
+import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 import {
   canModifyOwnContent,
   canBanUser,
@@ -33,12 +35,15 @@ const TEST_DB = process.env.V003_CONTENT_TEST_DB ?? 'v2ex_v003_content';
  * 让 `@/db` 的全局连接池也指向本测试库。
  *
  * `src/db/index.ts` 在模块加载时读取 DATABASE_URL 并缓存连接池，
- * 因此必须在**导入任何使用 @/db 的模块之前**通过 ENV_FILE 覆盖
- * （src/db/index.ts 对 ENV_FILE 使用 override:true）。
+ * 因此必须在**导入任何使用 @/db 的模块之前**把 DATABASE_URL 指向测试库。
  * 否则服务层写 A 库、断言读 B 库，会出现外键约束失败。
+ *
+ * ⚠️ v0.0.4：连接串统一从 `tests/helpers/test-spec-base.ts` 派生
+ * （与 `tests/setup.ts` 的规范化结果同源，**只换库名，不换 host/port**），
+ * 不再由本文件自行解析 —— 此前那种写法会把测试导向 5432 开发库。
  */
 process.env.ENV_FILE = '';
-process.env.DATABASE_URL = testDatabaseUrl();
+process.env.DATABASE_URL = dbUrlFor(TEST_DB);
 // 清掉可能被其他测试文件（同一 worker 进程）缓存的连接池，
 // 强制 @/db 用上面设置的测试库重新建连接。
 {
@@ -48,14 +53,6 @@ process.env.DATABASE_URL = testDatabaseUrl();
   };
   g.__v2exSql = undefined;
   g.__v2exDrizzle = undefined;
-}
-
-function testDatabaseUrl(): string {
-  const base = process.env.DATABASE_URL;
-  if (!base) throw new Error('DATABASE_URL 未配置，无法运行内容生命周期测试');
-  const url = new URL(base);
-  url.pathname = `/${TEST_DB}`;
-  return url.toString();
 }
 
 let client: ReturnType<typeof postgres>;
@@ -72,23 +69,23 @@ let userIds: Record<string, number> = {};
 let nodeId = 0;
 
 beforeAll(async () => {
-  // 先用 postgres 连接 postgres 库建测试库（与 admin-cli.spec.ts 同样的做法）
-  const adminUrl = new URL(testDatabaseUrl());
-  adminUrl.pathname = '/postgres';
-  const admin = postgres(adminUrl.toString(), { prepare: false });
-  await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DB}`);
-  await admin.unsafe(`CREATE DATABASE ${TEST_DB}`);
-  await admin.end();
+  logDbTarget('tests/content-lifecycle.spec.ts', TEST_DB);
 
-  client = postgres(testDatabaseUrl(), { prepare: false, max: 20 });
-  db = drizzle(client, { schema });
-
-  // ENV_FILE 置空 —— 否则仓库根的 .env.local（指向 5432 共享库）会覆盖目标库
-  runDrizzleKit(['migrate'], {
-    ...process.env,
-    ENV_FILE: '',
-    DATABASE_URL: testDatabaseUrl(),
+  // 建库 → 迁移，逐阶段计时（护栏在 provision 内部强制生效）
+  await provisionTestDatabase({
+    file: 'tests/content-lifecycle.spec.ts',
+    db: TEST_DB,
+    adminUrl: adminUrlOf(TEST_DB),
+    migrate: () =>
+      runDrizzleKit(['migrate'], {
+        ...process.env,
+        ENV_FILE: '',
+        DATABASE_URL: dbUrlFor(TEST_DB),
+      }),
   });
+
+  client = postgres(dbUrlFor(TEST_DB), { prepare: false, max: 20 });
+  db = drizzle(client, { schema });
 
   // 准备基础数据
   const inserted = await db
@@ -119,11 +116,12 @@ beforeAll(async () => {
     })
     .returning({ id: schema.nodes.id });
   nodeId = node[0].id;
-}, 180000);
+}, 120_000);
 
 afterAll(async () => {
   await client?.end();
-});
+  await dropTestDatabase(adminUrlOf(TEST_DB), TEST_DB).catch(() => undefined);
+}, 60_000);
 
 beforeEach(async () => {
   // 每个测试前清空内容相关数据（保留用户与节点）

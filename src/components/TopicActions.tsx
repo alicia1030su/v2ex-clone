@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { csrfFetch } from '@/components/CsrfProvider';
+import TopicEditForm from '@/components/TopicEditForm';
 
 /**
  * 主题操作栏（v0.0.3）
@@ -40,10 +41,21 @@ export type TopicActionState = {
 type Props = {
   topic: TopicActionState;
   user: TopicActionUser | null;
-  /** 编辑回调：交给外层打开编辑表单 */
+  /**
+   * 编辑回调（可选）。
+   *
+   * ⚠️ v0.0.4：这个回调**从来没被页面传过**（服务端组件无法向客户端组件
+   * 传函数），导致「编辑」按钮点了什么都不���应 —— 一个假按钮。
+   * 现在编辑表单由组件内部管理（见 editing 状态），
+   * onEdit 仅作为向后兼容的可选钩子保留。
+   */
   onEdit?: () => void;
   /** 删除后的回调 */
   onDeleted?: () => void;
+  /** 编辑表单的初始内容（纯文本） */
+  initialContent?: string;
+  /** 编辑表单的初始标题 */
+  initialTitle?: string;
 };
 
 export default function TopicActions({
@@ -51,6 +63,8 @@ export default function TopicActions({
   user,
   onEdit,
   onDeleted,
+  initialContent = '',
+  initialTitle = '',
 }: Props) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +72,8 @@ export default function TopicActions({
   const [myVote, setMyVote] = useState(topic.myVote);
   const [locked, setLocked] = useState(topic.locked);
   const [pinned, setPinned] = useState(topic.pinned);
+  /** 编辑表单是否展开（v0.0.4：编辑入口必须真的能用，不能是假按钮） */
+  const [editing, setEditing] = useState(false);
 
   async function act<T = Record<string, unknown>>(
     key: string,
@@ -140,7 +156,8 @@ export default function TopicActions({
   if (!user) return null;
 
   return (
-    <div className="topic_actions" role="group" aria-label="主题操作">
+    <>
+      <div className="topic_actions" role="group" aria-label="主题操作">
       {/* 投票 */}
       <button
         type="button"
@@ -153,17 +170,21 @@ export default function TopicActions({
         {myVote === 'up' ? '✓ ' : ''}赞 {votes > 0 ? votes : ''}
       </button>
 
-      {topic.canEdit && (
-        <button
-          type="button"
-          className="button"
-          disabled={pending === 'edit'}
-          onClick={onEdit}
-          aria-label="编辑主题"
-        >
-          {topic.edited ? `编辑 (${topic.editCount})` : '编辑'}
-        </button>
-      )}
+        {topic.canEdit && (
+          <button
+            type="button"
+            className="button"
+            disabled={pending === 'edit'}
+            onClick={() => {
+              setEditing(!editing);
+              onEdit?.();
+            }}
+            aria-label="编辑主题"
+            aria-expanded={editing}
+          >
+            {topic.edited ? `编辑 (${topic.editCount})` : '编辑'}
+          </button>
+        )}
 
       {topic.canDelete && (
         <button
@@ -212,11 +233,24 @@ export default function TopicActions({
         </>
       )}
 
-      {error && (
-        <span className="fade" role="alert" style={{ marginLeft: '8px' }}>
-          {error}
-        </span>
+        {error && (
+          <span className="fade" role="alert" style={{ marginLeft: '8px' }}>
+            {error}
+          </span>
+        )}
+      </div>
+
+      {/* v0.0.4：编辑模态框 —— 修复「编辑」按钮点了没反应的假按钮问题。
+          用 fixed 模态而非内联表单，避免被正文浮动元素遮挡导致点不到。 */}
+      {editing && topic.canEdit && (
+        <TopicEditForm
+          topicId={topic.topicId}
+          initialContent={initialContent}
+          initialTitle={initialTitle}
+          canEditTitle={topic.canModerate}
+          onDone={() => setEditing(false)}
+        />
       )}
-    </div>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
+import { grantCredits, creditAmounts } from '@/lib/credit-service';
 import { allocateFloor, ensureFloorCounter } from '@/server/floor';
 import { sanitizeRedirect } from '@/lib/redirect';
 import { getFormData } from '@/lib/csrf';
@@ -81,11 +82,21 @@ export async function POST(request: Request) {
   }
 
   // 分配楼层号：使用独立计数表的原子 UPSERT，避免并发冲突
-  let floor = await allocateFloor(topicId);
-
+  //
+  // ⚠️ v0.0.4 修复楼层跳号（真实压测发现）。
+  //   原实现插入时用 `floor: floor + attempt` —— 但 allocateFloor **本身已经
+  //   把计数表递增了**，这里再叠加 attempt 的偏移，导致：
+  //     - 实际写入的楼层与计数表脱节（写入值永远比计数表小）
+  //     - 计数表落后于实际最大楼层 → 下次分配又拿到已被占用的楼层 → 冲突
+  //     - 冲突后 ensureFloorCounter 重置计数表 → 循环
+  //   实测：连发 5 条回复得到楼层 26、24、22、20、18（**跳号 5 个**）。
+  //
+  //   现在：**楼层号只由 allocateFloor 分配一次**，插入严格使用该值；
+  //   冲突时重新分配（不复用旧值），不再做 +attempt 偏移。
   let inserted = false;
-  let replyFloor = floor;
+  let replyFloor = 0;
   for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
+    const floor = await allocateFloor(topicId);
     try {
       const [reply] = await db
         .insert(schema.replies)
@@ -93,11 +104,11 @@ export async function POST(request: Request) {
           topicId,
           authorId: user.id,
           content,
-          floor: floor + attempt,
+          floor,
         })
         .returning({ id: schema.replies.id });
       inserted = true;
-      replyFloor = floor + attempt;
+      replyFloor = floor;
 
       await db
         .update(schema.topics)
@@ -118,6 +129,21 @@ export async function POST(request: Request) {
           message: `${user.username} 回复了你的主题：${topic.title}`,
         });
       }
+
+      // 回复积分（v0.0.4 补齐闭环）
+      //
+      // ⚠️ 此前**回复完全不给积分** —— 排行榜页与积分规则页都写着
+      // 「发布主题与回复都可以获得积分」，但回复路径没有发放逻辑，
+      // 属于文档与实现不一致。额度由 REPLY_CREDITS 配置（默认 2），
+      // 幂等键保证同一回复不会重复发放。
+      await grantCredits(user.id, {
+        type: 'reply_created',
+        amount: creditAmounts().reply,
+        idempotencyKey: `reply_created:${reply.id}`,
+        refType: 'reply',
+        refId: reply.id,
+        reason: '发布回复',
+      });
     } catch (err) {
       // drizzle 会把 Postgres 错误包在 cause 中，需同时检查两层
       const e = err as {
@@ -133,17 +159,13 @@ export async function POST(request: Request) {
         //
         // 计数器与实际楼层不一致时（历史数据导入、seed 写入固定楼层、
         // 计数器表落后），连续 5 个候选楼层可能**全部**已被占用。
-        // 此时重新按「实际最大楼层 + 1」分配，而不是继续 +1 试探。
+        //
+        // 此时把计数表抬到「实际最大楼层」的水位，再重新分配。
+        //
+        // ⚠️ v0.0.4：**不再**用 `floor + attempt` 做偏移试探 ——
+        //   偏移会写入与计数表脱节的楼层号，正是跳号的来源。
+        //   现在每轮循环都重新调用 allocateFloor 拿一个权威楼层。
         await ensureFloorCounter(topicId);
-        const retryFloor = await allocateFloor(topicId);
-        if (retryFloor <= floor + attempt) {
-          // 计数表没能抬高水位（并发下被别的请求抢走了），
-          // 退回到继续 +1 试探。
-          continue;
-        }
-        // 抬高水位后从新楼层重新开始尝试
-        floor = retryFloor;
-        attempt = -1; // 下一轮循环 attempt++ 后为 0
         continue;
       }
       console.error('[replies] 插入失败:', {

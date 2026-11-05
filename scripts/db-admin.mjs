@@ -18,13 +18,22 @@
  *   PG_ADMIN_URL —— 管理员连接（默认由 DATABASE_URL 推导：库名换成 postgres）
  */
 import postgres from 'postgres';
-import { config } from 'dotenv';
+import { loadProductEnv } from '../src/lib/env-loader.mjs';
 
-if (process.env.ENV_FILE) {
-  config({ path: process.env.ENV_FILE, quiet: true, override: true });
-}
-config({ path: '.env.local', quiet: true });
-config({ path: '.env', quiet: true });
+/**
+ * 环境加载 —— 委托给**全仓唯一**的实现 `src/lib/env-loader.mjs`
+ *
+ * 本脚本是 `.mjs`（由 `scripts/verify.sh` 用 `node` 直接调用，
+ * 见 `tests/docker-config.spec.ts` 的断言），**不能 import TS 文件** ——
+ * 这正是共享实现放在 `.mjs` 的原因。
+ *
+ * ⚠️ `ENV_FILE: ''`（空串）必须保持 **falsy** 语义：
+ * 子进程用空串表示「不要再解析任何 env 文件，只继承父进程的 DATABASE_URL」。
+ *
+ * 优先级：shell / CI 注入 > `ENV_FILE` 文件 > `.env.local` > `.env`，
+ * 且文件**只填充未设置的变量**。
+ */
+loadProductEnv({ cwd: process.cwd() });
 
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) {

@@ -1,0 +1,156 @@
+Listing tests:
+  [chromium] › auth.spec.ts:9:3 › 账号体系 › 注册后自动登录并可访问设置页
+  [chromium] › auth.spec.ts:19:3 › 账号体系 › 重复用户名注册被拒绝
+  [chromium] › auth.spec.ts:38:3 › 账号体系 › 短密码注册被拒绝
+  [chromium] › auth.spec.ts:48:3 › 账号体系 › 错误密码登录失败并给出提示
+  [chromium] › auth.spec.ts:57:3 › 账号体系 › 登录后导航栏显示用户名，退出后恢复游客态
+  [chromium] › auth.spec.ts:66:3 › 账号体系 › 未登录访问受保护页面会跳转到登录页
+  [chromium] › auth.spec.ts:73:3 › 账号体系 › 登录限流生效
+  [chromium] › auth.spec.ts:89:3 › 账号体系 › 管理员账号可访问管理后台，普通用户不可
+  [chromium] › feature.spec.ts:9:3 › 收藏与通知 › 收藏主题后出现在收藏页，可取消收藏
+  [chromium] › feature.spec.ts:39:3 › 收藏与通知 › 收藏节点后出现在收藏页
+  [chromium] › feature.spec.ts:63:3 › 收藏与通知 › 未登录用户收藏被拒绝
+  [chromium] › feature.spec.ts:68:3 › 收藏与通知 › 收到回复后通知列表出现对应条目
+  [chromium] › feature.spec.ts:101:3 › 收藏与通知 › 收藏接口校验目标类型
+  [chromium] › feature.spec.ts:109:3 › 搜索 › 搜索框输入后出现建议下拉
+  [chromium] › feature.spec.ts:116:3 › 搜索 › 搜索结果页返回匹配的主题
+  [chromium] › feature.spec.ts:123:3 › 搜索 › 搜索关键词无结果时给出提示
+  [chromium] › feature.spec.ts:130:3 › 权限控制 › 普通用户不能创建节点
+  [chromium] › feature.spec.ts:136:3 › 权限控制 › 管理员可以创建节点
+  [chromium] › feature.spec.ts:148:3 › 权限控制 › 版主创建的节点需要审核
+  [chromium] › feature.spec.ts:157:3 › 权限控制 › 非管理员不能审核节点
+  [chromium] › feature.spec.ts:165:3 › 权限控制 › 节点名格式非法被拒绝
+  [chromium] › feature.spec.ts:171:3 › 权限控制 › 重复节点名被拒绝
+  [chromium] › feature.spec.ts:177:3 › 权限控制 › 用户只能修改自己的资料
+  [chromium] › feature.spec.ts:187:3 › 权限控制 › 修改密码需要校验当前密码
+  [chromium] › pagination.spec.ts:5:3 › 分页 › 首页分页：每页 20 条，页码可跳转
+  [chromium] › pagination.spec.ts:12:3 › 分页 › 节点页分页参数生效
+  [chromium] › pagination.spec.ts:47:3 › 分页 › 主题数不足一页时不显示分页器
+  [chromium] › pagination.spec.ts:57:3 › 分页 › 超出范围的页码不报错
+  [chromium] › pagination.spec.ts:62:3 › 分页 › 主题详情回复分页器存在且格式正确
+  [chromium] › pagination.spec.ts:70:3 › 分页 › 分页输入框可跳转到指定页
+  [chromium] › security-regression.spec.ts:37:3 › P0-1 / P0-2 验证码强制校验 › 缺失 captchaId 时不得静默通过
+  [chromium] › security-regression.spec.ts:55:3 › P0-1 / P0-2 验证码强制校验 › captchaId 存在但答案错误时被拒绝
+  [chromium] › security-regression.spec.ts:75:3 › P0-1 / P0-2 验证码强制校验 › 验证码字段名与挑战不匹配时被拒绝
+  [chromium] › security-regression.spec.ts:93:3 › P0-1 / P0-2 验证码强制校验 › 验证码端点始终可用并返回挑战
+  [chromium] › security-regression.spec.ts:105:3 › P0-3 调试端点鉴权 › 缺少令牌时 reset-rate-limits 被拒绝
+  [chromium] › security-regression.spec.ts:111:3 › P0-3 调试端点鉴权 › 错误令牌时 reset-rate-limits 被拒绝
+  [chromium] › security-regression.spec.ts:118:3 › P0-3 调试端点鉴权 › floors 端点同样需要鉴权
+  [chromium] › security-regression.spec.ts:141:3 › P0-4 PostgreSQL 限流窗口重置 › 窗口过期后计数归零而非无限累积
+  [chromium] › security-regression.spec.ts:168:3 › P1-10 注册限流双维度 › 同一 IP 换用户名批量注册会被 IP 维度限流拦截
+  [chromium] › security-regression.spec.ts:197:3 › P1-11 回复接口 redirect 验证 › 外部 redirect 被规范化为站内路径
+  [chromium] › security-regression.spec.ts:217:3 › P1-11 回复接口 redirect 验证 › 协议相对 URL 被拒绝
+  [chromium] › security-regression.spec.ts:236:3 › P1-13 显式 CSRF 防护 › 写请求缺少 CSRF token 被拒绝
+  [chromium] › security-regression.spec.ts:246:3 › P1-13 显式 CSRF 防护 › CSRF token 错误时被拒绝
+  [chromium] › security-regression.spec.ts:256:3 › P1-13 显式 CSRF 防护 › 携带正确 CSRF token 时放行
+  [chromium] › security-regression.spec.ts:270:3 › P1-13 显式 CSRF 防护 › 页面会下发 CSRF Cookie
+  [chromium] › security-regression.spec.ts:278:3 › P1-14 HTML 清洗器 › data:image/svg+xml 被拒绝（SVG 内可嵌脚本）
+  [chromium] › security-regression.spec.ts:297:3 › P1-14 HTML 清洗器 › javascript: 协议被拒绝
+  [chromium] › security-regression.spec.ts:313:3 › P1-14 HTML 清洗器 › style 属性被丢弃（防 CSS 注入）
+  [chromium] › security-regression.spec.ts:329:3 › P1-14 HTML 清洗器 › 外链自动加 rel=noopener（防 tabnabbing）
+  [chromium] › security.spec.ts:9:3 › 安全性 › 主题正文中的脚本被执行前被清洗（XSS）
+  [chromium] › security.spec.ts:38:3 › 安全性 › 回复中的脚本被清洗（XSS）
+  [chromium] › security.spec.ts:58:3 › 安全性 › 用户名中的 HTML 被转义而非执行
+  [chromium] › security.spec.ts:67:3 › 安全性 › 会话 Cookie 为 HttpOnly
+  [chromium] › security.spec.ts:76:3 › 安全性 › 登录 next 参数不允许开放重定向
+  [chromium] › security.spec.ts:95:3 › 安全性 › 回复接口无法引用不存在的主题（防注入/越权）
+  [chromium] › security.spec.ts:101:3 › 安全性 › 设置接口拒绝非法 URL 协议
+  [chromium] › security.spec.ts:107:3 › 安全性 › 响应包含安全头
+  [chromium] › security.spec.ts:114:3 › 安全性 › 未登录状态下的写操作全部被拒绝
+  [chromium] › security.spec.ts:132:3 › 安全性 › 未登录且缺少 CSRF token 时被拒绝
+  [chromium] › topic.spec.ts:9:3 › 主题与回复 › 发布主题后出现在节点页与首页列表中
+  [chromium] › topic.spec.ts:35:3 › 主题与回复 › 回复主题后楼层号递增且计数同步
+  [chromium] › topic.spec.ts:69:3 › 主题与回复 › 未登录用户无法提交回复
+  [chromium] › topic.spec.ts:74:3 › 主题与回复 › 回复内容长度受限
+  [chromium] › topic.spec.ts:81:3 › 主题与回复 › 对不存在的主题回复返回 404
+  [chromium] › topic.spec.ts:87:3 › 主题与回复 › 发帖缺少必填项被拒绝
+  [chromium] › topic.spec.ts:93:3 › 主题与回复 › 回复限流生效
+  [chromium] › topic.spec.ts:108:3 › 主题与回复 › 并发回复不会产生重复楼层号
+  [chromium] › v004-account-admin.spec.ts:32:3 › v0.0.4 积分与签到 › 签到：按钮可点击、积分增加、流水入账，重复点击不叠加
+  [chromium] › v004-account-admin.spec.ts:90:3 › v0.0.4 积分与签到 › 签到幂等：API 层连发 3 次只记一次
+  [chromium] › v004-account-admin.spec.ts:104:3 › v0.0.4 积分与签到 › 排行榜页展示真实数据且可访问
+  [chromium] › v004-account-admin.spec.ts:121:3 › v0.0.4 积分与签到 › 积分规则在页面上有说明（独立实现，非原站数值）
+  [chromium] › v004-account-admin.spec.ts:132:3 › v0.0.4 通知 › 通知：他人回复后收到通知，标记已读后未读数归零
+  [chromium] › v004-account-admin.spec.ts:181:3 › v0.0.4 通知 › 通知：未登录访问被拒
+  [chromium] › v004-account-admin.spec.ts:192:3 › v0.0.4 关注 › 关注：关注后出现在关注列表，取消后移除，重复关注幂等（API 层）
+  [chromium] › v004-account-admin.spec.ts:267:3 › v0.0.4 关注 › 关注（UI）：真实点击关注/取消，刷新后状态持久化，关注列表出现该用户
+  [chromium] › v004-account-admin.spec.ts:382:3 › v0.0.4 头像与资料 › 资料编辑：修改后页面与 API 均体现新值
+  [chromium] › v004-account-admin.spec.ts:405:3 › v0.0.4 头像与资料 › 头像上传：非法文件被拒绝
+  [chromium] › v004-account-admin.spec.ts:426:3 › v0.0.4 头像与资料 › 头像上传：合法 PNG 被接受
+  [chromium] › v004-account-admin.spec.ts:458:3 › v0.0.4 后台管理 › 后台：普通用户被拒（403），管理员可访问
+  [chromium] › v004-account-admin.spec.ts:481:3 › v0.0.4 后台管理 › 后台：管理员页面可打开且展示真实数据
+  [chromium] › v004-account-admin.spec.ts:487:3 › v0.0.4 后台管理 › 后台：封禁用户后其会话失效，解封后恢复
+  [chromium] › v004-account-admin.spec.ts:530:3 › v0.0.4 后台管理 › 后台：角色变更生效，且不能自我降级
+  [chromium] › v004-account-admin.spec.ts:551:3 › v0.0.4 后台管理 › 后台：系统配置返回时凭据已脱敏
+  [chromium] › v004-account-admin.spec.ts:575:3 › v0.0.4 节点申请与审批 › 普通用户申请节点，管理员批准后节点真实存在
+  [chromium] › v004-account-admin.spec.ts:617:3 › v0.0.4 节点申请与审批 › 普通用户不能审核节点申请
+  [chromium] › v004-account-admin.spec.ts:628:3 › v0.0.4 Feed 与搜索 › 三种 Feed 格式正确且内容非空
+  [chromium] › v004-account-admin.spec.ts:643:3 › v0.0.4 Feed 与搜索 › JSON Feed 符合规范结构
+  [chromium] › v004-account-admin.spec.ts:651:3 › v0.0.4 Feed 与搜索 › 搜索：关键词能命中且分页上限被钳制
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（含统计）：GET /api/nodes 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（分类过滤）：GET /api/nodes?categoryId=1 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（子节点过滤）：GET /api/nodes?parentId=1 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 节点列表（分页）：GET /api/nodes?limit=5&offset=0 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › RSS Feed：GET /api/feed 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › Atom Feed：GET /api/feed/atom 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › JSON Feed：GET /api/feed/json 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 搜索：GET /api/search?q=linux 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 搜索（超限钳制）：GET /api/search?q=linux&limit=500 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 积分排行榜：GET /api/leaderboard 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 积分排行榜（分页）：GET /api/leaderboard?limit=10&offset=0 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 主题详情：GET /api/topics/3 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:37:5 › v0.0.4 公开 GET 端点冒烟 › 验证码挑战：GET /api/captcha 返回 200 且是合法 JSON
+  [chromium] › v004-api-contract.spec.ts:63:3 › v0.0.4 节点端点数据正确性 › 节点列表返回真实数据库内容且统计口径正确
+  [chromium] › v004-api-contract.spec.ts:82:3 › v0.0.4 节点端点数据正确性 › 分类过滤生效，返回数量少于全集
+  [chromium] › v004-api-contract.spec.ts:94:3 › v0.0.4 节点端点数据正确性 › 分页参数生效
+  [chromium] › v004-api-contract.spec.ts:120:3 › v0.0.4 节点端点数据正确性 › limit 上限被钳制到 500
+  [chromium] › v004-content-interaction.spec.ts:50:3 › v0.0.4 投票 › 投票：点击后计数增加，刷新仍正确，重复点击不叠加
+  [chromium] › v004-content-interaction.spec.ts:93:3 › v0.0.4 投票 › 投票：未登录用户看不到投票操作
+  [chromium] › v004-content-interaction.spec.ts:105:3 › v0.0.4 感谢 › 感谢：跨用户感谢成功，重复感谢不叠加，作者可见感谢数
+  [chromium] › v004-content-interaction.spec.ts:157:3 › v0.0.4 感谢 › 感谢：不能感谢自己的回复
+  [chromium] › v004-content-interaction.spec.ts:187:3 › v0.0.4 主题编辑 / 软删除 / 恢复 › 编辑主题：内容变更并在页面展示，刷新后仍生效
+  [chromium] › v004-content-interaction.spec.ts:223:3 › v0.0.4 主题编辑 / 软删除 / 恢复 › 软删除主题：作者删除后普通访问者不可见，管理员恢复后重新可见
+  [chromium] › v004-content-interaction.spec.ts:276:3 › v0.0.4 主题编辑 / 软删除 / 恢复 › 权限：普通用户不能锁定或置顶主题
+  [chromium] › v004-content-interaction.spec.ts:298:3 › v0.0.4 主题编辑 / 软删除 / 恢复 › 锁定 / 置顶：管理员操作成功并写入状态
+  [chromium] › v004-content-interaction.spec.ts:339:3 › v0.0.4 并发安全 › 并发回复不产生重复楼层号
+  [chromium] › v004-content-interaction.spec.ts:370:3 › v0.0.4 并发安全 › 并发投票只记一票
+  [chromium] › v004-endpoint-smoke.spec.ts:78:3 › v0.0.4 全部 GET 端点自动冒烟 › 发现端点数与预期一致（防止扫描逻辑失效）
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/config 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/logs 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/node-requests 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/pending 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/reports 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/stats 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/admin/users 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/auth/reset-password 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/captcha 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/checkin 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/collections 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/credits 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/debug/floors 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/feed 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/feed/atom 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/feed/json 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/leaderboard 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/node-requests 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/nodes 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/nodes/[name]/feed 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/notifications 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/replies/[id]/edit-history 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/search 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/search/suggest 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/topics/[id] 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/topics/[id]/edit-history 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/users/follows 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/users/follows/topics 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:87:5 › v0.0.4 全部 GET 端点自动冒烟 › /api/users/me 不返回 5xx
+  [chromium] › v004-endpoint-smoke.spec.ts:122:3 › v0.0.4 端点响应格式 › JSON 端点必须返回可解析的 JSON（不是 HTML 错误页）
+  [chromium] › v004-four-roles-ui.spec.ts:82:3 › 四身份 UI 验收 · 游客 › 游客访问 /go/new 被服务端重定向到登录页
+  [chromium] › v004-four-roles-ui.spec.ts:88:3 › 四身份 UI 验收 · 游客 › 游客直达 /admin 被重定向到登录页，不泄露后台内容
+  [chromium] › v004-four-roles-ui.spec.ts:94:3 › 四身份 UI 验收 · 游客 › 游客在主题页看不到回复表单，导航栏无后台入口
+  [chromium] › v004-four-roles-ui.spec.ts:122:3 › 四身份 UI 验收 · 游客 › 节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库
+  [chromium] › v004-four-roles-ui.spec.ts:224:3 › 四身份 UI 验收 · 普通注册用户 › 普通用户：/admin 直达被拒、导航无后台入口、主题页无管理按钮
+  [chromium] › v004-four-roles-ui.spec.ts:255:3 › 四身份 UI 验收 · 版主 moderator › 版主：主题管理真实点击流 + /admin 权限边界 + 节点申请 tab 反馈
+  [chromium] › v004-four-roles-ui.spec.ts:327:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/admin 真实点击「封禁 → 解封」+ 配置页无明文口令
+  [chromium] › v004-four-roles-ui.spec.ts:412:3 › 四身份 UI 验收 · 管理员 admin › 管理员：/、/admin、/settings 三页 DOM 中都有 /admin 入口且可点击到达
+Total: 154 tests in 11 files

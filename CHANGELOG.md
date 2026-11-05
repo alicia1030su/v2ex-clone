@@ -8,6 +8,181 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [Unreleased] — v0.0.4 开发分支（尚未发布）
+
+> ⚠️ **版本号尚未同步（主理人裁决，2026-11-04）**：`package.json`、`deploy/VERSION`、
+> `README.md`、`FEATURE_MATRIX.md`、`RELEASE_GATE.md`、`TEST_REPORT.md` **仍统一为
+> `0.0.3`，本轮刻意不提前升级**。**本文件出现「v0.0.4」只代表开发分支，不代表已发布的版本号。**
+>
+> 理由：任务书明令「v0.0.4 期间禁止提前创建最终 Tag，同一版本号不得反复删建或移动 Tag」。
+> 在**最终 SHA 固定之前**把版本载体升到 `0.0.4`，会造成「版本号已是 0.0.4、却没有
+> 对应 Tag 与 Release」的中间态，且一旦后续改动 SHA 又要改版本号 —— 这正是被禁止的
+> 「同一版本号反复移动」。
+>
+> 因此采用：`[Unreleased]` 段落累积变更 → 合并并固定最终 SHA → **一次性**把版本载体、
+> Tag、Draft Release 同步到 v0.0.4。此决策由主理人负责，在
+> `docs/RELEASE_PROCESS_v0.0.4.md` 中固化为发布门禁（门禁 G-VER-01，第 9 步）。
+> 登记见 `RISK_REGISTER.md` **R-20**（已裁决：开发态保持 0.0.3）。
+>
+> 本小节只记录**本轮实际做过并验证过的事**。
+
+### 一、修复的真实缺陷（**15 项**，均由真实浏览器 E2E / 真实压测 / 版本库核查 / CI 实跑发现）
+
+| ID | 级别 | 缺陷 | 验证方式 |
+|---|---|---|---|
+| B-01 | 阻断 | `GET /api/nodes` 生产构建必然 500（原生 SQL 用 `FROM nodes n` 起别名，WHERE 仍由 drizzle 生成 `"nodes"."status"` → PG 42P01） | `e2e/v004-api-contract.spec.ts` 端点冒烟 + `e2e/v004-endpoint-smoke.spec.ts` 全 GET 不 5xx |
+| B-02 | 阻断 | `GET /api/topics/[id]` 500（条件片段写成普通字符串被 drizzle 绑定成 `$2` 占位符 → PG 42601） | 同上 + `bench-result.json` 主题详情 API 4810 请求无 5xx |
+| B-03 | 严重 | 分页参数 `limit`/`offset` 从未从路由透传到服务层 | `v004-api-contract.spec.ts`「分页参数生效」+ `e2e/pagination.spec.ts` |
+| B-04 | 严重 | 「编辑主题」是假按钮（服务端组件无法向客户端组件传函数，`onEdit` 永远 undefined） | `v004-content-interaction.spec.ts` 完整 UI 链路：点击→模态框→填值→保存→展示→刷新 |
+| B-05 | 严重 | 回复楼层跳号（`allocateFloor` 双重 `+1`；路由 `floor + attempt` 偏移使实际楼层与计数表脱节） | 修复后连发 6 条得 `41..46` 严格连续；`tests/floor-continuity.spec.ts` 断言严格 `1..n` |
+| B-06 | 一般 | 注册赠送积分绕开账本（直接写 `balance: 1000`，破坏「余额 == 账本累计」不变式） | 新注册用户 `balance=1000 / ledger_sum=1000 / rows=1`，账本链 `before=0→after=1000→before=1000→after=1002` 首尾相接 |
+| B-07 | 一般 | `/hot` 独立页面缺失（v0.0.3 只有首页侧栏） | 新增 `src/app/hot/page.tsx` 与 `src/app/recent/page.tsx`；压测「热门排序」230 请求 0 错误 |
+| B-08 | 严重 | 积分排行榜相关子查询 N+1（每作者执行一次，EXPLAIN 实测 **241.98 秒**） | 改「三个独立聚合 + JOIN」→ 0.74 秒；`0002` 索引后 0.46 秒；压测 p50 1.23 秒（并发 10） |
+| **B-09** | 严重 | **运行时上传数据被误提交入仓** —— E2E 跑出的 **18 个头像占位 PNG**（每个 684 字节）被 Git 跟踪，进入公开发布物。**风险性质与 R-01 同类**（运行时数据进入公开发布物） | 提交 `49d66d3`：`.gitignore` 加 `public/uploads/` 规则 + `git rm --cached` 移出索引（**不改写历史、不删磁盘文件**）；验证 `git ls-files "public/uploads/*"` → **0 条**。引入提交逐一定位：`04b107b`（16 个）/ `1b15f79`（1 个）/ `301a8a5`（1 个）。登记 `BUG_REGISTER` V4-14 / `RISK_REGISTER` R-25 |
+| **B-10** | 严重 | **`docker-verify.yml` 定义级失败** —— 工作流在定义阶段就失败，**一个 job 都没被创建**（run 0 秒结束、`total_count=0`、报错仅「This run likely failed because of a workflow file issue」）。根因：GitHub 表达式上下文**不支持 `&&`/`\|\|` 三元**（`\|\|` 取默认值支持） | 提交 `2532f5f`：三元判断下沉到 shell 层，`${{ }}` 只用于传值。**陷阱**：YAML 本身能正常解析（1 job / 17 steps），问题只在表达式求值阶段 ⇒ 排查耗时。登记 `BUG_REGISTER` V4-15 |
+| **B-13** | 严重 | **`docker-verify.yml` 的 app 健康判定口径不可能成立** —— 第 2 项红灯 `✗ app 未达 healthy（none）`。根因：根目录 `docker-compose.yml` 的 **app 服务没有 healthcheck**（只有 `deploy/docker-compose.yml` 才有）⇒ `State.Health.Status` **永远返回 `none`**。⚠️ **CI 日志证明 app 其实完全健康**（`✓ Ready in 414ms`）—— 是断言读错了 | ✅ **已修** —— 改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` 返回 200）；PG/Redis 仍用 health 状态。**HTTP 探活是更强的证据**（证明 Next.js 真在服务请求，而非只是容器活着）。桩程序对照验证通过 |
+| **B-14** | 严重 | **`docker-verify.yml` 的 `[7/9]` 安装包实际部署必然失败** —— ① **端口占用**：`install.sh` L163 的硬性端口检查会因根 compose 的 app 容器仍占 3000 而直接 `die`；② **容器名冲突**：新实例与运行中的实例同名 | ✅ **已修** —— 断言与执行上下文分离，并新增断言保证它不会变成外部镜像 |
+| **B-12** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元 `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过 ⇒ 整个 CI 红灯。根因：硬编码 `readFileSync('.env.test')`（该文件被 gitignore，CI 检出里不存在）+ `:55433/` 端口白名单（CI 的 `DATABASE_URL` 是 5432） | ✅ **已修并经 CI 复验** —— 提交 `8ce5ce9`（护栏 3 修复提交 `634a202`）。**修复前的历史观测**：run `41837212170`（HEAD `930f29e`）`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)`（**分母 190 正确**）。run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 ✅（vitest 15 文件全过，0 skipped），`e2e` job **已真实跑过**。登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26 |
+| **B-11** | 一般 | **`docker-verify.yml` 迁移物路径断言错误** —— 第 9 项误报「✗ 镜像内缺少迁移文件: `_journal.json`」，而同一步骤前面的 `ls` 已证明它存在。根因：drizzle 的 SQL 在 `/app/drizzle/` 根目录，而 `_journal.json` 与 snapshot 在 `/app/drizzle/meta/` 子目录，初版混用同一路径断言。**性质：验证脚本自身的错误，不是产品缺陷** | 提交 `930f29e`：SQL 与 meta 分成两段断言，meta 段同时断言 3 个 snapshot + `_journal.json`（覆盖面更严）。登记 `BUG_REGISTER` V4-16 |
+| **B-15** | 严重 | **节点申请 UI 提交链断裂（V4-20 / R-27）** —— HTML 规范给 `HTMLFormElement` 加了 `[OverrideBuiltins]`：表单内的**命名控件**会**遮蔽原型上的同名属性**。`<form><input name="nodeName"></form>` ⇒ `form.nodeName` 返回 **HTMLInputElement**（不是 `"FORM"`）⇒ Next.js 15.5 内置的 React 19 水合代码（`react-dom-client.production.js` 的 `canHydrateInstance`）中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ 水合失败（React #418）⇒ **事件处理器不绑定** ⇒ 表单走浏览器原生 GET 提交 ⇒ **写操作彻底失效**（**API 路径通过、纯 UI 路径失败**） | ✅ **已修并本地实测验证** —— 提交 `bddb3d0`：表单命名属性改名以消除遮蔽（`NodeRequestForm.tsx` 的 `nodeName` → `node_slug` / `nodeTitle` → `node_title`，`name` 与 `id` 均改；`NewTopicForm.tsx` / `TopicEditForm.tsx` 的 `name="title"` → `name="topic_title"`，`id="title"` 有意保留供 E2E 定位；`e2e/v004-four-roles-ui.spec.ts` 与 `e2e/helpers.ts` 选择器同步）；**新增** `tests/form-name-shadowing.spec.ts`（4 条防回归断言，扫全仓 `src/`）。**实测**：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿；`/nodes/request` 的 React #418 **由 2 次归零**；提交恢复为 `POST /api/node-requests` ✅、URL 停在 `/nodes/request` ✅、成功 toast 出现 ✅。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`。****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。登记 `BUG_REGISTER` **V4-20** / `RISK_REGISTER` **R-27** |
+
+### 二、性能优化（EXPLAIN ANALYZE + 真实压测实测，10 万主题 / 100 万回复）
+
+| 端点 | 优化前 | 优化后 | 手段 |
+|---|---|---|---|
+| 搜索 API | 3207ms | **41ms** | `pg_trgm` GIN 三值索引（ILIKE 前导通配符无法用 B-tree） |
+| 节点列表 API | 1543ms | **67ms** | 相关子查询 → 聚合 JOIN；`topics.last_reply_at` 已是汇总字段，无需 join 100 万 replies |
+| 排行榜 API | 超时（>30s） | **~1.2s**（并发 10） | 见 B-08 |
+
+### 三、新增迁移
+
+- `drizzle/0002_v004_perf_indexes.sql`：5 个 btree + 2 个条件性 pg_trgm GIN 索引；
+  `CREATE EXTENSION` 用 DO 块捕获权限不足（跳过索引而不让迁移失败）；
+  全部 `IF NOT EXISTS`，连跑 3 次幂等，全新库迁移实测通过。
+
+### 四、新增能力与工程化
+
+| 项 | 内容 | 证据 |
+|---|---|---|
+| 升级脚本自动同步镜像 tag | 重写 `deploy/update.sh`（+688 行）：自动改写 `.env` 的 `V2EX_IMAGE`、失败回滚、备份失败中止、非法版本号拒绝、镜像未变化时告警中止（退出码 3） | `b0d68c2`；`scripts/release/verify-update-script.sh` **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项） |
+| 升级脚本沙箱自检 | **不依赖 Docker** 的自检脚本：`mktemp -d` 沙箱 + 假 `deploy/.env` + 真实 `backup.sh` 副本 + 记录调用参数的 docker stub，跑**真实的** `update.sh` 并断言 8 类行为 + 「仓库真实文件未被改动」校验和 | `scripts/release/verify-update-script.sh`（749 行），实测 `PASS=62 FAIL=0` |
+| Docker / Redis 取证通道 | 新建 `.github/workflows/docker-verify.yml`（9 项验证），含 `[R-17a]` Redis 中断恢复、`[R-17b]` PG 中断恢复、`[R-17c]` 缓存失效与内存观测 | `b0d68c2` + `2532f5f` + `930f29e`；**首轮实跑已通过第 9 项的 6 个子断言**（非 root、8 项 devDependency 未检出、3 个运行时文件已检出、5 个 env/凭据文件未检出、迁移 SQL 完整、体积打印） |
+| 发布前只读门禁 | `scripts/release/preflight.sh` 双模式（`--phase=dev` / `--phase=release`）：版本一致性 / 流水线闸门 / 迁移幂等 / 安装包结构四类，**只读、不写、不联网** | `docs/RELEASE_PROCESS_v0.0.4.md` §14 |
+| 视觉汇总脚本入仓 | `tools/visual/summarize-visual-diff.py` + `docs/evidence/visual/geometry-summary.json`（三套口径机器可读，**52/52 可复算**） | `1b15f79` |
+
+### 五、测试与证据（**权威口径**）
+
+| 项 | 权威值 | 实测命令 / 证据 |
+|---|---|---|
+| **单元测试** | **194 条 / 16 个文件**，**194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件**（新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194） | `ENV_FILE=.env.test npx vitest run`；`docs/evidence/ci/test-baseline-v0.0.4.md` |
+| **单元测试（CI）** | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验**。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
+| **真实浏览器 E2E** | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威值 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实测全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`；`docs/evidence/e2e/e2e-full-run-v0.0.4.md` |
+| **升级脚本自检** | **87 项断言全 PASS / 0 FAIL**（本轮实测；历史为 62 项） | `bash scripts/release/verify-update-script.sh` |
+| **视觉对照** | 4 视口 × 17 页面 = **68 条**；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52**、Δw=0 48/52 | `tools/visual/summarize-visual-diff.py` + `docs/evidence/visual/geometry-summary.json` |
+| **负载压测** | 13 场景 / 24785 请求，**0 个 5xx**；数据集 351 万行（10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复） | `scripts/loadtest/seed-large.ts` + `tools/loadtest/bench.mjs` + `bench-result.json` |
+
+#### 5.1 「185 vs 190」口径裁决（**权威值 = 194 条 / 16 文件 / 0 failed / 0 skipped**；修复前基线 = 190 条 / 15 文件）
+
+⚠️ **「185」有两个不同来源，绝不可混用**：
+
+| 数字 | 来源 | 含义 | 归属 |
+|---|---|---|---|
+| **194** | V4-20 修复后本地实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 16 passed (16)` / `Tests 194 passed (194)` —— **总数即 194**（新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言） | ✅ **v0.0.4 当前权威基线** |
+| **190** | V4-20 **修复前**的本机连续 4 轮实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 15 passed (15)` / `Tests 190 passed (190)` —— 当时的总数即 190 | ✅ **修复前基线**（190 + 4 = 194） |
+| **185**（作为**通过数**） | **修复前的历史观测**：CI run `41837212170`（HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**；5 条因 `floor-continuity` 在 CI 崩溃而跳过 | ✅ **历史快照**（红灯已由 `8ce5ce9` 修复，run `41860242099` / `41873009808` 单元 job 已 ✅） |
+| **185**（作为**总数**） | CI run `41760677505`（master @ `37710fb4`，**14 个** spec 文件） | `Tests 185 passed (185)` —— 当时总数就是 185 | ⏪ **v0.0.3 历史快照**，已过时 |
+
+**结论**：
+1. **v0.0.4 的用例总数在 V4-20 修复后为 194**（16 个文件）—— **修复前为 190**（15 个文件）——
+   CI 的 `185 passed | 5 skipped (190)` **分母就是 190**，**不构成「总数有争议」**。
+   与 v0.0.3 的**总数差异**来自 `tests/floor-continuity.spec.ts`（5 条，提交 `1b15f79` 引入）：
+   `185 (master, 14 文件) + 5 = 190 (V4-20 修复前, 15 文件)`；
+   V4-20 修复再 +4（`tests/form-name-shadowing.spec.ts` 的 4 条防回归断言）：
+   `190 + 4 = 194 (当前, 16 文件)`。
+2. **185 不是「v0.0.4 的用例数」** —— 它要么是 CI 上的**通过数**，要么是 **v0.0.3 master 的历史总数**。
+3. ✅ **CI 单元测试已转绿**（run `41860242099` / `41873009808`，SHA `2773cd1`）：`Test Files 15 passed (15)` /
+   `Tests 190 passed (190)` / **0 skipped**，`e2e` job **已真实跑过**（不再被 `needs: unit` 连带跳过）。
+   **修复前的历史观测**（run `41837212170`，HEAD `930f29e`）为 `Test Files 1 failed | 14 passed (15)` /
+   `Tests 185 passed | 5 skipped (190)`，根因是 `tests/floor-continuity.spec.ts` 硬编码
+   `readFileSync('.env.test')` + `:55433/` 端口白名单 —— `.env.test` 被 gitignore ⇒ CI 检出里没有该文件，
+   而 CI 的 `DATABASE_URL` 是 5432 ⇒ 两条路都走不通 ⇒ ENOENT 崩溃 ⇒ 5 条 skipped ⇒
+   `unit` job 红灯 ⇒ **`e2e` job 被 `needs: unit` 连带跳过**。
+   **已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）——
+   登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验）。
+4. ⚠️ 静态 grep 得出 **180**（少于 190），因 `admin-permissions.spec.ts` 用嵌套 for 循环生成用例 ——
+   **口径必须取 Vitest 运行时的 `numTotalTests`**。三方交叉校验见 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1 / §0.2。
+5. ⚠️ **核对 CI 必须看 `Test Files` 行，不能只看 `Tests` 行**（`1 failed + 5 skipped` ≠ 「少了几条」）。
+6. ✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped；E2E 同 run `154 passed (2.5m)` / 0 failed。
+
+#### 5.2 E2E 用例数口径（**154**）
+
+分解（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）：
+原有 6 文件 67 条 + v004 四文件 **79** 条 + 四身份 UI **8** 条 = **154 条 / 11 文件**。
+
+✅ **当前权威实测结果 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**（V4-20 修复后本地实跑）。
+**修复前的历史快照**：CI run `41873009808` = `153 passed | 1 failed | 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。
+
+`ed385cf`（补齐八项 UI 缺口）的 **增量为 +1** —— 新增的「关注（UI）：真实点击关注/取消，刷新后状态持久化，
+关注列表出现该用户」落在 `e2e/v004-account-admin.spec.ts`（该文件由 20 条增至 21 条），
+`v004-four-roles-ui.spec.ts` 仍为 8 条。
+
+历史数字 **144**（`67 + 77`，更早时点）、**152**（新增 DOM 实证用例之前的时点）、
+**153**（`ed385cf` 之前的时点，`v004-account-admin` 为 20 条）各有其时点，均非错误，**当前权威值为 154**。
+⚠️ `v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动 ⇒ **正式发布前须重新 `--list` 固定口径**。
+
+> ⚠️ 口径待复核（主理人）：本轮任务书给出的分组写法是「**67 + 78 + 9 = 154**」（即把 +1 记在「四身份 UI」组）。
+> 但**按 `ed385cf` 的实际 diff 与 `--list` 实测逐文件计数**，+1 落在 `v004-account-admin.spec.ts`（20 → 21），
+> 因此分组应为「**67 + 79 + 8 = 154**」。**总数 154 与任务书一致**，仅「哪一组 +1」的归属不同。
+> 本节采用**实测口径**，请主理人确认是否按此统一。
+
+#### 5.3 视觉结论的边界（**不得宣称「像素级复刻完成」**）
+
+- 严格口径 Δx=0 **52/52** 只覆盖**几何位置**一个维度。
+- **六类区分必须分别判定**：几何位置 / 组件宽高 / 视觉样式 / 动态内容 / 缺失组件 / 实际交互。
+  其中组件宽高 Δw=0 仅 **48/52**，动态内容因原站是真实社区数据而本地是 seed 数据**必然不同**，
+  缺失组件与实际交互**未覆盖**（28 条无原站对照）。
+- **分母说明**：68 条中 **40 条有对照、28 条无对照**（`no-auth-reference` 6 个页面 × 4 视口 = 24 条
+  + `no-origin-equivalent` 1 个页面 × 4 视口 = 4 条）。无对照项**不拿游客态冒充**。
+- 移动 375 视口的 Δx=0 仅 10/52，是**有意的响应式重排**（原站桌面版 `min-width:600px` 横向滚动），
+  **不是复刻失败**。
+
+### 六、风险状态（收尾轮实测同步；详见 `RISK_REGISTER.md`）
+
+| ID | 风险 | 收尾轮新状态 |
+|---|---|---|
+| **R-01** | 原站版权素材经 Git 历史持续暴露 | 🔴 **DEFERRED（维持）** —— 只读复核：风险未消除；隔离演练证明方案技术可行且不损坏项目，但与「不得移动已发布 Tag」的约束存在**待主人裁决**的冲突 |
+| **R-16** | Docker 容器与安装包未实跑 | 🟢 **已闭环** —— `docker-verify` **九项全部 completed / success**，九项汇总表全 PASS（run `41871503684`，SHA `2773cd1`）。修复提交：`827eef7`（安装模拟改走首次安装路径）、`2773cd1`（安装模拟前 unset job 级 env，修 compose 插值泄漏导致的假绿） |
+| **R-17** | Redis 故障恢复 / 缓存失效 / 内存观测未验证 | 🟢 **已闭环** —— 同 run `41871503684` 九项全绿，含 `[R-17a/b/c]` 三个专项（Redis / PG 中断恢复、缓存失效与内存观测） |
+| **R-18** | 升级路径断点（`update.sh` 不更新镜像 tag） | 🟢 **已修并验证** —— `b0d68c2`；62 项自检断言全 PASS |
+| **R-19** | `release.yml` tag 白名单不含 `v0.0.4` | 🟡 **部分已修（维持）** —— 白名单**发布时人工加入**，不会自动加 |
+| **R-20** | 版本载体全部为 `0.0.3` | 🟢 **已裁决（维持）** —— 开发态保持 0.0.3，最终 SHA 固定后一次性同步 |
+| **R-21** | 四身份 UI 验收缺口（管理员无 `/admin` 入口等） | 🟢 **已修复**（`ed385cf`）—— 管理员入口 / 关注 / 节点申请审批 / 通知已读全部补齐，**待主理人终验确认** |
+| **R-22** | 单测建库超时 | 🟢 **已定案并复验** —— 三次归因勘误后定案（crash recovery / I/O 积压态），稳态 `CREATE DATABASE` **2.0~2.3s**；`hookTimeout` 提到 120s；连续 4 轮全绿 |
+| **R-23** | 关注链路断言被静默跳过 | 🟢 **已修复并实跑通过** —— 修复前的 152 passed / 1 skipped 如实保留在证据文件，不回写历史 |
+| **R-24** | 关注功能无 UI 入口 | 🟢 **已修复**（`ed385cf`）—— 关注按钮可真实点击、刷新后状态持久化，**待主理人终验确认** |
+| **R-26** | CI 上单元测试红灯（`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过） | 🟢 **已修复并经 CI 复验** —— 提交 `8ce5ce9`（护栏 3 修复 `634a202`）；run `41860242099` 与 `41873009808` 的单元 job 均 ✅（vitest 15 文件全过、0 skipped），`e2e` job **已真实跑过** |
+| **R-25** | 运行时上传数据被误提交入仓 | 🟡 **已缓解 —— 历史仍可达，与 R-01 同源** —— `.gitignore` + `git rm --cached` 已执行；18 个占位 PNG **仍在 Git 历史**，彻底消除需授权改写历史 |
+| **R-27** | 节点申请 UI 提交链断裂（**本轮唯一红灯 —— 已解除**） | 🟢 **已修复并本地实测验证**（提交 `bddb3d0`）—— 根因：HTML 规范的 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** ⇒ react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ 水合失败（React #418）⇒ 事件处理器不绑定 ⇒ 原生 GET 提交 ⇒ 写操作失效。**修复**：表单命名属性改名 + 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言）。**实测**：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿，React #418 **归零**，`POST /api/node-requests` 正常。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`。****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。登记 `BUG_REGISTER` **V4-20** |
+
+### 七、不包含（未实现，如实标注）
+
+- **容器级升级实跑** —— 升级脚本自检（87 项断言，本轮实测）已在沙箱通过，但**真实容器级升级仍需带 Docker 的环境复跑**。
+- **真实 SMTP 投递** —— 未配置，仅做静态核查。
+- **多浏览器 E2E（Firefox / Safari）** —— 本机仅 Chromium / Edge。
+- **原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照** —— 无权访问他人账号，不拿游客态冒充。
+- ~~**节点申请 UI 提交链断裂（R-27 / V4-20）**~~ —— ✅ **已由 `bddb3d0` 修复并本地实测验证**，不再属于「不包含」项。
+  根因是 HTML 规范的 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** ⇒ react-dom 水合代码抛
+  `TypeError: nodeName.toLowerCase is not a function` ⇒ React #418 水合失败 ⇒ 事件处理器不绑定 ⇒ 表单走原生 GET 提交。
+  实测：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿，`/nodes/request` 的 React #418 **归零**，
+  提交恢复为 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现。
+  **修复前的历史快照**：CI run `41873009808` = `153 passed | 1 failed | 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。
+- **R-25 的历史残留** —— 18 个公开占位 PNG **仍在 Git 历史里**（内容无害：无用户数据、无凭据），
+  彻底消除需**主人单独授权**改写历史。
+- **远端 Git 历史改写** —— 仅在隔离副本演练成功（`docs/HISTORY_CLEANUP_DRILL_v0.0.4.md`），
+  状态 **DEFERRED，待主人单独授权**；仓库保持 Public。
+
+---
+
 ## [0.0.3] - 2026-11-04
 
 > 早期开发预览版（Pre-release）。功能尚未完备，**不建议用于生产环境**。
@@ -112,6 +287,8 @@
 ### 测试
 
 - 单元测试 **185/185 全绿**（v0.0.2 基线 117 条全部保留 + 新增 68 条），零回归
+  —— ⚠️ **这是 v0.0.3 的历史总数**（master @ `37710fb4`，14 个 spec 文件）；
+  v0.0.4 的权威基线是 **194/194（16 文件）**（V4-20 修复前为 190/190（15 文件）），口径澄清见文首 `[Unreleased]` §5.1
 - 新增 5 个测试文件，覆盖正常流程/非法输入/越权/重复请求/并发/数据一致性
 - 真实 HTTP 端到端验证（真实 `next start` + 真实 PostgreSQL）：
   投票幂等、感谢自己的回复被拒、签到幂等、未登录 401、越权 403、

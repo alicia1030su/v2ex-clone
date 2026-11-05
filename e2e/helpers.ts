@@ -77,6 +77,10 @@ export async function apiPost(
  */
 export async function login(page: Page, username: string, password: string) {
   await page.goto('/signin');
+  // 同 register：SignInForm 是客户端组件，需等 hydration
+  await page.waitForLoadState('networkidle');
+  await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
+
   await page.fill('#username', username);
   await page.fill('#password', password);
   await Promise.all([
@@ -85,10 +89,22 @@ export async function login(page: Page, username: string, password: string) {
   ]);
 }
 
-/** 注册一个新用户（唯一用户名） */
+/**
+ * 注册一个新用户（唯一用户名）
+ *
+ * ⚠️ v0.0.4 修正：注册表单有**必填的 email 字段**（id="email"），
+ * 原实现只填了用户名/密码/确认密码 —— email 留空导致注册失败，
+ * 页面不跳转，后续断言全部超时。
+ */
 export async function register(page: Page, username: string, password = 'password123') {
   await page.goto('/signup');
+  // ⚠️ SignUpForm 是客户端组件 —— 服务端渲染的 HTML 里**没有**这些输入框，
+  // 必须等 React hydration 完成才能 fill，否则 page.fill 一直等到超时。
+  await page.waitForLoadState('networkidle');
+  await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
+
   await page.fill('#username', username);
+  await page.fill('#email', `${username}@e2e.local`);
   await page.fill('#password', password);
   await page.fill('#confirm', password);
   await Promise.all([
@@ -108,7 +124,168 @@ export async function logout(page: Page) {
   }
 }
 
-/** 唯一用户名，避免并发测试冲突 */
+/**
+ * 唯一用户名，避免并发测试冲突。
+ *
+ * ⚠️ v0.0.4 修正：原实现只有 `Date.now()`（毫秒）+ 1000 以内的随机数 ——
+ * 跨测试轮次碰撞的概率不低。实测出现过注册**静默失败**的情况：
+ * 用户名已存在 → /api/auth/signup 返回 409 → 页面不跳转，
+ * 而 register() 的 waitForURL 因**当前已是登录态**而立即满足，
+ * 于���测试悄悄复用了**上一个用户的会话** ——
+ * 表现为「签到按钮显示今日已签到且 disabled」这类莫名其妙的失败。
+ *
+ * 现在用「时间戳 + 进程内自增计数器 + 6 位随机」，
+ * 同一次运行内绝不重复，跨运行碰撞概率也极低。
+ */
+let nameCounter = 0;
 export function uniqueName(prefix = 'e2e') {
-  return `${prefix}_${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+  nameCounter += 1;
+  const ts = Date.now().toString(36);
+  const seq = nameCounter.toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${prefix}_${ts}${seq}${rand}`;
+}
+
+/**
+ * 通过 UI 创建主题，返回主题 id。
+ *
+ * 真实页面结构（v0.0.4 实测确认）：
+ *   - 发帖表单在 /go/new 页面，不在节点页（节点页只有搜索框）
+ *   - NewTopicForm 是**客户端组件**（useState 受控），
+ *     服务端渲染的 HTML 里没有 title/content 输入框，
+ *     必须等浏览器渲染后才能填 —— 这也是必须用真实浏览器的原因
+ *   - 节点通过 <select name="nodeId"> 选择，值为节点 id（数字）
+ */
+export async function createTopicViaUi(
+  page: Page,
+  nodeId: number,
+  title: string,
+  content: string,
+): Promise<number> {
+  await page.goto('/go/new');
+
+  // ⚠️ 关键：NewTopicForm 是**客户端组件**，必须等 React hydration 完成，
+  // 否则 onSubmit 还没绑定 —— 点击提交不会发起请求，URL 永远不变，
+  // waitForURL 必然超时。
+  //
+  // 实测（v0.0.4）：单独跑一个用例时因为前面有多次 API 往返，
+  // hydration 恰好已完成，测试能过；但整套连跑时序不同就会失败 ——
+  // 这正是「靠运气通过」的典型，必须显式等待。
+  await page.waitForLoadState('networkidle');
+
+  // ⚠️ v0.0.4（V4-20）：用 `id` 定位，**不用** `name="title"` ——
+  // 表单内 input 的 `name` 若与 `HTMLFormElement` 的 DOM 属性同名
+  // （如 `title` / `nodeName` / `id` / `action`），会因 HTML 规范的
+  // `[OverrideBuiltins]` 把该控件暴露成 form 的同名命名属性。
+  // 其中 `name="nodeName"` 会**直接**让 react-dom 的
+  // `instance.nodeName.toLowerCase()` 崩溃 → 水合失败（#418）→
+  // 事件处理器不绑定。NewTopicForm 的标题框已把 `name` 改为 `topic_title`。
+  const titleInput = page.locator('input#title');
+  await expect(titleInput).toBeVisible({ timeout: 20_000 });
+
+  // 确认 React 已接管：受控输入框在用户输入后，
+  // 若 state 未同步，组件重渲染会把值还原。
+  await page.selectOption('select[name="nodeId"]', String(nodeId));
+  await titleInput.fill(title);
+  await expect(titleInput).toHaveValue(title, { timeout: 10_000 });
+
+  await page.locator('textarea[name="content"]').fill(content);
+
+  // 顺序执行而非 Promise.all：click() 本身会等待导航，
+  // 与 waitForURL 并发时会互相竞争（Playwright 的经典陷阱）。
+  await page
+    .locator('form')
+    .filter({ has: titleInput })
+    .first()
+    .locator('button[type="submit"]')
+    .click();
+  await page.waitForURL(/\/t\/\d+/, { timeout: 30_000 });
+
+  const m = page.url().match(/\/t\/(\d+)/);
+  if (!m) throw new Error(`无法从 URL 解析主题 id: ${page.url()}`);
+  return Number(m[1]);
+}
+
+/**
+ * 等待目标元素完成 React hydration（客户端组件真正接管事件）。
+ *
+ * ## 为什么需要这一步
+ *
+ * `NodeRequestForm` / `FollowButton` / `NewTopicForm` 都是**客户端组件**：
+ * 服务端渲染出的 HTML 里输入框与按钮**都在**，但 `onChange` / `onClick`
+ * **尚未绑定**。此时 `fill()` / `click()` 不会发出任何请求 ——
+ * 表现是「点了没反应」，用例要么超时、要么误判为功能缺失。
+ *
+ * React 完成 hydration 后会在 DOM 节点上挂 `__reactFiber$*` / `__reactProps$*`
+ * 私有属性（**非 enumerable**，必须用 `getOwnPropertyNames` 才能读到），
+ * 用它们作为「已接管」的确定性信号。
+ *
+ * 相比 `waitForTimeout` 之类的盲等，这个信号：
+ *  - 不受机器快慢影响（快机器不会白等，慢机器不会超时）
+ *  - 失败时是**明确超时**而不是「偶发点击落空」
+ *
+ * @param page Playwright 页面对象
+ * @param selector 目标元素的 CSS 选择器（必须是客户端组件内部的节点）
+ */
+export async function waitForHydration(page: Page, selector: string): Promise<void> {
+  await page.waitForFunction(
+    (sel: string) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      return Object.getOwnPropertyNames(el).some((k) => k.startsWith('__react'));
+    },
+    selector,
+    { timeout: 20_000 },
+  );
+}
+
+/** 找一个可用的节点 id（优先 programmer，失败则取第一个） */
+export async function pickNodeId(page: Page): Promise<number> {
+  const res = await page.request.get('/api/nodes');
+  const data = await res.json();
+  const nodes = data?.nodes ?? data?.items ?? [];
+  if (!nodes.length) throw new Error('没有任何可用节点');
+  const preferred = nodes.find((n: { name: string }) => n.name === 'programmer');
+  return Number((preferred ?? nodes[0]).id);
+}
+
+/**
+ * 在主题详情页提交一条回复。
+ *
+ * 真实行为（v0.0.4 实测确认）：
+ *   主题页的回复表单是**原生 form**（action="/api/replies" method="post"），
+ *   CSRF token 通过隐藏字段 csrfToken 传递（原生表单无法加请求头）。
+ *   提交成功后服务端返回 **303 重定向回 /t/{id}** —— URL **没有变化**，
+ *   因此 `waitForURL` 不会触发（会一直等到超时）。
+ *
+ * 正确的等待方式：**等回复内容出现在页面上**。
+ */
+export async function submitReplyViaUi(
+  page: Page,
+  topicId: number,
+  content: string,
+): Promise<void> {
+  await page.goto(`/t/${topicId}`);
+  await page.waitForLoadState('networkidle');
+
+  const textarea = page.locator('textarea[name="content"]').first();
+  await expect(textarea).toBeVisible({ timeout: 20_000 });
+
+  // 确认 React 已接管（受控输入框的值不会被重渲染还原）
+  await textarea.fill(content);
+  await textarea.blur();
+  await expect(textarea).toHaveValue(content, { timeout: 10_000 });
+
+  // 提交（原生 form → 303 重定向回同一页，URL 不变）
+  await page
+    .locator('form')
+    .filter({ has: textarea })
+    .first()
+    .locator('button[type="submit"]')
+    .click();
+
+  // 等回复内容真正出现在页面上
+  await expect(page.locator('#Main')).toContainText(content.slice(0, 20), {
+    timeout: 30_000,
+  });
 }

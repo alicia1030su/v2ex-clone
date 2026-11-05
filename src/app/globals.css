@@ -1248,3 +1248,82 @@ textarea {
 :focus:not(:focus-visible) {
   outline: none;
 }
+
+/* ==========================================================================
+   v0.0.4 主题编辑模态框
+   ==========================================================================
+   编辑表单若内联在主题内容区里，会被正文的浮动元素（如列表符号）
+   覆盖 —— 实测「保存修改」按钮被 <strong class="snow">•</strong>
+   拦截了指针事件，点击永远落不上去。
+
+   改成 fixed 模态：脱离文档流 + 明确的 z-index，
+   彻底避免与页面其他元素争抢层叠顺序。 */
+.topic_edit_modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.topic_edit_modal .topic_edit_panel {
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.topic_edit_modal .topic_edit_panel h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.topic_edit_modal textarea,
+.topic_edit_modal input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.topic_edit_modal textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.topic_edit_modal label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+}
+
+.topic_edit_modal .topic_edit_error {
+  margin: 8px 0;
+  color: #c00;
+  font-size: 13px;
+}
+
+/* 窄屏：模态占满宽度，按钮纵向排列 */
+@media screen and (max-width: 500px) {
+  .topic_edit_modal {
+    padding: 8px;
+  }
+  .topic_edit_modal .topic_edit_panel {
+    padding: 14px;
+  }
+}

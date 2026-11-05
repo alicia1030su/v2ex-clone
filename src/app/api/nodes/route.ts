@@ -47,10 +47,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: '父节点 ID 无效' }, { status: 400 });
   }
 
+  // ⚠️ limit / offset 必须从查询串读取并传给服务层。
+  // v0.0.3 的服务层 listNodes 支持这两个参数，但路由**从未传递**，
+  // 导致 ?limit=3 仍然返回全部节点（实测返回 23 条）——
+  // 分页形同虚设。服务层的钳制（1..500）在此生效。
+  const limitParam = url.searchParams.get('limit');
+  const offsetParam = url.searchParams.get('offset');
+  const limit = limitParam !== null && limitParam !== '' ? Number(limitParam) : undefined;
+  const offset = offsetParam !== null && offsetParam !== '' ? Number(offsetParam) : undefined;
+  if (limit !== undefined && !Number.isFinite(limit)) {
+    return NextResponse.json({ ok: false, error: 'limit 无效' }, { status: 400 });
+  }
+  if (offset !== undefined && !Number.isFinite(offset)) {
+    return NextResponse.json({ ok: false, error: 'offset 无效' }, { status: 400 });
+  }
+
   const nodes = await listNodes({
     categoryId,
     parentId,
     includeHidden: isStaffUser && url.searchParams.get('includeHidden') === 'true',
+    limit,
+    offset,
   });
 
   const result: Record<string, unknown> = { ok: true, nodes };
@@ -178,6 +195,18 @@ export async function PATCH(request: Request) {
   if (!isAdmin(user)) {
     return NextResponse.json({ ok: false, error: '需要管理员权限' }, { status: 403 });
   }
+
+  // ⚠️ v0.0.4 修复真实安全缺陷：**PATCH 此前完全没有 CSRF 校验**。
+  //
+  //   同一个文件的 POST（创建节点）有 guardCsrf，但 PATCH（隐藏/恢复节点）
+  //   漏掉了 —— 而 PATCH 是**写操作**且能改变全站可见性。
+  //   攻击者只要诱导已登录的管理员访问一个恶意页面，
+  //   就能用跨站请求把节点批量隐藏掉。
+  //
+  //   校验顺序与 adminGuard 一致：**先判角色（401/403），再判 CSRF（403）**，
+  //   避免向未授权调用方泄露「端点存在但缺 token」这类信息。
+  const csrfDenied = await guardCsrf(request);
+  if (csrfDenied) return csrfDenied;
 
   const body = (await request.json().catch(() => null)) as {
     id?: number;

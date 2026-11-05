@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
+import { grantCredits, creditAmounts } from '@/lib/credit-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,10 +80,26 @@ export async function POST(request: Request) {
     .where(eq(schema.nodes.id, nodeId));
 
   // 发布主题给作者加积分
-  await db
-    .update(schema.users)
-    .set({ balance: sql`${schema.users.balance} + 10` })
-    .where(eq(schema.users.id, user.id));
+  //
+  // ⚠️ v0.0.4 修复（真实缺陷，验收清单 D-06 / B-06）：
+  //   原实现直接 `UPDATE users SET balance = balance + 10` ——
+  //   **绕过了 credit_ledger 账本**，导致「余额」与「账本累计」永远对不上：
+  //   余额多出 10，但账本里没有对应流水。
+  //   后果：积分流水页面看不到发帖记录，账本自洽性无法验证，
+  //   而且积分额度无法通过环境变量配置（硬编码 10）。
+  //
+  //   现在改走 grantCredits：
+  //   - 写入 credit_ledger 流水（余额与账本永远自洽）
+  //   - 额度可配置（TOPIC_CREDITS，默认 5 —— 与 deploy/.env.example 一致）
+  //   - 幂等键保证同一主题不会重复发放
+  await grantCredits(user.id, {
+    type: 'topic_created',
+    amount: creditAmounts().topic,
+    idempotencyKey: `topic_created:${topic.id}`,
+    refType: 'topic',
+    refId: topic.id,
+    reason: '发布主题',
+  });
 
   return NextResponse.json({ ok: true, redirect: `/t/${topic.id}` }, { status: 201 });
 }

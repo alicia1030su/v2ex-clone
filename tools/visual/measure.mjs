@@ -92,7 +92,46 @@ const MEASURE = (targets) => {
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
     scrollHeight: document.documentElement.scrollHeight,
+    // 横向溢出检测 —— 窄屏下出现横向滚动条是明确的布局缺陷
+    horizontalOverflow:
+      document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   };
+
+  // —— 主题列表密度（每条主题的垂直间距）
+  const items = Array.from(document.querySelectorAll('#Main .cell.item'));
+  if (items.length >= 2) {
+    const gaps = [];
+    for (let i = 1; i < items.length; i++) {
+      gaps.push(
+        Math.round(items[i].getBoundingClientRect().top - items[i - 1].getBoundingClientRect().top),
+      );
+    }
+    out._density = {
+      itemCount: items.length,
+      avgItemHeight: Math.round(
+        items.reduce((s, el) => s + el.getBoundingClientRect().height, 0) / items.length,
+      ),
+      avgGap: Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length),
+    };
+  } else {
+    out._density = { itemCount: items.length, avgItemHeight: null, avgGap: null };
+  }
+
+  // —— 左右栏比例
+  const mainEl = document.querySelector('#Main');
+  const rightEl = document.querySelector('#Rightbar');
+  if (mainEl && rightEl) {
+    const mw = mainEl.getBoundingClientRect().width;
+    const rw = rightEl.getBoundingClientRect().width;
+    out._columns = {
+      mainWidth: Math.round(mw),
+      rightbarWidth: Math.round(rw),
+      ratio: mw > 0 ? Math.round((rw / mw) * 1000) / 1000 : null,
+    };
+  } else {
+    out._columns = { mainWidth: null, rightbarWidth: null, ratio: null };
+  }
+
   return out;
 };
 

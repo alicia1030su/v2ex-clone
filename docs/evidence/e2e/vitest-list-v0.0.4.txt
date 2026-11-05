@@ -1,0 +1,183 @@
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vitest.config.ts:41:25). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 未配置 ADMIN_CLI_TOKEN 时拒绝改密
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 拒绝 --token 命令行参数（会泄露到进程列表）
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 缺少 --reason 时拒绝
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 口令过短时拒绝
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 目标用户不存在时拒绝
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 合法调用成功：口令被修改且写入审计日志
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 拒绝降级最后一个 admin
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 角色变更成功并记录审计
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > 非法角色值被拒绝
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > list-admins 是只读操作，不需要令牌
+tests/admin-cli.spec.ts > admin-cli 授权与审计（P0-1） > admin-cli 不会在 seed 之后偷偷改回原口令
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 权限矩阵 > ${permission}：user=${expected.user} moderator=${expected.moderator} admin=${expected.admin}
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 权限矩阵 > 未登录对任何管理权限都无权限
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 401 与 403 的区分 > 未登录 → 401（需要登录）
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 401 与 403 的区分 > 已登录但角色不足 → 403（权限不足）
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 401 与 403 的区分 > 权限充足 → ok 且返回用户
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > 不能封禁自己
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > moderator 不能封禁 admin
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > admin 可以封禁普通用户与 moderator
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > moderator 可以封禁普通用户
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > 普通用户不能封禁任何人
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > 管理员不能把自己降级（防锁死）
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > 管理员可以调整他人角色
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 高危操作的额外保护 > moderator 不能改变任何人的角色
+tests/admin-permissions.spec.ts > v0.0.3 后台 —— 危险操作不存在 > 后台不提供删除用户 / 执行 SQL / 修改配置的接口
+tests/captcha.spec.ts > 验证码逻辑（P0-1 / P0-2） > 正确答案通过校验
+tests/captcha.spec.ts > 验证码逻辑（P0-1 / P0-2） > 验证码一次性：校验后立即作废
+tests/captcha.spec.ts > 验证码逻辑（P0-1 / P0-2） > 不存在的挑战 ID 一律失败
+tests/captcha.spec.ts > 验证码逻辑（P0-1 / P0-2） > 空答案一律失败
+tests/captcha.spec.ts > 验证码逻辑（P0-1 / P0-2） > 字段名与挑战匹配时通过，不匹配时失败
+tests/captcha.spec.ts > 验证码逻辑（P0-1 / P0-2） > 不同挑战的字段名互不相同
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 生产环境下 DISABLE_CAPTCHA 不生效
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 预发环境下 DISABLE_CAPTCHA 不生效
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 非隔离的 test 环境也不允许跳过验证码
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 仅隔离测试环境允许跳过验证码
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 未设置 DISABLE_CAPTCHA 时永远不禁用
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 运行时环境判定正确
+tests/captcha.spec.ts > 运行时开关限制（P0-2） > 调试端点必须显式开启
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 移除 script 标签
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 移除 on* 事件处理器
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 拒绝 javascript: 协议
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 拒绝 data:image/svg+xml（SVG 可内嵌脚本）
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 拒绝 style 属性（防 CSS 注入）
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 外链自动加 rel=noopener noreferrer
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 剥离控制字符的 javascript: 绕过
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 移除 iframe / object / embed 等危险标签
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 保留允许的 Markdown 结构
+tests/captcha.spec.ts > HTML 清洗器（P1-14） > 保留表格
+tests/captcha.spec.ts > redirect 规范化（P1-11） > 允许站内相对路径
+tests/captcha.spec.ts > redirect 规范化（P1-11） > 拒绝外部绝对 URL
+tests/captcha.spec.ts > redirect 规范化（P1-11） > 拒绝协议相对 URL
+tests/captcha.spec.ts > redirect 规范化（P1-11） > 拒绝含换行的注入
+tests/captcha.spec.ts > redirect 规范化（P1-11） > 非字符串一律归一为 /
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > 默认不采信 x-forwarded-for —— 伪造的头不得改变限流分桶
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > 默认不采信代理头时，伪造 x-forwarded-for 无法改变分桶
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > 客户端伪造的 x-v2-client-ip 会被 middleware 剥离（此处验证常量一致）
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > TRUST_PROXY_HEADERS=1 时采信 x-forwarded-for 的首个地址
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > TRUST_PROXY_HEADERS=1 时无 x-forwarded-for 则回退到 x-real-ip
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > TRUST_PROXY_HEADERS=1 且没有任何头时退化为 127.0.0.1
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > 归一化 IPv6 映射形式与带端口的地址
+tests/client-ip.spec.ts > 客户端 IP 解析（限流信任边界） > 不信任代理头时，x-v2-client-ip 缺失则退化为 127.0.0.1
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 软删除不泄露 > 软删除主题后，deleted_at 被置位且 status 改为 deleted
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 软删除不泄露 > 软删除回复后，主题的 replies_count 与实际未删除回复数一致
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 幂等性 > 重复感谢同一回复，thanks 表只有一条记录
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 幂等性 > 重复投票同一主题，votes 表只有一条记录且汇总一致
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 幂等性 > 改票时汇总按差额 ±2 调整
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 并发安全 > 并发回复不产生重复楼层号
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 并发安全 > 并发感谢同一回复，只计数一次
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 编辑历史不可变 > 编辑时写入前后快照，历史记录只增不改
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 越权防护（权限矩阵实测） > canModifyOwnContent：仅作者本人与 staff 可修改
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 越权防护（权限矩阵实测） > canBanUser：不能封禁自己；moderator 不能封禁 admin
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 越权防护（权限矩阵实测） > canChangeRole：管理员不能把自己降级（防止锁死系统）
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 越权防护（权限矩阵实测） > withinEditWindow：作者受时限约束，staff 不受限
+tests/content-lifecycle.spec.ts > v0.0.3 内容生命周期 —— 越权防护（权限矩阵实测） > hasPermission：积分调整仅 admin，普通用户一律无管理权限
+tests/credits-concurrency.spec.ts > v0.0.3 积分 —— 幂等性 > 相同幂等键重复发放只生效一次
+tests/credits-concurrency.spec.ts > v0.0.3 积分 —— 幂等性 > 并发使用相同幂等键，只有一条流水
+tests/credits-concurrency.spec.ts > v0.0.3 积分 —— 并发扣费安全 > 并发扣费不会把余额扣成负数
+tests/credits-concurrency.spec.ts > v0.0.3 积分 —— 并发扣费安全 > 并发扣费后账本仍然自洽
+tests/credits-concurrency.spec.ts > v0.0.3 积分 —— 余额不足拒绝 > 余额不足时拒绝扣费且不写流水
+tests/credits-concurrency.spec.ts > v0.0.3 签到 —— 幂等性 > 同一天重复签到只记录一次
+tests/credits-concurrency.spec.ts > v0.0.3 签到 —— 幂等性 > 并发签到只成功一次
+tests/credits-concurrency.spec.ts > v0.0.3 签到 —— 幂等性 > 连续签到天数递增
+tests/db-lazy-init.spec.ts > 数据库客户端惰性初始化（P0-4） > src/db/index.ts 不在模块顶层创建连接池
+tests/db-lazy-init.spec.ts > 数据库客户端惰性初始化（P0-4） > 没有 DATABASE_URL 时导入 db 模块不会抛错
+tests/db-lazy-init.spec.ts > 数据库客户端惰性初始化（P0-4） > 没有 DATABASE_URL 时真正调用数据库 API 才报错（错误信息可读）
+tests/db-lazy-init.spec.ts > 数据库客户端惰性初始化（P0-4） > 客户端与 drizzle 实例始终缓存（生产环境也不能每次新建连接池）
+tests/db-lazy-init.spec.ts > 数据库客户端惰性初始化（P0-4） > 生产模式下反复查询复用同一个连接池
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > 使用 entrypoint 而不是把迁移与 seed 串在 CMD 里
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > CMD 不再直接串联 migrate 与 seed
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > entrypoint 脚本存在且区分三个阶段
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > entrypoint 的 init 阶段调用 seed（由 seed 内部的标记守卫）
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > seed 脚本带首次初始化标记逻辑
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > seed 不会覆盖已有账号的口令与角色
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > seed 的口令是惰性解析的（已存在账号不需要 SEED_ADMIN_PASSWORD）
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > seed 写入了初始化标记（保证重新部署不重复初始化）
+tests/docker-config.spec.ts > Dockerfile 启动阶段分离（P0-2） > seed 同步楼层计数表（避免楼层号漂移导致 500）
+tests/docker-config.spec.ts > docker-compose 默认不暴露数据库端口（P0-3） > postgres 服务没有 ports 映射
+tests/docker-config.spec.ts > docker-compose 默认不暴露数据库端口（P0-3） > redis 服务没有 ports 映射
+tests/docker-config.spec.ts > docker-compose 默认不暴露数据库端口（P0-3） > app 服务仍然暴露应用端口
+tests/docker-config.spec.ts > docker-compose 默认不暴露数据库端口（P0-3） > 定义了内部网络 v2ex-net
+tests/docker-config.spec.ts > docker-compose 默认不暴露数据库端口（P0-3） > postgres 与 redis 都接入内部网络
+tests/docker-config.spec.ts > docker-compose 默认不暴露数据库端口（P0-3） > 提供显式开启端口的 debug override 文件
+tests/docker-config.spec.ts > public/ 目录存在且被 Git 跟踪（P0-4） > public/ 目录在仓库中存在
+tests/docker-config.spec.ts > public/ 目录存在且被 Git 跟踪（P0-4） > public/ 下有被跟踪的文件（否则干净克隆会丢失该目录）
+tests/docker-config.spec.ts > public/ 目录存在且被 Git 跟踪（P0-4） > .dockerignore 没有把 public/ 排除掉
+tests/docker-config.spec.ts > public/ 目录存在且被 Git 跟踪（P0-4） > Dockerfile 先建目录再复制，兼容空目录
+tests/docker-config.spec.ts > public/ 目录存在且被 Git 跟踪（P0-4） > Dockerfile 拷入 seed/admin-cli 运行所需的 src/db 与 password 模块
+tests/docker-config.spec.ts > public/ 目录存在且被 Git 跟踪（P0-4） > Dockerfile 拷贝了运行期脚本依赖的全部文件
+tests/docker-config.spec.ts > verify.sh 跨平台（P0-5） > 不含写死的本机 Windows 路径
+tests/docker-config.spec.ts > verify.sh 跨平台（P0-5） > 不依赖 psql 命令行工具
+tests/docker-config.spec.ts > verify.sh 跨平台（P0-5） > 区分 Windows 与 POSIX 的进程管理
+tests/docker-config.spec.ts > verify.sh 跨平台（P0-5） > 有数据库隔离闸门，拒绝在非验证库上执行破坏性操作
+tests/docker-config.spec.ts > verify.sh 跨平台（P0-5） > 启动服务前会清空端口占用
+tests/docker-config.spec.ts > verify.sh 跨平台（P0-5） > 辅助脚本本身不含硬编码路径
+tests/docker-config.spec.ts > CI 配置存在且使用隔离服务（P0-5） > 定义了 PostgreSQL 与 Redis 服务容器
+tests/docker-config.spec.ts > CI 配置存在且使用隔离服务（P0-5） > 包含 Docker 构建与启动验证 job
+tests/docker-config.spec.ts > CI 配置存在且使用隔离服务（P0-5） > 验证重新部署不会重置管理员口令
+tests/docker-config.spec.ts > CI 配置存在且使用隔离服务（P0-5） > 验证默认配置不暴露数据库端口
+tests/docker-config.spec.ts > CI 配置存在且使用隔离服务（P0-5） > 使用临时生成的凭据，不含真实密钥
+tests/docker-config.spec.ts > 开源发布条件（P0-7） > 存在 LICENSE 且包含商标声明
+tests/docker-config.spec.ts > 开源发布条件（P0-7） > package.json 声明了 license 与仓库地址
+tests/docker-config.spec.ts > 开源发布条件（P0-7） > README 包含功能完成度与开源发布章节
+tests/docker-config.spec.ts > 开源发布条件（P0-7） > .env.example 不提供任何可用的默认口令
+tests/docker-config.spec.ts > 开源发布条件（P0-7） > 历史清理的内部处置文档不入库，但公开文档如实披露现状
+tests/docker-config.spec.ts > 原站素材不入库（P0-6 关键不变量） > 版本控制中没有任何原站 HTML/CSS/JS 副本
+tests/docker-config.spec.ts > 原站素材不入库（P0-6 关键不变量） > 版本控制中没有任何原站参考截图（ref-*.png）
+tests/docker-config.spec.ts > 原站素材不入库（P0-6 关键不变量） > 我方自己产出的截图（local-*.png）仍然保留
+tests/docker-config.spec.ts > 原站素材不入库（P0-6 关键不变量） > .gitignore 的规则覆盖视口子目录（曾经的真实缺陷）
+tests/docker-config.spec.ts > 原站素材不入库（P0-6 关键不变量） > .gitignore 仍然忽略原站 HTML/CSS/JS 目录
+tests/feed-search.spec.ts > v0.0.3 Feed —— XML 转义 > escapeXml 转义全部 5 个特殊字符
+tests/feed-search.spec.ts > v0.0.3 Feed —— XML 转义 > 含特殊字符的标题不会破坏 feed 格式
+tests/feed-search.spec.ts > v0.0.3 Feed —— XML 转义 > stripHtml 去除标签与实体
+tests/feed-search.spec.ts > v0.0.3 Feed —— XML 转义 > truncate 截断并加省略号
+tests/feed-search.spec.ts > v0.0.3 Feed —— 格式有效性 > RSS 2.0 输出结构完整且可解析
+tests/feed-search.spec.ts > v0.0.3 Feed —— 格式有效性 > Atom 1.0 输出结构完整且可解析
+tests/feed-search.spec.ts > v0.0.3 Feed —— 格式有效性 > JSON Feed 1.1 输出符合规范
+tests/feed-search.spec.ts > v0.0.3 Feed —— 真实数据库内容 > Feed 只包含未删除的主题
+tests/feed-search.spec.ts > v0.0.3 Feed —— 真实数据库内容 > 空数据库时 Feed 仍输出有效格式
+tests/feed-search.spec.ts > v0.0.3 搜索 —— 安全与分页 > SQL 注入尝试不影响数据
+tests/feed-search.spec.ts > v0.0.3 搜索 —— 安全与分页 > 分页上限被钳制到 100
+tests/feed-search.spec.ts > v0.0.3 搜索 —— 安全与分页 > 软删除的主题不出现在搜索结果
+tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT） > 初始状态：计数表为空（漂移已建立）
+tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT） > 连续发 ${N} 条回复：楼层号严格等于 [1..${N}]（不是仅唯一/递增）
+tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT） > 计数表水位与实际最大楼层一致
+tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT） > 计数表落后时自愈后仍连续：预置 1..${PRESEED_FLOORS} + 新增，最终严格 [1..${PRESEED_FLOORS + 5}]
+tests/floor-continuity.spec.ts > 楼层号严格连续 1..N（真实 allocateFloor + 真实 INSERT） > 回归护栏：当前源码的分配分支不含会跳号的 greatest(...)+1
+tests/floor-counter.spec.ts > 楼层号分配器自愈 > 初始状态下计数表落后于实际楼层（漂移已建立）
+tests/floor-counter.spec.ts > 楼层号分配器自愈 > 计数表落后时，分配到的楼层号高于实际最大楼层（不撞号）
+tests/floor-counter.spec.ts > 楼层号分配器自愈 > 分配后计数表被抬到正确水位
+tests/floor-counter.spec.ts > 楼层号分配器自愈 > 连续分配得到严格递增且不重复的楼层号
+tests/floor-counter.spec.ts > 楼层号分配器自愈 > 分配出的楼层号可以真正插入回复（不会触发唯一索引冲突）
+tests/floor-counter.spec.ts > 楼层号分配器自愈 > seed 写入回复后会同步楼层计数表（不再产生漂移）
+tests/middleware-client-ip.spec.ts > middleware 客户端 IP 注入 > 剥离客户端伪造的 x-v2-client-ip，注入的是真实来源
+tests/middleware-client-ip.spec.ts > middleware 客户端 IP 注入 > TRUST_PROXY_HEADERS=0（默认）时，客户端可控的代理头不进入内部头
+tests/middleware-client-ip.spec.ts > middleware 客户端 IP 注入 > TRUST_PROXY_HEADERS=1 时才采信 x-forwarded-for 的首个地址
+tests/middleware-client-ip.spec.ts > middleware 客户端 IP 注入 > TRUST_PROXY_HEADERS=1 时无 x-forwarded-for 则回退到 x-real-ip
+tests/middleware-client-ip.spec.ts > middleware 客户端 IP 注入 > TRUST_PROXY_HEADERS=1 且无任何代理头时退化为 127.0.0.1
+tests/middleware-client-ip.spec.ts > middleware 客户端 IP 注入 > 客户端伪造的内部头即使同时带着合法代理头也不生效
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 数据库中只存哈希，不存明文令牌
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 有效令牌可以被消费一次
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 已使用的令牌被拒绝（防重放）
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 已过期的令牌被拒绝
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 已撤销的令牌被拒绝
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 生成新令牌会撤销该用户此前所有未使用令牌
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 并发消费同一令牌，只有一个请求成功
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 无效令牌被拒绝
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 令牌安全 > 改密后旧会话全部失效
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 邮箱脱敏 > maskEmail 只保留首字母与域名
+tests/password-reset.spec.ts > v0.0.3 密码重置 —— 邮箱脱敏 > 脱敏结果不含完整本地部分
+tests/rate-limit-clear.spec.ts > 清空限流覆盖实际生效的后端 > KV 抽象的两种实现都提供 clearAll
+tests/rate-limit-clear.spec.ts > 清空限流覆盖实际生效的后端 > 调试端点通过 KV 抽象清理（而非只删数据库表）
+tests/rate-limit-clear.spec.ts > 清空限流覆盖实际生效的后端 > PostgreSQL 降级实现下 clearAll 真的清空限流计数
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 第一次 seed 创建管理员
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 第二次 seed 不改变 passwordHash（逐字节一致）
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 第二次 seed 不改变 role
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 用户自行改密后跑 seed，新口令依然有效
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 已有 admin 被降级后，seed 不会把它「纠正」回 admin
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 已存在管理员时，缺少 SEED_ADMIN_PASSWORD 不阻塞 seed
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > seed 不会创建重复账号
+tests/seed-idempotency.spec.ts > seed 只初始化不修改已有账号（P0-1） > 多次 seed 不产生重复主题

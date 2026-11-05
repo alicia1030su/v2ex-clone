@@ -142,39 +142,56 @@
 
 ---
 
-## E-10 v0.0.3 GHCR 容器镜像为 private ⚠️ **已声明**
+## E-10 v0.0.3 GHCR 镜像可见性 —— ✅ 已复核，结论为**公开可拉取**（v0.0.3 的判定有误）
 
-**风险**：发布到 `ghcr.io/alicia1030su/v2ex-clone` 的容器镜像当前为
-**private**，普通用户无法匿名 `docker pull`。这是 GHCR 首次发布的默认
-可见性，属**仓库级设置**，不在代码或 CI 的控制范围内。
+**原判定（v0.0.3，错误）**：镜像为 private，需手工在 Packages 设置里把
+visibility 改为 Public。
 
-**可复核证据**（2026-11-04 匿名实测）：
+**错在哪**：判定依据是「匿名请求 manifest 返回 401 → 判定为 private」。
+这个判定**不成立**。Docker Registry V2 的标准认证流程是：
 
-```
-curl -s -o /dev/null -w "%{http_code}" \
-  https://ghcr.io/v2/alicia1030su/v2ex-clone/manifests/v0.0.1   → 401
-  .../manifests/v0.0.2                                          → 401
-  .../manifests/v0.0.3                                          → 401
-```
+1. `GET /v2/<name>/manifests/<tag>` → **401** + `WWW-Authenticate: Bearer realm=...,service=...,scope=...`
+2. 客户端用 realm 换 token（带 service 与 scope）
+3. 带 token 重试 → **200 表示匿名可访问**
 
-三个 tag 的响应完全一致（401 = 镜像存在但需认证），
-说明这是**自 v0.0.1 起的既有条件**，不是 v0.0.3 引入的。
+第 1 步的 401 只说明「需要走认证流程」，**无法区分**
+「包是私有的」与「包是公开的、但 token 还没拿到」——
+**公开包的第 1 步同样返回 401**。
 
-**缓解**：
-- 镜像本身**确实已推送成功** —— CI 的「构建并推送镜像」job 成功，
-  并在「远端核验」阶段用带凭据 `docker pull` 验证过可拉取；
-- 发布流程的成败判据已改为「镜像已推送」（可在代码内验证），
-  匿名可拉取性降级为提示，不阻塞发布；
-- 若需供普通用户匿名使用，需在仓库 **Packages → v2ex-clone →
-  Package settings → Change visibility → Public** 处改一次，
-  这是**一次性的手工操作**，无需改代码。
+**v0.0.4 按完整协议重新实测（2026-11-04）**：
 
-**到期日**：2027-05-04（半年内复核；若届时仍为 private，
-转为阻断项并加入 `RISK_REGISTER.md`）
+| 步骤 | 实测结果 |
+|---|---|
+| 1. 匿名请求 manifest（不带 Authorization 头） | HTTP **401** + `WWW-Authenticate: Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:alicia1030su/v2ex-clone:pull"` |
+| 2. 用 realm 换匿名 token | ✓ 成功（token 长度 64） |
+| 3. 带 Bearer token 重试 manifest | HTTP **200** |
+
+三个版本**全部**通过完整匿名流程：
+
+| Tag | 匿名 Bearer 流程结果 |
+|---|---|
+| v0.0.1 | HTTP 200 |
+| v0.0.2 | HTTP 200 |
+| v0.0.3 | HTTP 200（Digest `sha256:65b53dc64a4b17267e8f990ccadb8b55d7679356ede6a01b1915b569cb251c19`） |
+
+**结论**：镜像是 **Public**，普通用户 `docker pull ghcr.io/alicia1030su/v2ex-clone:v0.0.3`
+无需任何 Docker 登录凭据。**不需要**手工修改 GitHub Packages 的可见性
+（此前基于错误前提的建议作废）。
+
+**复核方法**（脚本：`_tools/ghcr-auth-test.sh`）：
+完整走 Registry V2 Bearer Token 协议 —— 第 1 步拿 `WWW-Authenticate`、
+第 2 步换匿名 token、第 3 步带 token 重试 —— 三步全过才算「公开可拉取」。
+**只看第 1 步的 401 就会误判。**
+
+**到期日**：不适用（已复核为公开）
 
 **责任人**：仓库所有者
 
----
+> 附带修正：v0.0.3 的发布流程把「匿名拉取失败」当作发布成败判据，
+> 同样基于这个错误前提。v0.0.4 已改为：
+> 「带凭据拉取成功」判定镜像已推送（成败判据），
+> 「匿名可拉取」仅作提示 —— 且提示本身的判定改为完整 Bearer 流程。
+
 
 ## 复核指引
 

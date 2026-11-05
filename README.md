@@ -22,33 +22,41 @@
 
 ---
 
-## 当前版本：v0.0.3（开发预览版 / Pre-release）
+## 当前版本：v0.0.4（开发预览版 / Pre-release）
+
+> ✅ **版本号已同步（v0.0.4，主理人裁决 R-20）**：版本载体已由 `0.0.3` 一次性同步为 `0.0.4`。
+> 同步时机严格遵守「**最终 SHA 固定之后**」的规约 —— 避免出现「版本号已是 0.0.4、
+> 却没有对应 Tag 与 Release」的中间态。**v0.0.4 的 Tag 与 Release 见下方版本历史与 GitHub Releases。**
+> 门禁见 `docs/RELEASE_PROCESS_v0.0.4.md` §5.3（G-VER-01）。
+> **v0.0.4 的完整变更见 `CHANGELOG.md` 的 `[Unreleased]` 段落。**
 
 | 项 | 值 |
 |---|---|
-| 版本号 | `v0.0.3` |
+| 版本号 | `v0.0.4`（**已同步**；版本载体于最终 SHA 固定时一次性同步，见上方裁决） |
 | 发布形态 | **开发预览版（Pre-release）** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.3` |
-| 数据库迁移 | `drizzle/0000_init.sql`（v0.0.2 基线） + `drizzle/0001_striped_magdalene.sql`（v0.0.3） |
+| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` |
+| 数据库迁移 | `drizzle/0000_init.sql`（v0.0.2 基线） + `drizzle/0001_striped_magdalene.sql`（v0.0.3） + `drizzle/0002_v004_perf_indexes.sql`（**v0.0.4**） |
 
-> **v0.0.3 是开发预览版。**
+> **v0.0.4 是开发预览版。**
 >
 > - **不保证与 V2EX 完全一致** —— 页面内容、交互细节与原站存在差异
 > - **不具备生产就绪条件** —— 未经生产环境验证，未做长时间稳定性验证
 > - **不建议用于生产环境** —— 若要使用，请自行评估风险并完成 `docs/INSTALL.md` 第 12 节的安全清单
 > - 版本号遵循语义化版本：`0.0.x` 表示接口与行为**仍可能破坏性变更**
 >
-> ### 升级到 v0.0.3
+> ### 升级到 v0.0.4
 >
-> v0.0.3 支持从 v0.0.2 **原地升级**（不删库、不清卷、不重置口令）。
-> 详见 [`docs/UPGRADE-v0.0.3.md`](docs/UPGRADE-v0.0.3.md)。
+> v0.0.4 支持从 v0.0.3 **原地升级**（不删库、不清卷、不重置口令）。
+> `./update.sh --version v0.0.4` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚。
+> 详见 [`docs/UPGRADE_RECOVERY_v0.0.4.md`](docs/UPGRADE_RECOVERY_v0.0.4.md)。
 
 ### 版本历史
 
 | 版本 | 主要内容 |
 |---|---|
+| **v0.0.4** | 修复 11 项真实缺陷（含 3 项本轮新发现：`docker-verify.yml` 定义级失败 / 迁移物路径断言错误 / 运行时上传数据误入仓）；3 项性能优化；真实社区规模压测；升级脚本自动同步镜像 tag；发布前只读门禁 |
 | v0.0.3 | 主题/回复生命周期（编辑、软删除、恢复、锁定置顶、投票、感谢）、邮件找回密码、积分体系、节点与 Feed 订阅、后台管理、响应式适配 |
 | v0.0.2 | 限流信任边界修复、供应链漏洞清零、Windows 安装脚本修复、生产镜像裁剪、发布流水线修复 |
 | v0.0.1 | 首个公开版本（开发预览） |
@@ -122,13 +130,13 @@
 | 节点创建审批 | ✅ | 普通用户申请 → 管理员审批 → 真正创建节点 |
 | 搜索分页 / 排序 / 过滤 | ✅ | 参数化查询（不拼 SQL）；分页上限 100 |
 | RSS / Atom / JSON Feed | ✅ | 站点与节点两级；真实数据库内容；软删除主题不出现 |
-| 后台管理（13 个 API） | ✅ | 用户/举报/审核/内容隐藏/节点审批/操作日志/系统配置/社区统计 |
+| 后台管理（13 个 API） | ✅ | 用户/举报/审核/内容隐藏/节点审批/操作日志/系统配置/社区统计。复核：`find src/app/api/admin -name "route.ts" \| wc -l` → **13**（2026-11-04 实测） |
 | 响应式适配 | ✅ | 600px / 500px 断点（沿用原站断点值）；375px 视口无横向滚动 |
 | 键盘可访问性 | ✅ | `:focus-visible` 焦点可见；全部交互元素可 Tab 聚焦；尊重 `prefers-reduced-motion` |
 
 ### 仍未实现（本版本**完全未实现**）
 
-> 以下能力在 v0.0.3 中**没有实现**。
+> 以下能力在 v0.0.4 中**没有实现**。
 > 项目**不提供**任何形式的假实现 —— 没有占位按钮、没有假接口、没有静态演示数据冒充。
 > 若你在页面上看到一个不工作的按钮，那是因为**功能没做**，而不是「点了没反应」。
 
@@ -184,7 +192,7 @@
 
 ### 方式 A：一键安装包（推荐）
 
-下载 `v2ex-clone-v0.0.3-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.4-deploy.zip` 并解压。
 
 **Linux / macOS：**
 
@@ -201,7 +209,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 安装完成后访问 **http://localhost:3000**。
 
-安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.3>
+安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4>
 
 ### 方式 B：手动 Docker Compose
 
@@ -242,9 +250,9 @@ docker compose up -d
 
 | 内容 | 位置 |
 |---|---|
-| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.3> |
-| 一键部署安装包 | `v2ex-clone-v0.0.3-deploy.zip` |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.3` |
+| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4> |
+| 一键部署安装包 | `v2ex-clone-v0.0.4-deploy.zip` |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
 > 镜像拉取需要 GHCR 包为 **public** 才能匿名 `docker pull`。
@@ -308,10 +316,29 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 ./scripts/verify.sh --skip-e2e               # 跳过 E2E
 ```
 
-| 套件 | 用例数 | 命令 |
-|---|---|---|
-| 单元测试（vitest） | **103** | `npm run test:unit` |
-| E2E（Playwright） | **67** | `npm run test:e2e` |
+| 套件 | 用例数 | 命令 | v0.0.4 实测 |
+|---|---|---|---|
+| 单元测试（vitest） | **194** | `npm run test:unit` | **194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（16 个文件）。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件**（V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194） |
+| E2E（Playwright） | **154** | `npm run test:e2e` | ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 个文件，3.9m）** —— V4-20 修复后本地实跑全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（11 个文件，4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
+
+> ⚠️ **必须注入测试环境变量**：`.env.test` 指向本机隔离实例（**按 `.env.test` 实际解析的端口，当前 55440**；不在版本库中）。
+> 裸跑 vitest 会连默认的 5432 而失败（`ECONNREFUSED`）。CI 与本地全量复验均须注入：
+> `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
+>
+> ⚠️ **历史数字**：本表曾在 v0.0.1～v0.0.3 期间显示「单元 103 / E2E 67」。
+> **v0.0.4 的权威基线是 194 条 / 16 文件 / 194 passed / 0 failed / 0 skipped**（V4-20 修复前为 190 条 / 15 文件）。
+>
+> ⚠️ **「185」有两个不同来源，不可混用**：
+> ① **v0.0.3 历史总数**（master @ `37710fb4`，14 个 spec 文件，`185 passed (185)`）；
+> ② **修复前的历史观测**（run `41837212170`，HEAD `930f29e`，`185 passed | 5 skipped (190)` ——
+> ⚠️ **分母仍是 190**，5 条因 `floor-continuity` 在 CI 崩溃而跳过）。
+> **该红灯已由 `8ce5ce9` 修复**，run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均已 ✅
+> （vitest 15 文件全过、190 passed / 0 skipped）。
+> **无论哪种，v0.0.4 的用例总数在 V4-20 修复后是 194**（修复前是 190）。
+> 口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节与 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1。
+>
+> ⚠️ **静态 grep 不可用作口径**：`grep -cE "^\s*(it|test)\s*[(']"` 得出 180（少于 190），
+> 因部分 spec 用嵌套 for 循环生成用例。**口径必须取 Vitest 运行时的 `numTotalTests`**。
 
 > `scripts/verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），
 > 进程管理区分 Windows 与 POSIX。它在**专用验证库**（默认 `v2ex_verify`）上操作，
@@ -324,7 +351,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 ```
 v2ex-clone/
 ├── src/
-│   ├── app/                    # 路由（App Router，20 个页面）
+│   ├── app/                    # 路由（App Router，24 个页面 —— 含静态页）
 │   │   ├── page.tsx            # 首页
 │   │   ├── go/[name]/          # 节点页
 │   │   ├── go/search/  go/new/ # 搜索 / 发帖
@@ -334,14 +361,14 @@ v2ex-clone/
 │   │   ├── nodes/  xna/        # 全部节点 / VXNA 聚合
 │   │   ├── about/ faq/ privacy/ forgot/ worldclock/   # 静态页
 │   │   ├── signin/ signup/ settings/ notifications/ bookmarks/ admin/
-│   │   └── api/                # 14 个 API 路由
+│   │   └── api/                # 55 个 API 路由（含 admin 13 / debug 3）
 │   ├── components/             # 共享组件
-│   ├── db/                     # Drizzle schema（18 张表）与连接
+│   ├── db/                     # Drizzle schema（26 张表）与连接
 │   ├── lib/                    # 认证、CSRF、限流、KV、Markdown、验证码、运行时开关
 │   ├── server/                 # 查询与业务逻辑
 │   └── middleware.ts           # CSRF Cookie 下发
-├── e2e/                        # Playwright 用例（67 个）
-├── tests/                      # vitest 单元测试（103 个）
+├── e2e/                        # Playwright 用例（154 个）
+├── tests/                      # vitest 单元测试（190 个）
 ├── tools/
 │   ├── recon/                  # 原站抓取（fetch.sh / crawl.sh）
 │   └── visual/                 # 截图、像素比对、几何测量（capture / diff / measure）
@@ -353,6 +380,17 @@ v2ex-clone/
 ├── Dockerfile
 └── .env.example
 ```
+
+> #### 这三个数字怎么复核（一条命令就能验证，防止再次过时）
+>
+> | 数字 | 取数命令 | 实测值 | 口径说明 |
+> |---|---|---|---|
+> | **24 个页面** | `find src/app -name "page.tsx" \| wc -l` | **24** | ⚠️ **含静态页**（`/about` `/faq` `/privacy` `/forgot` `/worldclock` 等）—— **不是「24 个业务页」** |
+> | **55 个 API 路由** | `find src/app/api -name "route.ts" \| wc -l` | **55** | ⚠️ **含** `/api/admin/**`（**13** 个）与 `/api/debug/**`（**3** 个，**仅测试环境启用**）。<br>构成：`admin` 13 + `debug` 3 + 其余业务端点 39 |
+> | **26 张表** | `grep -c "pgTable(" src/db/schema.ts` | **26** | ⚠️ 这是**当前 Drizzle schema 里的表数**，与「迁移文件 3 个（`0000`/`0001`/`0002`）」是**不同的东西** —— 后者是迁移脚本数，不是表数 |
+>
+> 「后台管理（13 个 API）」的复核命令：`find src/app/api/admin -name "route.ts" \| wc -l` → **13**（2026-11-04 实测，仍准确）。
+> `admin` 13 + `debug` 3 = 16，两者**都是** `src/app/api` 下 55 个的一部分 —— 见上方「55 个 API 路由」的构成列。
 
 ---
 
@@ -408,16 +446,20 @@ v2ex-clone/
 | # | 项 | 说明 | 影响面 |
 |---|---|---|---|
 | 1 | **CI 环境下暴露的限流清理缺陷（已修复）** | 原「清空限流」端点只删数据库表，配了 Redis 时清空操作**静默失效**（返回 200 但配额未清），导致 CI 中 8 个用例出现 TimeoutError / 429。已通过 KV 抽象新增 `clearAll` 修复，但**该缺陷只会在配置了 Redis 的环境出现**，本地无 Redis 时复现不了 —— 说明类似「按后端分支实现」的路径仍有漏测风险 | 中（已修复） |
-| 2 | **未经生产环境验证** | v0.0.3 仅在开发机与 CI 隔离容器中跑过。**未做**压力测试、**未做**长时间运行稳定性验证、**未在真实生产环境部署过** | **高** |
+| 2 | **未经生产环境验证** | v0.0.3 仅在开发机与 CI 隔离容器中跑过。**未做**长时间稳定性验证、**未在真实生产环境部署过**。⚠️ **v0.0.4 进展**：已做真实社区规模压测（10 万主题 / 100 万回复、13 场景 / 24785 请求、0 个 5xx），但**长时间稳定性（soak）测试仍未做** | **高** |
 | 3 | **seed 演示账号仅非生产环境创建** | `SEED_DEMO_USERS=1` 时会创建 `lisi` / `wangwu` / `zhaoliu` / `moderator` 四个已知账号。在生产环境误设 `APP_RUNTIME_ENV=development` 会导致演示账号被创建 | 中（配置失误即触发） |
-| 4 | **Redis 路径长期行为未观测** | CI 用 service container 提供真实 Redis，但只验证了清空限流这一个路径。Redis 长时间运行下的内存增长、键空间膨胀、连接稳定性**均未观测** | 中 |
-| 5 | **Docker Compose 未做长时间运行验证** | CI 验证了「构建 → 启动 → 健康检查 → 重启不污染数据」，但**未验证**长期运行的资源占用与日志膨胀 | 中 |
+| 4 | **Redis 路径长期行为未观测** | CI 用 service container 提供真实 Redis，但只验证了清空限流这一个路径。Redis 长时间运行下的内存增长、键空间膨胀、连接稳定性**均未观测**。⚠️ **v0.0.4 进展**：`docker-verify.yml` 已实装 `[R-17a]` Redis 中断恢复 / `[R-17b]` PG 中断恢复 / `[R-17c]` 缓存失效与内存观测三个专项，**但本轮尚未实跑** | 中 |
+| 5 | **Docker Compose 未做长时间运行验证** | CI 验证了「构建 → 启动 → 健康检查 → 重启不污染数据」，但**未验证**长期运行的资源占用与日志膨胀。✅ **v0.0.4 进展**：`docker-verify` **九项全部 completed / success**（run `41871503684`，SHA `2773cd1`），九项汇总表全 PASS（含 compose 启动、PG/Redis 健康、数据卷持久化、容器重启、`[R-17a/b/c]` 专项、安装包实际部署、容器资源观察、镜像内容与权限）；修复提交 `827eef7` + `2773cd1` | 中 |
 | 6 | **缺少正式贡献指南与行为准则** | 目前单人维护。接受 PR，但没有 PR 模板、评审流程或 Code of Conduct | 低 |
 | 7 | **缺少自动化的数据库备份与恢复演练** | 备份命令已提供（见 `docs/INSTALL.md` 第 9 节），但**没有定时任务**，也没有定期的恢复演练 —— 备份是否可用需要人工确认 | 中 |
 | 8 | **原站素材的 Git 历史清理未执行** | 当前 HEAD 的文件树中已无原站 HTML / CSS / JS 与参考截图，**但 Git 历史中仍可取回**。历史改写是不可逆的高风险操作，**尚未获授权执行**。清理方案与演练记录属于仓库维护者的内部记录，未随本版本公开 | 低（对 v0.0.3 使用者）/ 中（对仓库维护者） |
 | 9 | **界面与原站存在差异** | 像素比对中的剩余差异主要来自内容数据不同（本地 seed 数据 vs 原站实时社区数据）。**不保证与 V2EX 完全一致** | 低 |
+| 10 | **运行时上传数据曾被误提交入仓（已处置，残余待授权）** | v0.0.4 收尾轮发现 E2E 生成的 **18 个头像占位 PNG** 被 Git 跟踪（引入提交 `04b107b` / `1b15f79` / `301a8a5`）。已加 `.gitignore` 规则并 `git rm --cached` 移出索引（**不改写历史、不删磁盘文件**）。⚠️ **残余**：这 18 个公开占位图**仍在 Git 历史里**，彻底消除需授权改写历史。这些文件**无用户数据、无凭据**，不构成版权或凭据泄露 | 低（内容无害）/ 中（发布物卫生） |
+| 11 | **四身份 UI 缺口** | ✅ **已由 `ed385cf` 修复**：管理员导航栏已有 `/admin` 入口（版主/管理员可从导航进入后台）；关注功能已有真实可点击按钮（点击「关注」→「已关注」→ 刷新后仍持久化 → 可取消）；节点申请提交界面、后台审批入口、隐藏节点入口、操作日志、通知标记已读全部补齐。**服务端鉴权未削弱**（前端加链接 ≠ 权限放宽；普通用户访问 `/admin` 仍被拒）。**待主理人终验确认** | 中（可用性） |
+| 12 | **节点申请 UI 提交链断裂（V4-20 / R-27）** | ✅ **已由 `bddb3d0` 修复并本地实测验证** —— 根因是 HTML 规范的 `[OverrideBuiltins]`：表单内的**命名控件会遮蔽原型上的同名属性**，`<form><input name="nodeName"></form>` 使 `form.nodeName` 返回 Element 而非字符串 ⇒ react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ React #418 水合失败 ⇒ 事件处理器不绑定 ⇒ 表单走浏览器原生 GET 提交 ⇒ 写操作失效。**修复**：表单命名属性改名（`nodeName` → `node_slug` 等）+ 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言，扫全仓 `src/`）。**实测**：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿；`/nodes/request` 的 React #418 **由 2 次归零**，提交恢复为 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** | 低（历史已解除） |
 
 > 第 8 项说明：涉及**历史改写**的操作需要单独授权，本次发布**未执行**任何历史改写。
+> 第 10 项同此 —— 已执行的只是 `.gitignore` + 移出索引，**未改写任何 Git 历史**。
 
 ---
 

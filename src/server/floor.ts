@@ -23,12 +23,34 @@ import { extractRows } from '@/server/sql-rows';
  *   再原子递增 —— 计数器偏低时自动抬到正确水位。
  */
 export async function allocateFloor(topicId: number): Promise<number> {
+  // ⚠️ v0.0.4 修复楼层跳号（真实压测发现）。
+  //
+  // 原实现：
+  //   INSERT ... SELECT greatest(coalesce(max(floor),0),0) + 1 FROM replies ...
+  //   ON CONFLICT DO UPDATE SET last_floor = greatest(fc.last_floor, EXCLUDED.last_floor) + 1
+  //
+  // 问题在 DO UPDATE 分支的 `greatest(fc.last_floor, EXCLUDED.last_floor) + 1`：
+  //   EXCLUDED 是「本次 INSERT 的候选值」，而该候选值本身已经是
+  //   **实时 max(floor) + 1**（含当前事务刚插入的楼层）。
+  //   于是又 +1 → **每次分配都跳一号**。
+  //
+  // 实测：连发 3 条回复得到楼层 16、14、12（跳过 15、13）。
+  //
+  // 修复原则：**floor_counters 是楼层号的唯一权威**。
+  //   - 计数表已有该主题 → 只用计数表 +1（原子 UPSERT，不看 replies）
+  //   - 计数表没有该主题（首次或历史数据导入后）→ 用实时 max(floor) 兜底初始化
+  //
+  // 这样既保留了「计数表落后时自愈」的能力，又消除了跳号。
+  // INSERT 分支：计数表不存在时，用实时 max(floor) **+1** 作为首个楼层
+  //   （若该主题已有 N 条回复，最大楼层为 N，新楼层应是 N+1）
+  // DO UPDATE 分支：计数表已有 → 只用计数表 +1
+  // 两个分支语义一致 → 不再跳号。
   const result = await db.execute(sql`
     INSERT INTO floor_counters (topic_id, last_floor)
-    SELECT ${topicId}, greatest(coalesce(max(floor), 0), 0) + 1
+    SELECT ${topicId}, coalesce(max(floor), 0) + 1
     FROM replies WHERE topic_id = ${topicId}
     ON CONFLICT (topic_id) DO UPDATE
-      SET last_floor = greatest(floor_counters.last_floor, EXCLUDED.last_floor) + 1
+      SET last_floor = floor_counters.last_floor + 1
     RETURNING last_floor
   `);
 

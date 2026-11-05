@@ -1,22 +1,42 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { config } from 'dotenv';
 import * as schema from './schema';
+import { loadProductEnv } from '../lib/env-loader.mjs';
 
-// 环境文件加载顺序：
-//  1. ENV_FILE 指定的文件（用于隔离测试环境，如 .env.test）
-//  2. .env.local（本地开发）
-//  3. .env（容器 / 生产）
-// dotenv 不会覆盖已存在的环境变量，因此 CI 中用环境变量注入的配置优先。
-// ENV_FILE 指定的文件用 override:true —— Next.js 在应用代码之前已自动
-// 加载了 .env / .env.production / .env.local，DATABASE_URL 等变量已被占位；
-// dotenv 默认不覆盖已有值，不加 override 的话 ENV_FILE 永远不生效。
-const ENV_FILE = process.env.ENV_FILE;
-if (ENV_FILE) {
-  config({ path: ENV_FILE, quiet: true, override: true });
-}
-config({ path: '.env.local', quiet: true });
-config({ path: '.env', quiet: true });
+/**
+ * 环境加载 —— 委托给**全仓唯一**的实现 `src/lib/env-loader.mjs`
+ *
+ * 优先级（产品侧）：
+ *   1. `process.env`（shell / CI / 容器注入）—— **永不被文件覆盖**
+ *   2. `ENV_FILE` 指定的文件 —— 只填充**未设置**的变量
+ *   3. `.env.local`（仅非测试运行时）—— 只填充未设置的变量
+ *   4. `.env`（容器 / 生产）—— 只填充未设置的变量
+ *
+ * ## 为什么这里需要「override」而其他地方不需要
+ *
+ * Next.js 在**应用代码执行之前**就通过 `@next/env` 自动加载
+ * `.env.{NODE_ENV}.local` / `.env.local` / `.env.{NODE_ENV}` / `.env`，
+ * 于是本模块运行时 `process.env.DATABASE_URL` **已经**被 `.env.local` 占位。
+ * 若还坚持「只填空位」，`ENV_FILE` 就永远赢不了 ——
+ * 这正是 v0.0.4 之前「`ENV_FILE` 从未生效」的根因。
+ *
+ * ## 但 override 的对象必须**收紧**
+ *
+ * 修复前的写法是 `config({ path: ENV_FILE, override: true })` ——
+ * **无条件覆盖**，于是命令行 / CI 显式注入的 `DATABASE_URL`
+ * 会被 `ENV_FILE` 文件**静默覆盖**，表现为「以为在测试库跑、其实跑到别的库」。
+ *
+ * 现在把 override 的判定收紧为：
+ * **只有「Next 自动加载的占位值」才允许被 `ENV_FILE` 覆盖，
+ *   shell / CI 注入的值绝不覆盖。**
+ *
+ * 判定的可靠依据是 `@next/env` 拍下的 `initialEnv` ——
+ * 那是 Next 加载任何 env 文件**之前**的 `process.env` 精确快照，
+ * 因此能干净地区分「shell 注入」与「文件占位」。
+ *
+ * 详见 `src/lib/env-loader.mjs` 的文档注释（含实测结论）。
+ */
+loadProductEnv({ cwd: process.cwd() });
 
 const globalForDb = globalThis as unknown as {
   __v2exSql?: ReturnType<typeof postgres>;

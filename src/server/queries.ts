@@ -19,6 +19,24 @@ export type TopicListItem = {
   lastReplier: { id: number; username: string } | null;
 };
 
+/**
+ * 主题排序表达式（v0.0.4）。
+ *
+ * 单独抽出来是为了让 listTopics 与未来的 /hot、/recent 页面共用同一套
+ * 排序口径 —— 避免「首页热门」与「热门页」排序不一致。
+ */
+function topicOrder(sort: 'latest' | 'hot' | 'created' | undefined) {
+  switch (sort) {
+    case 'hot':
+      return [desc(schema.topics.votes), desc(schema.topics.repliesCount), desc(schema.topics.id)];
+    case 'created':
+      return [desc(schema.topics.createdAt), desc(schema.topics.id)];
+    case 'latest':
+    default:
+      return [desc(schema.topics.lastReplyAt), desc(schema.topics.id)];
+  }
+}
+
 export async function listTopics(opts: {
   nodeName?: string;
   nodeId?: number;
@@ -28,6 +46,13 @@ export async function listTopics(opts: {
   perPage?: number;
   authorUsername?: string;
   keyword?: string;
+  /**
+   * 排序方式（v0.0.4 新增）：
+   *  - 'latest'（默认）按最后回复时间倒序
+   *  - 'hot'    按投票数 + 回复数倒序（原站「热门」）
+   *  - 'created'按创建时间倒序（原站「最新」）
+   */
+  sort?: 'latest' | 'hot' | 'created';
 }): Promise<{ items: TopicListItem[]; total: number }> {
   const page = Math.max(1, opts.page ?? 1);
   const perPage = opts.perPage ?? TOPICS_PER_PAGE;
@@ -78,7 +103,7 @@ export async function listTopics(opts: {
     .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(where)
-    .orderBy(desc(schema.topics.lastReplyAt), desc(schema.topics.id))
+    .orderBy(...topicOrder(opts.sort))
     .limit(perPage)
     .offset(offset);
 

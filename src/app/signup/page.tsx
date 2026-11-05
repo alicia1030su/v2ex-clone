@@ -3,6 +3,7 @@ import Footer from '@/components/Footer';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import SignUpForm from '@/components/SignUpForm';
+import NavTools from '@/components/NavTools';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,17 +44,7 @@ export default async function SignUpPage({
             <div id="search-container">
               <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
             </div>
-            <div className="tools">
-              <a href="/" className="top">
-                首页
-              </a>
-              <a href="/signup" className="top">
-                注册
-              </a>
-              <a href="/signin" className="top">
-                登录
-              </a>
-            </div>
+            <NavTools user={null} />
           </div>
         </div>
       </div>
