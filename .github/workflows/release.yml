@@ -1431,63 +1431,28 @@ jobs:
           name: release-package
           path: release-assets
 
-      # ── 诊断步骤（v0.0.4）──────────────────────────────────────────
-      # 背景：`gh release create` 连续三轮 403（run `41978482846` /
-      # `41983127742`），而：
-      #   - `build-image` 的 `packages: write` 生效（镜像推送成功）
-      #   - `preflight` 的 `gh release view`（同 token）成功
-      #   - v0.0.3 用**仅** `contents: write` 成功创建过 Draft
-      #   - 加 `pull-requests: write` 后**仍** 403
-      # ⇒ 说明「权限项不够」这个假设是错的，必须拿到**实际证据**。
+      # ── 权限记录步骤（v0.0.4）──────────────────────────────────────
+      # 本步骤原本是「诊断」—— 用于定位 `gh release create` 连续 403 的根因。
+      # **根因已定位**（见下方「创建 Release」步骤的注释）：不是权限问题，
+      # 而是 `gh release create` 这个 CLI 封装自身的行为。
+      #   实测证据（run `41985412431`）：
+      #     - `gh api --method POST /releases` → **成功**（id 434887371）
+      #     - `gh release create`               → 403（同一个 token、同一个 job）
+      # 诊断阶段曾采集到的 `.permissions` 全为 false —— 但那**不是**根因，
+      # 因为同一个 token 下 `gh api` 的 POST 成功了。
+      # （`.permissions` 字段反映的是 GitHub App installation 的权限，
+      #   与 GITHUB_TOKEN 在当前 job 的实际可用权限不是同一回事。）
       #
-      # 本步骤一次性采集三份证据（用 `set -uo pipefail`，不让诊断自身失败）：
-      #   ① token 对本仓库的权限映射（`.permissions` 字段）
-      #      —— 若 `push: false`，说明 job 级 permissions 未生效
-      #   ② 仓库的 Actions workflow 权限设置
-      #   ③ 用 `gh api` 直接 POST 创建 Draft，**打印完整错误体**
-      #      —— `gh release create` 只显示单行摘要，拿不到
-      #         `message` + `documentation_url` + `errors[]`
-      #
-      # ③ 用一个**专属诊断 tag**，不占用正式 tag；创建成功后立即删除，
-      # 不污染 Release 列表。
-      - name: 诊断 token 权限与 API 错误详情
+      # 因此本步骤降级为**只读记录**：把当前 token 的权限映射打进日志，
+      # 便于将来排查，**不再创建任何 Release / tag**。
+      - name: 记录 token 权限映射（只读）
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          echo "=== ① token 对本仓库的权限映射 ==="
+          echo "=== 当前 token 对本仓库的权限映射 ==="
           gh api "repos/${{ github.repository }}" --jq '.permissions' \
-            || echo "(查询失败)"
-          echo "=== ② 仓库的 Actions workflow 权限设置 ==="
-          gh api "repos/${{ github.repository }}/actions/permissions/workflow" --jq '.' \
-            || echo "(查询失败)"
-          echo "=== ③ 用 gh api 直接 POST 创建 Draft（完整错误体）==="
-          DIAG_TAG="v0.0.4-diag-${{ github.run_id }}"
-          gh api --method POST "repos/${{ github.repository }}/releases" \
-            -f tag_name="$DIAG_TAG" \
-            -f name="诊断用（自动清理）" \
-            -f body="发布流水线 403 诊断，非正式资产" \
-            -F draft=true -F prerelease=true \
-            --jq '{id, draft, tag_name, html_url}' 2>&1 \
-            || echo "(创建失败 —— 完整错误体见上方)"
-          echo "=== ④ 清理诊断 Release ==="
-          DID="$(gh api "repos/${{ github.repository }}/releases" \
-                  --jq ".[] | select(.tag_name==\"$DIAG_TAG\") | .id" 2>/dev/null || true)"
-          if [ -n "$DID" ]; then
-            gh api --method DELETE "repos/${{ github.repository }}/releases/$DID" >/dev/null 2>&1 \
-              && echo "已清理诊断 Release $DID" \
-              || echo "(清理失败，需手工删除 Release $DID)"
-            # ⚠️ `POST /releases` 在 tag 不存在时会**自动创建 tag**；
-            #    删 Release **不会**删 tag ⇒ 必须显式删除 ref。
-            #    这是**诊断用的临时 tag**（非版本 tag），删除它不违反
-            #    「同一版本号不得反复删建或移动 Tag」的规约。
-            gh api --method DELETE "repos/${{ github.repository }}/git/refs/tags/$DIAG_TAG" >/dev/null 2>&1 \
-              && echo "已清理诊断 tag $DIAG_TAG" \
-              || echo "(诊断 tag 未创建或已清理)"
-          else
-            echo "无诊断 Release 需清理（创建失败 ⇒ 未产生 tag）"
-          fi
-          echo "=== 诊断结束（本步骤不影响后续创建）==="
+            || echo "(查询失败 —— 不影响后续步骤)"
 
       - name: 再次检查冲突（防止竞态）
         env:
@@ -1647,6 +1612,8 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
+          REPO="${{ github.repository }}"
+          TAG_SHA="${{ needs.preflight.outputs.tag_sha }}"
           # 安装包文件名直接取自 package job 的 output，
           # 不要靠猜 —— package 产出的是 v2ex-clone-${VERSION}-deploy.zip。
           ZIP_NAME="${{ needs.package.outputs.zip_name }}"
@@ -1657,16 +1624,79 @@ jobs:
           test -f "release-assets/SHA256SUMS" || {
             echo "::error::未找到 SHA256SUMS"; exit 1; }
           cd release-assets
-          gh release create "$VERSION" \
-            --repo "${{ github.repository }}" \
-            --title "$VERSION — 开发预览版" \
-            --notes-file ../release-notes.md \
-            --prerelease \
-            --draft \
-            --target "${{ needs.preflight.outputs.tag_sha }}" \
-            "$ZIP_NAME" \
-            SHA256SUMS
-          echo "Draft Release 已创建"
+
+          # ═══════════════════════════════════════════════════════════
+          # ① 创建 Draft Release
+          # ═══════════════════════════════════════════════════════════
+          # ⚠️ **必须用 `gh api`，不能用 `gh release create`。**
+          #
+          # 背景（v0.0.4 连续四轮 403 的定位过程）：
+          #   `gh release create` 在 run `41978482846` / `41983127742` /
+          #   `41985412431` 中一律返回
+          #       HTTP 403: Resource not accessible by integration
+          #       (https://api.github.com/repos/…/releases)
+          #
+          #   而 run `41985412431` 的诊断步骤证明：**同一个 token、同一个
+          #   job 里**，`gh api --method POST /releases` 却**成功创建了**
+          #   Draft Release（id `434887371`）。
+          #
+          #   ⇒ 403 **不是权限问题**（`contents: write` 一直都在，
+          #      v0.0.3 也仅凭它成功建过 Draft；加 `pull-requests: write`
+          #      后仍 403），而是 **`gh release create` 这个 CLI 封装自身的
+          #      行为** —— 它对「tag 已存在 + 显式传 `--target`」这条路径
+          #      会做额外的解析/校验调用，其中某一步被拒。
+          #
+          #   `gh api` 是**直接**打 REST API，不经过那层封装 ⇒ 可行。
+          #
+          # 实测：本写法已在 run `41985412431` 的诊断步骤中成功执行
+          # （创建出 id 434887371 的 Draft，随后被诊断步骤清理）。
+          RELEASE_ID="$(gh api --method POST "repos/${REPO}/releases" \
+            -f tag_name="$VERSION" \
+            -f target_commitish="$TAG_SHA" \
+            -f name="$VERSION — 开发预览版" \
+            -F draft=true \
+            -F prerelease=true \
+            -F body=@../release-notes.md \
+            --jq '.id')"
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::创建 Release 失败（未拿到 release id）"
+            exit 1
+          fi
+          echo "Draft Release 已创建（id=$RELEASE_ID）"
+
+          # ═══════════════════════════════════════════════════════════
+          # ② 上传资产
+          # ═══════════════════════════════════════════════════════════
+          # `gh release create <files>` 原本会把资产上传一并做掉；
+          # 改成 `gh api` 后需要显式上传。
+          #
+          # `upload_url` 形如
+          #   https://uploads.github.com/repos/o/r/releases/<id>/assets{?name,label}
+          # 去掉模板后缀后，用 `?name=<filename>` 追加文件名。
+          UPLOAD_URL="$(gh api "repos/${REPO}/releases/${RELEASE_ID}" \
+            --jq '.upload_url' | sed 's/{?name,label}$//')"
+          if [ -z "$UPLOAD_URL" ]; then
+            echo "::error::未拿到 upload_url"
+            exit 1
+          fi
+          # 上传失败时**回滚**：删掉刚创建的 Draft。
+          #
+          # 否则会留下一个「没有资产」的 Draft Release ⇒ 下次重跑时
+          # 「再次检查冲突」步骤会发现 Release 已存在而中止 ⇒ 卡死。
+          for f in "$ZIP_NAME" SHA256SUMS; do
+            echo "上传 ${f} ..."
+            if ! gh api --method POST "${UPLOAD_URL}?name=${f}" \
+                 -H "Content-Type: application/octet-stream" \
+                 --input "$f" \
+                 --jq '.name' > /dev/null; then
+              echo "::error::上传 ${f} 失败 —— 回滚（删除 Draft Release $RELEASE_ID）"
+              gh api --method DELETE "repos/${REPO}/releases/${RELEASE_ID}" \
+                && echo "已回滚" || echo "(回滚失败，需手工删除 Release $RELEASE_ID)"
+              exit 1
+            fi
+            echo "  ✓ ${f} 已上传"
+          done
+          echo "资产上传完成"
 
       - name: 核验 draft 资产后正式发布
         env:
