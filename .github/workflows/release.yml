@@ -54,6 +54,7 @@ on:
       #    让「新增 tag = 新发布」这件事必须经过人的确认。
       - 'v0.0.2'
       - 'v0.0.3'
+      - 'v0.0.4'
   workflow_dispatch:
     inputs:
       version:
