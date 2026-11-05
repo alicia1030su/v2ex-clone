@@ -504,7 +504,12 @@ test.describe('v0.0.5 举报全链路', () => {
         timeout: 15_000,
       });
 
-      await page.getByRole('button', { name: '举报', exact: true }).click();
+      // ⚠️ **不能用 `exact: true`** ——
+      // tab 按钮的文本会带上待处理数量：`举报（3）`。
+      // 当有待处理举报时，`exact: true` 匹配不到 ⇒ 用非精确匹配。
+      // （实测踩到：单独跑该 spec 时数量为 0 → 文本是「举报」能匹配；
+      //   全量跑时前面用例产生了举报 → 文本变「举报（3）」→ 匹配失败。）
+      await page.getByRole('button', { name: /^举报/ }).click();
       // 默认就是「待处理」筛选
       await expect(page.getByRole('button', { name: '待处理' })).toBeVisible({
         timeout: 15_000,

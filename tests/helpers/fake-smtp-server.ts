@@ -39,10 +39,22 @@ import { EventEmitter } from 'node:events';
 export type ReceivedMail = {
   from: string;
   to: string[];
-  /** DATA 段的原始内容（含 Subject / Message-ID 头） */
+  /** DATA 段的原始内容（含 From/To/Subject/Message-ID 头） */
   data: string;
-  /** 从 data 里解析出的 Subject（解码 RFC2047 base64） */
+  /** 从 data 里解析出的 Subject（已解码 RFC 2047） */
   subject: string;
+  /**
+   * 从 data 里解析并解码后的正文
+   *
+   * 按 `Content-Transfer-Encoding` 头决定解码方式：
+   *  - `base64` → 拼接折行后 base64 解码
+   *  - `8bit` / `7bit` / 缺省 → 原文
+   *
+   * 生产实现（`src/lib/mailer.ts` 的 `deliverViaSmtp`）用的是 **8bit**。
+   */
+  body: string;
+  /** 从 data 里解析出的 Message-ID */
+  messageId: string;
 };
 
 export type FakeSmtpServerOptions = {
