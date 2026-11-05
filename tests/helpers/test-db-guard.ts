@@ -58,6 +58,7 @@ const ALLOWED_DB_NAMES = new Set([
   'v2ex_seedtest',
   'v2ex_readiness_probe', // §4.7.1 判据 B 的就绪探针库
   'v2ex_v005_reports', // v0.0.5 举报系统 + 管理员积分调整
+  'v2ex_v005_floor', // v0.0.5 楼层号 100 并发与编号稳定性
 ]);
 
 /** 新增测试库的保留前缀（比枚举更灵活，但必须带 `v2ex_test_` 前缀） */
