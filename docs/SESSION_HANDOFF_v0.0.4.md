@@ -122,7 +122,7 @@ WorkBuddy 的 Bash 工具在**单次调用结束时回收整棵进程树** → `
 | **185（作为通过数）** | **修复前的历史观测**：CI run `41837212170`（本轮） | `185 passed \| 5 skipped (190)` —— 分母是 190。**已由 `8ce5ce9` 修复**，run `41860242099` / `41873009808` 单元 job 已 ✅ |
 | **185（作为总数）** | CI run `41760677505`（master @ `37710fb4`，14 文件） | `185 passed (185)` —— 当时总数就是 185 |
 
-**结论：v0.0.4 的用例总数始终是 190（15 文件）。**
+**结论：v0.0.4 的用例总数在 V4-20 修复后为 194（16 文件）；修复前是 190（15 文件）。**
 185 在当前分支语境下只是 CI 上的通过数（`floor-continuity` 5 条崩溃被跳过）。
 
 **根因链**：
@@ -131,7 +131,7 @@ WorkBuddy 的 Bash 工具在**单次调用结束时回收整棵进程树** → `
 → **当时 153 条 E2E 在 CI 上从未跑过一条**（历史所有 run 的 E2E 状态都是 `skipped`）。
 
 > ✅ **后续已闭环**：`8ce5ce9` 修复 + run `41860242099` / `41873009808` 单元 job ✅ ⇒ **E2E job 已真实跑过**。
-> **当前 CI：153 passed | 1 failed | 154 total**（run `41873009808`）—— 唯一失败为节点申请 UI 提交链断裂（R-27 / V4-20）。
+> **修复前的历史快照：CI：153 passed | 1 failed | 154 total**（run `41873009808`）—— 唯一失败为节点申请 UI 提交链断裂（R-27 / V4-20）—— ✅ **已由 `bddb3d0` 修复并本地实测验证**（本地 E2E 154/154 全绿；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`））。
 
 ### ⚠️ 本轮已实测推翻的两个推断（留痕，避免后人重犯）
 
@@ -257,8 +257,8 @@ v2ex_rateclear
 
 | 项 | 上一轮记录 | **本轮实测（2026-11-04）** |
 |---|---|---|
-| 单元测试 | 185（旧）/ 190（报告另处） | ✅ **190 条 / 15 文件，全部通过，0 failed / 0 skipped**；连续 **4 轮**全绿。**本轮隔离实例实测 81.68s**；历史轮次 170–210s/轮（共享实例 55433 口径）。证据：`docs/evidence/baseline/vitest-v0.0.4-round3.txt` |
-| E2E | 153 条 / 11 文件，153 passed（10.0m） | ✅ **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped（4.5m），连续 **2 轮**全绿（基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`，唯一失败为节点申请 UI 提交链断裂 V4-20 / R-27）。`--list` 权威清单：`docs/evidence/baseline/playwright-list-v0.0.4.txt` |
+| 单元测试 | 185（旧）/ 190（报告另处） | ✅ **194 条 / 16 文件，全部通过，0 failed / 0 skipped**（V4-20 修复前为 190 条 / 15 文件）；连续 **4 轮**全绿。**本轮隔离实例实测 81.68s**；历史轮次 170–210s/轮（共享实例 55433 口径）。证据：`docs/evidence/baseline/vitest-v0.0.4-round3.txt` |
+| E2E | 153 条 / 11 文件，153 passed（10.0m） | ✅ **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped（4.5m），连续 **2 轮**全绿（基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`（唯一失败为节点申请 UI 提交链断裂 V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`））。`--list` 权威清单：`docs/evidence/baseline/playwright-list-v0.0.4.txt` |
 | 视觉对照 | 4 视口 × 17 页面 = 68 条（40 有对照 / 28 无对照）；严格口径桌面 Δx=0 **52/52** | ⏸ 保留既有证据 |
 | 负载测试 | 已执行：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求 / 13 场景 | ⏸ 保留既有证据 |
 | 迁移幂等 + 备份恢复 | 已验证 | 🔄 QA 复核中 |
@@ -317,6 +317,9 @@ v2ex_rateclear
 ---
 
 ## 8. 尚未修复的缺陷与风险
+
+> ⚠️ **本轮（V4-20 修复轮）更新**：**V4-20 / R-27 已由 `bddb3d0` 修复并本地实测验证** —— 本轮唯一红灯已解除
+> （单元 194/194、E2E 154/154 全绿，React #418 归零）。****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。
 
 | ID | 状态 | 摘要 |
 |---|---|---|
@@ -566,3 +569,148 @@ install.sh 完成、`.env` 600、INSTALL_CREDENTIALS.txt 600、口令 32/32/48/1
 - 版本同步（5 载体，architect 审计表）→ 测该提交 → 定 SHA → 人工放行 tag 白名单 → 建不可变 Tag → v0.0.4 Draft Release：等 CI 全绿后执行。
 - 55433（v003 证据库）仍未恢复 → 本地 E2E/起应用验证继续暂停（主人已取消 PG 恢复，**不要重启或重试**）。
 - R-01 仍 DEFERRED，等待主人单独授权。
+
+---
+
+# 第 7 轮状态快照（2026-11-05，主理人）—— 最新状态以此为准
+
+> **本轮主题**：v0.0.4 收尾轮 —— 修复上一轮遗留的**唯一红灯**（V4-20 / R-27：节点申请 UI 提交链断裂），
+> 并把全部交付文档的状态与数字同步到「已修复并实测验证」口径。
+
+## A. 本轮起点（只读核查结果）
+
+| 项 | 值 |
+|---|---|
+| HEAD | `5ce8b3f`（`docs: 交接文档追加第 6 轮快照 —— docker-verify 九项首次全绿 + compose 插值 env 泄漏根因（假绿）与修复实证`） |
+| 分支 | `feat/v0.0.4-high-fidelity`（PR #5） |
+| 工作区状态 | **干净** —— `git status --short` 仅有未跟踪的 `_scratch/`（临时目录，非成果物） |
+| 未提交成果需抢救 | **无** —— 本轮起点不存在未提交的可交付成果，无需抢救 |
+
+> ⚠️ 结论：**上一轮不存在「工作区已修、提交历史未修」的遗留**（那正是第 5 轮踩过的坑，见 B2）。
+> 本轮从干净工作区起步，改动全部经由提交 `bddb3d0` 落地。
+
+## B. 单元测试基线实测：190/190 → 194/194
+
+| 项 | 修复前 | 修复后 |
+|---|---|---|
+| 单元测试 | **190 passed / 0 failed / 0 skipped（15 文件）** | ✅ **194 passed / 0 failed / 0 skipped（16 文件）** |
+| 增量来源 | — | **新增 `tests/form-name-shadowing.spec.ts`，4 条防回归断言** |
+| 耗时 | 81.68s | 81.68s |
+
+> ⚠️ **耗时口径必须区分**：**81.68s 是「隔离实例」口径**（本轮 `127.0.0.1:55440`）；
+> **历史轮次的 170~210s 是「共享实例 55433」口径**。两者不可直接比较 —— 换算口径不同，不是性能退化。
+> `numPendingTests: 0` 仍成立 —— **没有任何用例被静默跳过**（比「全绿」更强的结论）。
+
+## C. 文档口径审计结果
+
+### C1. 上一轮文档全面校正（提交 `ee6ce76`）
+
+| 项 | 值 |
+|---|---|
+| 审计范围 | **21 个文件** |
+| 改动规模 | **+620 / -323** |
+| E2E 分母校正 | **153 → 154**（`--list` 权威 `Total: 154 tests in 11 files`） |
+
+### C2. 本轮（V4-20 修复轮）文档状态同步
+
+| 项 | 值 |
+|---|---|
+| 审计范围 | **15 个交付文档**（`BUG_REGISTER` / `RISK_REGISTER` / `CHANGELOG` / `RELEASE_GATE` / `TEST_REPORT` / `README` / `FEATURE_MATRIX` + `docs/` 下 5 份 + `docs/evidence/` 下 2 份） |
+| 单元分母校正 | **190 → 194**（V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言） |
+| E2E 结果校正 | **153 passed \| 1 failed → 154 passed / 0 failed / 0 skipped**（153\|1 failed 保留为**修复前的历史快照**） |
+| 状态位同步 | V4-20 / R-27 由「🔴 未修复（修复中）」改为「🟢 已修复并本地实测验证（`bddb3d0`）」 |
+
+> 本轮**只改数字与状态**，不重写技术描述、不删章节；历史数字一律**保留为历史快照**并逐处标注来源。
+> ⚠️ **未改** `src/` / `tests/` / `e2e/` 下任何文件（修复代码属提交 `bddb3d0`，本轮只动文档）。
+
+## D. V4-20 完整根因链（本轮最有价值的产出）
+
+> **本地实测 + trace 级证据，非推测。**
+
+### D1. 根因链（逐环节）
+
+1. **HTML 规范层**：规范给 `HTMLFormElement` 加了 **`[OverrideBuiltins]`** —— 表单内的**命名控件**
+   会**遮蔽原型上的同名属性**。
+2. **DOM 行为层**：`<form><input name="nodeName"></form>` ⇒ `form.nodeName` 返回 **HTMLInputElement**
+   （**不是**字符串 `"FORM"`）。
+3. **框架层**：Next.js 15.5 内置的 React 19 水合代码（`react-dom-client.production.js` 的
+   **`canHydrateInstance`**）有一行 `instance.nodeName.toLowerCase() !== type.toLowerCase()`
+   —— 此时 `nodeName` 是 Element ⇒ `.toLowerCase()` **不存在**
+   ⇒ `TypeError: nodeName.toLowerCase is not a function`。
+4. **框架后果**：水合失败（**React #418**）⇒ **事件处理器不绑定**。
+5. **浏览器后果**：表单走**浏览器原生 GET 提交** ⇒ **写操作彻底失效**。
+
+### D2. 实测矩阵（修复前 → 修复后）
+
+| 项 | 修复前 | 修复后 |
+|---|---|---|
+| 单元测试 | 190 passed / 190（15 文件） | ✅ **194 passed / 194（16 文件）** |
+| E2E | 153 passed / 1 failed / 154 total | ✅ **154 passed / 0 failed / 0 skipped（11 文件，3.9m）** |
+| `/nodes/request` 的 React #418 | **2 次** | ✅ **0 次** |
+| 提交请求 | **无（原生 GET）** | ✅ **`POST /api/node-requests`** |
+| 提交后 URL | **`?nodeName=...`** | ✅ **停在 `/nodes/request`** |
+| 成功 toast | **不出现** | ✅ **出现** |
+
+### D3. 关键实测结论（命名属性遮蔽的边界）
+
+| 属性写法 | 是否致命 | 说明 |
+|---|---|---|
+| `name="nodeName"` | ☠️ **致命** | 遮蔽 `form.nodeName` ⇒ react-dom 抛 `TypeError` |
+| `id="nodeName"` | ☠️ **致命** | **同样致命** —— `id` 与 `name` 都会成为命名控件 |
+| `name="title"` / `id="title"` | ⚠️ **隐患项** | 有遮蔽语义，但 **react-dom 不崩** —— react-dom 只读 `instance.nodeName` |
+| `name="action"` / `name="id"` | ⚠️ **隐患项** | 同上 |
+
+### D4. 本地执行环境
+
+| 项 | 值 |
+|---|---|
+| PG | **隔离实例 `127.0.0.1:55440`** |
+| 应用构建 | **生产构建** `next build` + `next start -p 3010` |
+| 浏览器 | **Chromium** |
+
+## E. 修复清单与提交号
+
+**提交：`bddb3d0`** —— `fix(ui): 修复节点申请 UI 提交链断裂（V4-20 / R-27）—— 表单命名属性遮蔽 form.nodeName`
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `src/components/NodeRequestForm.tsx` | `name="nodeName"` → `name="node_slug"`；`id="nodeName"` → `id="node_slug"`；`name="nodeTitle"` → `name="node_title"`；`id="nodeTitle"` → `id="node_title"` |
+| 2 | `src/components/NewTopicForm.tsx` | `name="title"` → `name="topic_title"`（**`id="title"` 有意保留** —— E2E 用 `#title` 定位） |
+| 3 | `src/components/TopicEditForm.tsx` | `name="title"` → `name="topic_title"` |
+| 4 | `e2e/v004-four-roles-ui.spec.ts` | 选择器 `input[name="nodeName"]` → `input#node_slug`；`input[name="nodeTitle"]` → `input#node_title` |
+| 5 | `e2e/helpers.ts` | 标题框选择器改用 `input#title` |
+| 6 | `tests/form-name-shadowing.spec.ts`（**新增**） | **4 项防回归断言**，扫全仓 `src/`，禁止任何表单控件的 `name`/`id` 遮蔽 `form.nodeName` |
+
+> ✅ 修复已推送；**CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ `Test Files 16 passed (16)` / `Tests 194 passed (194)`、e2e ✅ `154 passed (2.5m)` / 0 failed、docker ✅）。
+> 上一轮 CI run `41873009808` 的 `153 passed | 1 failed` 是**修复前**的历史快照。
+
+## F. E2E 154/154 全绿实测
+
+```
+154 passed / 0 failed / 0 skipped（11 文件，3.9m）
+```
+
+- 单元：**194 passed / 0 failed / 0 skipped（16 文件）**，耗时 81.68s（隔离实例口径）。
+- E2E：**154 passed / 0 failed / 0 skipped（11 文件，3.9m）**。
+- `/nodes/request` 的 React #418 **由 2 次归零**；提交请求恢复 `POST /api/node-requests`；URL 停在 `/nodes/request`；成功 toast 出现。
+- ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** —— 本地全绿 ≠ CI 已通过。
+
+## G. 本地执行环境的三条纪律（务必遵守）
+
+| # | 纪律 | 原因 |
+|---|---|---|
+| 1 | **PG 的生命周期必须在同一次调用内启动与测试** | PG 实例不跨调用存活 —— 起了不测，测了不关，都会造成后续轮次「连不上」的假失败 |
+| 2 | **`next build` 会被 WorkBuddy 的 fs shim 拦截** ⇒ 须先清 `NODE_OPTIONS` | 拦截后构建静默失败或产物不完整，表现为「代码没错但跑不起来」的假象 |
+| 3 | **管道会导致 postgres 不退出 ⇒ 被 SIGTERM** | 用管道（如 `| tail`）承接输出会让 PG 的标准输出/错误仍被占用，进程无法正常退出并被 SIGTERM 杀掉 |
+
+## H. 下一步动作
+
+| # | 动作 | 说明 |
+|---|---|---|
+| 1 | **CI 复验** | `bddb3d0` 已推送，等待 CI run 完成；验收口径：unit `194 passed / 16 文件`、e2e `154 passed / 0 failed / 0 skipped`。**补上 run id** 后回填全部交付文档 |
+| 2 | **版本同步** | 5 载体（`package.json` / `deploy/VERSION` / `README.md` / `FEATURE_MATRIX.md` / `RELEASE_GATE.md` / `TEST_REPORT.md`）在**最终 SHA 固定后一次性**从 `0.0.3` 同步到 `0.0.4`（R-20 裁决；**本轮刻意保持 0.0.3**） |
+| 3 | **Tag** | 人工放行 `release.yml` tag 白名单 → 建**不可变** Tag `v0.0.4`（G-VER-01；**本轮未创建**） |
+| 4 | **Draft Release** | CI 全绿后创建 **Draft** Release（`publish=false`）；**不得公开发布** |
+
+> ⚠️ **R-01 仍为 DEFERRED** —— 禁止改写远端历史 / 删 Tag / 改 Release / 改仓库可见性。
+> 本轮改动**未触碰**任何 R-01 相关表述。

@@ -6,8 +6,15 @@
 > 建表时间：2026-11-04
 > 维护者：代码审计负责人（主理人）
 >
-> ⚠️ **测试数字口径声明（v0.0.4 收尾轮）**：**v0.0.4 的权威基线是 190 条 / 15 个文件 /
-> 190 passed / 0 failed / 0 skipped**（本机连续 4 轮实测）。
+> ⚠️ **测试数字口径声明（v0.0.4 收尾轮）**：**v0.0.4 的权威基线是 194 条 / 16 个文件 /
+> 194 passed / 0 failed / 0 skipped**（本机连续 4 轮实测 + V4-20 修复后复验）。
+> ⚠️ **本次因 V4-20 修复而变动的数字**：
+> **单元 190 条 / 15 文件 → 194 条 / 16 文件**（新增 `tests/form-name-shadowing.spec.ts`，
+> **4 条防回归断言**）；**E2E 153 passed | 1 failed | 154 total → 154 passed / 0 failed / 0 skipped
+> （11 文件，3.9m）**。
+> ⚠️ **历史轮次数字一律保留不改写，但已逐处标注其来源**：
+> 「190 条 / 15 文件」是**修复前**的基线；「153 passed | 1 failed | 154 total」（run `41873009808`）
+> 是 **V4-20 修复前**的 CI 历史快照。
 >
 > 本文中出现的 **185** 有**两个不同来源**，含义不同，不可混用：
 > ① **v0.0.3 历史总数**（CI run `41760677505`，master @ `37710fb4`，14 个 spec 文件，`185 passed (185)`）；
@@ -16,7 +23,8 @@
 > **该红灯已由 `8ce5ce9` 修复**，run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均已 ✅
 > （vitest 15 文件全过、`190 passed / 0 skipped`）；**历史数字保留不改写**，但已逐处标注其来源。
 >
-> 无论哪种，**v0.0.4 的用例总数始终是 190**。口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节
+> 无论哪种，**v0.0.4 的用例总数在 V4-20 修复后为 194**（修复前为 190）。
+> 口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节
 > 与 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1。
 > **历史条目不改写数字**，但在每处标注其来源。
 
@@ -106,7 +114,7 @@
 | V3-10 | **幂等检查未规范化换行** —— CRLF/LF 差异误判「配置被覆盖」 | 同上 | `78a2573` | 本地连跑两次：长度 2515 → 2515，内容一致 | **VERIFIED** |
 | V3-11 | **PATHEXT 顺序 `.COM;.EXE;.BAT;.CMD`** —— Windows 上 `.EXE` 优先于 `.CMD`，假 docker shim 失效 | 同上 | `c654d2d` | 改用无扩展名 shim；`which docker` → `/d/a/_temp/inst/docker` | **VERIFIED** |
 | V3-12 | **shim 未处理 `docker inspect`** → 健康检查拿不到 healthy → install.sh 等待 120 秒超时 | 同上 | `d6bd278` | 本地实测 install.sh exit=0 完整跑通 | **VERIFIED** |
-| V3-13 | **5 个生产依赖完全未被引用**（jose/dompurify/bcryptjs/nanoid/zod）—— 白白扩大供应链攻击面 | `package.json` | `0b93eca` | 全仓库搜索 0 引用；移除后 tsc 0 错误、vitest **185/185**（**v0.0.3 历史总数**，master @ `37710fb4`；v0.0.4 权威基线为 190/190） | **VERIFIED** |
+| V3-13 | **5 个生产依赖完全未被引用**（jose/dompurify/bcryptjs/nanoid/zod）—— 白白扩大供应链攻击面 | `package.json` | `0b93eca` | 全仓库搜索 0 引用；移除后 tsc 0 错误、vitest **185/185**（**v0.0.3 历史总数**，master @ `37710fb4`；v0.0.4 权威基线为 194/194，修复前为 190/190） | **VERIFIED** |
 | V3-14 | **生产镜像整包 COPY node_modules**（530MB，含 devDeps 与 esbuild 0.18.20 漏洞版本） | `Dockerfile` | `19750b9` | `npm ci --omit=dev` 后 73 包 / 429MB；entrypoint 三个必需路径全部存在 | **VERIFIED** |
 | V3-15 | **`publish-release`/`verify-release` 无 dry_run 闸门** —— 勾选「仅验证」仍会真的发 Release | `.github/workflows/release.yml` | devops 修复 | 全链路语义核查：两个 job 均有 `if: needs.preflight.outputs.dry_run != 'true'` | **VERIFIED** |
 | V3-16 | **发布 tag 触发器为 `'v*'`** —— 任何能推 tag 的人可触发带写权限的流水线 | 同上 | devops 修复 | 触发器已为显式白名单 | **VERIFIED** |
@@ -116,7 +124,7 @@
 | V3-20 | **零 `@media` 断点** —— 375px 视口下 `.content` 的 `min-width:600px` 导致横向滚动，移动端不可用 | `src/app/globals.css` | `0313959` | 三视口几何量测；375 视口本地不再溢出 | **VERIFIED** |
 | V3-21 | **窄屏下 `#Rightbar` 浮动挤偏 `#Main`** —— 实测 Δx=100px | `src/app/globals.css` | `0313959` | 改用 flex `order` 后置；375 视口 Δy 从 928 降到 20 | **VERIFIED** |
 | V3-22 | **迁移脚本无幂等保护** —— `CREATE TYPE`/`ADD CONSTRAINT` 重跑即失败 | `drizzle/0001_striped_magdalene.sql` | `b4c0a12` | 连续应用 3 次全部 exit=0，26 表 / 38 约束 | **VERIFIED** |
-| V3-23 | **测试与 `@/db` 全局连接池库不一致** —— 服务层写 A 库、断言读 B 库，外键约束失败 | 5 个 v0.0.3 测试文件 | `0ae8c08` | 修正后 185/185 全绿（**v0.0.3 历史总数**，master @ `37710fb4`；v0.0.4 权威基线为 190/190） | **VERIFIED** |
+| V3-23 | **测试与 `@/db` 全局连接池库不一致** —— 服务层写 A 库、断言读 B 库，外键约束失败 | 5 个 v0.0.3 测试文件 | `0ae8c08` | 修正后 185/185 全绿（**v0.0.3 历史总数**，master @ `37710fb4`；v0.0.4 权威基线为 194/194，修复前为 190/190） | **VERIFIED** |
 | V3-24 | **邮件脱敏断言与实现脱节** —— 实现改进后测试期望值过时 | `tests/password-reset.spec.ts` | `0ae8c08` | 断言改为验证「不泄漏原字符」这一性质 | **VERIFIED** |
 | V3-25 | **前端调用后端不存在的端点** —— `POST /api/notifications/read` 实际 404，通知「标记已读」功能失效 | `src/components/NotificationsList.tsx` | `9d766fa` | 改为 `POST /api/notifications`；已接入 CI 契约校验防回归 | **VERIFIED** |
 | V3-26 | **`.gitignore` 的 `logs/` 规则误伤源码目录** —— 匹配任意层级同名目录，`src/app/api/admin/logs/` 从未进入版本库，生产环境必然 404 | `.gitignore` + `src/app/api/admin/logs/route.ts` | `b30245b` | 改为 `/logs/` 并强制入库该端点；CI 干净 checkout 复验 72 路由 | **VERIFIED** |
@@ -196,7 +204,7 @@
 > | V4-17 | 阻断 | `tests/floor-continuity.spec.ts` 在 CI 必然崩溃（**已修，`8ce5ce9`**） |
 > | V4-18 | 严重 | `docker-verify.yml` 的 app 健康判定口径不可能成立（app 其实完全健康） |
 > | V4-19 | 严重 | `docker-verify.yml` 的 `[7/9]` 安装包部署必然失败（端口占用 + 容器名冲突） |
-> | V4-20 | 严重 | 节点申请 UI 提交链断裂（**本轮唯一红灯，修复中**） |
+> | V4-20 | 严重 | 节点申请 UI 提交链断裂（**本轮唯一红灯 —— 已修复并本地实测验证**） |
 
 | ID | 级别 | 缺陷 | 位置 | 发现方式 | 修复 | 验证方式 | 状态 |
 |---|---|---|---|---|---|---|---|
@@ -207,7 +215,7 @@
 | **V4-17** | 阻断 | **`tests/floor-continuity.spec.ts` 在 CI 上必然崩溃** —— 单元测试 `unit` job 红灯 → `e2e` job 被 `needs: unit` 连带跳过 → **整个 CI 红灯** | `tests/floor-continuity.spec.ts`（`baseDatabaseUrl()`） | CI 实跑（run `41837212170`，HEAD `930f29e`） | ✅ **已修** —— 提交 `8ce5ce9`（护栏 3 修复提交 `634a202`）：去掉 `:55433/` 端口白名单 + 读 `.env.test` 前先 `existsSync` 判断（修复方向此前已在 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.5 于纯净 CI 检出 `/tmp/ci-sim` 上双向验证：CI 条件与本地条件均 `5 passed`） | **实测输出**：`Test Files 15 passed (15)` / `Tests 190 passed (190)` / **0 skipped** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 ✅。**修复前的历史观测**（run `41837212170`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母 190 正确**。`e2e` job **已真实跑过**（不再被 `needs: unit` 连带跳过） | **VERIFIED** |
 | **V4-18** | 严重 | **`docker-verify.yml` 的 app 健康判定口径不可能成立** —— 第 2 项红灯：`✗ app 未达 healthy（none）`。**断言口径本身错了**：根目录 `docker-compose.yml` 的 **app 服务没有定义 healthcheck**（只有 `deploy/docker-compose.yml` 才有），所以 `docker inspect '{{.State.Health.Status}}' v2ex-app` **永远返回 `none`**。⚠️ **真实 CI 日志证明 app 其实是完全健康的**（`✓ Ready in 414ms`）—— 是断言读错了，不是应用没起来 | `.github/workflows/docker-verify.yml`（第 2 项） | CI 实跑（run `41837202602`）+ 静态复核 | 把 app 的就绪判定从「读 `State.Health.Status`」改为「**容器状态 + HTTP 探活**」（`State.Status == running` 且 `curl /` 返回 **200**），PG / Redis 继续用 health 状态（它们**确实有** healthcheck）。**HTTP 探活是更强的证据** —— 不只证明容器活着，更证明 Next.js 真的在服务请求（`/` 是 force-dynamic 的 Server Component，会同时打到数据库） | **修复逻辑已用桩程序对照验证**：新逻辑 `postgres=healthy redis=healthy app_state=running http=200` → **EXIT=0 通过**；旧逻辑恒读出 `none` → 必红 | **VERIFIED** |
 | **V4-19** | 严重 | **`docker-verify.yml` 的 `[7/9]` 安装包实际部署必然失败** —— **两个冲突**：① **端口占用** —— `install.sh` L163 有硬性端口检查 `port_in_use "$APP_PORT"`，而此时根 compose 的 app 容器**仍在运行**、映射着宿主机 3000 ⇒ `install.sh` 会**直接 `die`**；② **容器名冲突** —— 新起的安装包实例与仍在运行的根 compose 实例**同名**，互相干扰 | `.github/workflows/docker-verify.yml`（第 7 项） | 逐项复核 `[7/9]` 执行上下文时**主动发现**（尚未被 CI 触发，但**一定会红**） | ✅ 断言与执行上下文分离，并**新增一条断言来保证它不会变成外部镜像** | 详见 `docs/evidence/ci/docker-verify-v0.0.4.md` §5.1.0 | **VERIFIED** |
-| **V4-20** | 严重 | **节点申请 UI 提交链断裂** —— 生产构建下 React #418 hydration 不匹配 → react-dom `nodeName.toLowerCase is not a function` 崩溃 → **表单 `onSubmit` 从未执行**。**API 路径通过、纯 UI 路径失败** | `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」（`/nodes/request` 表单提交链） | CI 实跑（run `41873009808`，SHA `2773cd1`）：**153 passed \| 1 failed \| 154 total** —— 本轮 E2E **唯一**失败用例 | 🔧 **修复中** —— 已移交 UI 工程师（`ed385cf` 引入的节点申请入口是本链路的触发点） | ① 浏览器原生表单 GET 提交被触发（trace 实证 URL：`/nodes/request?nodeName=...&nodeTitle=...&description=...`），整个 trace **无任何** `POST /api/node-requests` —— React `onSubmit` 从未执行<br>② 点击过程中抛出未捕获 `TypeError: nodeName.toLowerCase is not a function`（react-dom 的 hydration 遍历函数 `canHydrateInstance`）<br>③ 另一实例：`Minified React error #418`（hydration 不匹配）在首页 `/` 触发<br>④ 失败瞬间截图：表单空、按钮回 disabled、无 toast<br>**trace 级证据见 `docs/SESSION_HANDOFF_v0.0.4.md` 第 5 轮 B2 段** | 🔴 **未修复（修复中）** |
+| **V4-20** | 严重 | **节点申请 UI 提交链断裂** —— **根因（本地实测 + trace 级证据，非推测）**：HTML 规范给 `HTMLFormElement` 加了 `[OverrideBuiltins]` —— 表单内的**命名控件**会**遮蔽原型上的同名属性**。`<form><input name="nodeName"></form>` ⇒ `form.nodeName` 返回 **HTMLInputElement**（不是字符串 `"FORM"`）。而 Next.js 15.5 内置的 React 19 水合代码（`react-dom-client.production.js` 的 `canHydrateInstance`）有一行 `instance.nodeName.toLowerCase() !== type.toLowerCase()` —— 此时 `nodeName` 是 Element ⇒ `.toLowerCase()` 不存在 ⇒ `TypeError: nodeName.toLowerCase is not a function` ⇒ 水合失败（React #418）⇒ **事件处理器不绑定** ⇒ 表单走浏览器原生 GET 提交 ⇒ **写操作彻底失效**。**API 路径通过、纯 UI 路径失败** | `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」（`/nodes/request` 表单提交链）；触发点：`src/components/NodeRequestForm.tsx` 的 `name="nodeName"` / `id="nodeName"` | CI 实跑（run `41873009808`，SHA `2773cd1`）：**153 passed \| 1 failed \| 154 total** —— 本轮 E2E **唯一**失败用例（**修复前的历史快照**） | ✅ **已修复（提交 `bddb3d0`）** —— 表单命名属性改名，彻底消除与 `form.nodeName` 的遮蔽：<br>① `src/components/NodeRequestForm.tsx`：`name="nodeName"` → `name="node_slug"`，`id="nodeName"` → `id="node_slug"`；`name="nodeTitle"` → `name="node_title"`，`id="nodeTitle"` → `id="node_title"`<br>② `src/components/NewTopicForm.tsx`：`name="title"` → `name="topic_title"`（`id="title"` **有意保留** —— E2E 用 `#title` 定位）<br>③ `src/components/TopicEditForm.tsx`：`name="title"` → `name="topic_title"`<br>④ `e2e/v004-four-roles-ui.spec.ts`：选择器 `input[name="nodeName"]` → `input#node_slug`，`input[name="nodeTitle"]` → `input#node_title`<br>⑤ `e2e/helpers.ts`：标题框选择器改用 `input#title`<br>⑥ **新增** `tests/form-name-shadowing.spec.ts`：**4 项防回归断言**，扫全仓 `src/`，禁止任何表单控件的 `name`/`id` 遮蔽 `form.nodeName` | ① **本地实测全绿**：单元 **194 passed / 0 failed / 0 skipped（16 文件）**（含新增 4 条防回归断言）；E2E **154 passed / 0 failed / 0 skipped（11 文件，3.9m）**<br>② `/nodes/request` 的 **React #418 由 2 次归零（0 次）**<br>③ 提交请求**由「无（原生 GET）」变为 `POST /api/node-requests` ✅<br>④ 提交后 URL **由 `?nodeName=...` 变为停在 `/nodes/request`** ✅<br>⑤ 成功 toast **由「不出现」变为出现** ✅<br>⑥ 关键实测：`name="nodeName"` 与 `id="nodeName"` **都致命**；`name="title"` / `id="title"` / `name="action"` / `name="id"` 属**隐患项**（遮蔽语义但 react-dom 不崩，因为 react-dom 只读 `instance.nodeName`）<br>⑦ 修复前的历史快照如实保留：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`；trace 级证据见 `docs/SESSION_HANDOFF_v0.0.4.md` 第 5 轮 B2 段 | 🟢 **已修复并本地实测验证**（提交 `bddb3d0`；**CI 亦已复验通过** —— run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅） |
 
 > **V4-14 的残余说明（如实披露）**：18 个占位 PNG **仍然留在 Git 历史里**（`04b107b` / `1b15f79` / `301a8a5`）。
 > 本轮刻意**不改写历史** —— 改写远端历史属明令禁止的高风险不可逆操作，需主人单独授权（与 R-01 同类处置）。

@@ -591,7 +591,7 @@ deploy/update.sh:57-72  docker compose pull → up -d → 容器重启自动重�
 |---|---|---|---|
 | 校验 | `ci.yml: unit` → `npx tsc --noEmit`、`node scripts/ui-verify.cjs` | 0 类型错误；API 契约 72 路由/30 调用全匹配 | 红灯，后续 job 不跑 |
 | 构建 | `npm run build`；`Dockerfile` 真实 `docker build` | 构建成功；镜像含 `public/`；builder 阶段无 DB 可构建 | 红灯 |
-| 测试 | 单元 `vitest run`、E2E `playwright test` | **190 单元 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）/ **E2E 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）—— v0.0.4 实测权威值。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（基于 153 条口径、早于 `ed385cf`）；**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`） | 红灯，`needs` 依赖阻断 |
+| 测试 | 单元 `vitest run`、E2E `playwright test` | **194 单元 / 16 文件**（194 passed / 0 failed / 0 skipped，连续 4 轮全绿；⚠️ 修复前基线 190 条 / 15 文件）/ **E2E 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）—— v0.0.4 实测权威值。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**（V4-20 修复后本地实跑）；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（基于 153 条口径、早于 `ed385cf`）；**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`（V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`）） | ✅ 本地全绿；✅ **CI 亦已复验通过**（run `41949555282`） |
 | 镜像 | `release.yml: build-image` | `provenance`/`sbom`，校验镜像内无 `.env` 与 `docs/evidence` | 红灯；`dry_run=true` 时只 `load` 不 `push` |
 | 部署验证 | `release.yml: deploy-verify` | compose 真实启动 → healthy → 管理员创建 → 注册探针用户 → 重启持久化 → 5432/6379 未暴露 | 红灯并上传日志 |
 | 安全 | `security-scan` | `npm audit` critical/high = 0；gitleaks 只扫 Git 跟踪文件；发布包内容检查 | 红灯 |

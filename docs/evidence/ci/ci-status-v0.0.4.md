@@ -136,9 +136,10 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 | `41837212635` | 安装验证 | `930f29e` | ✅ **success** | Linux 真实 Docker 安装 + Windows 脚本 |
 | `41860242099` | CI | `6289ea3` | 🟡 unit ✅ / **E2E ❌ failure** | **v0.0.4 在真实 CI 上首次转绿**：vitest 15 文件全过、globalSetup 正常建迁 `v2ex_ci`（护栏 3 修复 `634a202` 实证有效）；**E2E job 史上首次真实运行** —— 153 条中 152 通过、1 失败（`v004-four-roles-ui` 节点申请用例） |
 | `41871503684` | docker-verify | `2773cd1` | ✅ **success** | **九项全部 completed/success，九项汇总表全 PASS** ⇒ **R-16 / R-17 已闭环**（修复提交 `827eef7` + `2773cd1`） |
-| `41873009808` | CI | `2773cd1` | 🟡 unit ✅ / **E2E ❌ failure** | unit job ✅（190 passed / 0 skipped）；**E2E：153 passed \| 1 failed \| 154 total** —— 唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27） |
+| `41873009808` | CI | `2773cd1` | 🟡 unit ✅ / **E2E ❌ failure** | unit job ✅（190 passed / 0 skipped）；**E2E：153 passed \| 1 failed \| 154 total** —— 唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27）—— ⚠️ **这是 V4-20 修复前的历史快照** |
+| `41949555282` | CI | `bddb3d0` | ✅ **success** | **V4-20 / R-27 修复后的复验 run** —— **三 job 全绿**：单元 ✅ `Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped；E2E ✅ `154 passed (2.5m)` / 0 failed / 0 skipped；Docker ✅。本地同样实测全绿（单元 194/194、E2E 154/154、3.9m） |
 
-### 🔴 当前**唯一**的剩余阻断项
+### 🟢 原**唯一**剩余阻断项 —— **已解除**（V4-20 / R-27 修复轮）
 
 > ⚠️ **历史观测（已修复）** —— 以下是 `41837212170`（HEAD `930f29e`）当时的状态，**现已闭环**：
 > `tests/floor-continuity.spec.ts` 当时在工作区已修但**尚未提交** → `unit` job 持续红灯 →
@@ -148,12 +149,31 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 > 「类型检查 / 单元测试」job 均 ✅（vitest 15 文件全过、`190 passed / 0 skipped`），
 > **E2E job 已真实跑过**（不再被 `needs: unit` 连带跳过）。
 >
-> **🔴 当前唯一阻断项 = R-27 / V4-20**：节点申请 UI 提交链断裂（run `41873009808`：
-> `153 passed | 1 failed | 154 total`）。
+> **✅ 原唯一阻断项 = R-27 / V4-20**：节点申请 UI 提交链断裂 —— **已由 `bddb3d0` 修复并本地实测验证**。
+>
+> **根因（本地实测 + trace 级证据，非推测）**：HTML 规范给 `HTMLFormElement` 加了 `[OverrideBuiltins]` ——
+> 表单内的**命名控件**会**遮蔽原型上的同名属性**。`<form><input name="nodeName"></form>` ⇒
+> `form.nodeName` 返回 **HTMLInputElement**（不是字符串 `"FORM"`）。Next.js 15.5 内置的 React 19 水合代码
+> （`react-dom-client.production.js` 的 `canHydrateInstance`）有一行 `instance.nodeName.toLowerCase() !== type.toLowerCase()`
+> —— 此时 `nodeName` 是 Element ⇒ `.toLowerCase()` 不存在 ⇒ `TypeError: nodeName.toLowerCase is not a function`
+> ⇒ 水合失败（React #418）⇒ **事件处理器不绑定** ⇒ 表单走浏览器原生 GET 提交 ⇒ **写操作彻底失效**。
+>
+> **修复**：表单命名属性改名（`nodeName` → `node_slug`、`nodeTitle` → `node_title`；`NewTopicForm.tsx` / `TopicEditForm.tsx` 的
+> `name="title"` → `name="topic_title"`）+ 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言，扫全仓 `src/`）。
+>
+> **本地实测全绿**：单元 **194 passed / 0 failed / 0 skipped（16 文件）**、E2E **154 passed / 0 failed / 0 skipped（11 文件，3.9m）**；
+> `/nodes/request` 的 React #418 **由 2 次归零（0 次）**；提交请求由「无（原生 GET）」恢复为 `POST /api/node-requests` ✅；
+> 提交后 URL 由 `?nodeName=...` 变为停在 `/nodes/request` ✅；成功 toast **出现** ✅。
+>
+> ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）—— 不得写成「CI 已通过」**；剩余阻断项见 `RELEASE_GATE.md`。
 
 **已验证的修复方案**（本地纯净检出实跑通过，CI 与本地均 `5 passed`）：
 见 `test-baseline-v0.0.4.md` §0.5。修复后预期 CI 变为：
 `Test Files 15 passed (15)` / `Tests 190 passed (190)` / `E2E 测试` 恢复正常执行。
+
+**⚠️ 补充（V4-20 修复轮）**：V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言**，
+单元测试口径变为 **194 条 / 16 文件**（修复前为 190 条 / 15 文件）⇒ CI 侧预期变为
+`Test Files 16 passed (16)` / `Tests 194 passed (194)`。**复验 run = `41949555282`（SHA `bddb3d0`）—— 三 job 全绿。**
 
 > 📌 **状态复核 —— 「工作区已修，提交历史未修」（2026-11-04T22:57Z，QA 独立复核）**
 >
@@ -488,7 +508,7 @@ elif [ "$PHASE" = 'release' ]; then
 | # | 项目 | 现状 | 主理人推进动作 |
 |---|---|---|---|
 | **A** | ✅ **已闭环** —— `tests/floor-continuity.spec.ts` 在 CI 必红 | **已实测确认（历史观测）**（run `41836588566` / `41837212170`：`1 failed \| 14 passed (15)`，`185 passed \| 5 skipped (190)`）。**已由 `8ce5ce9` 修复**（护栏 3 修复 `634a202`），**并经 CI 复验**：run `41860242099` 与 `41873009808` 的 unit job 均 ✅ —— `Test Files 15 passed (15)` / `Tests 190 passed (190)` / **0 skipped** | ✅ **闭环**。**注意**：不要单独打「existsSync」补丁 —— 原方案已被架构师实测证伪（本地默认路径下会把 **5432 开发库**当成测试库，而该文件 `beforeAll` 会执行 DROP/CREATE DATABASE）。正确做法：统一走 `tests/helpers/test-env.ts`（含 `assertNotDevInstance()` 开发库护栏）。详见 `test-baseline-v0.0.4.md` §0.5 |
-| **B** | ✅ **已闭环** —— E2E 在 CI 上从未跑过 | **历史观测**：`E2E 测试` job 状态 = **skipped**（`needs: unit` 连带） | **已恢复执行**：run `41860242099` 与 `41873009808` 的 E2E job **均已真实跑过**。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`）—— 唯一失败为节点申请 UI 提交链断裂（V4-20 / R-27），**不是 skipped** |
+| **B** | ✅ **已闭环** —— E2E 在 CI 上从未跑过 | **历史观测**：`E2E 测试` job 状态 = **skipped**（`needs: unit` 连带） | **已恢复执行**：run `41860242099` 与 `41873009808` 的 E2E job **均已真实跑过**。**修复前的历史快照：153 passed \| 1 failed \| 154 total**（run `41873009808`）—— 唯一失败为节点申请 UI 提交链断裂（V4-20 / R-27），**不是 skipped**；✅ **V4-20 / R-27 已由 `bddb3d0` 修复并本地实测验证**（本地 E2E 154/154 全绿），****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
 | **C** | 🟡 **`release.yml` tag 白名单仍不含 `v0.0.4`** | 刻意摩擦，**未改**（R-19） | **推 tag 之前**人工加 `- 'v0.0.4'`。⚠️ 漏加的后果是**静默失败**（推 tag 不触发任何 job，不报红）—— 详见 §6.1 |
 | **D** | 🟡 **GHCR 包可见性无法核实** | 当前 gh token 缺 `read:packages` scope → `GET /users/alicia1030su/packages` = 403 | 用有该 scope 的 token 核验，或浏览器访问 https://github.com/users/alicia1030su/packages |
 | **E** | 🟡 **`master` 分支保护未设置** | `GET /branches/master/protection` → 404。这是**现状**，非本轮造成 | 若要加保护规则需主人授权；本轮**未改动**任何保护设置 |
@@ -514,10 +534,10 @@ elif [ "$PHASE" = 'release' ]; then
 - [x] **C1** run 的 `head SHA` == 推送后的最终 SHA（不是 master 的 `37710fb4`）
 - [x] **C2** job `类型检查 / 单元测试` = success，且日志里 `Test Files 15 passed (15)` / `Tests 190 passed (190)`
       —— 15 文件 / 190 条（依据见 `test-baseline-v0.0.4.md`）；**run `41860242099` 与 `41873009808` 均 ✅**
-- [x] **C2b** ⚠️ **必须同时确认 `Test Files` 那一行是 `15 passed (15)`，且 `Tests` 是 `190 passed (190)`**
+- [x] **C2b** ⚠️ **必须同时确认 `Test Files` 那一行是 `15 passed (15)`，且 `Tests` 是 `190 passed (190)`**（V4-20 修复后应为 `16 passed (16)` / `194 passed (194)`）
       —— 只看 `Tests` 行会漏掉 `failed`/`skipped` 形态的失败（见 §0.1）—— **已确认 0 skipped**
 - [ ] **C3** job `E2E 测试` = success，且日志里 `154 passed`，**且 0 skipped**
-      —— ⚠️ **当前实测：run `41873009808` = `153 passed | 1 failed | 154 total`**（唯一失败 = 节点申请 UI 提交链断裂 V4-20 / R-27），修复后须复跑至 **154 passed / 0 failed / 0 skipped**
+      —— ⚠️ **修复前的历史实测：run `41873009808` = `153 passed | 1 failed | 154 total`**（唯一失败 = 节点申请 UI 提交链断裂 V4-20 / R-27）；✅ **本地已实测 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**，CI 须复跑至同一结果（**复验 run = `41949555282`，已达成 ✅**）
 - [x] **C3b** ⚠️ 确认 `E2E 测试` job **没有被 skip**（`needs: unit` 失败会连带跳过它）—— **已确认已真实跑过**
 - [x] **C4** job `Docker 构建与启动验证` = success
 - [ ] **C5** `npx tsc --noEmit` 无输出即通过（`node scripts/ui-verify.cjs` 也必须无失败）

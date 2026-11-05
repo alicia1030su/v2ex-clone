@@ -6,28 +6,31 @@
 >
 > | 项 | v0.0.4 实测 | 证据 |
 > |---|---|---|
-> | 单元测试 | **190 条 / 15 个文件**，**190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。实测命令：`ENV_FILE=.env.test npx vitest run` | `docs/evidence/ci/test-baseline-v0.0.4.md` |
-> | 单元测试（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 在 CI 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）。登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验） | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
-> | 真实浏览器 E2E | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m，基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`，SHA `2773cd1`），唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**，登记 V4-20 / R-27，修复中。实测命令：`ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` | `docs/evidence/e2e/e2e-full-run-v0.0.4.md`、`test-list-v0.0.4.txt` |
+> | 单元测试 | **194 条 / 16 个文件**，**194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件** —— V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194。实测命令：`ENV_FILE=.env.test npx vitest run` | `docs/evidence/ci/test-baseline-v0.0.4.md` |
+> | 单元测试（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`Test Files 15 passed (15)` / `Tests 190 passed (190)` / 0 skipped）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— **分母 190 正确**，5 条因 `floor-continuity` 在 CI 崩溃而跳过；**已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）。登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验）。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
+> | 真实浏览器 E2E | **154 条 / 11 个文件**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m，基于 153 条口径、早于 `ed385cf`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**，登记 V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**（React #418 归零、提交恢复 `POST /api/node-requests`）；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。实测命令：`ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` | `docs/evidence/e2e/e2e-full-run-v0.0.4.md`、`test-list-v0.0.4.txt` |
 > | 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker） | `bash scripts/release/verify-update-script.sh` |
 > | 视觉对照 | 4 视口 × 17 页面 = 68 条；**40 有对照 / 28 无对照**；严格口径桌面 Δx=0 **52/52** | `docs/VISUAL_DIFF_SUMMARY_v0.0.4.md`、`docs/evidence/visual/geometry-summary.json` |
 > | 负载测试 | **已执行**：10000 用户 / 1000 节点 / 100000 主题 / 1000000 回复，24785 请求、13 场景 | `scripts/loadtest/README.md`、`tools/loadtest/bench.mjs`、`docs/evidence/loadtest/bench-result.json` |
 > | 升级/恢复验证 | 见 `docs/UPGRADE_RECOVERY_v0.0.4.md` | 第六阶段 |
 > | 验收清单 | 见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md`（唯一权威验收依据） | 第十一阶段 |
 >
-> ### 单元测试「185 vs 190」口径裁决（**权威值 = 190 条 / 15 文件 / 0 failed / 0 skipped**）
+> ### 单元测试「185 vs 190」口径裁决（**权威值 = 194 条 / 16 文件 / 0 failed / 0 skipped**；修复前基线 = 190 条 / 15 文件）
 >
 > ⚠️ **「185」有两个不同的来源，绝不可混用 —— 这是本轮最容易出错的地方**：
 >
 > | 数字 | 来源 | 含义 | 归属 |
 > |---|---|---|---|
-> | **190** | 本机连续 4 轮实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 15 passed (15)` / `Tests 190 passed (190)` —— **总数即 190** | ✅ **v0.0.4 权威基线** |
+> | **194** | V4-20 修复后本地实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 16 passed (16)` / `Tests 194 passed (194)` —— **总数即 194**（新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言） | ✅ **v0.0.4 当前权威基线** |
+> | **190** | V4-20 **修复前**的本机连续 4 轮实测（`ENV_FILE=.env.test npx vitest run`） | `Test Files 15 passed (15)` / `Tests 190 passed (190)` —— 当时的总数即 190 | ✅ **修复前基线**（190 + 4 = 194） |
 > | **185**<br>（作为**通过数**） | **修复前的历史观测**：CI run `41837212170`（HEAD `930f29e`） | `Tests 185 passed \| 5 skipped (190)` —— ⚠️ **分母仍是 190**，5 条因 `floor-continuity` 在 CI 崩溃而跳过 | ✅ **历史快照**（红灯已由 `8ce5ce9` 修复，run `41860242099` / `41873009808` 单元 job 已 ✅） |
 > | **185**<br>（作为**总数**） | CI run `41760677505`（master @ `37710fb4`，**14 个** spec 文件） | `Tests 185 passed (185)` —— 当时总数就是 185 | ⏪ **v0.0.3 历史快照**，已过时 |
 >
 > **结论**：
-> 1. **v0.0.4 的用例总数始终是 190**（15 个文件）—— CI 的 `185 passed | 5 skipped (190)` 的**分母就是 190**，
->    **不构成「总数有争议」**。当前分支与 v0.0.3 的**总数差异**来自 `tests/floor-continuity.spec.ts`（5 条，提交 `1b15f79` 引入）。
+> 1. **v0.0.4 的用例总数在 V4-20 修复后为 194**（16 个文件）—— **修复前为 190**（15 个文件）——
+>    CI 的 `185 passed | 5 skipped (190)` 的**分母就是 190**，**不构成「总数有争议」**。
+>    与 v0.0.3 的**总数差异**来自 `tests/floor-continuity.spec.ts`（5 条，提交 `1b15f79` 引入）：`185 (master, 14 文件) + 5 = 190 (修复前, 15 文件)`；
+>    V4-20 修复再 +4（`tests/form-name-shadowing.spec.ts` 的 4 条防回归断言）：`190 + 4 = 194 (当前, 16 文件)`。
 > 2. **185 不是「v0.0.4 的用例数」** —— 它要么是 CI 上的**通过数**（`floor-continuity` 5 条在 CI 崩溃），
 >    要么是 **v0.0.3 master 的历史总数**。两者含义不同。
 > 3. ✅ **CI 单元测试已转绿**（run `41860242099` / `41873009808`，SHA `2773cd1`）：
@@ -39,12 +42,14 @@
 >    两条路都走不通 ⇒ ENOENT 崩溃 ⇒ 5 条 skipped ⇒ `unit` job 红灯 ⇒ `e2e` job 被 `needs: unit` 连带跳过。
 >    **已由 `8ce5ce9` 修复并经 CI 复验**（护栏 3 修复提交 `634a202`）——
 >    登记 `BUG_REGISTER` V4-17（**VERIFIED**）/ `RISK_REGISTER` R-26（🟢 已修复并经 CI 复验）。
-> 4. ⚠️ **静态 grep 不可用作口径**：`grep -cE "^\s*(it|test)\s*[(']"` 得出 **180**（少于 190），
+> 5. ⚠️ **静态 grep 不可用作口径**：`grep -cE "^\s*(it|test)\s*[(']"` 得出 **180**（少于 190），
 >    因为 `tests/admin-permissions.spec.ts` 等用**嵌套 for 循环**生成用例。**口径必须取 Vitest 运行时的 `numTotalTests`**。
 >    完整三方交叉校验（日志块 ↔ JSON reporter ↔ 逐文件明细求和）见 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1 / §0.2。
 >
 > ⚠️ **核对 CI 时必须看 `Test Files` 行，不能只看 `Tests` 行** —— `1 failed + 5 skipped`
 > 与「148 条里少了几条」形态完全不同，漏看会误判为通过（这正是 R-23 那类静默跳过）。
+>
+> 6. ✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped；E2E 同 run `154 passed (2.5m)` / 0 failed。
 >
 > #### `.env.test` 的定位（**这是理解「185 vs 190」的关键**）
 >
@@ -68,14 +73,15 @@
 
 | 项 | 值 |
 |---|---|
-| 测试文件数 | **15** |
-| 用例总数 | **190** |
-| 通过 | **190** |
+| 测试文件数 | **16** |
+| 用例总数 | **194** |
+| 通过 | **194** ✅ |
 | 失败 | **0** |
 | 跳过（pending） | **0** |
 | 连续全绿轮次 | **4 轮**（**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒，共享实例 55433 口径） |
 | v0.0.3 基线 | 185 条 / 14 文件（**全部保留，无删减**） |
-| v0.0.4 新增 | 5 条（`tests/floor-continuity.spec.ts`，楼层号严格连续 `1..n`） |
+| v0.0.4 新增 | 5 条（`tests/floor-continuity.spec.ts`，楼层号严格连续 `1..n`）+ **4 条**（`tests/form-name-shadowing.spec.ts`，表单命名属性遮蔽 `form.nodeName` 的防回归断言） |
+| ⚠️ **修复前基线** | **190 条 / 15 文件**（190 + 4 = 194） |
 
 > `numPendingTests: 0` —— **没有任何用例被静默跳过**。这是比「全绿」更强的结论
 > （R-23 那类「1 failed + N skipped」形态正是靠这一项才能识别）。
@@ -142,12 +148,14 @@
 |---|---|
 | 测试文件数 | **11** |
 | 用例总数 | **154**（`npx playwright test --list` 实测 `Total: 154 tests in 11 files`） |
-| 通过 | **153** |
-| 失败 | **1**（`e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂 —— 真实产品缺陷，V4-20 / R-27，修复中） |
+| 通过 | **154** ✅（V4-20 修复后本地实测，3.9m） |
+| 失败 | **0** ✅ —— 修复前为 **1**（`e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂 —— 真实产品缺陷，V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**） |
 | 跳过 | **0** |
 | 连续全绿轮次 | **2 轮**（每轮约 4.5 分钟）—— **本地历史轮次口径，基于 153 条口径、早于 `ed385cf`** |
-| 单轮耗时 | **4.5m** |
-| **当前 CI 结果** | **153 passed \| 1 failed \| 154 total**（run `41873009808`，SHA `2773cd1`） |
+| 单轮耗时 | **4.5m**（历史轮次口径）/ **3.9m**（V4-20 修复后本轮） |
+| **当前权威结果** | ✅ **154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实测全绿 |
+| **修复前的历史快照** | **153 passed \| 1 failed \| 154 total**（run `41873009808`，SHA `2773cd1`） |
+| **CI 状态** | ⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** —— **不得写成「CI 已通过」** |
 
 **口径分解**（与 `docs/evidence/e2e/test-list-v0.0.4.txt` 完全自洽；`--list` 实测）：
 
@@ -190,7 +198,8 @@ body 文本正则提取用户名失败而 `test.skip` 静默跳过（**R-23**）
 > ⚠️ **本小节是 v0.0.3 历史快照**（HEAD `89d6b4e` 之前的 CI run）。
 > v0.0.4 的权威 E2E 数字见文首「状态覆盖声明」：**154 条 / 11 文件**；
 > **本地历史轮次口径**：153 passed / 0 failed / 0 skipped、连续 2 轮全绿（4.5m，基于 153 条口径、早于 `ed385cf`）；
-> **当前 CI：153 passed | 1 failed | 154 total**（run `41873009808`）。
+> ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**（V4-20 修复后本地实跑）；
+> **修复前的历史快照**：CI run `41873009808` = `153 passed | 1 failed | 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。
 
 | 项 | 结果 |
 |---|---|

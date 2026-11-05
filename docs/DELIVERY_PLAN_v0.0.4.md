@@ -41,7 +41,7 @@
 | 一 · 功能真实性审计 | 53 项独立审计，38 VERIFIED / 14 PARTIAL / 1 MISSING | `FEATURE_AUDIT_v0.0.4.md` |
 | 二 · 用户验收 | 四身份真实浏览器点击流补齐（8 条），如实标注 UI 无入口的缺口 | `e2e/v004-four-roles-ui.spec.ts` |
 | 三 · 视觉还原 | 4 视口 × 17 页面 = 68 条，40 条完成对比、28 条如实标注无原站对照；三套几何口径可复算 | `VISUAL_DIFF_SUMMARY_v0.0.4.md` |
-| 四 · E2E | 新增 4 文件 + 四身份 UI；`playwright test --list` 实测 **154 条 / 11 文件**（`Total: 154 tests in 11 files`）；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（基于 153 条口径，早于 `ed385cf`）；**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`，唯一失败为节点申请 UI 提交链断裂 V4-20） | `test-list-v0.0.4.txt`、`e2e-full-run-v0.0.4.md` |
+| 四 · E2E | 新增 4 文件 + 四身份 UI；`playwright test --list` 实测 **154 条 / 11 文件**（`Total: 154 tests in 11 files`）；✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（基于 153 条口径，早于 `ed385cf`）；**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`（唯一失败为节点申请 UI 提交链断裂 V4-20，**已由 `bddb3d0` 修复并本地实测验证**；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`）） | `test-list-v0.0.4.txt`、`e2e-full-run-v0.0.4.md` |
 | 五 · 负载测试 | 351 万行压测数据集、13 场景 / 24785 请求；发现并修复 3 个真实缺陷 + 3 项性能优化 | `METRICS_DEFINITION_v0.0.4.md` |
 | 六 · 升级/恢复 | 全新安装、原地升级、迁移幂等、备份恢复四项**实跑通过** | `UPGRADE_RECOVERY_v0.0.4.md` |
 | 七 · 发布工程 | GHCR Bearer 协议复核、Release Notes 动态化、口径纠错 | `RISK_REGISTER.md` / `release.yml` |
@@ -57,7 +57,7 @@
 - 多浏览器交互 E2E（Firefox / Safari）—— 本机仅 Chromium
 - 原站需登录的 7 个页面 × 4 视口 = 28 条视觉对照 —— 无权访问他人账号，不拿游客态冒充
 - 远端 Git 历史改写 —— 需主人单独授权，状态 DEFERRED
-- 🔴 **节点申请 UI 提交链断裂（R-27 / V4-20）** —— 本轮唯一红灯，修复中（CI run `41873009808`：`153 passed | 1 failed | 154 total`）
+- ✅ **节点申请 UI 提交链断裂（R-27 / V4-20）** —— **已由 `bddb3d0` 修复并本地实测验证**，本轮唯一红灯已解除（单元 194/194（16 文件）、E2E 154/154（11 文件，3.9m）全绿，React #418 归零，提交恢复 `POST /api/node-requests`；修复前的历史快照 CI run `41873009808` = `153 passed | 1 failed | 154 total`；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`））
 
 ### 1.3 后续迭代（正式 Release 前必须）
 
@@ -69,7 +69,7 @@
 4. 自动化视觉回归纳入 CI（FEATURE_AUDIT #53 仍 PARTIAL）
 5. ~~**R-24** 关注功能 UI 入口~~ —— ✅ **已由 `ed385cf` 修复**（真实可点击 + 刷新后持久化），待主理人终验确认
 6. **R-25** 运行时上传数据的历史残留清理 —— 需授权改写 Git 历史
-7. 🔴 **R-27 / V4-20** 节点申请 UI 提交链断裂 —— **本轮唯一红灯，修复中**，阻断正式 Release
+7. ✅ **R-27 / V4-20** 节点申请 UI 提交链断裂 —— **已由 `bddb3d0` 修复并本地实测验证**，本轮唯一红灯**已解除**；**阻断正式 Release 的表述同步解除**，剩余阻断项见 `RELEASE_GATE.md`（⚠️ **CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`））
 
 ---
 
@@ -173,9 +173,9 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 
 | 层级 | 口径 | 证据 |
 |---|---|---|
-| 单元 / 集成 | **190 条 / 15 个文件**（190 passed / 0 failed / 0 skipped，**连续 4 轮全绿**）。**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒（共享实例 55433 口径）。⚠️ 静态 grep 得出 180（嵌套 for 循环生成用例），**口径必须取运行时 `numTotalTests`** | `docs/evidence/ci/test-baseline-v0.0.4.md` |
+| 单元 / 集成 | **194 条 / 16 个文件**（194 passed / 0 failed / 0 skipped，**连续 4 轮全绿**）。**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒（共享实例 55433 口径）。⚠️ 静态 grep 得出 180（嵌套 for 循环生成用例），**口径必须取运行时 `numTotalTests**`。⚠️ **修复前基线为 190 条 / 15 文件**（V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言 ⇒ 190 → 194） | `docs/evidence/ci/test-baseline-v0.0.4.md` |
 | 单元 / 集成（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`190 passed / 0 skipped`）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`Test Files 1 failed \| 14 passed (15)` / `Tests 185 passed \| 5 skipped (190)` —— **分母 190 正确**；**已由 `8ce5ce9` 修复并经 CI 复验**，`e2e` job **已真实跑过** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
-| 真实浏览器 E2E | **154 条 / 11 个文件**（`--list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）；`--list` 分解 = 原有 67 + v004 四文件 79 + 四身份 UI 8。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂，V4-20 / R-27） | `e2e-full-run-v0.0.4.md` + `test-list-v0.0.4.txt` + `TEST_COUNT_DEFINITION_v0.0.4.md` |
+| 真实浏览器 E2E | **154 条 / 11 个文件**（`--list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）；`--list` 分解 = 原有 67 + v004 四文件 79 + 四身份 UI 8。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`（唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂，V4-20 / R-27，**已由 `bddb3d0` 修复并本地实测验证**；**CI 亦已复验通过**（run `41949555282`，SHA `bddb3d0`）） | `e2e-full-run-v0.0.4.md` + `test-list-v0.0.4.txt` + `TEST_COUNT_DEFINITION_v0.0.4.md` |
 | 升级脚本自检 | **62 项断言全 PASS / 0 FAIL**（沙箱模拟，不调用真实 Docker） | `bash scripts/release/verify-update-script.sh` |
 | 视觉 | 4 视口 × 17 页面 = 68 条；**40 对比 / 28 无对照**；严格口径 Δx=0 52/52（⚠️ 只覆盖几何位置，六类区分未全部闭环） | `geometry-summary.json` |
 | 性能 | 13 场景 / 24785 请求 / 并发 10 / **0 个 5xx** | `bench-result.json` + `METRICS_DEFINITION_v0.0.4.md` |
@@ -188,22 +188,22 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
   证据 `docs/evidence/e2e/e2e-full-run-v0.0.4.md`。该口径基于 153 条、早于 `ed385cf`（+1 关注 UI 用例）。
   修复前一轮为 152 passed / 1 skipped（关注用例静默跳过 = R-23，已修并补齐三条断言）；
   两轮结果均如实保留，不回写历史。
-  ⚠️ **当前 CI：153 passed | 1 failed | 154 total**（run `41873009808`，SHA `2773cd1`）——
+  ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**（V4-20 修复后本地实跑）；⚠️ **修复前的历史快照**：CI run `41873009808`（SHA `2773cd1`）= `153 passed | 1 failed | 154 total` ——
   唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」，
-  **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27，修复中。
+  **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27 —— **✅ 已由 `bddb3d0` 修复并本地实测验证**（React #418 归零、提交恢复 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现）；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。
   ⚠️ `v004-endpoint-smoke.spec.ts` 条数随 GET 路由数浮动 ⇒ **正式发布前须重新 `--list` 固定口径**。
-- 单元（最终权威）：**190 passed / 0 failed / 0 skipped（15 个文件）**，**连续 4 轮全绿**——
+- 单元（最终权威）：**194 passed / 0 failed / 0 skipped（16 个文件）**，**连续 4 轮全绿**（修复前基线 190 条 / 15 文件）——
   **本轮隔离实例实测 81.68s**；历史轮次 170~210 秒（共享实例 55433 口径）。
   证据 `docs/evidence/ci/test-baseline-v0.0.4.md`。
   ⚠️ **「185」有两个不同来源**：**v0.0.3 历史总数**（master @ `37710fb4`，14 文件）与
   **修复前的历史观测**（run `41837212170`，HEAD `930f29e`，`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。
   **该红灯已由 `8ce5ce9` 修复并经 CI 复验**（run `41860242099` / `41873009808` 单元 job ✅）。
-  **无论哪种，v0.0.4 的用例总数始终是 190，权威值为 190。**
+  **无论哪种，v0.0.4 的用例总数在 V4-20 修复后为 194（修复前是 190），权威值为 194。**
   `numPendingTests: 0` 证明**没有任何用例被静默跳过**（比「全绿」更强的结论）。
 - 升级脚本自检：**62 项断言全 PASS / 0 FAIL**。
 - R-21（管理员无 `/admin` 入口）与 R-24（关注无 UI 入口）**已由 `ed385cf` 修复**（管理员入口 / 关注 /
   节点申请审批 / 通知已读全部补齐），**待主理人终验确认**。
-- 🔴 **本轮唯一红灯 = R-27 / V4-20**（节点申请 UI 提交链断裂），阻断正式 Release。
+- ✅ **本轮唯一红灯 = R-27 / V4-20**（节点申请 UI 提交链断裂）**已由 `bddb3d0` 修复并本地实测验证**，**阻断正式 Release 的表述同步解除**；⚠️ **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅），剩余阻断项见 `RELEASE_GATE.md`。
 
 ---
 
@@ -223,7 +223,7 @@ release 模式：`PASS=22 / FAIL=14 / BLOCK=1`。**BLOCK 恒为 R-01 未授权**
 | R-24 关注功能无 UI 入口（全仓无关注按钮组件） | 高 | 中 | `ed385cf` 补齐真实可点击的关注按钮；刷新后状态持久化（主理人真实浏览器复核 16 项断言全 PASS） | 🟢 **已修复（`ed385cf`）** —— 待主理人终验确认 |
 | R-25 运行时上传数据被误提交入仓（18 个占位 PNG） | 中 | 小～中 | `49d66d3`：`.gitignore` 加 `public/uploads/` + `git rm --cached`（**不改写历史、不删磁盘文件**）；`git ls-files` → 0 条 | 🟡 **已缓解 —— 历史仍可达，与 R-01 同源** —— 18 个占位 PNG 仍在 Git 历史；内容无害（无用户数据、无凭据） |
 | R-26 CI 上单元测试红灯（`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过） | 高 | 大 | `8ce5ce9`（护栏 3 修复 `634a202`）；run `41860242099` / `41873009808` 单元 job ✅（190 passed / 0 skipped），`e2e` job 已真实跑过 | 🟢 **已修复并经 CI 复验** |
-| R-27 节点申请 UI 提交链断裂 | 高 | 严重（阻断正式 Release） | React #418 hydration 不匹配 → react-dom 崩溃 → 表单 `onSubmit` 从未执行；**API 路径通过、纯 UI 路径失败** | 🔴 **未修复（修复中）** —— CI run `41873009808`：`153 passed \| 1 failed \| 154 total` |
+| R-27 节点申请 UI 提交链断裂 | 高 | 严重（**曾阻断正式 Release —— ✅ 该阻断已解除**） | HTML 规范 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** → react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` → React #418 水合失败 → 表单 `onSubmit` 从未执行 → 原生 GET 提交；**API 路径通过、纯 UI 路径失败** | 🟢 **已修复并本地实测验证（`bddb3d0`）** —— 表单命名属性改名 + 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言）。实测：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿，React #418 归零，`POST /api/node-requests` 正常。修复前的历史快照：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`。****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
 
 完整 25 条风险见 `RISK_REGISTER.md`。
 

@@ -318,15 +318,15 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 
 | 套件 | 用例数 | 命令 | v0.0.4 实测 |
 |---|---|---|---|
-| 单元测试（vitest） | **190** | `npm run test:unit` | **190 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（15 个文件）。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径） |
-| E2E（Playwright） | **154** | `npm run test:e2e` | **本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（11 个文件，4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`），唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27，修复中） |
+| 单元测试（vitest） | **194** | `npm run test:unit` | **194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（16 个文件）。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件**（V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194） |
+| E2E（Playwright） | **154** | `npm run test:e2e` | ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 个文件，3.9m）** —— V4-20 修复后本地实跑全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（11 个文件，4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
 
 > ⚠️ **必须注入测试环境变量**：`.env.test` 指向本机隔离实例（**按 `.env.test` 实际解析的端口，当前 55440**；不在版本库中）。
 > 裸跑 vitest 会连默认的 5432 而失败（`ECONNREFUSED`）。CI 与本地全量复验均须注入：
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **历史数字**：本表曾在 v0.0.1～v0.0.3 期间显示「单元 103 / E2E 67」。
-> **v0.0.4 的权威基线是 190 条 / 15 文件 / 190 passed / 0 failed / 0 skipped**。
+> **v0.0.4 的权威基线是 194 条 / 16 文件 / 194 passed / 0 failed / 0 skipped**（V4-20 修复前为 190 条 / 15 文件）。
 >
 > ⚠️ **「185」有两个不同来源，不可混用**：
 > ① **v0.0.3 历史总数**（master @ `37710fb4`，14 个 spec 文件，`185 passed (185)`）；
@@ -334,7 +334,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > ⚠️ **分母仍是 190**，5 条因 `floor-continuity` 在 CI 崩溃而跳过）。
 > **该红灯已由 `8ce5ce9` 修复**，run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均已 ✅
 > （vitest 15 文件全过、190 passed / 0 skipped）。
-> **无论哪种，v0.0.4 的用例总数始终是 190。**
+> **无论哪种，v0.0.4 的用例总数在 V4-20 修复后是 194**（修复前是 190）。
 > 口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节与 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1。
 >
 > ⚠️ **静态 grep 不可用作口径**：`grep -cE "^\s*(it|test)\s*[(']"` 得出 180（少于 190），
@@ -456,6 +456,7 @@ v2ex-clone/
 | 9 | **界面与原站存在差异** | 像素比对中的剩余差异主要来自内容数据不同（本地 seed 数据 vs 原站实时社区数据）。**不保证与 V2EX 完全一致** | 低 |
 | 10 | **运行时上传数据曾被误提交入仓（已处置，残余待授权）** | v0.0.4 收尾轮发现 E2E 生成的 **18 个头像占位 PNG** 被 Git 跟踪（引入提交 `04b107b` / `1b15f79` / `301a8a5`）。已加 `.gitignore` 规则并 `git rm --cached` 移出索引（**不改写历史、不删磁盘文件**）。⚠️ **残余**：这 18 个公开占位图**仍在 Git 历史里**，彻底消除需授权改写历史。这些文件**无用户数据、无凭据**，不构成版权或凭据泄露 | 低（内容无害）/ 中（发布物卫生） |
 | 11 | **四身份 UI 缺口** | ✅ **已由 `ed385cf` 修复**：管理员导航栏已有 `/admin` 入口（版主/管理员可从导航进入后台）；关注功能已有真实可点击按钮（点击「关注」→「已关注」→ 刷新后仍持久化 → 可取消）；节点申请提交界面、后台审批入口、隐藏节点入口、操作日志、通知标记已读全部补齐。**服务端鉴权未削弱**（前端加链接 ≠ 权限放宽；普通用户访问 `/admin` 仍被拒）。**待主理人终验确认** | 中（可用性） |
+| 12 | **节点申请 UI 提交链断裂（V4-20 / R-27）** | ✅ **已由 `bddb3d0` 修复并本地实测验证** —— 根因是 HTML 规范的 `[OverrideBuiltins]`：表单内的**命名控件会遮蔽原型上的同名属性**，`<form><input name="nodeName"></form>` 使 `form.nodeName` 返回 Element 而非字符串 ⇒ react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ React #418 水合失败 ⇒ 事件处理器不绑定 ⇒ 表单走浏览器原生 GET 提交 ⇒ 写操作失效。**修复**：表单命名属性改名（`nodeName` → `node_slug` 等）+ 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言，扫全仓 `src/`）。**实测**：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿；`/nodes/request` 的 React #418 **由 2 次归零**，提交恢复为 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** | 低（历史已解除） |
 
 > 第 8 项说明：涉及**历史改写**的操作需要单独授权，本次发布**未执行**任何历史改写。
 > 第 10 项同此 —— 已执行的只是 `.gitignore` + 移出索引，**未改写任何 Git 历史**。

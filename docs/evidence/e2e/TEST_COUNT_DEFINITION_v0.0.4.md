@@ -27,6 +27,14 @@ Total: 154 tests in 11 files
 > ⚠️ **`ed385cf` 的增量为 +1**：新增的「关注（UI）：真实点击关注/取消，刷新后状态持久化，关注列表出现该用户」
 > 落在 `e2e/v004-account-admin.spec.ts`（该文件由 20 条增至 **21** 条）；
 > `v004-four-roles-ui.spec.ts` 的两条「UI 无入口」用例在 `ed385cf` 中被**改写为正向断言**（条数不变，仍 8 条）。
+>
+> ✅ **V4-20 修复轮（`bddb3d0`）未增删 E2E 用例** —— 该轮只改**选择器**（`input[name="nodeName"]` → `input#node_slug`，
+> `input[name="nodeTitle"]` → `input#node_title`；`e2e/helpers.ts` 标题框改用 `input#title`），
+> **分母仍为 154 条 / 11 文件**。新增的 `tests/form-name-shadowing.spec.ts` 属**单元测试**（不计入本表）。
+>
+> ✅ **当前权威实测结果 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。
+> **修复前的历史快照**：CI run `41873009808` = `153 passed | 1 failed | 154 total`（唯一失败 = 节点申请 UI 提交链断裂 V4-20 / R-27）；
+> ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）**。
 
 ### 为什么历史文档写「新增 77 / 总计 144」
 

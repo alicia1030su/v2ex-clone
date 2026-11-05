@@ -200,7 +200,7 @@
 
 | 阶段 | 状态 | 关键产出 |
 |---|---|---|
-| 测试基线定案 | ✅ 完成 | 单元 **190 条 / 15 文件**、E2E **154 条 / 11 文件**；「185 vs 190」口径澄清为「**环境差异**（CI 5 条跳过 vs 本机全过）」，**总数始终是 190** |
+| 测试基线定案 | ✅ 完成 | 单元 **194 条 / 16 文件**（V4-20 修复前为 190 条 / 15 文件）、E2E **154 条 / 11 文件**；「185 vs 190」口径澄清为「**环境差异**（CI 5 条跳过 vs 本机全过）」，**总数在 V4-20 修复后为 194** |
 | 升级脚本修复与自检 | ✅ 完成 | `b0d68c2`；`verify-update-script.sh` **62 项断言全 PASS / 0 FAIL** |
 | 版本库卫生 | ✅ 完成 | `49d66d3` 移出 18 个误提交的上传占位图（**不改写历史**） |
 | CI 取证通道 | ✅ 完成（**九项全绿**） | `docker-verify.yml` 就绪并修复**四个**工作流自身缺陷（V4-15 / V4-16 / V4-18 / V4-19）；**run `41871503684`（SHA `2773cd1`）九项 completed/success、汇总表全 PASS**（修复提交 `827eef7` + `2773cd1`）⇒ **R-16 / R-17 已闭环** |
@@ -210,16 +210,16 @@
 
 | 项 | 权威值 | 实测命令 |
 |---|---|---|
-| 单元测试 | **190 条 / 15 文件**，190 passed / 0 failed / 0 skipped，**连续 4 轮全绿** | `ENV_FILE=.env.test npx vitest run` |
+| 单元测试 | **194 条 / 16 文件**，194 passed / 0 failed / 0 skipped，**连续 4 轮全绿**（⚠️ 修复前基线 190 条 / 15 文件 —— V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言） | `ENV_FILE=.env.test npx vitest run` |
 | 单元测试（**CI**） | ✅ **CI 已转绿** —— run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success，vitest 15 文件全过（`190 passed / 0 skipped`）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`185 passed \| 5 skipped (190)`（分母 190 正确）；`floor-continuity` 崩溃 ⇒ `e2e` job 连带跳过 —— **已由 `8ce5ce9` 修复并经 CI 复验** | `docs/evidence/ci/ci-status-v0.0.4.md` §0 |
-| 真实浏览器 E2E | **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**当前 CI：153 passed \| 1 failed \| 154 total**（run `41873009808`），唯一失败为节点申请 UI 提交链断裂（V4-20 / R-27） | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` |
+| 真实浏览器 E2E | **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）** —— V4-20 修复后本地实跑全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** | `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test` |
 | 升级脚本自检 | **62 项断言全 PASS / 0 FAIL** | `bash scripts/release/verify-update-script.sh` |
 | 视觉对照 | 4 视口 × 17 页面 = **68 条**（**40 有对照 / 28 无对照**）；严格口径桌面 Δx=0 **52/52** | `tools/visual/summarize-visual-diff.py` |
 
 > ⚠️ **「185」有两个不同来源，不可混用**：① **v0.0.3 历史总数**（master @ `37710fb4`，14 文件）；
 > ② **修复前的历史观测**（run `41837212170`，HEAD `930f29e`，`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**，
 > 5 条因 `floor-continuity` 在 CI 崩溃而跳过）—— **已由 `8ce5ce9` 修复**，run `41860242099` 与 `41873009808` 单元 job 均 ✅。
-> **无论哪种，v0.0.4 的用例总数始终是 190。**
+> **无论哪种，v0.0.4 的用例总数在 V4-20 修复后为 194（修复前是 190）。**
 > ⚠️ **版本号尚未同步**：开发态刻意保持 `0.0.3`（R-20 裁决），最终 SHA 固定后一次性同步到 `0.0.4`。
 
 ### 本轮新登记的缺陷
@@ -232,7 +232,7 @@
 | **V4-17** | **`tests/floor-continuity.spec.ts` 在 CI 必然崩溃** —— `unit` job 红 ⇒ `e2e` job 连带跳过 | ✅ **VERIFIED** —— 已由 `8ce5ce9` 修复并经 CI 复验（run `41860242099` / `41873009808` 单元 job ✅） |
 | **V4-18** | `docker-verify.yml` 的 **app 健康判定口径**不可能成立（根 compose 的 app 无 healthcheck ⇒ 永远 `none`；app 其实完全健康） | **VERIFIED** —— 改为容器状态 + HTTP 探活 |
 | **V4-19** | `docker-verify.yml` 的 `[7/9]` 安装包部署必然失败（端口占用 + 容器名冲突） | **VERIFIED** |
-| **V4-20** | **节点申请 UI 提交链断裂** —— 生产构建下 React #418 hydration 不匹配 → react-dom 崩溃 → 表单 `onSubmit` 从未执行（**API 路径通过、纯 UI 路径失败**） | 🔴 **未修复（修复中）** —— CI run `41873009808`：`153 passed \| 1 failed \| 154 total` |
+| **V4-20** | **节点申请 UI 提交链断裂** —— 根因：HTML 规范 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** → react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` → React #418 水合失败 → 表单 `onSubmit` 从未执行 → 原生 GET 提交（**API 路径通过、纯 UI 路径失败**） | 🟢 **已修复并本地实测验证（`bddb3d0`）** —— 表单命名属性改名 + 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言）。实测：单元 **194/194（16 文件）**、E2E **154/154（11 文件，3.9m）** 全绿，React #418 **由 2 次归零**，提交恢复 `POST /api/node-requests`。修复前的历史快照：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
 
 ### 本轮同步的风险状态
 
@@ -247,7 +247,7 @@
 | R-24 | 🟢 **已修复（`ed385cf`）** —— 关注按钮可真实点击、刷新后状态持久化，待主理人终验确认 |
 | R-25 | 🟡 **已缓解 —— 历史仍可达，与 R-01 同源** —— 新增风险；18 个占位 PNG 仍在 Git 历史 |
 | R-26 | 🟢 **已修复并经 CI 复验** —— `8ce5ce9`（护栏 3 修复 `634a202`）；run `41860242099` / `41873009808` 单元 job ✅（190 passed / 0 skipped），`e2e` job 已真实跑过 |
-| R-27 | 🔴 **未修复（修复中）** —— **新增风险**，本轮唯一红灯；节点申请 UI 提交链断裂（CI run `41873009808`：`153 passed \| 1 failed \| 154 total`） |
+| R-27 | 🟢 **已修复并本地实测验证（`bddb3d0`）** —— **本轮唯一红灯已解除**；节点申请 UI 提交链断裂（根因：`[OverrideBuiltins]` 命名属性遮蔽 `form.nodeName`）。实测：单元 194/194（16 文件）、E2E 154/154（11 文件，3.9m）全绿。修复前的历史快照：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
 
 > ⚠️ **规则性纪律**：已修复的问题不再显示 OPEN；未解决的问题不因「本轮没再复现」就自动标 FIXED；
 > 未实测 / 未复核的数据标注「待实测」或「历史快照」，不编造。

@@ -69,7 +69,7 @@ v0.0.1 → v0.0.3 的发版过程暴露了三类问题，v0.0.4 必须用流程�
 |---|---|---|---|
 | ① 校验 | `ci.yml: unit` → `npx tsc --noEmit`、`node scripts/ui-verify.cjs` | 0 类型错误；API 契约全匹配（基线 72 路由 / 30 调用） | 红灯，`needs` 阻断后续 |
 | ② 代码审查 | PR review / 主理人终审 | 审查通过、无未决评论 | 不合并不建 Tag |
-| ③ 完整自动化测试 | `ci.yml`（单元 + E2E + Docker 真实构建/启动）；`release.yml: unit-tests` / `e2e-tests` | 单元 **190 条 / 15 文件**（190 passed / 0 failed / 0 skipped，连续 4 轮全绿）、E2E **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）—— **均已写入 `TEST_REPORT.md`**；迁移幂等。✅ **CI 单元已转绿**（run `41860242099` / `41873009808`）；🔴 **CI E2E 有 1 条失败**（`153 passed \| 1 failed \| 154 total`，节点申请 UI 提交链断裂 —— V4-20 / R-27，修复中） | 红灯，禁止进入构建阶段 |
+| ③ 完整自动化测试 | `ci.yml`（单元 + E2E + Docker 真实构建/启动）；`release.yml: unit-tests` / `e2e-tests` | 单元 **194 条 / 16 文件**（194 passed / 0 failed / 0 skipped，连续 4 轮全绿；修复前基线 190 条 / 15 文件）、E2E **154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）—— **均已写入 `TEST_REPORT.md`**；迁移幂等。✅ **CI 单元已转绿**（run `41860242099` / `41873009808`，190 条口径）；✅ **本地 E2E 全绿 154/154（11 文件，3.9m）** —— 节点申请 UI 提交链断裂（V4-20 / R-27）**已由 `bddb3d0` 修复并本地实测验证**；✅ **CI E2E 已复验通过**（run `41949555282`，SHA `bddb3d0`：`154 passed (2.5m)` / 0 failed） | 🟢 **CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）—— 确认 CI 侧同样全绿后方可进入构建阶段 |
 | ④ 独立构建 | `release.yml: code-checks`（`tsc` + `npm run build`）；`build-image`（`docker build`） | 构建成功；镜像不含 `.env` / `docs/evidence`；`dry_run=true` 时只 `load` 不 `push` | 红灯并上传报告 |
 | ⑤ Docker 部署验证 | `release.yml: deploy-verify`（真实 compose 启动 → healthy → 管理员创建 → 注册探针 → 重启持久化 → 端口不暴露）；`install-verify.yml` 的 Linux 真实 Docker job | 全通过、日志上传 | 红灯，`cancel-in-progress: false` 保证不中途取消 |
 | ⑥ 安全扫描 | `release.yml: security-scan` | `npm audit` critical/high = 0；gitleaks 只扫 Git 跟踪文件（避免假通过）；发布包内容检查（无 `.env` / 凭据 / 原站素材） | 红灯；报告作为 artifact 保留 7 天 |
@@ -347,11 +347,11 @@ inputs:
 - [ ] 代码审查通过，无未决评论
 - [ ] `npx tsc --noEmit` 零错误
 - [ ] `npm run build` 成功
-- [x] 单元测试 **190/190** 全绿（**15 个文件，190 passed / 0 failed / 0 skipped，连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒，共享实例 55433 口径）—— 已写入 `TEST_REPORT.md`「v0.0.4 单元测试（权威口径）」小节
-  - ⚠️ **「185」有两个来源**：**v0.0.3 历史总数**（master @ `37710fb4`）与 **修复前的历史观测**（`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。**v0.0.4 的用例总数始终是 190。**
-  - ✅ **CI 侧已通过**：run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success（vitest 15 文件全过、`190 passed / 0 skipped`）。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`floor-continuity` 在 CI 崩溃 ⇒ `unit` job 红 ⇒ `e2e` job 被 `needs: unit` 连带跳过 —— **已由 `8ce5ce9` 修复并经 CI 复验**（V4-17 VERIFIED / R-26 已闭环），`e2e` job **已真实跑过**
-- [x] E2E 全绿（**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮 —— 基于 153 条口径，早于 `ed385cf`）—— 已写入 `TEST_REPORT.md`「v0.0.4 真实浏览器 E2E（权威口径）」小节。**当前权威分母 = 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`
-  - 🔴 **当前 CI 有 1 条失败**（run `41873009808`，SHA `2773cd1`）：**153 passed | 1 failed | 154 total**，唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27，**修复中** ⇒ **正式 Release 前必须闭环**
+- [x] 单元测试 **194/194** 全绿（**16 个文件，194 passed / 0 failed / 0 skipped，连续 4 轮全绿**。**本轮隔离实例实测 81.68s**；历史轮次 170~210 秒，共享实例 55433 口径。⚠️ **修复前基线为 190 条 / 15 文件** —— V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 4 条防回归断言）—— 已写入 `TEST_REPORT.md`「v0.0.4 单元测试（权威口径）」小节
+  - ⚠️ **「185」有两个来源**：**v0.0.3 历史总数**（master @ `37710fb4`）与 **修复前的历史观测**（`185 passed | 5 skipped (190)`，⚠️ **分母仍是 190**）。**v0.0.4 的用例总数在 V4-20 修复后为 194（修复前为 190）。**
+  - ✅ **CI 侧已通过**（190 条口径）：run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均 success（vitest 15 文件全过、`190 passed / 0 skipped`）。✅ **V4-20 修复后的 194 条（16 文件）已由 CI 复验通过** —— run `41949555282`（SHA `bddb3d0`）：`Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped —— 当前仅**本地实测全绿**。**修复前的历史观测**（run `41837212170`，HEAD `930f29e`）：`floor-continuity` 在 CI 崩溃 ⇒ `unit` job 红 ⇒ `e2e` job 被 `needs: unit` 连带跳过 —— **已由 `8ce5ce9` 修复并经 CI 复验**（V4-17 VERIFIED / R-26 已闭环），`e2e` job **已真实跑过**
+- [x] E2E 全绿 —— ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 文件，3.9m）**（V4-20 修复后本地实跑）；**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，**连续 2 轮全绿**，4.5m/轮 —— 基于 153 条口径，早于 `ed385cf`）—— 已写入 `TEST_REPORT.md`「v0.0.4 真实浏览器 E2E（权威口径）」小节。**当前权威分母 = 154 条 / 11 文件**（`--list` 实测 `Total: 154 tests in 11 files`）。口径分解见 `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §10.10.3 与 `docs/evidence/e2e/TEST_COUNT_DEFINITION_v0.0.4.md`
+  - ✅ **修复前的历史快照**（run `41873009808`，SHA `2773cd1`）：**153 passed | 1 failed | 154 total**，唯一失败用例 `e2e/v004-four-roles-ui.spec.ts:122`「节点申请：UI 入口存在 + 真实点击提交成功 + 申请真实入库」—— **真实产品缺陷**（生产构建下节点申请 UI 提交链断裂），登记 V4-20 / R-27 —— **✅ 已由 `bddb3d0` 修复并本地实测验证**（根因：HTML 规范 `[OverrideBuiltins]` 使表单内**命名控件遮蔽 `form.nodeName`** ⇒ react-dom 水合代码 `canHydrateInstance` 中 `instance.nodeName.toLowerCase()` 抛 `TypeError` ⇒ React #418 水合失败 ⇒ 事件处理器不绑定 ⇒ 表单走原生 GET 提交；修复：表单命名属性改名 + 新增 `tests/form-name-shadowing.spec.ts`（4 条防回归断言）。实测：单元 194/194（16 文件）、E2E 154/154（11 文件，3.9m）全绿，React #418 **由 2 次归零**，提交恢复 `POST /api/node-requests`、URL 停在 `/nodes/request`、成功 toast 出现）。⚠️ ****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** ⇒ **正式 Release 前必须确认 CI 侧同样 154/154 全绿**
 - [ ] **口径区分（防止把专项当全量）**：qa-engineer 第二轮是**专项实跑** —— `tests/floor-continuity.spec.ts` 5/5、`e2e/v004-four-roles-ui.spec.ts` 8/8（连续三轮，最新 `expected=8, skipped=0, unexpected=0, flaky=0`）、`npx tsc --noEmit` EXIT=0。**全量判定只认 team-lead 任务 #1 写入 `TEST_REPORT.md` 的结果**；qa-engineer 无权修改 `TEST_REPORT.md`（其所有权仅 3 个文件）
   - [x] `test-list-v0.0.4.txt` 已由主理人重新 `npx playwright test --list` 生成并更新为 **154**（`Total: 154 tests in 11 files`）；正式发布前仍须再跑一次 `--list` 固定口径（端点冒烟用例数随 GET 路由数浮动）
 - [ ] **测试环境注入**：`tests/setup.ts` 默认加载 `.env.local`，其 `DATABASE_URL` 指向 **5432**（本机无实例）；裸跑 vitest（未注入 `ENV_FILE` / `DATABASE_URL`）时 15 个单测文件中 11 个会连 5432 失败（实证 `ECONNREFUSED 127.0.0.1:5432`）。CI / 本地全量复验**必须注入 `ENV_FILE`**（如 `.env.test`，指向隔离实例 —— **按 `.env.test` 实际解析的端口，当前 55440**）。**`preflight.sh` 本身不触发任何测试**（只做只读存在性检查与 `bash -n`），不受此项影响
@@ -639,7 +639,7 @@ phase  : dev                                       phase  : release
 > ```
 >
 > ⚠️ **注意这个形态**：是 `1 failed + 5 skipped`，**不是「少了几条」**。
-> **分母是 190，与本机实测的 190 一致** —— 也就是说 **v0.0.4 的用例总数始终是 190**，
+> **分母是 190，与本机实测的 190 一致** —— 也就是说 **v0.0.4 的用例总数在 V4-20 修复前是 190（修复后为 194）**，
 > 185 只是 **CI 上的通过数**（`floor-continuity` 5 条崩溃被跳过）。
 > **核对 CI 时必须看 `Test Files` 行，不能只看 `Tests` 行** —— 这正是 R-23 那类静默跳过。
 >
