@@ -1628,31 +1628,45 @@ jobs:
           # ═══════════════════════════════════════════════════════════
           # ① 创建 Draft Release
           # ═══════════════════════════════════════════════════════════
-          # ⚠️ **必须用 `gh api`，不能用 `gh release create`。**
+          # ⚠️ **不要传 `target_commitish`。**
           #
-          # 背景（v0.0.4 连续四轮 403 的定位过程）：
-          #   `gh release create` 在 run `41978482846` / `41983127742` /
-          #   `41985412431` 中一律返回
-          #       HTTP 403: Resource not accessible by integration
-          #       (https://api.github.com/repos/…/releases)
+          # 背景（v0.0.4 连续五轮 403 的定位过程）：
           #
-          #   而 run `41985412431` 的诊断步骤证明：**同一个 token、同一个
-          #   job 里**，`gh api --method POST /releases` 却**成功创建了**
-          #   Draft Release（id `434887371`）。
+          #   | run | 调用方式 | `target_commitish` | 结果 |
+          #   |---|---|---|---|
+          #   | `41978482846` | `gh release create --target <sha>` | 有 | ❌ 403 |
+          #   | `41983127742` | `gh release create --target <sha>` | 有 | ❌ 403 |
+          #   | `41985412431` | `gh api POST`（诊断步骤） | **无** | ✅ **成功** |
+          #   | `41985412431` | `gh release create --target <sha>` | 有 | ❌ 403 |
+          #   | `41988622554` | `gh api POST -f target_commitish=<sha>` | 有 | ❌ 403 |
           #
-          #   ⇒ 403 **不是权限问题**（`contents: write` 一直都在，
-          #      v0.0.3 也仅凭它成功建过 Draft；加 `pull-requests: write`
-          #      后仍 403），而是 **`gh release create` 这个 CLI 封装自身的
-          #      行为** —— 它对「tag 已存在 + 显式传 `--target`」这条路径
-          #      会做额外的解析/校验调用，其中某一步被拒。
+          #   逐项对比后，**唯一的变量就是 `target_commitish`**：
+          #   同一个 token、同一个 job、同一个 tag ——
+          #   传它就 403，不传就成功。
           #
-          #   `gh api` 是**直接**打 REST API，不经过那层封装 ⇒ 可行。
+          #   （先剌曾误判为「`gh release create` CLI 封装自身的行为」，
+          #     但 run `41988622554` 用 `gh api` 显式传 `target_commitish`
+          #     同样 403，证伪了那个判断。）
           #
-          # 实测：本写法已在 run `41985412431` 的诊断步骤中成功执行
-          # （创建出 id 434887371 的 Draft，随后被诊断步骤清理）。
+          # 为什么不传也正确：
+          #   GitHub REST API 文档对 `target_commitish` 的说明是
+          #     「Specifies the commitish value that determines where the
+          #       Git tag is created. Can be any branch or commit SHA.
+          #       **Unused if the Git tag already exists.**
+          #       Default: the repository's default branch.」
+          #   ⇒ tag `v0.0.4` **已经存在**，这个参数**本来就不会被使用**；
+          #      不传它，Release 的 target 自动取现有 tag 的目标（`c0e7396`），
+          #      语义完全正确，还与 v0.0.3 的 Release 形态一致。
+          #
+          #   （至于传了为何反而 403：GitHub 会对 `target_commitish` 指向的
+          #     commit 做一次可见性校验，而 GITHUB_TOKEN 对该 commit 的读取
+          #     被拒 —— 诊断步骤采集到的 `.permissions` 全为 false 也印证了
+          #     token 的仓库级读取受限。**未传 ⇒ 不做该校验 ⇒ 通过。**）
+          #
+          # 实测：本写法（不传 `target_commitish`）已在 run `41985412431`
+          # 的诊断步骤中成功执行（创建出 id `434887371` 的 Draft）。
           RELEASE_ID="$(gh api --method POST "repos/${REPO}/releases" \
             -f tag_name="$VERSION" \
-            -f target_commitish="$TAG_SHA" \
             -f name="$VERSION — 开发预览版" \
             -F draft=true \
             -F prerelease=true \
