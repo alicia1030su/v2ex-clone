@@ -101,6 +101,14 @@ export default function TopicEditForm({
     >
       <div className="topic_edit_panel">
         <h3>编辑主题</h3>
+        {/* v0.0.4（V4-20）：name 不得与 HTMLFormElement 的 DOM 属性同名 —— 详见 NodeRequestForm 的说明。 */}
+  // ⚠️ v0.0.4（V4-20 / R-27）：表单内 input 的 `name` **不得**与
+  // `HTMLFormElement` 的 DOM 属性同名（`nodeName` / `title` / `id` / `action` …）。
+  // HTML 规范给 HTMLFormElement 加了 `[OverrideBuiltins]` —— 表单内的命名控件
+  // 会遮蔽原型上的同名属性，于是 `form.title` 变成 input 元素而不是字符串。
+  // Next.js 15.5 内置的 React 19 水合代码调用 `instance.nodeName.toLowerCase()`，
+  // 遇到这种遮蔽就抛 TypeError → 水合失败（#418）→ 事件处理器不绑定。
+  // 详见 src/components/NodeRequestForm.tsx 的完整说明。
         <form onSubmit={submit}>
           {canEditTitle && (
             <div style={{ marginBottom: '12px' }}>
@@ -108,7 +116,7 @@ export default function TopicEditForm({
               <input
                 id={`topic-title-${topicId}`}
                 type="text"
-                name="title"
+                name="topic_title"
                 maxLength={128}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}

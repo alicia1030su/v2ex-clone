@@ -128,7 +128,32 @@ export default function NodeRequestForm({ categories, myRequests }: NodeRequestF
         </div>
       ) : null}
 
-      <form onSubmit={submit}>
+      {/*
+        ⚠️ v0.0.4 修复（V4-20 / R-27）：表单内 input 的 `name` **不得**与
+        `HTMLFormElement` 的 DOM 属性同名。
+
+        HTML 规范给 `HTMLFormElement` 加了 `[OverrideBuiltins]` ——
+        表单内的**命名控件**会通过「命名属性访问」遮蔽原型上的同名属性。
+        于是 `<form>` 里放一个 `name="nodeName"` 的 input 之后：
+
+            form.nodeName   // → HTMLInputElement（不是字符串 "FORM"）
+
+        而 Next.js 15.5 内置的 React 19 水合代码里有这一行
+        （react-dom-client.production.js 的 canHydrateInstance）：
+
+            instance.nodeName.toLowerCase() !== type.toLowerCase()
+
+        `nodeName` 此时是 Element → `.toLowerCase()` 不存在 → 抛
+        `TypeError: nodeName.toLowerCase is not a function` →
+        React 水合失败（error #418）→ **事件处理器不绑定** →
+        表单走浏览器原生 GET 提交 → 写操作完全失效。
+
+        本地实测（Chromium）：`name="nodeName"` / `title` / `id` / `action`
+        四者都会遮蔽；`nodeName` 是唯一直接触发 react-dom 崩溃的那个。
+        → 因此这里改用 `node_slug`（不与任何 DOM 属性同名），并保留
+        `id="nodeName"` 供样式与测试定位（`id` 属性不参与命名属性访问）。
+      */}
+      <form onSubmit={submit} id="node-request-form">
         <table cellPadding={5} cellSpacing={0} border={0} width="100%">
           <tbody>
             <tr>
@@ -138,7 +163,8 @@ export default function NodeRequestForm({ categories, myRequests }: NodeRequestF
               <td>
                 <input
                   type="text"
-                  name="nodeName"
+                  name="node_slug"
+                  id="node_slug"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="小写字母、数字、下划线、短横线"
@@ -155,7 +181,8 @@ export default function NodeRequestForm({ categories, myRequests }: NodeRequestF
               <td>
                 <input
                   type="text"
-                  name="nodeTitle"
+                  name="node_title"
+                  id="node_title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="显示在导航与列表中的名称"

@@ -153,8 +153,8 @@ test.describe('四身份 UI 验收 · 游客', () => {
       await expect(page.locator('#Top')).toBeVisible({ timeout: 15_000 });
 
       // 表单四要素全部在 DOM 里（不是只有链接的空壳）
-      await expect(page.locator('input[name="nodeName"]')).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator('input[name="nodeTitle"]')).toBeVisible();
+      await expect(page.locator('input#node_slug')).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator('input#node_title')).toBeVisible();
       await expect(page.locator('select[name="categoryId"]')).toBeVisible();
       await expect(page.locator('textarea[name="description"]')).toBeVisible();
 
@@ -167,10 +167,10 @@ test.describe('四身份 UI 验收 · 游客', () => {
     await test.step('真实填写表单并点击「提交申请」', async () => {
       // NodeRequestForm 是**客户端组件**，必须等 hydration 完成，
       // 否则 onSubmit 没绑定、点击不会有任何反应。
-      await waitForHydration(page, 'input[name="nodeName"]');
+      await waitForHydration(page, 'input#node_slug');
 
-      await page.locator('input[name="nodeName"]').fill(nodeName);
-      await page.locator('input[name="nodeTitle"]').fill(nodeTitle);
+      await page.locator('input#node_slug').fill(nodeName);
+      await page.locator('input#node_title').fill(nodeTitle);
       await page.locator('textarea[name="description"]').fill('v0.0.4 E2E 通过真实 UI 提交的节点申请。');
 
       const submitBtn = page.getByRole('button', { name: '提交申请' });
@@ -185,8 +185,8 @@ test.describe('四身份 UI 验收 · 游客', () => {
         timeout: 20_000,
       });
       // 表单被清空（防重复提交）
-      await expect(page.locator('input[name="nodeName"]')).toHaveValue('');
-      await expect(page.locator('input[name="nodeTitle"]')).toHaveValue('');
+      await expect(page.locator('input#node_slug')).toHaveValue('');
+      await expect(page.locator('input#node_title')).toHaveValue('');
     });
 
     await test.step('DOM 断言：刷新后申请记录出现在「我提交的申请」列表里', async () => {

@@ -173,7 +173,14 @@ export async function createTopicViaUi(
   // 这正是「靠运气通过」的典型，必须显式等待。
   await page.waitForLoadState('networkidle');
 
-  const titleInput = page.locator('input[name="title"]');
+  // ⚠️ v0.0.4（V4-20）：用 `id` 定位，**不用** `name="title"` ——
+  // 表单内 input 的 `name` 若与 `HTMLFormElement` 的 DOM 属性同名
+  // （如 `title` / `nodeName` / `id` / `action`），会因 HTML 规范的
+  // `[OverrideBuiltins]` 把该控件暴露成 form 的同名命名属性。
+  // 其中 `name="nodeName"` 会**直接**让 react-dom 的
+  // `instance.nodeName.toLowerCase()` 崩溃 → 水合失败（#418）→
+  // 事件处理器不绑定。NewTopicForm 的标题框已把 `name` 改为 `topic_title`。
+  const titleInput = page.locator('input#title');
   await expect(titleInput).toBeVisible({ timeout: 20_000 });
 
   // 确认 React 已接管：受控输入框在用户输入后，
