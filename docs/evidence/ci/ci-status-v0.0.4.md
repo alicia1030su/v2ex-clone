@@ -138,6 +138,38 @@ Error: ENOENT: no such file or directory, open '/home/runner/work/v2ex-clone/v2e
 | `41871503684` | docker-verify | `2773cd1` | ✅ **success** | **九项全部 completed/success，九项汇总表全 PASS** ⇒ **R-16 / R-17 已闭环**（修复提交 `827eef7` + `2773cd1`） |
 | `41873009808` | CI | `2773cd1` | 🟡 unit ✅ / **E2E ❌ failure** | unit job ✅（190 passed / 0 skipped）；**E2E：153 passed \| 1 failed \| 154 total** —— 唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（**真实产品缺陷**，V4-20 / R-27）—— ⚠️ **这是 V4-20 修复前的历史快照** |
 | `41949555282` | CI | `bddb3d0` | ✅ **success** | **V4-20 / R-27 修复后的复验 run** —— **三 job 全绿**：单元 ✅ `Test Files 16 passed (16)` / `Tests 194 passed (194)` / 0 skipped；E2E ✅ `154 passed (2.5m)` / 0 failed / 0 skipped；Docker ✅。本地同样实测全绿（单元 194/194、E2E 154/154、3.9m） |
+| `41951044045` | CI | `bddb3d0` | ✅ **success** | 三 job 全绿（V4-20 修复后再次复验） |
+| `41954236858` | **Release** | `c0e7396` | 🔴 **failure** | **发布流水线首次实战**（tag `v0.0.4` push 触发）—— 2 个 job 红灯：**安全扫描**（`.env` 豁免规则只写 `\.env\.example$`，误判 `tests/env/.env.test.example`；且「空值排除」的 grep **引号未闭合** ⇒ 检查静默失效）、**单元测试**（护栏 3 的 `CI_DATABASE_NAMES` 只列 `v2ex_ci`，而 release.yml 用 `v2ex_release_unit` / `v2ex_release_e2e`）。⚠️ 真实报错被 vitest 自己的错误格式化器崩溃（`TypeError: code.charCodeAt is not a function`）掩盖 |
+| `41960102221` | **Release** | `e921751` | 🔴 **failure** | 补救路径首次尝试（`workflow_dispatch` + tag 三态判定）—— 8/10 job ✅，但「创建并发布 Release」红灯（`upload-artifact` 的 `path` 用了 `${{ env.ZIP_NAME }}`，表达式上下文取不到 ⇒ artifact 无安装包）。**修复生效的实证**：此前两个红灯的 job 均已转绿 |
+| `41962239958` | **Release** | `1eff3fd` | 🔴 **failure** | 8/10 job ✅；「创建并发布 Release」红灯 —— `fatal: 'origin' does not appear to be a git repository`（该 job **没有 checkout** ⇒ 无 `.git` / `origin` ⇒ `git ls-remote origin` 报 exit 128） |
+| `41978482846` | **Release** | `6c0a1d8` | 🔴 **failure** | 9/11 job ✅（含**首次真实运行的 `resolve-tag`**）；「创建并发布 Release」红灯 —— `HTTP 403: Resource not accessible by integration`（`gh release create`） |
+| `41983127742` | **Release** | `e931828` | 🔴 **failure** | 9/11 job ✅；仍 403 ⇒ **证伪「需 `pull-requests: write`」假设** |
+| `41985412431` | **Release** | `e931828` | 🔴 **failure** | 9/11 job ✅；仍 403。**但诊断步骤给出决定性证据**：同一个 job、同一个 token 里，`gh api --method POST /releases`（**不传 `target_commitish`**）**成功创建** Draft（id `434887371`）⇒ 403 与权限无关 |
+| `41988622554` | **Release** | `a05f54d` | 🔴 **failure** | 9/11 job ✅；改用 `gh api` 后**仍** 403 ⇒ **证伪「`gh release create` CLI 封装行为」假设** ⇒ 根因收敛到 **`target_commitish` 参数** |
+| `41991745413` | **Release** | `f5e1dd4` | ✅✅ **success** | 🎉 **v0.0.4 发布流水线首次完整跑通（11/11 job 全绿）** —— 含**创建并发布 Release**与**远端核验**。产物：Tag `v0.0.4`（annotated `aed641d` → `c0e7396`，**未移动**）；**Draft Release id `434929894`**（`draft=true` / `prerelease=true` / author `github-actions[bot]`）；资产 `v2ex-clone-v0.0.4-deploy.zip`（52,049 bytes）+ `SHA256SUMS`（95 bytes），下载实算 SHA256 **与 `SHA256SUMS` 逐字匹配**；GHCR 镜像 `v0.0.4` 拉取成功。⚠️ Release **保持 Draft**（R-01 DEFERRED，未获授权不得公开发布） |
+
+### 🟢 v0.0.4 Draft Release 已交付（第 10 轮，2026-11-05）
+
+发布流水线 run `41991745413`（SHA `f5e1dd4`，`workflow_dispatch` + `publish=false`）
+**11/11 job 全绿** —— v0.0.4 发布流水线首次完整跑通。
+
+**交付核验（全部通过）**：
+
+| 核验项 | 结果 |
+|---|---|
+| Tag `v0.0.4` | annotated tag `aed641d` → commit `c0e7396`，**未移动** |
+| Release `v0.0.4` | id `434929894`，`draft=true`、`prerelease=true` |
+| 资产 | `v2ex-clone-v0.0.4-deploy.zip`（52,049 bytes）+ `SHA256SUMS`（95 bytes），state=uploaded |
+| SHA256 | 下载实算 `a08a1a0a…7607`，与 `SHA256SUMS` **逐字匹配** |
+| 安装包内容 | 15 个文件，全在 `deploy/` 下；版本载体全 `0.0.4`；无真实 `.env` |
+| GHCR 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` 拉取成功 |
+| 既有 Release | `v0.0.1` / `v0.0.2` / `v0.0.3` **完好未动** |
+
+**发布流水线自身的缺陷与修复**（护栏 3 库名 / 安全扫描两处 / Tag 死锁 /
+`resolve-tag` / `target_commitish` 403）详见 `docs/SESSION_HANDOFF_v0.0.4.md`
+**第 9、10 轮快照**。
+
+> ⚠️ Release **保持 Draft** —— R-01 仍为 DEFERRED，未获主人单独授权前不得公开发布。
 
 ### 🟢 原**唯一**剩余阻断项 —— **已解除**（V4-20 / R-27 修复轮）
 

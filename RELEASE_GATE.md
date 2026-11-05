@@ -38,6 +38,25 @@
 > **不动 v0.0.3 的 Tag 与 Release**；未经主人单独授权不得公开发布有阻断风险的 Release。
 > 下方历史表格保留作为版本演进记录，不删除、不改写。
 
+> ✅ **v0.0.4 Draft Release 已交付（2026-11-05）**：
+> 发布流水线 run `41991745413`（SHA `f5e1dd4`）**11/11 job 全绿** ——
+> 这是 v0.0.4 发布流水线首次完整跑通。产物：
+> - **Tag `v0.0.4`**：annotated tag `aed641d` → commit `c0e7396`（**未移动**，符合「同一版本号不得反复删建或移动」）
+> - **Release `v0.0.4`**：id `434929894`，**`draft=true`**、`prerelease=true`、author `github-actions[bot]`
+> - 资产：`v2ex-clone-v0.0.4-deploy.zip`（52,049 bytes）+ `SHA256SUMS`（95 bytes），
+>   下载后实算 SHA256 `a08a1a0a…7607` **与 `SHA256SUMS` 逐字匹配**
+> - GHCR 镜像 `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` 已推送并拉取成功
+> - 包内版本载体核对：`deploy/VERSION` = `0.0.4`、`V2EX_IMAGE=…:v0.0.4`、`APP_VERSION="0.0.4"`
+>
+> ⚠️ **Release 保持 Draft** —— R-01 仍为 DEFERRED，未获主人单独授权前**不得公开发布**。
+> 授权后以 `workflow_dispatch` 传 `publish=true` 触发，或手动在 GitHub 上发布；
+> 流水线的 `verify-release` 届时会**自动补做**匿名下载校验
+> （draft 状态下资产匿名不可下载，已按 GitHub 正常行为跳过）。
+>
+> 📌 发布流水线自身的修复过程（护栏 3 补 release 库名 / 安全扫描两处误判 /
+> 「Tag 不可移动」与「流水线需修复」的死锁 / `gh release create` 连续 403 的根因
+> `target_commitish`）详见 `docs/SESSION_HANDOFF_v0.0.4.md` **第 9、10 轮快照**。
+
 > 项目：V2EX Clone
 > 目标版本：v0.0.2（开发预览版 / Pre-release）
 > 建表时间：2026-11-04
