@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
 import { isReportReason, REPORT_REASONS } from '@/lib/report-reasons';
+import { pgErrorCodeOf } from '@/lib/pg-error-code';
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
@@ -148,7 +149,12 @@ export async function POST(request: Request) {
     reportId = rows[0].id;
   } catch (err) {
     // 唯一索引冲突（23505）= 已有一条进行中的举报
-    const pgCode = (err as { code?: string } | null)?.code;
+    //
+    // ⚠️ 必须下潜到 `cause`：Drizzle 会把 postgres.js 的原始错误包在
+    // `DrizzleQueryError.cause` 里，`err.code` 是 undefined。
+    // （单测 `tests/v005-reports.spec.ts` 的 `pgErrorCode()` 早已验证这一点，
+    //  但当初漏改了这里 —— 导致客户端收到 500 而非 409，用户看到「网络错误」。）
+    const pgCode = pgErrorCodeOf(err);
     if (pgCode === '23505') {
       return NextResponse.json(
         { ok: false, error: '你已举报过该内容，正在处理中' },

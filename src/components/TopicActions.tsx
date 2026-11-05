@@ -133,7 +133,23 @@ export default function TopicActions({
   async function remove() {
     if (!window.confirm('确定要删除这个主题吗？删除后可以由管理员恢复。')) return;
     const res = await act('delete', `/api/topics/${topic.topicId}`, 'DELETE', {});
-    if (res) onDeleted?.();
+    if (!res) return;
+
+    // v0.0.5：删除成功后**必须让 UI 反映新状态**。
+    //
+    // 原实现只调 `onDeleted?.()`，而页面从来没传过这个回调
+    // （服务端组件无法向客户端组件传函数），结果：
+    //   删除成功 → 服务端已软删除 → 但页面 `topic.deleted` 仍是 false
+    //   ⇒ 「恢复」按钮永远不出现 ⇒ 用户必须手动刷新才能恢复
+    // 这是 v0.0.5 E2E 实测发现的真实缺陷（`FEATURE_AUDIT_v0.0.5.md` §二）。
+    //
+    // 修法：有回调就交给回调；没有回调（当前所有调用方）就整页 reload，
+    // 让服务端组件用新数据重新渲染。
+    if (onDeleted) {
+      onDeleted();
+    } else {
+      window.location.reload();
+    }
   }
 
   async function restore() {

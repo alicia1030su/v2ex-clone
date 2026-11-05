@@ -7,6 +7,7 @@ import { runDrizzleKit } from './helpers/local-bin';
 import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
 import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 import { REPORT_REASONS, isReportReason } from '../src/lib/report-reasons';
+import { pgErrorCodeOf } from '../src/lib/pg-error-code';
 import { hasPermission } from '../src/lib/permissions';
 import { adminAdjustCredits } from '../src/lib/credit-service';
 
@@ -80,19 +81,6 @@ async function insertPendingReport(
 /** 部分唯一索引冲突的 PostgreSQL 错误码 */
 const UNIQUE_VIOLATION = '23505';
 
-/**
- * 从 Drizzle 抛出的错误里取 PostgreSQL 错误码。
- *
- * Drizzle 会把驱动原始错误包在 `DrizzleQueryError.cause` 里，
- * 直接 `toMatchObject({ code })` 匹配不到 —— 必须下潜一层。
- */
-function pgErrorCode(err: unknown): string | undefined {
-  const direct = (err as { code?: unknown } | null)?.code;
-  if (typeof direct === 'string') return direct;
-  const cause = (err as { cause?: { code?: unknown } } | null)?.cause?.code;
-  if (typeof cause === 'string') return cause;
-  return undefined;
-}
 
 beforeAll(async () => {
   logDbTarget('tests/v005-reports.spec.ts', TEST_DB);
@@ -209,7 +197,7 @@ describe('防重复举报（部分唯一索引 reports_reporter_target_uidx）',
       caught = err;
     }
     expect(caught, '第 2 条 pending 举报应该被唯一索引拒绝').toBeDefined();
-    expect(pgErrorCode(caught)).toBe(UNIQUE_VIOLATION);
+    expect(pgErrorCodeOf(caught)).toBe(UNIQUE_VIOLATION);
   });
 
   it('不同用户举报同一主题不受限（防重复只针对「同一举报人」）', async () => {

@@ -139,16 +139,34 @@ type AdminNode = {
 
 type TabKey = 'overview' | 'users' | 'credits' | 'reports' | 'nodes' | 'nodemgmt' | 'logs' | 'config';
 
-const TABS: { key: TabKey; label: string }[] = [
+/**
+ * 全部 tab 定义。
+ *
+ * v0.0.5：「积分」tab 受 `credits.adjust` 权限控制（**仅 admin**）——
+ * 用 `visibleTo` 声明可见角色，渲染时过滤。
+ * 原先直接把「积分」写进静态数组，导致**版主也能看到 tab**
+ * （只是点进去显示「仅管理员可操作」）—— 那是把权限做成了内容级而非入口级，
+ * 既误导用户，也让「tab 是否隐藏」无法作为权限断言。
+ */
+const ALL_TABS: { key: TabKey; label: string; visibleTo?: Array<'admin' | 'staff'> }[] = [
   { key: 'overview', label: '概览' },
   { key: 'users', label: '用户' },
-  { key: 'credits', label: '积分' },
+  { key: 'credits', label: '积分', visibleTo: ['admin'] },
   { key: 'reports', label: '举报' },
   { key: 'nodes', label: '节点申请' },
   { key: 'nodemgmt', label: '节点管理' },
   { key: 'logs', label: '操作日志' },
   { key: 'config', label: '系统配置' },
 ];
+
+/** 按当前用户的权限过滤 tab（moderator 看不到「积分」） */
+function tabsFor(canAdjustCredits: boolean): Array<{ key: TabKey; label: string }> {
+  return ALL_TABS.filter((t) => {
+    if (!t.visibleTo) return true;
+    if (t.visibleTo.includes('admin')) return canAdjustCredits;
+    return true; // 'staff' —— 后台本就只有 staff 能进
+  }).map((t) => ({ key: t.key, label: t.label }));
+}
 
 const ROLE_LABELS: Record<string, string> = {
   user: '用户',
@@ -569,7 +587,7 @@ export default function AdminConsole({
   return (
     <>
       <div className="cell tab-alt-container">
-        {TABS.map((t) => (
+        {tabsFor(canAdjustCredits).map((t) => (
           <button
             key={t.key}
             type="button"
