@@ -1417,6 +1417,17 @@ jobs:
     if: needs.preflight.outputs.dry_run != 'true'
     permissions:
       contents: write
+      # ⚠️ v0.0.4：创建 **Draft** Release 需要 `pull-requests: write` ——
+      #   draft 在 GitHub 的权限模型里属于 PR-like 资源，
+      #   只给 `contents: write` 时 API 返回
+      #   `HTTP 403: Resource not accessible by integration`
+      #   （实测 run `41978482846`：安装包已正确下载、
+      #    `POST /repos/{}/releases` 这一步被 403 拦死）。
+      #
+      #   注意：这是**仅用于创建 Draft** 的最小增量 ——
+      #   正式发布（`--draft=false`）仍由 `publish` 输入显式控制，
+      #   且本次运行传的是 `publish=false` ⇒ Release 保持 Draft。
+      pull-requests: write
     steps:
       - name: 下载安装包
         uses: actions/download-artifact@v8
