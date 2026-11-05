@@ -100,6 +100,10 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       dry_run: ${{ steps.meta.outputs.dry_run }}
+      # v0.0.4：Release 的 target commit。
+      # tag 触发时 = tag 指向的 commit（= github.sha）；
+      # 手动「补救路径」时 = 远端 tag 指向的 commit（github.sha 是触发分支的 commit，不对）。
+      tag_sha: ${{ steps.tag.outputs.sha }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v7
@@ -132,8 +136,10 @@ jobs:
           #    tag 指向的 commit，与 checkout 的 `ref` 无关 ⇒
           #    「tag 指向 == 构建 commit」这道校验**照常生效**，
           #    依然能挡住「Tag 被移动到别处」的情况。
-          # 3. **Release 的 target 仍是 `github.sha`** ⇒ Release 指向
-          #    Tag 指向的 commit，语义不变。
+          # 3. **Release 的 target 是「版本锚点指向的 commit」** ⇒ 由 preflight 的
+          #    `tag_sha` output 提供（tag 触发时它 == `github.sha`；
+          #    手动补救路径时它是远端 tag 指向的 commit）。
+          #    Release 始终指向 Tag 指向的 commit，语义不变。
           #
           # ⚠️ 若将来某次 master 与 tag 的 `deploy/` / `src/` 出现差异，
           #    本项会产出与 Tag 不一致的包 —— 那时应当**停下并请主人裁决**
@@ -190,16 +196,67 @@ jobs:
             fi
             echo "✓ tag $VERSION 指向当前 commit ${{ github.sha }}"
           else
-            # 手动触发：tag 必须尚不存在，否则禁止覆盖已发布版本。
+            # 手动触发：分两种情况。
             #
-            # 不能用 `git ls-remote --exit-code`：它对「无匹配」返回 2，
-            # 对「有匹配但存在其他 ref」也可能返回非 0，语义不可靠。
-            # 直接看输出是否为空最稳。
+            # ## 情况 A：Tag 不存在 —— 正常的手动发版路径
+            #
+            # ## 情况 B：Tag 已存在，但 **Release 尚未创建** —— 补救路径
+            #
+            # 为什么需要情况 B（v0.0.4 实测踩到）：
+            #
+            #   首次触发 tag 流水线时，流水线**自身**有缺陷（护栏 3 未含
+            #   release 库名 + 安全检查两处误判/失效）⇒ 红灯 ⇒ Release 没建成。
+            #   修好并合入 master 后，若不提供补救路径，就只能靠
+            #   「删 Tag 重推」或「移动 Tag」—— 两者都违反
+            #   「同一版本号不得反复删除、重建或移动 Tag」的规约，
+            #   且移动 Tag 属需主人**单独授权**的高风险操作。
+            #
+            #   情况 B 让「Tag 不动、Release 补建」成为可能：
+            #     - Tag 保持不动 ⇒ 不需要任何额外授权；
+            #     - 代码从 master 检出（见「检出代码」步骤）⇒ 含流水线修复。
+            #
+            # ⚠️ **安全前提**：Tag 指向的 commit 与 master 在**发布内容**上
+            #   必须零差异（`deploy/` / `src/` / `package.json` / `drizzle/`），
+            #   否则打出来的包与 Tag 不一致 —— 那就不是同一个版本了。
+            #   这条校验在下面执行，**不通过就中止**。
+            #
+            # 「Release 是否已存在」由**下一个步骤**独立检查 ——
+            # 已发布的 Release 绝不允许被覆盖。
             if [ -n "$(git ls-remote --tags origin "refs/tags/$VERSION")" ]; then
-              echo "::error::Tag $VERSION 已存在于远端。已发布版本的 tag 不可移动或覆盖，请手动处理。"
-              exit 1
+              echo "Tag $VERSION 已存在于远端 —— 进入「补救路径」判定。"
+
+              # ① Release 已存在 ⇒ 已发布，绝不允许覆盖
+              if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+                echo "::error::Release $VERSION 已存在。已发布版本的资产不可覆盖，请手动处理。"
+                exit 1
+              fi
+
+              # ② Tag 指向的 commit
+              TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
+              if [ -z "$TAG_SHA" ]; then
+                TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
+              fi
+              if [ -z "$TAG_SHA" ]; then
+                echo "::error::无法读取远端 tag $VERSION 的目标 commit"
+                exit 1
+              fi
+              echo "Tag $VERSION 指向 $TAG_SHA"
+
+              # ③ 发布内容必须零差异（deploy/ src/ package.json drizzle/）
+              git fetch origin master --depth=1 >/dev/null 2>&1 || true
+              CONTENT_DIFF="$(git diff --name-only "$TAG_SHA" "origin/master" -- \
+                              deploy/ src/ package.json drizzle/ 2>/dev/null || true)"
+              if [ -n "$CONTENT_DIFF" ]; then
+                echo "::error::Tag $VERSION 的发布内容与 master 不一致，禁止产出与 Tag 不匹配的包："
+                echo "$CONTENT_DIFF"
+                echo "::error::请先请主人裁决（移动 Tag 需单独授权；或改走其他发布路径）。"
+                exit 1
+              fi
+              echo "✓ Tag $VERSION 的发布内容（deploy/ src/ package.json drizzle/）与 master 零差异"
+              echo "✓ Release $VERSION 尚未创建 —— 允许补救路径继续"
+            else
+              echo "✓ Tag $VERSION 未被占用"
             fi
-            echo "✓ Tag $VERSION 未被占用"
           fi
 
       - name: 检查远端 Release 是否已存在
@@ -214,11 +271,33 @@ jobs:
           fi
           echo "Release $VERSION 未被占用 ✓"
 
+      - name: 确定 Release 的 target commit
+        id: tag
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          # Release 的 target 必须是**版本锚点**（tag）指向的 commit，
+          # 而不是「这次构建用的代码来自哪个分支」。
+          #
+          # - tag 触发：tag 指向的 commit 就是 github.sha；
+          # - 手动「补救路径」：tag 已存在，github.sha 是触发分支的 commit，
+          #   必须用远端 tag 指向的 commit，否则 Release 会指向错误的版本。
+          TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
+          if [ -z "$TAG_SHA" ]; then
+            TAG_SHA="$(git ls-remote --tags origin "refs/tags/$VERSION" | awk '{print $1}')"
+          fi
+          if [ -z "$TAG_SHA" ]; then
+            echo "::error::无法读取远端 tag $VERSION 的目标 commit"
+            exit 1
+          fi
+          echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+          echo "Release $VERSION 的 target commit = $TAG_SHA"
+
       - name: 输出发布信息
         run: |
           echo "仓库    : ${{ github.repository }}"
           echo "版本    : ${{ steps.v.outputs.version }}"
-          echo "提交 SHA: ${{ github.sha }}"
+          echo "版本锚点 SHA: ${{ steps.tag.outputs.sha }}"
           echo "镜像    : ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.v.outputs.version }}"
           echo "dry_run : ${{ steps.meta.outputs.dry_run }}"
 
@@ -779,7 +858,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.preflight.outputs.version }}
-            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=sha-${{ needs.preflight.outputs.tag_sha }}
           # 刻意不生成 latest —— 预览版的 latest 会误导用户。
           # flavor 设为 latest=false，避免 metadata-action 自动补 latest 标签。
 
@@ -800,7 +879,7 @@ jobs:
             org.opencontainers.image.title=V2EX Clone
             org.opencontainers.image.description=独立的 V2EX 界面还原研究项目（非官方）
             org.opencontainers.image.version=${{ needs.preflight.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.tag_sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.licenses=MIT
           cache-from: type=gha
@@ -1375,7 +1454,7 @@ jobs:
             --notes-file ../release-notes.md \
             --prerelease \
             --draft \
-            --target "${{ github.sha }}" \
+            --target "${{ needs.preflight.outputs.tag_sha }}" \
             "$ZIP_NAME" \
             SHA256SUMS
           echo "Draft Release 已创建"
