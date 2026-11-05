@@ -158,6 +158,13 @@ jobs:
           fi
           if [ -n "$SHA" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
+            # ⚠️ v0.0.4：两条分支**都必须**写 `sha` output。
+            #   此前只有「tag 不存在」分支写了 `sha=`，
+            #   导致 tag 存在时 `steps.r.outputs.sha` 求值为**空字符串** ——
+            #   而下游（preflight 的 push 路径校验、tag_sha output、
+            #   publish-release 的竞态检查）全靠它 ⇒ 全部拿到空值 ⇒ 红灯。
+            #   （该缺陷由静态审查发现：`resolve-tag` 从未真实跑过。）
+            echo "sha=$SHA" >> "$GITHUB_OUTPUT"
             echo "Tag $VERSION 指向 $SHA"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -248,6 +255,15 @@ jobs:
           fi
 
       - name: 校验远端 Tag 状态
+        env:
+          # ⚠️ v0.0.4：必须显式提供 GH_TOKEN。
+          #   GitHub 官方要求「每个使用 GitHub CLI 的 step 都要设置 GH_TOKEN」——
+          #   runner 只预装 gh 二进制，**不做** `gh auth login`。
+          #   没有 token 时 `gh release view` 退出码非 0 ⇒
+          #   「Release 已存在」这道闸门被**静默跳过** ⇒ 可能覆盖已发布 Release 的资产。
+          #   （同文件内「检查远端 Release 是否已存在」步骤本来就正确写了 env:，
+          #   只有这里漏了。）
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.v.outputs.version }}"
@@ -312,9 +328,24 @@ jobs:
               echo "Tag $VERSION 指向 $TAG_SHA"
 
               # ③ 发布内容必须零差异（deploy/ src/ package.json drizzle/）
-              git fetch origin master --depth=1 >/dev/null 2>&1 || true
-              CONTENT_DIFF="$(git diff --name-only "$TAG_SHA" "origin/master" -- \
-                              deploy/ src/ package.json drizzle/ 2>/dev/null || true)"
+              #
+              # ⚠️ v0.0.4：两道加固（静态审查发现原写法会 **fail-open**）：
+              #   1. **不要用 `--depth=1`** —— 它把仓库变成 shallow（写 `.git/shallow`），
+              #      shallow 边界外对象的 `git diff` 行为不可靠。
+              #   2. **不要吞掉 `git diff` 的失败**（原来的 `|| true`）——
+              #      当 `$TAG_SHA` 不在本地对象库时，`git diff` 报
+              #      `fatal: bad revision`（exit 128），但因为被 `|| true` 吞掉，
+              #      `CONTENT_DIFF` 变成空字符串 ⇒ `[ -n ... ]` 为假 ⇒
+              #      **校验通过** —— 即「无法比较」被当成了「零差异」。
+              #
+              # 现在：**比较失败即中止**，绝不 fail-open。
+              git fetch origin master >/dev/null 2>&1
+              if ! CONTENT_DIFF="$(git diff --name-only "$TAG_SHA" "origin/master" -- \
+                              deploy/ src/ package.json drizzle/)"; then
+                echo "::error::无法比较 Tag $VERSION 的发布内容与 master（对象缺失或 git 失败）。"
+                echo "::error::**不能据此认定零差异** —— 中止发布。"
+                exit 1
+              fi
               if [ -n "$CONTENT_DIFF" ]; then
                 echo "::error::Tag $VERSION 的发布内容与 master 不一致，禁止产出与 Tag 不匹配的包："
                 echo "$CONTENT_DIFF"
@@ -1415,8 +1446,35 @@ jobs:
           #   tag 指向的 commit 必须与 preflight 判定过的那一个一致。
           # ⚠️ 本 job **没有 checkout** ⇒ 没有 `.git` / `origin` ⇒
           #   `git ls-remote origin` 会报 exit 128。
-          #   改用 resolve-tag job 的输出（它用 `gh api` 解析，与 checkout 无关）。
-          TAG_SHA_NOW="${{ needs.resolve-tag.outputs.sha }}"
+          #
+          # ⚠️ 而且**必须当场重新解析**，不能直接用 `needs.resolve-tag.outputs.sha`：
+          #   那个 output 是**几分钟前的快照**（resolve-tag job 早就跑完了），
+          #   而 `needs.preflight.outputs.tag_sha` **也是**同一个 output
+          #   ⇒ 两者比较**恒为相等** ⇒ 竞态窗口内 tag 被移动**永远检测不到**。
+          #   竞态检查的价值就在于「现在」vs「开始时」，必须重新拉一次远端状态。
+          TAG_SHA_NOW="$(gh api "repos/${{ github.repository }}/git/ref/tags/$VERSION" 2>/dev/null | python3 -c "
+          import json,sys
+          try:
+              print(json.load(sys.stdin).get('object', {}).get('sha',''))
+          except Exception:
+              print('')
+          " 2>/dev/null)"
+          TAG_TYPE_NOW="$(gh api "repos/${{ github.repository }}/git/ref/tags/$VERSION" 2>/dev/null | python3 -c "
+          import json,sys
+          try:
+              print(json.load(sys.stdin).get('object', {}).get('type',''))
+          except Exception:
+              print('')
+          " 2>/dev/null)"
+          if [ "$TAG_TYPE_NOW" = "tag" ] && [ -n "$TAG_SHA_NOW" ]; then
+            TAG_SHA_NOW="$(gh api "repos/${{ github.repository }}/git/tags/$TAG_SHA_NOW" 2>/dev/null | python3 -c "
+          import json,sys
+          try:
+              print(json.load(sys.stdin).get('object', {}).get('sha',''))
+          except Exception:
+              print('')
+          " 2>/dev/null)"
+          fi
           if [ -z "$TAG_SHA_NOW" ]; then
             echo "::error::无法读取远端 tag $VERSION 的目标 commit（竞态检查）"
             exit 1
@@ -1665,6 +1723,19 @@ jobs:
           test -f /tmp/verify/deploy/docker-compose.yml
           echo "✓ 安装包结构完整"
 
+      - name: 登录 GHCR（核验用）
+        # ⚠️ v0.0.4：补上登录，让「带凭据拉取」名副其实。
+        #   此前该步骤没有任何 registry 登录，只靠匿名 pull ——
+        #   而匿名 pull 只在包为 Public 时可行；
+        #   一旦 Packages visibility 变成 Private，这道
+        #   「验证镜像确实推送成功」的闸门会**必然失败**。
+        #   `packages: read` 权限不会让 docker 客户端自动获得凭据。
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 核验 GHCR 镜像已推送（带凭据拉取）
         run: |
           set -euo pipefail
@@ -1698,7 +1769,7 @@ jobs:
           ANON_HEADERS=$(mktemp)
           ANON_CODE=$(curl -s -D "$ANON_HEADERS" -o /dev/null -w '%{http_code}' \
             "https://${REGISTRY}/v2/${IMAGE_NAME}/manifests/${VERSION}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+            -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
             || echo "000")
           if [ "$ANON_CODE" = "200" ]; then
             echo "✓ 匿名直接可读 manifest（公开）"
@@ -1718,7 +1789,7 @@ jobs:
               if [ -n "$ANON_TOKEN" ]; then
                 ANON2=$(curl -s -o /dev/null -w '%{http_code}' \
                   -H "Authorization: Bearer ${ANON_TOKEN}" \
-                  -H "Accept: application/vnd.oci.image.index.v1+json" \
+                  -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
                   "https://${REGISTRY}/v2/${IMAGE_NAME}/manifests/${VERSION}" || echo "000")
                 if [ "$ANON2" = "200" ]; then
                   echo "✓ 匿名 Bearer 流程通过（HTTP 200）—— 镜像为 Public，普通用户可直接 pull"
