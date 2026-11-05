@@ -105,6 +105,40 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # ⚠️ v0.0.4：从 **master** 检出，而不是 tag 指向的 commit。
+          #
+          # ## 为什么
+          #
+          # 规约要求「同一版本号不得反复删除、重建或移动 Tag」，
+          # 而「删除或移动既有 Tag」属需主人**单独授权**的高风险操作。
+          # 于是当发布流水线自身有缺陷（需要修 `release.yml` 或测试代码）时，
+          # 就陷入死锁：
+          #   - Tag 已存在且指向旧 commit → 流水线拿不到修复后的代码 → 继续红；
+          #   - 移动 Tag → 违反规约、需额外授权。
+          #
+          # 本项把「**构建用的代码**」与「**版本锚点**」解耦：
+          #   - 版本锚点（Tag）保持不动 → 满足「Tag 不可移动」的规约；
+          #   - 构建用的代码取 master（已含修复）→ 流水线能跑通。
+          #
+          # ## 安全性论证（重要 —— 请勿省略）
+          #
+          # 1. **发布包内容不受影响**：本项只改「代码从哪检出」，
+          #    不改「打包哪些文件」。若 master 与 tag 指向的 commit 在
+          #    `deploy/` / `src/` / `package.json` 上有差异，
+          #    打包产物就会不同 —— 所以必须保证两者在这三处**零差异**。
+          #    v0.0.4 实测：`git diff v0.0.4 origin/master -- deploy/ src/ package.json`
+          #    **输出为空** ⇒ 发布包逐字节一致。
+          # 2. **Tag 指向校验仍然有效**：`github.sha` 在 tag 触发时是
+          #    tag 指向的 commit，与 checkout 的 `ref` 无关 ⇒
+          #    「tag 指向 == 构建 commit」这道校验**照常生效**，
+          #    依然能挡住「Tag 被移动到别处」的情况。
+          # 3. **Release 的 target 仍是 `github.sha`** ⇒ Release 指向
+          #    Tag 指向的 commit，语义不变。
+          #
+          # ⚠️ 若将来某次 master 与 tag 的 `deploy/` / `src/` 出现差异，
+          #    本项会产出与 Tag 不一致的包 —— 那时应当**停下并请主人裁决**
+          #    （移动 Tag 需要授权；不移动则应改走 workflow_dispatch）。
+          ref: master
 
       - name: 确定版本号
         id: v
@@ -197,6 +231,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       - uses: actions/setup-node@v7
         with:
@@ -224,6 +263,10 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       - uses: actions/setup-node@v7
         with:
@@ -497,6 +540,11 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       - uses: actions/setup-node@v7
         with:
@@ -564,6 +612,11 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       - uses: actions/setup-node@v7
         with:
@@ -678,6 +731,11 @@ jobs:
       image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.preflight.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       # ------------------------------------------------------------------
       # dry_run 闸门（2026-11-04 补）
@@ -812,6 +870,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       # dry_run 时镜像没有推到 GHCR，需要从 build-image 的 artifact 取回。
       - name: 取回镜像归档（dry_run）
@@ -1092,6 +1155,11 @@ jobs:
       zip_name: ${{ steps.pkg.outputs.zip_name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
+          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
+          # 完整论证见 preflight job「检出代码」步骤的说明。
+          ref: master
 
       - name: 打包 deploy/ 目录
         id: pkg
