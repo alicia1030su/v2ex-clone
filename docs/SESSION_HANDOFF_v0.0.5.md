@@ -373,3 +373,107 @@
 - **R-01 仍 DEFERRED**。
 - v0.0.5 Pre-release 已获授权自主发布，但 R-01 相关危险操作仍需单独授权。
 - 不得向真实用户发测试邮件；不得用会产生额外付费的外部服务。
+
+---
+
+# 第 5 轮状态快照（2026-11-06，主理人）—— 远端 CI E2E 失败修复
+
+> 本轮**唯一任务**：修复 PR #22 的远端 CI E2E 失败（run `42142762352`）。
+> 从拿到失败日志到定位根因共 6 步，每一步都有实测证据。
+
+## A. 失败现象
+
+远端 `E2E 测试` job 失败，1 个用例：
+
+```
+✘  188 [core] › e2e/v005-password-reset-flow.spec.ts:57:1
+      › 游客：未登录也能打开「忘记密码」页
+Error: listen EADDRINUSE: address already in use 127.0.0.1:3025
+```
+
+## B. 根因（两层，第一层是表象，第二层才是真正原因）
+
+### 表层：CI 与 spec 抢同一个端口
+
+`.github/workflows/ci.yml` 有一个「启动 fake SMTP server」步骤，
+而 `e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll` **自己也会起一个**
+—— 两者都监听 3025 ⇒ EADDRINUSE。
+
+fake server **必须**跑在测试进程里（测试要直接断言收到的邮件），
+所以 CI 那一步是**纯冗余**。
+
+**修法**：删掉 CI 的启动/停止步骤（只保留服务端要用的 SMTP env）。
+
+### 深层：删掉端口冲突后，又暴露了第二个缺陷
+
+本地以 CI 一致的环境复现，端口冲突没了，但**全链路用例返回 429**。
+
+逐层下钻的证据链：
+
+```
+rate_limit_buckets 表实测：
+  ratelimit:forgot_password_ip:127.0.0.1 | count=12 | window_start=09:45
+  ratelimit:signup_ip:127.0.0.1         | count=3  | window_start=09:50
+                                    ↑ 时间戳对不上 —— forgot 的计数是**旧窗口残留**
+```
+
+⇒ `clearRateLimits()` **根本没生效**。
+
+再下钻，打印 Playwright worker 与服务端各自看到的令牌：
+
+```
+SHELL_TOKEN=ci-debug-token-not-for-production      ← shell 注入
+DIAG_WORKER_TOKEN="test-debug-token-local-only"    ← worker 实际拿到的
+```
+
+**根因**：`e2e/global-setup.ts` 用 `loadEnv({ override: true })` 加载 `.env.test`
+⇒ **ENV_FILE 文件覆盖了 shell 注入**。
+
+而服务端（`next start`）继承 shell ⇒ 用 `ci-debug-token-not-for-production`。
+
+⇒ **两边令牌不一致** ⇒ debug 端点 401 ⇒ **限流静默失效** ⇒ 429。
+
+这与 `src/lib/env-loader.mjs` 的语义（shell > ENV_FILE > .env.local > .env）
+**正好相反** —— `drizzle.config.ts` 顶部的长注释早已明确
+「父进程注入的变量 → 子进程**原样**使用（最高优先级）」，
+global-setup 是同一个道理的另一个实例，只是**从来没被对齐过**。
+
+## C. 修法（两层，缺一不可）
+
+### ① 根本修复：global-setup 的 env 语义对齐 env-loader
+
+`loadEnv({ override: f === process.env.ENV_FILE })` → `loadEnv({ override: false })`
+
+### ② 防御修复：`clearRateLimits` 失败时**抛错**而非静默返回
+
+原实现失败时静默 `return` ⇒ 限流没清 ⇒ 429 ⇒
+**而 429 的报错完全指不到「限流没被清」这个真正原因**。
+
+现在：所有令牌都失败时立刻抛出，并带上每个令牌尝试过的状态码
+与「测试进程与服务端令牌不一致」的排查指引。
+
+> 这一条是本轮**最重要的工程教训**：
+> **静默失效是最危险的问题形态** ——
+> 它把「配置错误」伪装成「业务逻辑失败」，
+> 让排查者沿着完全错误的方向花掉整轮时间。
+
+## D. 新增回归护栏（5 条）
+
+`tests/v005-e2e-fixtures.spec.ts`：
+
+| # | 断言 | 挡住什么 |
+|---|---|---|
+| 1 | 没有两个 E2E spec 声明同一个固定端口 | 将来再加一个 spec 起 3025 |
+| 2 | `FakeSmtpServer` 只通过 `start()` 的 options 指定端口 | 绕过 `start()` 的错误处理 |
+| 3 | fake SMTP server 由 spec 自己的 `beforeAll` 启动 | 依赖外部启动方 |
+| 4 | CI workflow 没有真实的 fake SMTP 启动命令 | **历史上真实踩过的坑** |
+| 5 | `FakeSmtpServer.start` 对 EADDRINUSE 给出清晰错误 | 裸错误指不到真正原因 |
+
+## E. 本轮实测
+
+| 项 | 结果 |
+|---|---|
+| 单元测试 | **327 passed / 327（25 文件）**（原 322 + 5） |
+| 密码重置 E2E（CI 一致 env） | **4 / 4 通过** |
+| 全量 E2E（CI 一致 env） | 见下（本轮重跑确认） |
+| 类型检查 | ✅ `npx tsc --noEmit` |

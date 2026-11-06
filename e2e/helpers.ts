@@ -75,14 +75,47 @@ function debugTokens(): string[] {
  */
 export async function clearRateLimits(page: Page) {
   const tokens = debugTokens();
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) {
+    throw new Error(
+      'clearRateLimits: 拿不到 DEBUG_ENDPOINT_TOKEN —— 既不在进程 env 里，也不在 .env.test 里。\n' +
+        '没有它就无法清理限流，后续请求会累积到阈值并返回 **429**，\n' +
+        '而那个报错完全指不到「限流没被清」这个真正原因。',
+    );
+  }
+
+  const attempts: string[] = [];
   for (const token of tokens) {
     const res = await page.request.post('/api/debug/reset-rate-limits', {
       headers: { 'x-debug-token': token },
     });
     // 200 ⇒ 成功，停止尝试
     if (res.status() === 200) return;
+    attempts.push(`  token=${token.slice(0, 6)}… → HTTP ${res.status()}`);
   }
+
+  // ⚠️ v0.0.5：**所有令牌都失败时抛错**，而不是静默返回。
+  //
+  // 实测踩到（远端 CI E2E 失败，本地花了一整轮才定位）：
+  //   原实现在失败时**静默 return** ⇒ 限流没被清 ⇒
+  //   后续 forgot-password 累积到阈值 ⇒ 返回 **429**。
+  //
+  //   而 429 的报错只说「forgot-password 返回 429」——
+  //   **完全指不到**「clearRateLimits 静默失败了」这个真正原因。
+  //
+  // 现在：失败会**立刻**在这里抛出，并带上所有尝试过的令牌与状态码。
+  throw new Error(
+    `clearRateLimits 失败 —— 限流**没有被清空**。\n` +
+      `\n` +
+      `尝试过的令牌：\n${attempts.join('\n')}\n` +
+      `\n` +
+      `最常见的原因：**测试进程与服务端用了不同的 DEBUG_ENDPOINT_TOKEN**。\n` +
+      `  · 服务端（next start）读的是 shell 注入的值\n` +
+      `  · 测试 worker 读的是 global-setup 加载的值\n` +
+      `  · 两者不一致 ⇒ debug 端点返回 401\n` +
+      `\n` +
+      `排查：确认启动服务与启动 playwright 的 shell 里\n` +
+      `DEBUG_ENDPOINT_TOKEN 是同一个值。`,
+  );
 }
 
 /** 从浏览器上下文读取 CSRF Cookie 的值 */

@@ -180,7 +180,37 @@ export class FakeSmtpServer extends EventEmitter {
     });
 
     await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
+      server.once('error', (err: NodeJS.ErrnoException) => {
+        // ⚠️ v0.0.5：端口被占用时给出**能一眼看懂的错误**。
+        //
+        // 实测踩到（远端 CI E2E 失败）：CI 的 workflow 里有一个
+        // 「启动 fake SMTP server」步骤，而本测试的 `beforeAll`
+        // **自己也会起一个** fake server —— 两者都监听 3025
+        // ⇒ `Error: listen EADDRINUSE: address already in use 127.0.0.1:3025`。
+        //
+        // 这个裸错误完全指不到「是两处同时起了 server」这个真正原因，
+        // 只能靠读 `beforeAll` 与 workflow 才能对上。
+        //
+        // 现在显式识别 EADDRINUSE，并提示最常见的两个原因。
+        if (err.code === 'EADDRINUSE') {
+          reject(
+            new Error(
+              `fake SMTP server 无法监听 127.0.0.1:${opts.port} —— 端口已被占用。\n` +
+                `\n` +
+                `最常见的原因（按可能性排序）：\n` +
+                `  1. **同时有两个 fake SMTP server 在跑** ——\n` +
+                `     本测试的 beforeAll 会自己起一个（默认端口 ${opts.port}），\n` +
+                `     如果 CI workflow / 其它脚本也起了一个，就会撞车。\n` +
+                `     ⇒ 检查 .github/workflows/ci.yml 是否有重复的启动步骤。\n` +
+                `  2. 上一次运行没退干净（残留进程）。\n` +
+                `\n` +
+                `修法：要么删掉重复的启动方，要么用 E2E_SMTP_PORT 换一个端口。`,
+            ),
+          );
+          return;
+        }
+        reject(err);
+      });
       server.listen(opts.port, '127.0.0.1', () => {
         server.removeListener('error', reject);
         resolve();

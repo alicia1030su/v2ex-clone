@@ -54,8 +54,28 @@ export default async function globalSetup() {
   ].filter(Boolean) as string[];
 
   for (const f of files) {
-    // override:true —— 首个文件（ENV_FILE）必须能覆盖 shell 中已有的同名变量
-    loadEnv({ path: f, quiet: true, override: f === process.env.ENV_FILE });
+    // ⚠️ v0.0.5：`override` 恒为 **false** —— 与 `src/lib/env-loader.mjs`
+    //    的语义**严格一致**（shell 注入 > ENV_FILE 文件 > .env.local > .env）。
+    //
+    //    原实现写的是 `override: f === process.env.ENV_FILE`（ENV_FILE 覆盖 shell）——
+    //    这与 env-loader 的优先级**正好相反**，导致一个**极难定位**的缺陷：
+    //
+    //    实测（远端 CI E2E 失败 → 本地复现 → 逐层下钻）：
+    //      · shell 注入   `DEBUG_ENDPOINT_TOKEN=ci-debug-token-not-for-production`
+    //      · 服务端进程   （next start，继承 shell）→ `ci-debug-token-not-for-production`
+    //      · 测试 worker  （global-setup 用 override:true 加载 .env.test）
+    //                    → `test-debug-token-local-only`   ← **被覆盖了**
+    //
+    //    ⇒ 两边令牌不一致 ⇒ `clearRateLimits()` 拿到 **401**
+    //      ⇒ **限流根本没被清** ⇒ 后续请求累积到阈值 ⇒ **429**
+    //
+    //    而 429 的报错**完全指不到**「令牌不一致」这个真正原因 ——
+    //    它只会在几秒后说「 forgot-password 返回 429」。
+    //
+    //    `drizzle.config.ts` 顶部的长注释早已明确：
+    //    「父进程注入的 DATABASE_URL → 子进程**原样**使用（**最高优先级**）」。
+    //    global-setup 是同一个道理的另一个实例，本轮把它对齐。
+    loadEnv({ path: f, quiet: true, override: false });
   }
 
   // ⚠️ v0.0.5：同步 seed 账号的口令。

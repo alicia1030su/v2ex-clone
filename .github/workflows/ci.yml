@@ -79,8 +79,16 @@ env:
   # 「忘记密码」全链路测试需要邮件**真的投递出去**，才能验证
   # 「邮件进箱 → 链接有效 → 改密 → 旧会话失效」这条链路。
   #
-  # CI 没有外部 SMTP 凭据（也不该有），所以起一个**本地 fake SMTP server**
-  # （tests/helpers/fake-smtp-server.ts 的 CLI 包装）监听 3025 端口。
+  # ⚠️ **CI 不需要（也不能）自己起 fake SMTP server** ——
+  #    它由 `e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
+  #    在**测试进程内**启动（默认端口 3025）。
+  #    之所以必须跑在测试进程里：fake server 收到的邮件
+  #    要被测试**直接断言**，不能靠「读邮箱」之类的间接手段。
+  #
+  #    实测教训（远端 run 42142762352，E2E job 失败）：
+  #    CI 里曾加过一个「启动 fake SMTP server」步骤，
+  #    与 spec 的 beforeAll **抢同一个端口** ⇒ EADDRINUSE。
+  #    该步骤已删除；这里只保留**服务端**要用的 SMTP 配置。
   #
   # ⚠️ `SMTP_ALLOW_REAL_IN_TEST=1` 让 `sendMail()` 绕过内存 outbox，
   #    直达**生产** SMTP 实现（src/lib/mailer.ts 的 deliverViaSmtp）——
@@ -237,16 +245,22 @@ jobs:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
         run: npx next build
 
-      - name: 启动 fake SMTP server（忘记密码全链路 E2E 用）
-        run: |
-          npx tsx scripts/fake-smtp-server.ts 3025 > /tmp/fake-smtp.log 2>&1 &
-          echo $! > /tmp/fake-smtp.pid
-          for i in $(seq 1 30); do
-            if node -e "require('net').connect(3025,'127.0.0.1').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))"; then
-              echo "fake SMTP ready after ${i}s"; break
-            fi
-            sleep 1
-          done
+      # ⚠️ v0.0.5 删除：此处原有「启动 fake SMTP server」步骤 —— **纯冗余，且有害**。
+      #
+      # 远端 CI 实测失败（run 42142762352，E2E job）：
+      #   Error: listen EADDRINUSE: address already in use 127.0.0.1:3025
+      #
+      # 根因：`e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
+      # **自己会起一个** fake SMTP server（默认端口 3025）——
+      # 因为 fake server 必须跑在**测试进程**里，才能让测试直接断言收到的邮件。
+      #
+      # 而这里又起了一个独立进程的 fake server ⇒ **同一个端口被监听两次** ⇒ EADDRINUSE。
+      #
+      # 服务端要用的 SMTP 配置（SMTP_HOST / SMTP_PORT / SMTP_ALLOW_REAL_IN_TEST）
+      # 已在 **workflow 级 env** 里配好，不需要这里额外起进程。
+      #
+      # 保留 `scripts/fake-smtp-server.ts`（CLI 包装）——
+      # 它仍可用于本地手工调试（`npx tsx scripts/fake-smtp-server.ts 3025`）。
 
       - name: 启动应用
         env:
@@ -302,10 +316,6 @@ jobs:
       - name: 停止应用
         if: always()
         run: kill "$(cat /tmp/server.pid)" 2>/dev/null || true
-
-      - name: 停止 fake SMTP server
-        if: always()
-        run: kill "$(cat /tmp/fake-smtp.pid)" 2>/dev/null || true
 
       - name: 上传测试报告
         if: always()
