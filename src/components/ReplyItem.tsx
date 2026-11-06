@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { csrfFetch } from '@/components/CsrfProvider';
 import ReportButton from '@/components/ReportButton';
 
@@ -64,6 +65,9 @@ export default function ReplyItem({
   const [isThanked, setIsThanked] = useState(thanked);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(reply.content);
+  // v0.0.6：恢复后用 router.refresh() 刷新服务端组件
+  // （window.location.reload() 会引发导航竞态，同 TopicActions.remove()）
+  const router = useRouter();
 
   async function act<T = Record<string, unknown>>(
     key: string,
@@ -133,7 +137,11 @@ export default function ReplyItem({
       'POST',
       {},
     );
-    if (res) window.location.reload();
+    if (res) {
+      // v0.0.6：router.refresh() 只重新拉取服务端组件数据，
+      // 不换 URL、不重置客户端状态，也不会与后续导航抢槽位。
+      router.refresh();
+    }
   }
 
   const isAuthor = user?.id === reply.authorId;
@@ -143,13 +151,14 @@ export default function ReplyItem({
   return (
     <div className="reply-actions" id={`reply${reply.floor}`}>
       <div>
-        <span className="gray">
-          <strong>{reply.floor}</strong>楼 · {reply.authorName} ·{' '}
-          {reply.createdAt}
-          {reply.edited && (
-            <span className="fade"> （已编辑 {reply.editCount} 次）</span>
-          )}
-        </span>
+        {/* v0.0.6：楼层 / 作者 / 时间由**页面**渲染（对应原站楼层结构），
+            此处不再重复渲染 —— 原实现让同一组信息在主题页出现两遍。
+            仅保留本组件独有的「已编辑」标记与引用预览。 */}
+        {reply.edited && !reply.deleted && (
+          <span className="fade" style={{ fontSize: '12px' }}>
+            （已编辑 {reply.editCount} 次）
+          </span>
+        )}
 
         {quoted && (
           <div className="sep5">

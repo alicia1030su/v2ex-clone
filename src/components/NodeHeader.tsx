@@ -31,11 +31,17 @@ export default function NodeHeader({
         {avatar ? (
           <img src={avatar} alt={title} width={64} height={64} />
         ) : (
+          // v0.0.6：占位符必须与 img 的盒模型一致 ——
+          // `.cell.page-content-header > img` 带 `margin: 0 10px 0 0`，
+          // 占位 div 不是 img，拿不到该规则 ⇒ 曾经与右侧标题贴死（0 间距）。
+          // 深色横幅（#001d25）上半透明白色可见，无需改色。
           <div
             style={{
+              display: 'block',
               width: 64,
               height: 64,
               flex: '0 0 64px',
+              margin: '0 10px 0 0',
               borderRadius: 4,
               background: 'rgba(255,255,255,0.08)',
               border: '1px dashed rgba(255,255,255,0.35)',

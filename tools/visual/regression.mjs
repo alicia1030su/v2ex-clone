@@ -80,10 +80,17 @@ const BROWSERS = [
   { key: 'webkit', launcher: webkit, available: true },
 ];
 
-/** 要测的页面（第一批：首页 / 节点页 / 主题详情页） */
+/**
+ * 要测的页面（任务书 §四 的三个核心页面）
+ *
+ * v0.0.6 修正：原清单里的 `/nodes` 是**节点索引页**，
+ * 而任务书要求的三个核心页面是「首页 / 节点详情 / 主题详情」——
+ * 节点详情在 `/go/[name]`（本站路由，V2EX 原站同构）。
+ * `programmer` 是 seed 数据里确定存在的节点（scripts/seed.ts）。
+ */
 const PAGES = [
   { key: 'home', path: '/' },
-  { key: 'nodes', path: '/nodes' },
+  { key: 'node', path: '/go/programmer' },
   { key: 'topic', path: '/t/1' },
 ];
 

@@ -135,16 +135,6 @@ export default async function TopicPage({
           </div>
           <div className="sep10" />
           <h1>{topic.title}</h1>
-          <div id={`topic_${topicId}_votes`} className="votes">
-            <a href="javascript:" className="vote">
-              <li className="fa fa-chevron-up" />
-            </a>{' '}
-            &nbsp;
-            <a href="javascript:" className="vote">
-              <li className="fa fa-chevron-down" />
-            </a>
-          </div>{' '}
-          &nbsp;{' '}
           <small className="gray">
             <Link href={`/member/${author?.username ?? ''}`}>{author?.username}</Link> ·{' '}
             <span title={fullTimestamp(topic.createdAt)}>{relativeTime(topic.createdAt)}</span> ·{' '}

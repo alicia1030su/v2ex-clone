@@ -1331,7 +1331,7 @@ textarea {
   outline-offset: 2px;
 }
 
-/* 鼠标点击时���隐藏轮廓，键盘导航时保留 */
+/* 鼠标点击时也隐藏轮廓，键盘导航时保留 */
 :focus:not(:focus-visible) {
   outline: none;
 }

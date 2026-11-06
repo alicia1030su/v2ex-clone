@@ -46,7 +46,7 @@ type Props = {
    * 编辑回调（可选）。
    *
    * ⚠️ v0.0.4：这个回调**从来没被页面传过**（服务端组件无法向客户端组件
-   * 传函数），导致「编辑」按钮点了什么都不���应 —— 一个假按钮。
+   * 传函数），导致「编辑」按钮点了什么都不响应 —— 一个假按钮。
    * 现在编辑表单由组件内部管理（见 editing 状态），
    * onEdit 仅作为向后兼容的可选钩子保留。
    */
@@ -168,7 +168,16 @@ export default function TopicActions({
 
   async function restore() {
     const res = await act('restore', `/api/topics/${topic.topicId}/restore`, 'POST', {});
-    if (res) window.location.reload();
+    if (res) {
+      // v0.0.6：与 remove() 保持一致用 router.refresh()。
+      // window.location.reload() 会引发导航竞态（v0.0.5 在 remove() 上
+      // 实测过：整页 reload 与后续 page.goto() 抢同一个导航槽位）。
+      if (onDeleted) {
+        onDeleted();
+      } else {
+        router.refresh();
+      }
+    }
   }
 
   async function toggleLock() {

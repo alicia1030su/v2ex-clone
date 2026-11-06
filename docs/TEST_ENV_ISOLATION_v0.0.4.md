@@ -337,7 +337,7 @@ QA 的验证结果：
 | 验证项 | 验证者 | 实测结果 |
 |---|---|---|
 | **护栏在 QA 那个危险场景下会拦截** | 架构师 | 用 `ENV_FILE` 指向含 5432 的文件 → `Error: [db-setup] 检测到单元测试试图使用开发实例端点 127.0.0.1:5432` 🛑 **正确拦截** |
-| **CI 模拟不再抛 ENOENT** | 架构师 | `.env.test` 移走 + `DATABASE_URL`=5432 → `Error: [db-setup] PG 未就绪（127.0.0.1:5432）：connect ECONNREFUSED` ✅ **从「像代码缺陷」变成「明确的���境问题」** |
+| **CI 模拟不再抛 ENOENT** | 架构师 | `.env.test` 移走 + `DATABASE_URL`=5432 → `Error: [db-setup] PG 未就绪（127.0.0.1:5432）：connect ECONNREFUSED` ✅ **从「像代码缺陷」变成「明确的环境问题」** |
 | **`.env.test` 自动生成安全** | 架构师 | 内容与原文件**逐字节一致**（27 行）；`git check-ignore` 确认被 `.gitignore:16` 覆盖 → **不会入库** |
 | **优先级链正确** | QA + 架构师 | `shell > ENV_FILE > .env.test > .env`；`.env.local` **永不加载**；`ENV_FILE` 只填空位 |
 | **实现完备性** | QA | 优先级链 / 只填空位 / `assertNotDevInstance()` / CI 例外 / 「PG 未就绪」分流 —— **全部到位，且比 QA 的单文件方案更完备** |
