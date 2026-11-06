@@ -75,7 +75,13 @@ a:visited {
 #Top {
   text-align: center;
   background-color: var(--box-background-color);
-  height: 45px;
+  /* v0.0.6：高度改为自适应。
+     原为固定 `height: 45px`，而 ≤500px 时 .site-nav 会 `flex-wrap: wrap`
+     ⇒ 导航换行后**内容高度超过 45px** ⇒ 溢出向下**覆盖节点头部**
+     （实测 320/375/390px：深色横幅上半部被白色顶栏遮住）。
+     改用 min-height + 允许增长，溢出问题消失。 */
+  min-height: 45px;
+  height: auto;
   font-size: 15px;
   font-weight: 500;
   background-size: 44px 44px;
@@ -205,7 +211,10 @@ a:visited {
   padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
   text-align: center;
   background-color: #e2e2e2;
-  background-image: url('/static/img/shadow_light.png');
+  /* v0.0.6：原引用 /static/img/shadow_light.png —— 该文件从未入仓
+     （public/static/img/ 不存在）⇒ 两个引用点恒定 404。
+     改用等价 CSS 渐变（顶部淡阴影），零二进制资产、无外部素材依赖。 */
+  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0));
   background-repeat: repeat-x;
 }
 
@@ -929,7 +938,8 @@ textarea {
 }
 
 .ps_container {
-  background-image: url('/static/img/shadow_light.png');
+  /* v0.0.6：同上 —— shadow_light.png 缺失 404，改等价 CSS 渐变 */
+  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0));
   background-size: 20px 20px;
   background-repeat: repeat-x;
 }
@@ -1305,6 +1315,22 @@ textarea {
   .site-nav {
     flex-wrap: wrap;
     row-gap: 6px;
+  }
+
+  /* v0.0.6：节点头部在窄屏下改为纵向堆叠 ——
+     .title 是 `display:flex; justify-content:space-between` 的**单行**布局，
+     窄屏下「面包屑 / 主题总数 / Feed 图标」挤在一行 ⇒ 面包屑换行时
+     与右侧元素**重叠**（实测 320/375/390px）。
+     改为纵向排列，每项独占一行，互不重叠。
+     ⚠️ 外层 .page-content-header 保持**不换行** —— 它是「图标 + 文字块」
+        的并排布局，wrap 会把文字块挤到图标下方（实测 320px）。 */
+  .node-header > .page-content-header .title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .node-header > .page-content-header .node-feed {
+    order: 3;
   }
 
   /* 右浮动元素在窄屏下改为静态流（避免与左侧内容重叠） */

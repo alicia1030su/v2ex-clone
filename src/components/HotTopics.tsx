@@ -15,8 +15,10 @@ export default async function HotTopics() {
         </div>
         {topics.map((t) => (
           <div className="cell" key={t.id}>
+            {/* v0.0.6：显式 <tbody> —— 避免 React #418 水合失败（详见 TopicItem 注释） */}
             <table cellPadding={0} cellSpacing={0} border={0} width="100%">
-              <tr>
+              <tbody>
+                <tr>
                 <td width={24} valign="middle" align="center">
                   <Link href={`/member/${t.username}`}>
                     <img
@@ -35,7 +37,8 @@ export default async function HotTopics() {
                     <Link href={`/t/${t.id}`}>{t.title}</Link>
                   </span>
                 </td>
-              </tr>
+                </tr>
+              </tbody>
             </table>
           </div>
         ))}

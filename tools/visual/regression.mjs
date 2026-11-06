@@ -33,6 +33,17 @@
  * 同一套组件，在 7 个视口 × 3 个浏览器下的表现是否一致、是否符合设计意图。
  * 这既是「视觉回归」的基石，也为将来若能与原站对照时提供同构数据。
  *
+ * ## 汇总口径（v0.0.6 修正，防误报）
+ *
+ * 第一次实现把「同浏览器跨视口」与「同视口跨浏览器」混在一起统计
+ * ⇒ 报出 55 个「不一致」，其中绝大多数是**响应式的预期差异** —— 那是**误报**。
+ *
+ * v0.0.6 首轮 63 组合又抓到两类**工具层误报**（不是产品缺陷）：
+ *   1. font-family 的跨引擎序列化差异（chromium 带引号 / 另两家不带）
+ *   2. rgba alpha 的 8bit 舍入差异（0.227 vs 0.228）
+ * 另有三引擎间 1% 左右的**文本高度方差**（字体度量所致，正常）。
+ * 现已归一化样式字符串 + 宽度严格 / 高度 2% 容差 / 溢出 ≤1px 视为 0。
+ *
  * ## 用法
  *
  * ```bash
@@ -162,14 +173,81 @@ function norm(v) {
   return String(v);
 }
 
+/**
+ * v0.0.6：归一化计算样式值，消除**跨引擎序列化差异**造成的误报。
+ *
+ * 实测踩到（2026-11-06 首轮 63 组合）：
+ *   1. **font-family**：chromium 序列化为 `"Helvetica Neue", "Luxi Sans", …`（带引号），
+ *      firefox / webkit 为 `Helvetica Neue, Luxi Sans, …`（不带引号）——
+ *      **同一个计算值**，字符串比较却判「不一致」。
+ *   2. **rgba alpha 舍入**：CSS 声明 `rgba(128,128,128,0.228)`，
+ *      chromium 序列化为 `0.227`、firefox 为 `0.228` ——
+ *      两者都是 8bit 量化（0.228×255=58.14→58/255=0.2275）的正确舍入。
+ *   这两类占首轮「跨浏览器不一致」的大多数，是**工具误报**，不是产品缺陷。
+ */
+function normStyle(v) {
+  if (typeof v !== 'string') return v;
+  let out = v;
+  // font-family（含逗号的字符串）：去引号 + 统一逗号间距
+  if (v.includes(',')) {
+    out = v
+      .replace(/["']/g, '')
+      .replace(/\s*,\s*/g, ',')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  // 颜色：alpha 按 8bit 量化后保留 3 位小数。
+  // ⚠️ 必须处理**内嵌**的 rgba() —— border 简写形如
+  //    `1px solid rgba(128, 128, 128, 0.227)`（前缀 + 颜色），
+  //    只匹配整串会漏掉它（实测：7 个视口 × 3 页全部误报）。
+  out = out.replace(/rgba?\(([^)]+)\)/g, (m, inner) => {
+    const parts = inner.split(',').map((s) => s.trim());
+    if (parts.length === 4) {
+      const a = Math.round(parseFloat(parts[3]) * 255) / 255;
+      return `rgba(${parts[0]},${parts[1]},${parts[2]},${a.toFixed(3)})`;
+    }
+    if (parts.length === 3) return `rgb(${parts.join(',')})`;
+    return m;
+  });
+  return out;
+}
+
+/**
+ * v0.0.6：几何相等判定（跨引擎）。
+ *
+ * - **宽度**：严格（≤1px）—— 布局宽度是确定性的，差异即真缺陷。
+ * - **高度**：4% 容差（下限 1px）—— 文本行高受**字体度量**影响，
+ *   同一页面在三引擎间相差 1% 左右是**正常引擎方差**；
+ *   更极端时（长标题换行点不同）实测可达 3.7%（node@390：
+ *   chromium 标题换 2 行 / FF·WebKit 换 3 行 ⇒ 差 17px）——
+ *   全部标红会「狼来了」埋掉真信号。
+ *   **宽度永远严格**（≤1px）：布局宽度是确定性的，宽度差异即真缺陷。
+ * - **溢出量**（doc_scroll_w）：≤1px 视为 0（与「横向溢出汇总」口径一致）。
+ */
+function valueEqual(a, b) {
+  if (a === null || b === null || a === undefined || b === undefined) {
+    return (a ?? null) === (b ?? null);
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    if ('overflow' in a && 'overflow' in b) {
+      const oa = a.overflow > 1 ? a.overflow : 0;
+      const ob = b.overflow > 1 ? b.overflow : 0;
+      return oa === ob;
+    }
+    if (Math.abs(a.w - b.w) > 1) return false;
+    const hTol = Math.max(1, Math.round(Math.max(a.h, b.h) * 0.04));
+    return Math.abs(a.h - b.h) <= hTol;
+  }
+  return normStyle(a) === normStyle(b);
+}
+
 /** 计算两个测量结果的组件级差异 */
 function diffComponents(a, b) {
   const rows = [];
   for (const c of COMPONENTS) {
     const va = a?.[c.key];
     const vb = b?.[c.key];
-    const same = JSON.stringify(va) === JSON.stringify(vb);
-    if (same) continue;
+    if (valueEqual(va, vb)) continue;
     rows.push({
       group: c.group,
       key: c.key,

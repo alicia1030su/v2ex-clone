@@ -6,8 +6,13 @@ import type { TopicListItem } from '@/server/queries';
 export default function TopicItem({ topic }: { topic: TopicListItem }) {
   return (
     <div className="cell item">
+      {/* v0.0.6：必须显式 <tbody> —— 浏览器解析 <table><tr> 时会自动插入
+          tbody，React 水合对比虚拟 DOM（table>tr）与实际 DOM（table>tbody>tr）
+          不匹配 ⇒ React #418 水合失败（生产模式仅报错后客户端恢复，
+          E2E 照过 ⇒ 长期静默缺陷）。 */}
       <table cellPadding={0} cellSpacing={0} border={0} width="100%">
-        <tr>
+        <tbody>
+          <tr>
           <td width={48} valign="top" align="center">
             <Link href={`/member/${topic.author.username}`}>
               <img
@@ -71,7 +76,8 @@ export default function TopicItem({ topic }: { topic: TopicListItem }) {
               {topic.repliesCount}
             </Link>
           </td>
-        </tr>
+          </tr>
+        </tbody>
       </table>
     </div>
   );

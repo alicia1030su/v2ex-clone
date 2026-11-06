@@ -86,8 +86,10 @@ export default async function LeaderboardPage({
           <>
             {rows.map((r, i) => (
               <div key={r.id} className="cell item">
+                {/* v0.0.6：显式 <tbody> —— 避免 React #418 水合失败 */}
                 <table cellPadding={0} cellSpacing={0} border={0} width="100%">
-                  <tr>
+                  <tbody>
+                    <tr>
                     <td width={48} valign="top" align="center">
                       <span className="no f16">{page * PAGE_SIZE - PAGE_SIZE + i + 1}</span>
                     </td>
@@ -109,7 +111,8 @@ export default async function LeaderboardPage({
                       <span className="f16">{r.balance}</span>
                       <div className="f12 gray">积分</div>
                     </td>
-                  </tr>
+                    </tr>
+                  </tbody>
                 </table>
               </div>
             ))}

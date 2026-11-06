@@ -205,8 +205,10 @@ export default async function TopicPage({
 
           {repliesWithHtml.map((r) => (
             <div key={r.id} id={`r_${r.id}`} className="cell">
+              {/* v0.0.6：显式 <tbody> —— 避免 React #418 水合失败（详见 TopicItem 注释） */}
               <table cellPadding={0} cellSpacing={0} border={0} width="100%">
-                <tr>
+                <tbody>
+                  <tr>
                   <td width={48} valign="top" align="center">
                     <Link href={`/member/${r.username}`}>
                       <img
@@ -268,6 +270,7 @@ export default async function TopicPage({
                     </div>
                   </td>
                 </tr>
+                </tbody>
               </table>
             </div>
           ))}
