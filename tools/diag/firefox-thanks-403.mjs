@@ -30,14 +30,16 @@ async function main() {
 
   const log = (...a) => console.log('[diag]', ...a);
 
-  // ---- 1. 注册（与用例同流程）----
+  // ---- 1. 注册（与用例同流程：字段名以 SignUpForm 为准）----
   const user = 'diag' + Math.random().toString(36).slice(2, 8);
   log('注册用户', user);
   await page.goto(BASE + '/signup', { waitUntil: 'domcontentloaded' });
+  // 等 React hydration 完成（不等会 fill 超时）
+  await page.waitForSelector('#username', { state: 'visible', timeout: 20_000 });
   await page.fill('#username', user);
   await page.fill('#email', `${user}@diag.local`);
   await page.fill('#password', 'DiagTest-2026!');
-  await page.fill('#passwordConfirm', 'DiagTest-2026!');
+  await page.fill('#confirm', 'DiagTest-2026!');
   await Promise.all([
     page.waitForURL((u) => !u.pathname.startsWith('/signup'), { timeout: 20_000 }).catch(() => null),
     page.click('button[type="submit"]'),
@@ -52,50 +54,30 @@ async function main() {
   });
   log('clearRateLimits:', clr.status());
 
-  // ---- 3. 建主题 + 回复（与用例同流程）----
+  // ---- 3. 建主题 + 回复（API 路径，确定性最高）----
   const nodesRes = await page.request.get(BASE + '/api/nodes');
   const nodes = await nodesRes.json();
   const nodeId = nodes?.nodes?.[0]?.id ?? nodes?.[0]?.id;
   log('选用节点:', nodeId);
 
-  await page.goto(BASE + `/go/new?node=${nodeId}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(800);
-  // 通过 UI 建主题（找不到表单时退回 API）
-  let topicId = null;
-  const titleInput = page.locator('#title').first();
-  if (await titleInput.count()) {
-    await titleInput.fill(`诊断主题 ${user}`);
-    const body = page.locator('#content, textarea').first();
-    if (await body.count()) await body.fill('诊断用正文。');
-    await Promise.all([
-      page.waitForURL((u) => /\/t\/\d+/.test(u.pathname), { timeout: 20_000 }).catch(() => null),
-      page.click('button[type="submit"]'),
-    ]);
-    const m = page.url().match(/\/t\/(\d+)/);
-    topicId = m ? Number(m[1]) : null;
+  async function csrfToken() {
+    const cs = await ctx.cookies();
+    return cs.find((c) => c.name === 'v2_csrf')?.value ?? '';
   }
-  if (!topicId) {
-    log('UI 建主题失败，改走 API');
-    const r = await page.request.post(BASE + '/api/topics', {
-      data: { nodeId, title: `诊断主题 ${user}`, content: '诊断用正文。' },
-      headers: { 'Content-Type': 'application/json', 'x-csrf-token': await readCookie(page) },
-    });
-    const j = await r.json().catch(() => ({}));
-    topicId = j.topicId ?? j.topic?.id ?? null;
-    log('API 建主题:', r.status(), topicId);
-  }
-  log('主题 ID:', topicId);
 
-  // 回复（UI）
-  await page.goto(BASE + `/t/${topicId}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(800);
-  const replyBox = page.locator('#reply_content, textarea').last();
-  if (await replyBox.count()) {
-    await replyBox.fill('诊断用回复。');
-    const submit = page.getByRole('button', { name: /回复|提交/ }).last();
-    await submit.click().catch(() => null);
-    await page.waitForTimeout(2000);
-  }
+  const topicRes = await page.request.post(BASE + '/api/topics', {
+    data: { nodeId, title: `诊断主题 ${user}`, content: '诊断用正文。' },
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': await csrfToken() },
+  });
+  const topicJson = await topicRes.json().catch(() => ({}));
+  const topicId = topicJson.topicId ?? topicJson.topic?.id ?? null;
+  log('建主题:', topicRes.status(), 'topicId=', topicId);
+
+  const replyRes = await page.request.post(BASE + '/api/replies', {
+    data: { topicId, content: '诊断用回复。' },
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': await csrfToken() },
+  });
+  log('建回复:', replyRes.status(), (await replyRes.text()).slice(0, 100));
 
   // ---- 4. 取证：两处 token 来源 ----
   const ctxCookies = await ctx.cookies();
@@ -116,8 +98,8 @@ async function main() {
   log('header token === document token ?', headerToken === docToken);
 
   // ---- 5. 取 replyId 并发起 thanks（对照组）----
-  const topicRes = await page.request.get(BASE + `/api/topics/${topicId}`);
-  const topicData = await topicRes.json();
+  const topicGetRes = await page.request.get(BASE + `/api/topics/${topicId}`);
+  const topicData = await topicGetRes.json();
   const replies = topicData?.replies ?? [];
   const replyId = Number(replies[replies.length - 1]?.id ?? 0);
   log('replyId:', replyId, '（回复数', replies.length + '）');
