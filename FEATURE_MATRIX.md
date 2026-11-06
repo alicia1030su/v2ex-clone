@@ -124,6 +124,7 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 | 交互状态（hover/focus/加载/禁用/错误） | ✅ 已实现 | `src/components/TopicActions.tsx` (pending/error/disabled)；`src/app/globals.css` (:focus-visible) |
 | 基础无障碍能力 | ✅ 已实现 | `src/app/globals.css` (prefers-reduced-motion)；`src/components/TopicActions.tsx` (aria-label / aria-pressed) |
 | 视觉回归截图 | ✅ 已实现 | `docs/evidence/screenshots/` (多视口截图)；`docs/VISUAL_DIFF_REPORT.md` (差异报告) |
+| **v0.0.5 新增路径性能压测** | ✅ 已实现 | `scripts/perf/v005-path-benchmark.ts`（搜索/通知/积分三条路径，**测生产 SQL 形态**）；`docs/PERF_BENCHMARK_v0.0.5.md`（**实测报告**：搜索 P95 6ms / 通知 1ms / 积分 1ms；并记录「**2 字中文查询命中不了 trigram 索引**」这一实测发现与决策依据）|
 | **多浏览器 × 多视口 E2E** | ✅ 已实现（**v0.0.5 新增**） | `playwright.config.ts`（`E2E_CROSS=1` 展开 **3 浏览器 × 5 视口 = 15 个 project**）；`e2e/v005-cross-browser.spec.ts`（11 条 × 15 project = **160 条全绿**）；`docs/CROSS_BROWSER_VISUAL_REPORT_v0.0.5.md`（**实测发现 3 个真实缺陷**）。⚠️ WebKit ≠ 真实 Safari（Playwright 移植版），真实 Safari 未验证 |
 
 ## 统计
