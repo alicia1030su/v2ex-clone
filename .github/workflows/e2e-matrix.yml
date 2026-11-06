@@ -69,9 +69,11 @@ env:
   RATE_LIMIT_REGISTER_MAX: '5'
   RATE_LIMIT_REGISTER_IP_MAX: '20'
   RATE_LIMIT_REGISTER_WINDOW_SECONDS: '300'
-  # 本机代理旁路（Linux runner 无代理，显式声明以防万一）
+  # 本机代理旁路（Linux runner 无代理，显式声明以防万一）。
+  # ⚠️ 只能写一个：GitHub 的 env 键**大小写不敏感**，
+  #    同时写 no_proxy 与 NO_PROXY 会被判「already defined」⇒ 整个
+  #    工作流解析失败、一个 job 都不跑（v0.0.7 实测踩到）。
   no_proxy: 'localhost,127.0.0.1,::1'
-  NO_PROXY: 'localhost,127.0.0.1,::1'
 
 jobs:
   e2e-shard:
