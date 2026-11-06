@@ -1,0 +1,301 @@
+name: E2E 跨浏览器矩阵（v0.0.7）
+
+# ---------------------------------------------------------------------------
+# v0.0.7：跨浏览器 E2E 的**分片矩阵**（取代「单机会话 3200 条跑 2.5 小时」）
+#
+# ## 为什么需要这个工作流
+#
+# v0.0.6 在本机 Windows 单会话里跑 16 project × 200 = 3200 条，
+# 2.5 小时后 2263 passed / 820 failed。失败证据（test-results/ 里 703 个
+# webkit 失败产物）显示根因**不是产品缺陷**：
+#
+#   · apiRequestContext.post/get: connect ECONNREFUSED 127.0.0.1:3010  ×1022
+#   · page.goto: Could not connect to server                            ×368
+#
+# 即「服务器在长时间压测后变得不可达」—— 本机 Windows 的单会话资源问题
+# （浏览器进程 × 16 project 争抢 + 连接累积）。**同类用例单独跑全部通过**。
+#
+# 任务书明确要求：禁止继续在单个 Windows 会话里把 3200 个用例同时扔给
+# 大量浏览器进程。因此改为 GitHub Actions Linux 矩阵，每个分片独占：
+#
+#   · 独立 runner VM（分片之间零资源争抢）
+#   · 独立测试数据库（v2ex_e2e_<browser>_<viewport>）
+#   · 独立应用端口（3100-3114）
+#   · 独立 SMTP 端口（3200-3214）
+#   · workers=1、retries=0（重试不代替根因修复）
+#
+# ## 结果口径
+#
+# 每个分片结束时从 Playwright JSON 报告解析 passed/failed/skipped，
+# 并写入 Step Summary；三者之和 < 计划数 ⇒ 「not run」> 0 ⇒ 判失败
+# （不允许静默跳过）。
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '22.23.4'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  DISABLE_CAPTCHA: '1'
+  ENABLE_DEBUG_ENDPOINTS: '1'
+  DEBUG_ENDPOINT_TOKEN: ci-debug-token-not-for-production
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: ci-postgres-password-not-real
+  REDIS_PASSWORD: ci-redis-password-not-real
+  SESSION_SECRET: ci-only-session-secret-0123456789abcdef0123456789abcdef
+  SEED_ADMIN_USERNAME: admin
+  SEED_ADMIN_EMAIL: admin@ci.local
+  SEED_ADMIN_PASSWORD: ci-admin-password-12345
+  SEED_DEMO_USERS: '1'
+  SEED_DEMO_PASSWORD: ci-demo-password-12345
+  # SMTP：fake server 由 spec 的 beforeAll 在**测试进程内**起（端口见分片计算）；
+  # 这里只配服务端投递目标。
+  SMTP_ALLOW_REAL_IN_TEST: '1'
+  SMTP_HOST: 127.0.0.1
+  SMTP_FROM: noreply@v2ex-clone.local
+  SMTP_SECURE: '0'
+  # 限流参数与生产默认值一致（有用例专门验证限流生效，不得调高）
+  RATE_LIMIT_LOGIN_MAX: '10'
+  RATE_LIMIT_POST_MAX: '5'
+  RATE_LIMIT_REPLY_MAX: '20'
+  RATE_LIMIT_WINDOW_SECONDS: '60'
+  RATE_LIMIT_REPLY_WINDOW_SECONDS: '120'
+  RATE_LIMIT_CREATE_NODE_MAX: '10'
+  RATE_LIMIT_CREATE_NODE_WINDOW_SECONDS: '60'
+  RATE_LIMIT_REGISTER_MAX: '5'
+  RATE_LIMIT_REGISTER_IP_MAX: '20'
+  RATE_LIMIT_REGISTER_WINDOW_SECONDS: '300'
+  # 本机代理旁路（Linux runner 无代理，显式声明以防万一）
+  no_proxy: 'localhost,127.0.0.1,::1'
+  NO_PROXY: 'localhost,127.0.0.1,::1'
+
+jobs:
+  e2e-shard:
+    name: ${{ matrix.browser }} / ${{ matrix.viewport }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      # 不 fail-fast —— 要看到**全部** 15 个分片的结果，而不是第一个红就停
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        viewport: ['375x812', '390x844', '768x1024', '1280x900', '1920x1080']
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: v2ex
+          POSTGRES_PASSWORD: ci-postgres-password-not-real
+          POSTGRES_DB: v2ex_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U v2ex -d v2ex_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        env:
+          REDIS_PASSWORD: ci-redis-password-not-real
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli -a ci-redis-password-not-real ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 安装 Playwright 浏览器（${{ matrix.browser }}）
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      # ---------------------------------------------------------------------
+      # 分片参数计算：端口 / 数据库名 / SMTP 端口
+      #
+      # 索引 = browserIdx × 5 + viewportIdx（0-14），完全确定性，
+      # 同一个分片每次运行拿到同一组参数（便于对照历史失败）。
+      # ---------------------------------------------------------------------
+      - name: 计算分片参数
+        id: shard
+        run: |
+          BROWSERS=(chromium firefox webkit)
+          VIEWPORTS=('375x812' '390x844' '768x1024' '1280x900' '1920x1080')
+          B="${{ matrix.browser }}"
+          V="${{ matrix.viewport }}"
+          bi=-1; for i in "${!BROWSERS[@]}"; do [ "${BROWSERS[$i]}" = "$B" ] && bi=$i; done
+          vi=-1; for i in "${!VIEWPORTS[@]}"; do [ "${VIEWPORTS[$i]}" = "$V" ] && vi=$i; done
+          if [ "$bi" -lt 0 ] || [ "$vi" -lt 0 ]; then
+            echo "::error::未知的矩阵组合 browser=$B viewport=$V"; exit 1
+          fi
+          IDX=$((bi * 5 + vi))
+          APP_PORT=$((3100 + IDX))
+          SMTP_PORT=$((3200 + IDX))
+          # 库名只保留安全字符
+          DB_NAME="v2ex_e2e_${B}_$(echo "$V" | tr -c 'a-zA-Z0-9' '_')"
+          echo "shard_index=$IDX" >> "$GITHUB_OUTPUT"
+          echo "app_port=$APP_PORT" >> "$GITHUB_OUTPUT"
+          echo "smtp_port=$SMTP_PORT" >> "$GITHUB_OUTPUT"
+          echo "db_name=$DB_NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo "APP_PORT=$APP_PORT"
+            echo "SMTP_PORT=$SMTP_PORT"
+            echo "DB_NAME=$DB_NAME"
+            echo "APP_URL=http://127.0.0.1:$APP_PORT"
+            echo "NEXT_PUBLIC_APP_URL=http://127.0.0.1:$APP_PORT"
+            echo "LOCAL_BASE=http://127.0.0.1:$APP_PORT"
+            echo "DATABASE_URL=postgres://v2ex:ci-postgres-password-not-real@localhost:5432/$DB_NAME"
+            echo "E2E_SMTP_PORT=$SMTP_PORT"
+            echo "E2E_CROSS=1"
+          } >> "$GITHUB_ENV"
+          echo "分片 #$IDX：$B / $V → 端口 $APP_PORT，SMTP $SMTP_PORT，库 $DB_NAME"
+
+      - name: 创建分片数据库
+        env:
+          PGPASSWORD: ci-postgres-password-not-real
+        run: |
+          # 幂等：DROP + CREATE，保证每个分片从干净数据开始
+          psql -h localhost -p 5432 -U v2ex -d postgres -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE IF EXISTS \"$DB_NAME\"" \
+            -c "CREATE DATABASE \"$DB_NAME\""
+
+      - name: 数据库迁移
+        run: npx drizzle-kit migrate
+
+      - name: 种子数据（确定性）
+        env:
+          SEED_TIME_ANCHOR: '2026-11-06T04:00:00.000Z'
+        run: npx tsx scripts/seed.ts
+
+      - name: 构建
+        run: npx next build
+
+      - name: 启动应用
+        run: |
+          # 后台启动 + 写 PID，退出时连进程树一起清理（无浏览器/服务残留）
+          npx next start -p "$APP_PORT" > /tmp/app-server.log 2>&1 &
+          echo $! > /tmp/app-server.pid
+          echo "应用 PID=$(cat /tmp/app-server.pid)，端口 $APP_PORT"
+
+      - name: 等待应用就绪
+        run: |
+          # 明确判定 200 才放行 —— 旧写法曾把「服务器没起来」当成 ready，
+          # 导致 E2E 大面积失败且根因被掩盖
+          for i in $(seq 1 60); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$APP_PORT/" || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "✅ 应用就绪（HTTP 200，${i}s）"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::应用 60s 未就绪（最后 HTTP $CODE）"
+          tail -30 /tmp/app-server.log
+          exit 1
+
+      - name: E2E（${{ matrix.browser }} / ${{ matrix.viewport }}）
+        id: e2e
+        run: |
+          set +e
+          npx playwright test \
+            --project="${{ matrix.browser }}-${{ matrix.viewport }}" \
+            --reporter=list,json \
+            --workers=1 \
+            2>&1 | tee /tmp/e2e-run.log
+          RC=${PIPESTATUS[0]}
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          exit 0   # 判定放到下一步，保证 summary 与 artifact 一定执行
+
+      # ---------------------------------------------------------------------
+      # 结果汇总：严格区分 passed / failed / skipped / not run
+      #
+      # not run > 0 ⇒ 判失败。不允许「静默跳过」把未执行的用例算成通过。
+      # ---------------------------------------------------------------------
+      - name: 汇总结果（passed/failed/skipped/not run）
+        if: always()
+        run: |
+          node -e "
+          const fs = require('fs');
+          let stats = { passed: 0, failed: 0, skipped: 0, flaky: 0, total: 0 };
+          try {
+            const r = JSON.parse(fs.readFileSync('test-results/e2e-results.json', 'utf8'));
+            const walk = (suites) => {
+              for (const s of suites ?? []) {
+                for (const spec of s.specs ?? []) {
+                  stats.total++;
+                  const ok = spec.tests?.every(t => t.results?.every(rr => rr.status === 'expected'));
+                  const failed = spec.tests?.some(t => t.results?.some(rr => rr.status === 'unexpected'));
+                  const skipped = spec.tests?.every(t => t.results?.every(rr => rr.status === 'skipped'));
+                  if (failed) stats.failed++;
+                  else if (skipped) stats.skipped++;
+                  else if (ok) stats.passed++;
+                  else stats.flaky++;
+                }
+                walk(s.suites);
+              }
+            };
+            walk(r.suites);
+          } catch (e) {
+            console.log('::error::无法解析 e2e-results.json：' + e.message);
+            process.exit(2);
+          }
+          const notRun = 200 - stats.total;   // 每个分片计划 200 条
+          console.log('passed=' + stats.passed, 'failed=' + stats.failed,
+                      'skipped=' + stats.skipped, 'flaky=' + stats.flaky,
+                      'total=' + stats.total, 'notRun=' + notRun);
+          fs.writeFileSync('/tmp/shard-summary.json', JSON.stringify({ ...stats, notRun }, null, 2));
+          const lines = [
+            '### E2E 分片结果：${{ matrix.browser }} / ${{ matrix.viewport }}',
+            '',
+            '| 指标 | 数量 |',
+            '|---|---|',
+            '| passed | ' + stats.passed + ' |',
+            '| failed | ' + stats.failed + ' |',
+            '| skipped | ' + stats.skipped + ' |',
+            '| flaky | ' + stats.flaky + ' |',
+            '| **执行合计** | **' + stats.total + ' / 200** |',
+            '| **not run** | **' + notRun + '** |',
+          ];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          if (stats.failed > 0 || stats.flaky > 0 || notRun > 0) process.exit(1);
+          "
+          RC=$?
+          echo "summary_exit=$RC" >> "$GITHUB_OUTPUT"
+
+      - name: 上传失败证据（trace + 截图 + 日志）
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-matrix-${{ matrix.browser }}-${{ matrix.viewport }}-${{ github.run_id }}
+          path: |
+            test-results/
+            /tmp/e2e-run.log
+            /tmp/app-server.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: 清理（无残留进程）
+        if: always()
+        run: |
+          if [ -f /tmp/app-server.pid ]; then
+            PID=$(cat /tmp/app-server.pid)
+            kill "$PID" 2>/dev/null || true
+            # 连进程树一起杀（next start 可能有子进程）
+            pkill -P "$PID" 2>/dev/null || true
+            echo "已停止应用 PID=$PID"
+          fi
