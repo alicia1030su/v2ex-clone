@@ -135,16 +135,6 @@ export default async function TopicPage({
           </div>
           <div className="sep10" />
           <h1>{topic.title}</h1>
-          <div id={`topic_${topicId}_votes`} className="votes">
-            <a href="javascript:" className="vote">
-              <li className="fa fa-chevron-up" />
-            </a>{' '}
-            &nbsp;
-            <a href="javascript:" className="vote">
-              <li className="fa fa-chevron-down" />
-            </a>
-          </div>{' '}
-          &nbsp;{' '}
           <small className="gray">
             <Link href={`/member/${author?.username ?? ''}`}>{author?.username}</Link> ·{' '}
             <span title={fullTimestamp(topic.createdAt)}>{relativeTime(topic.createdAt)}</span> ·{' '}
@@ -215,8 +205,10 @@ export default async function TopicPage({
 
           {repliesWithHtml.map((r) => (
             <div key={r.id} id={`r_${r.id}`} className="cell">
+              {/* v0.0.6：显式 <tbody> —— 避免 React #418 水合失败（详见 TopicItem 注释） */}
               <table cellPadding={0} cellSpacing={0} border={0} width="100%">
-                <tr>
+                <tbody>
+                  <tr>
                   <td width={48} valign="top" align="center">
                     <Link href={`/member/${r.username}`}>
                       <img
@@ -278,6 +270,7 @@ export default async function TopicPage({
                     </div>
                   </td>
                 </tr>
+                </tbody>
               </table>
             </div>
           ))}

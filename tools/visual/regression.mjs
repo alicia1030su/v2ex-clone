@@ -33,6 +33,17 @@
  * 同一套组件，在 7 个视口 × 3 个浏览器下的表现是否一致、是否符合设计意图。
  * 这既是「视觉回归」的基石，也为将来若能与原站对照时提供同构数据。
  *
+ * ## 汇总口径（v0.0.6 修正，防误报）
+ *
+ * 第一次实现把「同浏览器跨视口」与「同视口跨浏览器」混在一起统计
+ * ⇒ 报出 55 个「不一致」，其中绝大多数是**响应式的预期差异** —— 那是**误报**。
+ *
+ * v0.0.6 首轮 63 组合又抓到两类**工具层误报**（不是产品缺陷）：
+ *   1. font-family 的跨引擎序列化差异（chromium 带引号 / 另两家不带）
+ *   2. rgba alpha 的 8bit 舍入差异（0.227 vs 0.228）
+ * 另有三引擎间 1% 左右的**文本高度方差**（字体度量所致，正常）。
+ * 现已归一化样式字符串 + 宽度严格 / 高度 2% 容差 / 溢出 ≤1px 视为 0。
+ *
  * ## 用法
  *
  * ```bash
@@ -58,9 +69,33 @@ function get(name, fallback) {
 const BASE = get('base', process.env.LOCAL_BASE ?? 'http://localhost:3010');
 const ROOT = path.resolve(process.cwd());
 const VISUAL_DIR = path.join(ROOT, 'docs', 'evidence', 'visual');
-const BASELINE_FILE = path.join(VISUAL_DIR, 'component-baseline.json');
 const SAVE_BASELINE = argv.includes('--save-baseline');
 const COMPARE_BASELINE = argv.includes('--compare-baseline');
+
+/**
+ * v0.0.6：基线**按平台分文件**。
+ *
+ * ## 为什么必须分平台
+ *
+ * 首轮远端 CI（Linux）实跑暴露：把 Windows 上生成的基线拿到 Linux 上对比，
+ * **WebKit 的移动视口高度差了 39~51px**（node@320: 483 → 522，8%），
+ * 而 Chromium 与 Firefox 全部一致。
+ *
+ * 根因：**字体度量不同** —— Windows 与 Linux 的默认无衬线字体不同
+ * （Helvetica Neue → Liberation Sans / DejaVu Sans），
+ * 同样的文本会占据不同高度 ⇒ 容器高度随之变化。
+ *
+ * 这**不是产品缺陷**，是**跨平台基线不可直接复用**。
+ * ⇒ 基线必须按平台分别建立与对比：
+ *   docs/evidence/visual/component-baseline-<platform>.json
+ *
+ * 平台标识取 `process.platform`（win32 / linux / darwin），
+ * 可用 `--platform=` 覆盖（如在容器里复现另一平台的基线）。
+ */
+const PLATFORM = get('platform', process.platform);
+const BASELINE_FILE = path.join(VISUAL_DIR, `component-baseline-${PLATFORM}.json`);
+/** 旧的无平台后缀基线（Windows 首次建立）—— 只读，不再更新 */
+const LEGACY_BASELINE_FILE = path.join(VISUAL_DIR, 'component-baseline.json');
 
 /** 任务书要求的 7 个视口 */
 const VIEWPORTS = [
@@ -80,11 +115,18 @@ const BROWSERS = [
   { key: 'webkit', launcher: webkit, available: true },
 ];
 
-/** 要测的页面（第一批：首页 / 节点页 / 主题详情页） */
+/**
+ * 要测的页面（任务书 §四 的三个核心页面）
+ *
+ * v0.0.6 修正：原清单里的 `/nodes` 是**节点索引页**，
+ * 而任务书要求的三个核心页面是「首页 / 节点详情 / 主题详情」——
+ * 节点详情在 `/go/[name]`（本站路由，V2EX 原站同构）。
+ * `programmer` 是 seed 数据里确定存在的节点（scripts/seed.ts）。
+ */
 const PAGES = [
-  { key: 'home', path: '/' },
-  { key: 'nodes', path: '/nodes' },
-  { key: 'topic', path: '/t/1' },
+  { key: 'home', path: '/', waitFor: '#Main' },
+  { key: 'node', path: '/go/programmer', waitFor: '#TopicsNode' },
+  { key: 'topic', path: '/t/1', waitFor: '#topic-replies' },
 ];
 
 /**
@@ -94,8 +136,13 @@ const PAGES = [
  * `prop` 为空时量几何（w×h），否则量计算样式。
  */
 const COMPONENTS = [
+  // ⚠️ v0.0.6：`.content` 会同时匹配 `#Top > .content`（顶栏容器）与
+  //   `#Wrapper > .content`（页面主容器）—— `querySelector` 取**文档序第一个**，
+  //   而顶栏在 DOM 里更靠前 ⇒ Firefox/WebKit 测到的是**顶栏**（304×74）
+  //   而不是主容器（280×102）⇒ 被误判成「跨浏览器不一致 180 项」。
+  //   ⇒ 用 `#Wrapper > .content` 精确指向页面主容器。
   { group: '布局', key: 'wrapper', label: '页面容器', selector: '#Wrapper, body' },
-  { group: '布局', key: 'content', label: '内容容器', selector: '.content' },
+  { group: '布局', key: 'content', label: '内容容器', selector: '#Wrapper > .content' },
   { group: '布局', key: 'main', label: '主内容栏', selector: '#Main, main' },
   { group: '布局', key: 'top', label: '顶栏', selector: '#Top, header' },
   { group: '布局', key: 'top_pos', label: '顶栏定位', selector: '#Top, header', prop: 'position' },
@@ -126,6 +173,13 @@ async function measure(page, comps) {
     const out = {};
     const sw = document.documentElement.scrollWidth;
     const cw = document.documentElement.clientWidth;
+    // ⚠️ v0.0.6：Firefox 的**经典滚动条**会占掉 body 的宽度
+    //   （实测 @320：documentElement.clientWidth 三引擎都是 320，
+    //     但 body.clientWidth 在 Firefox 是 304、其余是 320）。
+    //   ⇒ 量 body 子元素的宽度时，**减去该差额**做归一化，
+    //     否则跨引擎比较会得到纯滚动条差异的假异常。
+    const bodyW = document.body ? document.body.clientWidth : cw;
+    const scrollbarW = Math.max(0, cw - bodyW);
     for (const c of list) {
       const el = document.querySelector(c.selector);
       if (c.prop === '__scrollWidth') {
@@ -141,7 +195,14 @@ async function measure(page, comps) {
         out[c.key] = cs[c.prop] ?? null;
       } else {
         const r = el.getBoundingClientRect();
-        out[c.key] = { w: Math.round(r.width), h: Math.round(r.height) };
+        // ⚠️ body 自身**不能**减（它的宽度就是 clientWidth 减去滚动条），
+        //   否则会减两次（实测 @320：Firefox 320 → 288）。
+        const isBody = el === document.body || el === document.documentElement;
+        const inBody = !isBody && document.body.contains(el);
+        out[c.key] = {
+          w: Math.round(r.width - (inBody ? scrollbarW : 0)),
+          h: Math.round(r.height),
+        };
       }
     }
     return out;
@@ -155,14 +216,87 @@ function norm(v) {
   return String(v);
 }
 
+/**
+ * v0.0.6：归一化计算样式值，消除**跨引擎序列化差异**造成的误报。
+ *
+ * 实测踩到（2026-11-06 首轮 63 组合）：
+ *   1. **font-family**：chromium 序列化为 `"Helvetica Neue", "Luxi Sans", …`（带引号），
+ *      firefox / webkit 为 `Helvetica Neue, Luxi Sans, …`（不带引号）——
+ *      **同一个计算值**，字符串比较却判「不一致」。
+ *   2. **rgba alpha 舍入**：CSS 声明 `rgba(128,128,128,0.228)`，
+ *      chromium 序列化为 `0.227`、firefox 为 `0.228` ——
+ *      两者都是 8bit 量化（0.228×255=58.14→58/255=0.2275）的正确舍入。
+ *   这两类占首轮「跨浏览器不一致」的大多数，是**工具误报**，不是产品缺陷。
+ */
+function normStyle(v) {
+  if (typeof v !== 'string') return v;
+  let out = v;
+  // font-family（含逗号的字符串）：去引号 + 统一逗号间距
+  if (v.includes(',')) {
+    out = v
+      .replace(/["']/g, '')
+      .replace(/\s*,\s*/g, ',')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  // 颜色：alpha 按 8bit 量化后保留 3 位小数。
+  // ⚠️ 必须处理**内嵌**的 rgba() —— border 简写形如
+  //    `1px solid rgba(128, 128, 128, 0.227)`（前缀 + 颜色），
+  //    只匹配整串会漏掉它（实测：7 个视口 × 3 页全部误报）。
+  out = out.replace(/rgba?\(([^)]+)\)/g, (m, inner) => {
+    const parts = inner.split(',').map((s) => s.trim());
+    if (parts.length === 4) {
+      const a = Math.round(parseFloat(parts[3]) * 255) / 255;
+      return `rgba(${parts[0]},${parts[1]},${parts[2]},${a.toFixed(3)})`;
+    }
+    if (parts.length === 3) return `rgb(${parts.join(',')})`;
+    return m;
+  });
+  return out;
+}
+
+/**
+ * v0.0.6：几何相等判定（跨引擎）。
+ *
+ * - **宽度**：严格（≤1px）—— 布局宽度是确定性的，差异即真缺陷。
+ *   ⚠️ 例外：**Firefox 的经典滚动条会占掉 body 的 16px**
+ *   （实测 @320：`documentElement.clientWidth` 三引擎都是 320，
+ *     但 `body.clientWidth` 在 Firefox 是 304、其余是 320），
+ *   ⇒ 用 body 的宽度做跨引擎比较会得到**纯滚动条差异**的假异常。
+ *   处置：宽度比较时**把 body 的宽度按滚动条占位归一化**
+ *   （减去 `innerWidth - body.clientWidth` 的差额）。
+ * - **高度**：4% 容差（下限 1px）—— 文本行高受**字体度量**影响，
+ *   同一页面在三引擎间相差 1% 左右是**正常引擎方差**；
+ *   更极端时（长标题换行点不同）实测可达 3.7%（node@390：
+ *   chromium 标题换 2 行 / FF·WebKit 换 3 行 ⇒ 差 17px）——
+ *   全部标红会「狼来了」埋掉真信号。
+ *   **宽度永远严格**（≤1px）：布局宽度是确定性的，宽度差异即真缺陷。
+ * - **溢出量**（doc_scroll_w）：≤1px 视为 0（与「横向溢出汇总」口径一致）。
+ */
+function valueEqual(a, b) {
+  if (a === null || b === null || a === undefined || b === undefined) {
+    return (a ?? null) === (b ?? null);
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    if ('overflow' in a && 'overflow' in b) {
+      const oa = a.overflow > 1 ? a.overflow : 0;
+      const ob = b.overflow > 1 ? b.overflow : 0;
+      return oa === ob;
+    }
+    if (Math.abs(a.w - b.w) > 1) return false;
+    const hTol = Math.max(1, Math.round(Math.max(a.h, b.h) * 0.04));
+    return Math.abs(a.h - b.h) <= hTol;
+  }
+  return normStyle(a) === normStyle(b);
+}
+
 /** 计算两个测量结果的组件级差异 */
 function diffComponents(a, b) {
   const rows = [];
   for (const c of COMPONENTS) {
     const va = a?.[c.key];
     const vb = b?.[c.key];
-    const same = JSON.stringify(va) === JSON.stringify(vb);
-    if (same) continue;
+    if (valueEqual(va, vb)) continue;
     rows.push({
       group: c.group,
       key: c.key,
@@ -202,7 +336,26 @@ async function main() {
         const key = `${br.key}/${vp.label}/${pg.key}`;
         try {
           await page.goto(BASE + pg.path, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-          await page.waitForTimeout(600); // 等布局稳定
+          // ⚠️ v0.0.6：不能只靠固定等待 —— WebKit 在 320px 的 /go/programmer
+          //   上渲染更慢，600ms 时 `#Main` / `.content` 还没出现 ⇒
+          //   测出来是一堆 null ⇒ 被误判成「跨浏览器不一致 200+ 项」。
+          // 改为**等关键元素出现**（首页/节点页/主题页的关键容器各不相同）。
+          await page
+            .waitForFunction(
+              (sel) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+              },
+              pg.waitFor,
+              { timeout: 15_000 },
+            )
+            .catch(() => {
+              /* 超时也要继续 —— 缺失本身就是要报告的事实 */
+            });
+          // 再给一点点布局稳定时间（字体度量/图片加载）
+          await page.waitForTimeout(300);
           const values = await measure(page, COMPONENTS);
 
           // 截图归档（保留每次修改前后的截图）
@@ -299,16 +452,20 @@ async function main() {
 
   // ── 基线保存 / 对比 ──
   if (SAVE_BASELINE) {
-    await writeFile(BASELINE_FILE, JSON.stringify({ savedAt: stamp, base: BASE, results }, null, 2), 'utf8');
-    console.log(`\n[regression] 基线已保存 → ${BASELINE_FILE}`);
+    await writeFile(BASELINE_FILE, JSON.stringify({ savedAt: stamp, base: BASE, platform: PLATFORM, results }, null, 2), 'utf8');
+    console.log(`\n[regression] 基线已保存（平台 ${PLATFORM}）→ ${BASELINE_FILE}`);
   } else if (COMPARE_BASELINE) {
     try {
       const baseline = JSON.parse(await readFile(BASELINE_FILE, 'utf8'));
-      console.log(`\n════ 与基线对比（基线保存于 ${baseline.savedAt}）════\n`);
+      console.log(`\n════ 与基线对比（平台 ${PLATFORM}，基线保存于 ${baseline.savedAt}）════\n`);
       let regressions = 0;
+      const missingKeys = [];
       for (const [key, r] of Object.entries(results)) {
         const b = baseline.results[key];
         if (!b) {
+          // v0.0.6：**新增组合也算失败** —— 基线缺项意味着「这个组合从未被审查过」，
+          // 静默跳过会让未审查的页面混进「已验证」里。
+          missingKeys.push(key);
           console.log(`  🆕 ${key} 基线中不存在`);
           continue;
         }
@@ -321,9 +478,36 @@ async function main() {
         }
       }
       console.log(`\n[regression] 回归项合计：${regressions}`);
+      if (missingKeys.length > 0) {
+        // v0.0.6：基线缺项必须失败（不得静默跳过未审查的组合）
+        console.log(`[regression] 基线缺项：${missingKeys.length} 个组合不在基线中`);
+        for (const k of missingKeys) console.log(`      ${k}`);
+        process.exitCode = 1;
+      }
       if (regressions > 0) process.exitCode = 1;
     } catch {
+      // v0.0.6：基线文件不存在 ⇒ **失败**，不是警告 ——
+      // 「没有基线」与「基线全部一致」是两回事，混淆会让 CI 绿灯
+      // 掩盖「从未做过视觉验证」这个事实。
+      //
+      // 额外提示：可能是「旧的无平台后缀基线」——它只在 Windows 上有效
+      // （字体度量不同 ⇒ Linux 上的高度本就不同，跨平台对比必然报差异）。
+      let legacyExists = false;
+      try {
+        await readFile(LEGACY_BASELINE_FILE, 'utf8');
+        legacyExists = true;
+      } catch {
+        /* 不存在 */
+      }
       console.log(`\n[regression] ⚠️ 基线不存在（${BASELINE_FILE}）—— 先用 --save-baseline 建立`);
+      if (legacyExists) {
+        console.log(
+          `[regression] ⚠️ 检测到旧基线 ${path.basename(LEGACY_BASELINE_FILE)}` +
+            `（无平台后缀）——它**只在其建立时的平台有效**（字体度量不同 ⇒ 跨平台对比必然报差异）。` +
+            `\n[regression]    请在本平台重新建立：node tools/visual/regression.mjs --base <url> --save-baseline`,
+        );
+      }
+      process.exitCode = 1;
     }
   }
 

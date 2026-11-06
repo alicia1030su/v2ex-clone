@@ -6,6 +6,9 @@ node_modules/
 # 构建产物
 .next/
 .next.stale*/
+# v0.0.6：隔离构建目录（NEXT_DIST_DIR 兜底，见 next.config.mjs）
+.next-iso*/
+.next-b[0-9]*/
 
 # v0.0.6 视觉回归的逐次运行归档（截图 + components.json）
 # 保留在本地供「修改前后对比」，但不入仓 —— 否则每次跑都新增 60+ 张 PNG。

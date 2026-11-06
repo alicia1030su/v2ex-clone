@@ -38,6 +38,32 @@ import { loadProductEnv } from '../src/lib/env-loader.mjs';
  */
 loadProductEnv({ cwd: process.cwd() });
 
+/**
+ * v0.0.6：确定性伪随机数（mulberry32）
+ *
+ * **为什么必须确定性**：任务书 §四.2 要求视觉回归「自动加载**统一**测试数据」。
+ * 原先用 `Math.random()` 生成每主题回复数（1~6）、回复作者与内容 ——
+ * 实测后果（2026-11-06 首轮 63 组合回归）：
+ *   同一主题 /t/1 两次全新 seed 分别得到 **1 条**与 **4 条**回复
+ *   ⇒ 页面高度差 ~300px ⇒ **基线对比完全失去意义**
+ *   （把「数据变了」误判成「视觉回归」，或反之漏掉真回归）。
+ *
+ * 改用固定种子的 PRNG 后：同样的库状态 ⇒ 同样的数据 ⇒ 可复现的视觉基线。
+ * 口令仍用 `randomBytes`（安全敏感，且由 reset-test-credentials.ts 统一接管）。
+ */
+const SEED_PRNG_SEED = 0x56455841; // "VEXA"
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(SEED_PRNG_SEED);
+
 /** 首次初始化标记的 key（存放在 kv_store 表） */
 export const INIT_MARKER_KEY = 'seed:initialized';
 
@@ -391,7 +417,14 @@ async function main() {
       .limit(1);
     if (exists[0]) continue;
 
-    const now = new Date(Date.now() - Math.random() * 6 * 3600 * 1000);
+    // v0.0.6：时间锚点固定为「seed 运行时刻」——
+    // 用 Date.now() 本身没问题（相对时间文本「N 分钟前」在同一次运行内自洽），
+    // 但为了让**两次全新 seed 的视觉基线可逐像素复现**，
+    // 这里把基准锚定到一个**固定时刻**（可被 SEED_TIME_ANCHOR 覆盖）。
+    const anchor = process.env.SEED_TIME_ANCHOR
+      ? new Date(process.env.SEED_TIME_ANCHOR).getTime()
+      : Date.now();
+    const now = new Date(anchor - rand() * 6 * 3600 * 1000);
     const [topic] = await db
       .insert(schema.topics)
       .values({
@@ -406,16 +439,16 @@ async function main() {
     topicCount++;
 
     // 回复
-    const replyCount = Math.floor(Math.random() * 6) + 1;
+    const replyCount = Math.floor(rand() * 6) + 1;
     const replyIds: number[] = [];
     for (let i = 0; i < replyCount; i++) {
-      const authorName = seedUsers[Math.floor(Math.random() * seedUsers.length)].username;
+      const authorName = seedUsers[Math.floor(rand() * seedUsers.length)].username;
       const [r] = await db
         .insert(schema.replies)
         .values({
           topicId: topic.id,
           authorId: userIds.get(authorName) ?? fallbackAuthor,
-          content: REPLY_SEEDS[Math.floor(Math.random() * REPLY_SEEDS.length)],
+          content: REPLY_SEEDS[Math.floor(rand() * REPLY_SEEDS.length)],
           floor: i + 1,
           createdAt: new Date(now.getTime() + (i + 1) * 60000),
         })

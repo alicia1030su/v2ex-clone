@@ -148,8 +148,10 @@ export default async function FollowingPage({
         ) : (
           topicRows.map((t) => (
             <div key={t.id} className="cell item">
+              {/* v0.0.6：显式 <tbody> —— 避免 React #418 水合失败 */}
               <table cellPadding={0} cellSpacing={0} border={0} width="100%">
-                <tr>
+                <tbody>
+                  <tr>
                   <td width={48} valign="top" align="center">
                     <Link href={`/member/${t.authorName}`}>
                       <img
@@ -198,7 +200,8 @@ export default async function FollowingPage({
                       {t.repliesCount}
                     </Link>
                   </td>
-                </tr>
+                  </tr>
+                </tbody>
               </table>
             </div>
           ))

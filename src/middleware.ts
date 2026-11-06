@@ -35,7 +35,7 @@ const CSRF_MAX_AGE = 60 * 60 * 24 * 14; // 14 天，与会话同周期
  * 选项（实测 `grep -rn nodeMiddleware node_modules/next/dist/` 零命中），
  * middleware 跑在 Edge Runtime，拿不到 socket 远端地址。
  *
- * 因此本函数**只���显式信任反代头时才读代理头**：
+ * 因此本函数**只在显式信任反代头时才读代理头**：
  * 否则一律返回兜底值。绝不能把客户端可控的头「洗白」成内部可信头 ——
  * 那会让 `resolveClientIp` 的整个信任模型形同虚设。
  *
