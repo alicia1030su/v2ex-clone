@@ -34,12 +34,10 @@ name: E2E 跨浏览器矩阵（v0.0.7）
 on:
   pull_request:
     branches: [master]
+  # ⚠️ dispatch 时不带 inputs —— GitHub 用**默认分支**的工作流定义校验 inputs，
+  #    功能分支上新加的 input 会报 422「not a permitted key」（实测踩到）。
+  #    因此用 event 类型区分：pull_request ⇒ 跑矩阵；workflow_dispatch ⇒ 跑诊断。
   workflow_dispatch:
-    inputs:
-      run_diag:
-        description: '运行 Firefox thanks 403 诊断（最小复现 + 现场取证）'
-        type: boolean
-        default: false
 
 env:
   NODE_VERSION: '22.23.4'
@@ -85,6 +83,8 @@ jobs:
     name: ${{ matrix.browser }} / ${{ matrix.viewport }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    # 仅 PR 触发跑矩阵；workflow_dispatch 留给诊断 job
+    if: github.event_name != 'workflow_dispatch'
     strategy:
       # 不 fail-fast —— 要看到**全部** 15 个分片的结果，而不是第一个红就停
       fail-fast: false
@@ -319,7 +319,7 @@ jobs:
   diag-thanks-403:
     name: 诊断 Firefox thanks 403
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.run_diag
+    if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 25
     services:
       postgres:
