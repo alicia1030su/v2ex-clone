@@ -108,10 +108,12 @@ export default async function HomePage({
           </Link>
         </div>
         <div className="cell" id="SecondaryTabs">
+          {/* v0.0.6：分隔符从 `&nbsp;&nbsp;&nbsp;` 改为**可换行的普通空格** ——
+              `&nbsp;` 是不可断空格，连成序列后会锁死整行宽度
+              （实测 Firefox@320 溢出 14px）。间距改由 CSS 的 margin 提供。 */}
           {SECONDARY_TABS.map((t) => (
             <span key={t.name}>
               <Link href={`/go/${t.name}`}>{t.title}</Link>
-              &nbsp;&nbsp;&nbsp;
             </span>
           ))}
         </div>

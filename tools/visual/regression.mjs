@@ -69,9 +69,33 @@ function get(name, fallback) {
 const BASE = get('base', process.env.LOCAL_BASE ?? 'http://localhost:3010');
 const ROOT = path.resolve(process.cwd());
 const VISUAL_DIR = path.join(ROOT, 'docs', 'evidence', 'visual');
-const BASELINE_FILE = path.join(VISUAL_DIR, 'component-baseline.json');
 const SAVE_BASELINE = argv.includes('--save-baseline');
 const COMPARE_BASELINE = argv.includes('--compare-baseline');
+
+/**
+ * v0.0.6：基线**按平台分文件**。
+ *
+ * ## 为什么必须分平台
+ *
+ * 首轮远端 CI（Linux）实跑暴露：把 Windows 上生成的基线拿到 Linux 上对比，
+ * **WebKit 的移动视口高度差了 39~51px**（node@320: 483 → 522，8%），
+ * 而 Chromium 与 Firefox 全部一致。
+ *
+ * 根因：**字体度量不同** —— Windows 与 Linux 的默认无衬线字体不同
+ * （Helvetica Neue → Liberation Sans / DejaVu Sans），
+ * 同样的文本会占据不同高度 ⇒ 容器高度随之变化。
+ *
+ * 这**不是产品缺陷**，是**跨平台基线不可直接复用**。
+ * ⇒ 基线必须按平台分别建立与对比：
+ *   docs/evidence/visual/component-baseline-<platform>.json
+ *
+ * 平台标识取 `process.platform`（win32 / linux / darwin），
+ * 可用 `--platform=` 覆盖（如在容器里复现另一平台的基线）。
+ */
+const PLATFORM = get('platform', process.platform);
+const BASELINE_FILE = path.join(VISUAL_DIR, `component-baseline-${PLATFORM}.json`);
+/** 旧的无平台后缀基线（Windows 首次建立）—— 只读，不再更新 */
+const LEGACY_BASELINE_FILE = path.join(VISUAL_DIR, 'component-baseline.json');
 
 /** 任务书要求的 7 个视口 */
 const VIEWPORTS = [
@@ -100,9 +124,9 @@ const BROWSERS = [
  * `programmer` 是 seed 数据里确定存在的节点（scripts/seed.ts）。
  */
 const PAGES = [
-  { key: 'home', path: '/' },
-  { key: 'node', path: '/go/programmer' },
-  { key: 'topic', path: '/t/1' },
+  { key: 'home', path: '/', waitFor: '#Main' },
+  { key: 'node', path: '/go/programmer', waitFor: '#TopicsNode' },
+  { key: 'topic', path: '/t/1', waitFor: '#topic-replies' },
 ];
 
 /**
@@ -112,8 +136,13 @@ const PAGES = [
  * `prop` 为空时量几何（w×h），否则量计算样式。
  */
 const COMPONENTS = [
+  // ⚠️ v0.0.6：`.content` 会同时匹配 `#Top > .content`（顶栏容器）与
+  //   `#Wrapper > .content`（页面主容器）—— `querySelector` 取**文档序第一个**，
+  //   而顶栏在 DOM 里更靠前 ⇒ Firefox/WebKit 测到的是**顶栏**（304×74）
+  //   而不是主容器（280×102）⇒ 被误判成「跨浏览器不一致 180 项」。
+  //   ⇒ 用 `#Wrapper > .content` 精确指向页面主容器。
   { group: '布局', key: 'wrapper', label: '页面容器', selector: '#Wrapper, body' },
-  { group: '布局', key: 'content', label: '内容容器', selector: '.content' },
+  { group: '布局', key: 'content', label: '内容容器', selector: '#Wrapper > .content' },
   { group: '布局', key: 'main', label: '主内容栏', selector: '#Main, main' },
   { group: '布局', key: 'top', label: '顶栏', selector: '#Top, header' },
   { group: '布局', key: 'top_pos', label: '顶栏定位', selector: '#Top, header', prop: 'position' },
@@ -144,6 +173,13 @@ async function measure(page, comps) {
     const out = {};
     const sw = document.documentElement.scrollWidth;
     const cw = document.documentElement.clientWidth;
+    // ⚠️ v0.0.6：Firefox 的**经典滚动条**会占掉 body 的宽度
+    //   （实测 @320：documentElement.clientWidth 三引擎都是 320，
+    //     但 body.clientWidth 在 Firefox 是 304、其余是 320）。
+    //   ⇒ 量 body 子元素的宽度时，**减去该差额**做归一化，
+    //     否则跨引擎比较会得到纯滚动条差异的假异常。
+    const bodyW = document.body ? document.body.clientWidth : cw;
+    const scrollbarW = Math.max(0, cw - bodyW);
     for (const c of list) {
       const el = document.querySelector(c.selector);
       if (c.prop === '__scrollWidth') {
@@ -159,7 +195,14 @@ async function measure(page, comps) {
         out[c.key] = cs[c.prop] ?? null;
       } else {
         const r = el.getBoundingClientRect();
-        out[c.key] = { w: Math.round(r.width), h: Math.round(r.height) };
+        // ⚠️ body 自身**不能**减（它的宽度就是 clientWidth 减去滚动条），
+        //   否则会减两次（实测 @320：Firefox 320 → 288）。
+        const isBody = el === document.body || el === document.documentElement;
+        const inBody = !isBody && document.body.contains(el);
+        out[c.key] = {
+          w: Math.round(r.width - (inBody ? scrollbarW : 0)),
+          h: Math.round(r.height),
+        };
       }
     }
     return out;
@@ -216,6 +259,12 @@ function normStyle(v) {
  * v0.0.6：几何相等判定（跨引擎）。
  *
  * - **宽度**：严格（≤1px）—— 布局宽度是确定性的，差异即真缺陷。
+ *   ⚠️ 例外：**Firefox 的经典滚动条会占掉 body 的 16px**
+ *   （实测 @320：`documentElement.clientWidth` 三引擎都是 320，
+ *     但 `body.clientWidth` 在 Firefox 是 304、其余是 320），
+ *   ⇒ 用 body 的宽度做跨引擎比较会得到**纯滚动条差异**的假异常。
+ *   处置：宽度比较时**把 body 的宽度按滚动条占位归一化**
+ *   （减去 `innerWidth - body.clientWidth` 的差额）。
  * - **高度**：4% 容差（下限 1px）—— 文本行高受**字体度量**影响，
  *   同一页面在三引擎间相差 1% 左右是**正常引擎方差**；
  *   更极端时（长标题换行点不同）实测可达 3.7%（node@390：
@@ -287,7 +336,26 @@ async function main() {
         const key = `${br.key}/${vp.label}/${pg.key}`;
         try {
           await page.goto(BASE + pg.path, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-          await page.waitForTimeout(600); // 等布局稳定
+          // ⚠️ v0.0.6：不能只靠固定等待 —— WebKit 在 320px 的 /go/programmer
+          //   上渲染更慢，600ms 时 `#Main` / `.content` 还没出现 ⇒
+          //   测出来是一堆 null ⇒ 被误判成「跨浏览器不一致 200+ 项」。
+          // 改为**等关键元素出现**（首页/节点页/主题页的关键容器各不相同）。
+          await page
+            .waitForFunction(
+              (sel) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+              },
+              pg.waitFor,
+              { timeout: 15_000 },
+            )
+            .catch(() => {
+              /* 超时也要继续 —— 缺失本身就是要报告的事实 */
+            });
+          // 再给一点点布局稳定时间（字体度量/图片加载）
+          await page.waitForTimeout(300);
           const values = await measure(page, COMPONENTS);
 
           // 截图归档（保留每次修改前后的截图）
@@ -384,12 +452,12 @@ async function main() {
 
   // ── 基线保存 / 对比 ──
   if (SAVE_BASELINE) {
-    await writeFile(BASELINE_FILE, JSON.stringify({ savedAt: stamp, base: BASE, results }, null, 2), 'utf8');
-    console.log(`\n[regression] 基线已保存 → ${BASELINE_FILE}`);
+    await writeFile(BASELINE_FILE, JSON.stringify({ savedAt: stamp, base: BASE, platform: PLATFORM, results }, null, 2), 'utf8');
+    console.log(`\n[regression] 基线已保存（平台 ${PLATFORM}）→ ${BASELINE_FILE}`);
   } else if (COMPARE_BASELINE) {
     try {
       const baseline = JSON.parse(await readFile(BASELINE_FILE, 'utf8'));
-      console.log(`\n════ 与基线对比（基线保存于 ${baseline.savedAt}）════\n`);
+      console.log(`\n════ 与基线对比（平台 ${PLATFORM}，基线保存于 ${baseline.savedAt}）════\n`);
       let regressions = 0;
       const missingKeys = [];
       for (const [key, r] of Object.entries(results)) {
@@ -421,7 +489,24 @@ async function main() {
       // v0.0.6：基线文件不存在 ⇒ **失败**，不是警告 ——
       // 「没有基线」与「基线全部一致」是两回事，混淆会让 CI 绿灯
       // 掩盖「从未做过视觉验证」这个事实。
+      //
+      // 额外提示：可能是「旧的无平台后缀基线」——它只在 Windows 上有效
+      // （字体度量不同 ⇒ Linux 上的高度本就不同，跨平台对比必然报差异）。
+      let legacyExists = false;
+      try {
+        await readFile(LEGACY_BASELINE_FILE, 'utf8');
+        legacyExists = true;
+      } catch {
+        /* 不存在 */
+      }
       console.log(`\n[regression] ⚠️ 基线不存在（${BASELINE_FILE}）—— 先用 --save-baseline 建立`);
+      if (legacyExists) {
+        console.log(
+          `[regression] ⚠️ 检测到旧基线 ${path.basename(LEGACY_BASELINE_FILE)}` +
+            `（无平台后缀）——它**只在其建立时的平台有效**（字体度量不同 ⇒ 跨平台对比必然报差异）。` +
+            `\n[regression]    请在本平台重新建立：node tools/visual/regression.mjs --base <url> --save-baseline`,
+        );
+      }
       process.exitCode = 1;
     }
   }

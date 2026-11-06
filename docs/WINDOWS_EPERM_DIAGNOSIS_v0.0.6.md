@@ -3,6 +3,21 @@
 > 任务书 §八：不允许无限重复执行相同 build 命令，也不允许把猜测当作根因。
 > 本报告的每条结论都有**实测证据**；未查明的部分如实登记。
 
+## 〇、附：同一轮排查中发现的另一个根因（**代理拦截**，与 EPERM 无关但影响面更大）
+
+排查「Firefox / WebKit 的 E2E 与视觉回归失败」时，**顺带定位了根因**：
+
+| 项 | 事实 |
+|---|---|
+| 本机环境 | `HTTP_PROXY=http://127.0.0.1:55761`（xray 代理），**`NO_PROXY` 为空** |
+| 谁会读它 | **Firefox 与 WebKit 会读 `HTTP_PROXY`**；**Chromium 不读** |
+| 后果 | 两浏览器对 `localhost:3010` 的**子资源**（`/_next/static/chunks/*.js`）也走代理 ⇒ 代理无法正确回连 ⇒ Firefox 报 `NS_ERROR_REDIRECT_LOOP`、WebKit 报 `Loading chunk NNNN failed` ⇒ 页面降级为 Next 错误页 |
+| 实测证据 | 设 `no_proxy` 后 WebKit 页面**完全正常渲染**（`hasMain=true`、0 错误）；master worktree **同样失败** ⇒ 与产品代码无关；Chromium 6 个 project 1200/1200 本就全绿 |
+| 处置 | 两个本地脚本**显式导出 `no_proxy` / `NO_PROXY`**；修后视觉回归 **63 组合三引擎完全一致、零横向溢出** |
+
+> ⚠️ **这条经验值得单独记住**：跨浏览器失败时，**先查 `HTTP_PROXY`/`NO_PROXY`**，
+> 不要直接怀疑产品代码 —— 否则会浪费一整轮在「不可能有问题的方向」上。
+
 ## 一、结论速览
 
 | 项 | 结论 |

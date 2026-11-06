@@ -76,6 +76,20 @@ export CODEBUDDY_SAFE_DELETE_ENABLED=0
 export CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
 export CODEBUDDY_SAFE_DELETE_SANDBOX=0
 
+# ---------------------------------------------------------------------------
+# v0.0.6：**必须**绕过本机代理（否则 Firefox/WebKit 的子资源请求会被
+# 送到本机代理而失败 ⇒ WebKit 页面降级为 Next 错误页 ⇒ 测出一堆 null）。
+#
+# 本机 HTTP_PROXY=http://127.0.0.1:55761 且 **NO_PROXY 为空**；
+# **Firefox 与 WebKit 会读 HTTP_PROXY**（Chromium 不读）⇒ localhost 的
+# `/_next/static/**` 子资源也被送进代理 ⇒ 连接失败。
+#
+# 实测：设置 no_proxy 后 WebKit 页面完全正常渲染（hasMain=true，0 错误）。
+# 详见 docs/WINDOWS_EPERM_DIAGNOSIS_v0.0.6.md 与 RISK_REGISTER R-32。
+# ---------------------------------------------------------------------------
+export no_proxy="localhost,127.0.0.1,::1"
+export NO_PROXY="localhost,127.0.0.1,::1"
+
 # v0.0.6：注入 EPERM 自动重试补丁（Windows 专用，见 next-build-retry.cjs）
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*|Windows_NT)
@@ -153,7 +167,34 @@ else
   if [ "$BUILD_OK" = "1" ]; then
     ok "构建成功"
   else
-    bad "构建失败（见 /tmp/vis-build.log）"; tail -20 /tmp/vis-build.log; exit 1
+    # 兜底：隔离构建目录（全新唯一名，不删除任何东西）
+    info "常规构建失败 —— 启用隔离构建目录（全新唯一目录名）"
+    ISO_DIR=".next-iso-$(date +%s 2>/dev/null || echo $$)"
+    if NEXT_DIST_DIR="$ISO_DIR" npx next build > /tmp/vis-build-iso.log 2>&1; then
+      ok "隔离构建目录构建成功（${ISO_DIR}）"
+      # ⚠️ 必须同时导出 NEXT_DIST_DIR —— 否则 `next start` 会去找 `.next`
+      #    （里面是**旧构建**）⇒ 服务跑的是旧代码，视觉结论全部失真。
+      export NEXT_DIST_DIR="$ISO_DIR"
+    else
+      bad "构建失败（见 /tmp/vis-build.log）"; tail -20 /tmp/vis-build.log; exit 1
+    fi
+  fi
+
+  # ⚠️ 构建新鲜度校验：确认服务将要跑的是**刚刚构建**的产物。
+  #   否则「用旧 .next 启动」会让视觉回归对比到过期基线（实测 Firefox@320
+  #   出现假溢出 14px）—— 结论失真且难以察觉。
+  if [ -n "${NEXT_DIST_DIR:-}" ]; then
+    if [ -f "${NEXT_DIST_DIR}/BUILD_ID" ]; then
+      ok "构建目录：${NEXT_DIST_DIR}（BUILD_ID=$(cat "${NEXT_DIST_DIR}/BUILD_ID")）"
+    else
+      bad "构建目录 ${NEXT_DIST_DIR} 缺少 BUILD_ID —— 构建产物不完整"
+      exit 1
+    fi
+  elif [ -f ".next/BUILD_ID" ]; then
+    ok "构建目录：.next（BUILD_ID=$(cat .next/BUILD_ID)）"
+  else
+    bad "缺少 .next/BUILD_ID —— 构建产物不完整"
+    exit 1
   fi
 fi
 

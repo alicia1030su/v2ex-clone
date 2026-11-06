@@ -265,6 +265,37 @@ a:visited {
   text-align: left;
   border-bottom: 1px solid var(--box-border-color);
 }
+
+/* ---------------------------------------------------------------------------
+   二级节点导航（首页 #SecondaryTabs）—— v0.0.6 窄屏溢出修复
+   ---------------------------------------------------------------------------
+   实测（Firefox@320×568）：该容器**原本没有任何 CSS 规则**，
+   里面的链接（Python / iDev / Claude / OpenAI / Local LLM / 云计算 / 宽窄视频群）
+   被 `<span>` 包裹，并用 **`&nbsp;&nbsp;&nbsp;`** 分隔
+   ⇒ `&nbsp;` 是**不换行空格**，连成不可断的空白序列 ⇒
+      整行宽度锁死（实测 326px > 可用 304px）⇒ 横向溢出 **14px**。
+
+   修法（两侧都要）：
+   ① CSS：容器允许换行 + span 内部不锁定空白；
+   ② JSX：把 `&nbsp;&nbsp;&nbsp;` 换成**可换行的普通空格**
+      （`<span>` 之间用 gap 排版，避免不可断空白）。
+
+   （与 V5-17 同类问题但**不同元素** —— 那次是 `.box table`，
+     这次是**用了不可断空白的裸容器**。）
+--------------------------------------------------------------------------- */
+#SecondaryTabs {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+#SecondaryTabs > span {
+  display: inline-block;
+  white-space: normal;
+  margin-right: 12px;
+}
+#SecondaryTabs > span a {
+  display: inline-block;
+  white-space: normal;
+}
 .cell:last-child {
   border-bottom: none;
   border-bottom-left-radius: var(--box-border-radius);
@@ -396,8 +427,7 @@ a:visited {
 
 .sep20 {
   height: 20px;
-}
-.sep10 {
+}.sep10 {
   height: 10px;
 }
 .sep5 {

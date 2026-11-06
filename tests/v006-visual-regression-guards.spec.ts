@@ -24,7 +24,7 @@ describe('视觉回归工具的失败语义（v0.0.6 护栏）', () => {
   it('基线文件不存在时必须以非 0 退出码结束', () => {
     // catch 分支里必须有 process.exitCode = 1
     const catchBlock = source.slice(source.indexOf('基线不存在'));
-    const segment = catchBlock.slice(0, 300);
+    const segment = catchBlock.slice(0, 1200);
     expect(segment).toContain('process.exitCode = 1');
   });
 
@@ -114,5 +114,40 @@ describe('视觉回归工具的覆盖范围（v0.0.6 护栏）', () => {
   it('必须测量横向溢出（scrollWidth vs clientWidth）', () => {
     expect(source).toContain('scrollWidth');
     expect(source).toContain('clientWidth');
+  });
+});
+
+describe('视觉基线必须按平台分文件（v0.0.6 护栏）', () => {
+  const source = readFileSync(TOOL, 'utf8');
+
+  it('基线文件名必须带平台标识', () => {
+    expect(source).toContain('component-baseline-${PLATFORM}.json');
+    expect(source).toContain('process.platform');
+  });
+
+  it('基线必须记录平台字段', () => {
+    expect(source).toMatch(/platform:\s*PLATFORM/);
+  });
+
+  it('平台不匹配时必须给出明确提示（不得静默对比）', () => {
+    expect(source).toContain('LEGACY_BASELINE_FILE');
+    expect(source).toContain('只在其建立时的平台有效');
+  });
+
+  it('CI 工作流必须按 linux 平台指定基线', () => {
+    const wf = readFileSync(
+      path.join(REPO, '.github', 'workflows', 'visual-regression.yml'),
+      'utf8',
+    );
+    expect(wf).toContain('--platform=linux');
+  });
+
+  it('基线缺失时工作流必须明确失败并说明如何建立', () => {
+    const wf = readFileSync(
+      path.join(REPO, '.github', 'workflows', 'visual-regression.yml'),
+      'utf8',
+    );
+    expect(wf).toContain('基线缺失');
+    expect(wf).toContain('update_baseline');
   });
 });

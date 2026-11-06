@@ -98,6 +98,32 @@ export CODEBUDDY_SAFE_DELETE_ENABLED=0
 export CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
 export CODEBUDDY_SAFE_DELETE_SANDBOX=0
 
+# ---------------------------------------------------------------------------
+# v0.0.6：**必须**绕过本机代理
+#
+# ## 根因（实测）
+#
+# 本机设置了系统/环境代理：
+#   HTTP_PROXY=http://127.0.0.1:55761（xray 代理），且 **NO_PROXY 为空**。
+#
+# **Firefox 与 WebKit 会读取 HTTP_PROXY**（Chromium 不读）⇒ 它们对
+# `localhost:3010` 的**子资源**（`/_next/static/chunks/*.js`）也走代理
+# ⇒ 代理无法正确回连 ⇒：
+#   · Firefox：`NS_ERROR_REDIRECT_LOOP`（页面显示「无法连接服务器」）
+#   · WebKit：`Loading chunk NNNN failed` ⇒ 页面降级为 Next 错误页
+#     （`#__next_error__`）⇒ 视觉回归里表现为「大量组件为 null」
+#
+# ## 证据
+#
+#   · 实测 WebKit 加 `no_proxy` 后：页面**完全正常渲染**（hasMain=true，0 错误）；
+#   · master worktree 对照实验：未改动的 master **同样失败** ⇒ 与产品代码无关；
+#   · Chromium 全 6 个 project（1200 条）本来就全绿 ⇒ 只影响遵守代理的浏览器。
+#
+# ⇒ 处置：**显式设置 no_proxy / NO_PROXY**，让测试流量直连本地服务。
+# ---------------------------------------------------------------------------
+export no_proxy="localhost,127.0.0.1,::1"
+export NO_PROXY="localhost,127.0.0.1,::1"
+
 # v0.0.6：注入 EPERM 自动重试补丁（Windows 专用）。
 #
 # 专项诊断（docs/WINDOWS_EPERM_DIAGNOSIS_v0.0.6.md）确认：
