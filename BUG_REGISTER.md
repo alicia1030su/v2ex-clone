@@ -272,3 +272,4 @@
 | V5-T4 | **`clearRateLimits` 静默失效** ⇒ 限流没清 ⇒ 429，而报错指不到真正原因 | 失败时**抛错**，并带上每个令牌尝试过的状态码与「测试进程与服务端令牌不一致」的排查指引 |
 | V5-T5 | **fake SMTP 的 EADDRINUSE 裸错误指不到真正原因** | `FakeSmtpServer.start` 显式识别 EADDRINUSE，并列出最常见两个原因（两处同时起 server / 上次没退干净） |
 | V5-T6 | **两个 E2E spec 可能声明同一个固定端口** | 新增 `tests/v005-e2e-fixtures.spec.ts`（5 条护栏）：端口唯一性 / 只走 `start()` / spec 自己起 / CI 不得有启动命令 / EADDRINUSE 有清晰错误 |
+| V5-T7 | **`SKIP_BUILD` 检查放在 `.next` 清理之后**（`5b9f8e3` 引入的顺序缺陷）—— 先备份/移走 `.next`，再检查 `SKIP_BUILD=1` ⇒ `BUILD_ID` 已被移走 ⇒ 复现流程必然失败，与 `SKIP_BUILD`「复用可用 `.next` 重跑 E2E」的设计目的相悖 | 判定顺序对调：先 `SKIP_BUILD` → 再决定是否清理；构建块同样加 `SKIP_BUILD_ACTIVE` 守卫（`5163244`） |

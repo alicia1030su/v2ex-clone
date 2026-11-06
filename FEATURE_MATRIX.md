@@ -29,6 +29,12 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 > 它们属于「缺陷修复」与「工程化」而非「功能矩阵」的范畴，
 > 完整清单见 `CHANGELOG.md` `[Unreleased]` 与 `BUG_REGISTER.md`（V4-01~V4-16）。
 > 本表仍以**功能存在性**为准 —— v0.0.4 未删除任何 v0.0.3 已有的功能。
+>
+> ✅ **v0.0.5 测试基线权威值**（集成收尾，2026-11-06）：单元 **327 条 / 25 文件**（327 passed / 0 failed）、
+> E2E **200 条**（200 passed / 0 failed）、跨浏览器 × 跨视口 **160/160**（Chromium / Firefox / WebKit × 5 视口）、
+> 类型检查 ✅、升级验证 **PASS=17 / FAIL=0**、发布门禁 **PASS=62 / FAIL=0 / BLOCK=1**（BLOCK = R-01 授权）。
+> v0.0.5 的功能增量（举报全链路 / 积分调整 / 头像裁剪+EXIF / 中文搜索 / @ 提及 / 社区限流）
+> 已**逐行标注在下方表格**（搜索「v0.0.5」）；缺陷修复清单见 `BUG_REGISTER.md` V5-01~V5-16。
 
 ## 主题与回复系统
 

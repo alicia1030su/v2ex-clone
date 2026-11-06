@@ -584,3 +584,45 @@ CI 不得有 fake SMTP 启动命令 / `FakeSmtpServer.start` 对 EADDRINUSE 给�
 发布门禁 → 固定 SHA 构建 → 真实安装验证 → SHA256SUMS → 候选镜像 → Digest 核验）。
 
 **R-01 未解决前不建正式 Tag、不发公开 Pre-release。**
+
+---
+
+# 第 7 轮状态快照（2026-11-06，主理人）—— v0.0.5 集成收尾（PR #22 合并前）
+
+## A. 本轮到账的事实（全部实测）
+
+| 项 | 实测值 |
+|---|---|
+| 当前分支 | `feat/v0.0.5-product-completion`，HEAD `5163244`（本地领先 master 25 个提交） |
+| PR #22 | OPEN，`MERGEABLE` / `CLEAN`，head = `5163244`，base = master |
+| PR #22 CI（HEAD `5163244`） | CI ✅ / Docker/Redis 隔离验证 ✅ / 安装验证 ✅（全部实跑通过） |
+| v0.0.4 | 已发布 Pre-release（tag `aed641d` → `c0e7396c`，**未移动**） |
+| v0.0.5 | **未发布**：版本载体仍 0.0.4，无 tag、无 Release —— 符合 G-VER-01 |
+| 单元 / E2E / 跨浏览器 | **327/327** / **200/200** / **160/160** |
+| 迁移核验 | 4 个迁移文件（0000~0003）↔ journal 4 条，一致；`0003_v005_reports.sql` 幂等（IF NOT EXISTS + 部分唯一索引） |
+| 工作区 | 已提交 `5163244`（SKIP_BUILD 顺序修复，V5-T7），无残留未提交改动 |
+
+## B. 本轮新增修复
+
+- **V5-T7**：`scripts/ci/run-e2e-locally.sh` 的 `SKIP_BUILD` 检查原本放在 `.next` 清理**之后**
+  ⇒ `SKIP_BUILD=1` 必然失败（BUILD_ID 已被移走）。`5163244` 对调判定顺序并加 `SKIP_BUILD_ACTIVE` 守卫。
+
+## C. 本轮完成的文档同步（随 PR #22 合入）
+
+- `CHANGELOG.md`：v0.0.5 段落补齐第 4~6 轮（缺陷 19→25 项、测试基线、发布状态 F 节）
+- `BUG_REGISTER.md`：补 V5-T7
+- `FEATURE_MATRIX.md`：头部补 v0.0.5 测试基线权威值
+- `TEST_REPORT.md`：文首补 v0.0.5 基线块（正文历史快照保留）
+
+## D. 合并后的既定动作（下一轮）
+
+1. 合并 PR #22 → 记录 master 最终 SHA。
+2. **不建 v0.0.5 Tag / 不发公开 Release**（R-01 阻断）⇒ 只构建**候选产物**：
+   ZIP 安装包 + SHA256SUMS（标注 candidate）+ GHCR 候选镜像 + Digest。
+3. 从合并后的 master 创建 `feat/v0.0.6-visual-fidelity`，进入 v0.0.6 高保真视觉工程。
+4. v0.0.6 交接文档：`docs/SESSION_HANDOFF_v0.0.6.md`。
+
+## E. 风险与授权边界（不变）
+
+- **R-01 仍 DEFERRED**：禁止未授权改写远端历史 / force push / 删 Tag / 改 Release / 改仓库可见性。
+- v0.0.5 **只交付候选产物**；R-01 相关危险操作仍需单独授权。
