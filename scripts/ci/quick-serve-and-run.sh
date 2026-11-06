@@ -14,6 +14,8 @@ export SESSION_SECRET="ci-only-session-secret-0123456789abcdef0123456789abcdef"
 export APP_URL="http://localhost:3010" NEXT_PUBLIC_APP_URL="http://localhost:3010"
 export ENV_FILE=".env.test"
 export NODE_OPTIONS="" CODEBUDDY_SAFE_DELETE_ENABLED=0 CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
+# v0.0.6：绕过本机代理（Firefox/WebKit 会读 HTTP_PROXY ⇒ localhost 子资源被截走）
+export no_proxy="localhost,127.0.0.1,::1" NO_PROXY="localhost,127.0.0.1,::1"
 
 port_open() {
   node -e "require('net').connect($1,'127.0.0.1').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))" 2>/dev/null

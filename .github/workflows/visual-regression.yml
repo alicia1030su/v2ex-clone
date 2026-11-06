@@ -178,10 +178,14 @@ jobs:
           set +e
           # ⚠️ **不**允许在 CI 里自动更新基线 —— 基线更新必须人工审查。
           #    只有显式勾选 workflow_dispatch 的 update_baseline 才允许。
-          ARGS=(--base http://localhost:3010 --compare-baseline)
+          #
+          # ⚠️ 基线**按平台分文件**（component-baseline-<platform>.json）：
+          #    Windows 与 Linux 的默认字体不同 ⇒ 同样的文本高度不同
+          #    ⇒ 跨平台共用基线必然报假差异（实测 WebKit@320 差 39~51px）。
+          ARGS=(--base http://localhost:3010 --compare-baseline --platform=linux)
           if [ "${{ inputs.update_baseline }}" = "true" ]; then
             echo "::warning::本次运行显式请求更新基线（人工审查责任在发起人）"
-            ARGS=(--base http://localhost:3010 --save-baseline)
+            ARGS=(--base http://localhost:3010 --save-baseline --platform=linux)
           fi
           node tools/visual/regression.mjs "${ARGS[@]}" 2>&1 | tee /tmp/visual-regression.log
           RC=${PIPESTATUS[0]}
@@ -205,7 +209,10 @@ jobs:
           echo "退出码=$RC  回归项=$REGRESS  跨浏览器不一致=$INCONSISTENT  溢出项=$OVERFLOW  基线缺失=$MISSING"
 
           if [ "$MISSING" != "0" ]; then
-            echo "::error::视觉基线缺失 —— 不得静默通过。请人工审查后显式重跑（workflow_dispatch + update_baseline=true）"
+            echo "::error::视觉基线缺失（component-baseline-linux.json）—— 不得静默通过。"
+            echo "::error::基线**按平台分文件**（字体度量不同 ⇒ 跨平台基线不可复用）。"
+            echo "::error::建立方式：workflow_dispatch 勾选 update_baseline=true 跑一次，"
+            echo "::error::下载 artifact 里的 component-baseline-linux.json 审查后入库。"
             exit 1
           fi
           if [ "$OVERFLOW" != "0" ]; then
