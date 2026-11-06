@@ -391,9 +391,13 @@ async function main() {
       const baseline = JSON.parse(await readFile(BASELINE_FILE, 'utf8'));
       console.log(`\n════ 与基线对比（基线保存于 ${baseline.savedAt}）════\n`);
       let regressions = 0;
+      const missingKeys = [];
       for (const [key, r] of Object.entries(results)) {
         const b = baseline.results[key];
         if (!b) {
+          // v0.0.6：**新增组合也算失败** —— 基线缺项意味着「这个组合从未被审查过」，
+          // 静默跳过会让未审查的页面混进「已验证」里。
+          missingKeys.push(key);
           console.log(`  🆕 ${key} 基线中不存在`);
           continue;
         }
@@ -406,9 +410,19 @@ async function main() {
         }
       }
       console.log(`\n[regression] 回归项合计：${regressions}`);
+      if (missingKeys.length > 0) {
+        // v0.0.6：基线缺项必须失败（不得静默跳过未审查的组合）
+        console.log(`[regression] 基线缺项：${missingKeys.length} 个组合不在基线中`);
+        for (const k of missingKeys) console.log(`      ${k}`);
+        process.exitCode = 1;
+      }
       if (regressions > 0) process.exitCode = 1;
     } catch {
+      // v0.0.6：基线文件不存在 ⇒ **失败**，不是警告 ——
+      // 「没有基线」与「基线全部一致」是两回事，混淆会让 CI 绿灯
+      // 掩盖「从未做过视觉验证」这个事实。
       console.log(`\n[regression] ⚠️ 基线不存在（${BASELINE_FILE}）—— 先用 --save-baseline 建立`);
+      process.exitCode = 1;
     }
   }
 
