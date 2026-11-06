@@ -332,6 +332,45 @@ export async function waitForHydration(page: Page, selector: string): Promise<vo
   );
 }
 
+/**
+ * 韧性导航 —— v0.0.7：消除「应用自身导航」与「测试 goto」的竞态
+ *
+ * ## 实测根因（Linux 矩阵 webkit-375x812 失败）
+ *
+ * `软删除主题` 用例里，作者删除自己的主题后：
+ *   1. 应用调 `router.refresh()` 重新拉取服务端组件；
+ *   2. 该主题对非 staff 已 notFound ⇒ Next 客户端路由收到 notFound 载荷后
+ *      **导航到当前 URL 以渲染 404 页**（同 URL 的真实导航事件）；
+ *   3. 这个导航可能**晚于**测试的 API 轮询才到达 ⇒ 与测试随后的
+ *      `page.goto('/')` 抢同一个导航槽位 ⇒ Playwright 报
+ *      `Navigation to "…/" is interrupted by another navigation to "…/t/24"`。
+ *
+ * 这是**测试与应用的正常路由活动竞态**，不是产品缺陷
+ * （用户侧看到的就是「留在原 URL、显示 404」，行为正确）。
+ *
+ * ## 修法
+ *
+ * 被「another navigation」打断时等待稳定后重试（最多 3 次）。
+ * **不削弱任何断言** —— 只是不再让竞态决定成败。
+ */
+export async function gotoResilient(page: Page, url: string, attempts = 3): Promise<void> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await page.goto(url);
+      return;
+    } catch (err) {
+      const msg = String(err);
+      const interrupted = msg.includes('interrupted by another navigation');
+      if (interrupted && i < attempts) {
+        // 等应用自身的导航落地再重试
+        await page.waitForTimeout(400);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 /** 找一个可用的节点 id（优先 programmer，失败则取第一个） */
 export async function pickNodeId(page: Page): Promise<number> {
   const res = await page.request.get('/api/nodes');

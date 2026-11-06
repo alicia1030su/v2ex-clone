@@ -9,6 +9,7 @@ import {
   createTopicViaUi,
   submitReplyViaUi,
   pickNodeId,
+  gotoResilient,
   USER_A,
   USER_B,
 } from './helpers';
@@ -246,7 +247,11 @@ test.describe('v0.0.4 主题编辑 / 软删除 / 恢复', () => {
       .toBe(404);
 
     // 游客看不到（404）
-    await page.goto('/');
+    // ⚠️ v0.0.7：用 gotoResilient —— 删除后 router.refresh() 的迟到 RSC
+    //    （notFound 载荷）会触发「导航到当前 URL 渲染 404」，与 goto 竞态
+    //    （Linux webkit-375x812 实测：Navigation interrupted by another
+    //    navigation to /t/24）。属测试竞态，非产品缺陷。
+    await gotoResilient(page, '/');
     const res = await page.request.get(`/t/${topicId}`);
     expect(res.status()).toBe(404);
 
