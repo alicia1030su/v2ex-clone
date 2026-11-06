@@ -79,7 +79,12 @@ jobs:
             echo "### V2EX 原站对照探测"
             echo ""
             echo "- 报告：\`$REPORT\`"
-            if [ "$REACHABLE" = "true" ]; then
+            BLOCKED=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$REPORT','utf8')).blocked || '')" 2>/dev/null || echo '')
+          if [ "$BLOCKED" != "" ] && [ "$BLOCKED" != "false" ]; then
+            echo "- 结果：**网络可达但被反爬拦截（anti-bot）⇒ UNVERIFIED**"
+            echo "- 说明：Linux runner 网络层可达（DNS/TCP/TLS 正常），但原站对自动化访问返回 Cloudflare 挑战页"
+            echo "- 合规：**不绕过**访问控制；挑战页的测量值不构成与原站的视觉对照证据"
+          elif [ "$REACHABLE" = "true" ]; then
               echo "- 结果：**原站可达** —— 测量数据见 artifact，需人工审查后与本站基线对照"
               node -e "
               const r = JSON.parse(require('fs').readFileSync('$REPORT','utf8'));

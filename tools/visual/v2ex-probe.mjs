@@ -117,7 +117,22 @@ async function main() {
     const resp = await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (!resp) throw new Error('无响应对象');
     report.reachable = true;
-    console.log(`[probe] 原站可达：HTTP ${resp.status()}`);
+    const title = await page.title().catch(() => '');
+    const bodyHead = await page.evaluate(() => document.body?.innerText?.slice(0, 200) ?? '').catch(() => '');
+    const challenged =
+      resp.status() === 403 ||
+      title.includes('Just a moment') ||
+      /checking your browser|verify you are human/i.test(bodyHead);
+    if (challenged) {
+      report.blocked = 'anti-bot';
+      report.reason =
+        `网络层可达（HTTP ${resp.status()}），但原站对自动化访问返回反爬挑战页` +
+        '（Cloudflare "Just a moment..."）⇒ 按合规要求不绕过访问控制，' +
+        '原站对照维持 UNVERIFIED。';
+      console.log(`[probe] 原站网络可达但被反爬拦截（HTTP ${resp.status()}）`);
+    } else {
+      console.log(`[probe] 原站可达：HTTP ${resp.status()}`);
+    }
   } catch (err) {
     report.reason = `连接失败：${err.message.slice(0, 200)}`;
     console.log(`[probe] 原站不可达：${report.reason}`);
@@ -138,21 +153,46 @@ async function main() {
     ...(topicPath ? [{ key: 'topic', path: topicPath }] : []),
   ];
 
+  // 反爬挑战页识别：Cloudflare 的 "Just a moment..." 交互页
+  // （实测：Linux CI 网络可达，但原站对自动化浏览器返回 403 + 挑战页）
+  const isChallengePage = async (pg) => {
+    const title = await pg.title().catch(() => '');
+    const bodyHead = await pg.evaluate(() => document.body?.innerText?.slice(0, 200) ?? '').catch(() => '');
+    return (
+      title.includes('Just a moment') ||
+      /checking your browser|verify you are human|enable javascript and cookies/i.test(bodyHead)
+    );
+  };
+
   for (const pg of pages) {
     try {
       const url = BASE + pg.path;
       const r = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      // 等布局稳定（不轮询，只等一个固定短时间）
       await page.waitForTimeout(1200);
+
+      const httpStatus = r?.status() ?? null;
+      const title = (await page.title().catch(() => '')).slice(0, 120);
+
+      // ⚠️ 反爬挑战页 ⇒ **不得**当作有效对照（也不得绕过）
+      if (httpStatus === 403 || (await isChallengePage(page))) {
+        report.pages[pg.key] = {
+          url,
+          httpStatus,
+          title,
+          blocked: 'anti-bot',
+          note:
+            '原站对自动化访问返回反爬挑战页（Cloudflare "Just a moment..."）。' +
+            '按合规要求不绕过访问控制 ⇒ 本页面对照维持 UNVERIFIED。' +
+            '此处测量值来自挑战页，**不构成**与原站的视觉对照证据。',
+        };
+        report.blocked = true;
+        console.log(`[probe] ${pg.key} ${url} → HTTP ${httpStatus} 反爬挑战页 ⇒ UNVERIFIED`);
+        continue;
+      }
+
       const values = await measure(page, COMPONENTS);
-      const title = await page.title();
-      report.pages[pg.key] = {
-        url,
-        httpStatus: r?.status() ?? null,
-        title: title.slice(0, 120),
-        values,
-      };
-      console.log(`[probe] ${pg.key} ${url} → HTTP ${r?.status()}，${Object.keys(values).length} 项测量`);
+      report.pages[pg.key] = { url, httpStatus, title, values };
+      console.log(`[probe] ${pg.key} ${url} → HTTP ${httpStatus}，${Object.keys(values).length} 项测量`);
     } catch (err) {
       report.pages[pg.key] = { url: BASE + pg.path, error: err.message.slice(0, 200) };
       console.log(`[probe] ${pg.key} 失败：${err.message.slice(0, 120)}`);
