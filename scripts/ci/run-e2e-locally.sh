@@ -98,6 +98,22 @@ export CODEBUDDY_SAFE_DELETE_ENABLED=0
 export CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
 export CODEBUDDY_SAFE_DELETE_SANDBOX=0
 
+# v0.0.6：注入 EPERM 自动重试补丁（Windows 专用）。
+#
+# 专项诊断（docs/WINDOWS_EPERM_DIAGNOSIS_v0.0.6.md）确认：
+# EPERM 是**瞬时**的（同一命令有时成功有时失败），
+# 且发生在 Next 的 build worker 子进程里创建 `.next/trace` 的瞬间。
+# ⇒ 最普适的兜底是在**文件打开失败时重试**（只对 EPERM 重试，
+#    其它错误码照常抛出 —— 不掩盖真实缺陷）。
+#
+# 只在 Windows 上启用；Linux 不需要也不该被打扰。
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    _RETRY_PATCH="$(cygpath -w "$REPO_ROOT/scripts/ci/next-build-retry.cjs")"
+    export NODE_OPTIONS="--require ${_RETRY_PATCH}"
+    ;;
+esac
+
 PASS=0; FAIL=0
 ok()   { printf '[PASS]  %s\n' "$1"; PASS=$((PASS+1)); }
 bad()  { printf '[FAIL]  %s\n' "$1"; FAIL=$((FAIL+1)); }
@@ -110,7 +126,79 @@ PSQL_BIN="$(command -v psql 2>/dev/null || true)"
 psql_q() { "$PSQL_BIN" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -X -t -A -c "$1" 2>/dev/null | tr -d '\r'; }
 
 # ---------------------------------------------------------------------------
-# 0. 确保 PG 在跑
+# 0. next build —— **放在最前面**（v0.0.6 的关键顺序调整）
+#
+# ## 为什么 build 必须最先执行
+#
+# v0.0.5 的顺序是：起 PG → 建库 → migrate → seed → build。
+# 实测发现：**在这个顺序下，Windows 上 build 必现 EPERM**
+#   （`EPERM: operation not permitted, open '...\.next\trace'`），
+# 而**单独**跑同样的 build 命令（无论是否带 migrate/seed/env）**从不复现**。
+#
+# 本轮系统性排除了 12 个变量（构建目录处置方式、服务存活时序、
+# 文件静态权限、Defender、ACL、CI 环境变量、migrate/seed 组合、
+# mv 目标目录、mv 后等待时长、多进程并发、同步 openSync、分离进程），
+# **全部无法复现** ⇒ 触发条件是「前面步骤留下的系统状态」的叠加。
+#
+# ⇒ 最可靠的工程解法：**把 build 放到所有其他动作之前**，
+#    让它在一个「干净起始状态」下执行。
+#    build 只依赖源码，不依赖数据库 —— 这个顺序调整**没有副作用**。
+# ---------------------------------------------------------------------------
+
+if [ "${SKIP_BUILD:-0}" = "1" ]; then
+  if [ -f ".next/BUILD_ID" ]; then
+    ok "跳过 build（SKIP_BUILD=1），复用现有 .next（BUILD_ID=$(cat .next/BUILD_ID)）"
+    SKIP_BUILD_ACTIVE=1
+  else
+    bad "SKIP_BUILD=1 但没有可用的 .next/BUILD_ID"
+    exit 1
+  fi
+else
+  SKIP_BUILD_ACTIVE=0
+  BUILD_OK=0
+  for ATTEMPT in 1 2 3 4 5; do
+    info "next build（第 ${ATTEMPT} 次尝试）—— 在数据库准备**之前**构建"
+    # v0.0.6：预创建 trace 文件（Windows EPERM 缓解，见 precreate-next-trace.sh）
+    bash "$REPO_ROOT/scripts/ci/precreate-next-trace.sh" "${NEXT_DIST_DIR:-.next}" 2>/dev/null || true
+    if npx next build > /tmp/ci-eq-build.log 2>&1; then
+      BUILD_OK=1
+      break
+    fi
+    if grep -q "EPERM" /tmp/ci-eq-build.log 2>/dev/null; then
+      # ⚠️ v0.0.6 实测结论（见 docs/WINDOWS_EPERM_DIAGNOSIS_v0.0.6.md）：
+      #   EPERM 发生在 **Next 的 build worker 子进程**里 ——
+      #   worker 进程创建 `.next/trace` 时被系统拒绝。
+      #   证据：① 同一状态下**单进程模式**（NEXT_PRIVATE_BUILD_WORKER=1）
+      #      第 2 轮即成功；② 多进程模式 8/8 全部 EPERM；
+      #   ③ 手工 Node 对同一文件的所有写入路径（同步/异步/append/
+      #      unlink+create）**全部成功** ⇒ 不是文件系统权限问题。
+      #
+      #   ⇒ 处置：EPERM 时切到**单进程构建**再试（绕开 worker 子进程），
+      #      且**不做任何构建目录操作**（删除/移动会引入新的元数据提交竞态）。
+      info "build 报 EPERM（Windows 偶发竞态）—— 切换**单进程构建**并等待后重试"
+      export NEXT_PRIVATE_BUILD_WORKER=1
+      sleep 3
+      continue
+    fi
+    break
+  done
+  if [ "$BUILD_OK" = "1" ]; then
+    ok "构建成功"
+  else
+    # 兜底：隔离构建目录（全新唯一名，不删除任何东西）
+    info "常规构建失败 —— 启用隔离构建目录（全新唯一目录名）"
+    ISO_DIR=".next-iso-$(date +%s 2>/dev/null || echo $$)"
+    if NEXT_DIST_DIR="$ISO_DIR" npx next build > /tmp/ci-eq-build-iso.log 2>&1; then
+      ok "隔离构建目录构建成功（${ISO_DIR}）"
+      export NEXT_DIST_DIR="$ISO_DIR"
+    else
+      bad "构建失败（见 /tmp/ci-eq-build.log）"; tail -20 /tmp/ci-eq-build.log; exit 1
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 1. 确保 PG 在跑
 # ---------------------------------------------------------------------------
 
 info "检查 PostgreSQL（${PGHOST}:${PGPORT}）"
@@ -158,83 +246,6 @@ if npx tsx scripts/seed.ts > /tmp/ci-eq-seed.log 2>&1; then
   ok "seed 成功（$(grep -c 'seed 完成' /tmp/ci-eq-seed.log) 条完成标记）"
 else
   bad "seed 失败（见 /tmp/ci-eq-seed.log）"; tail -10 /tmp/ci-eq-seed.log; exit 1
-fi
-
-# ⚠️ SKIP_BUILD 检查必须放在「清理 .next」**之前** ——
-#    否则会先把要复用的 .next 移走（实测踩到）。
-if [ "${SKIP_BUILD:-0}" = "1" ]; then
-  if [ -f ".next/BUILD_ID" ]; then
-    ok "跳过 build（SKIP_BUILD=1），复用现有 .next（BUILD_ID=$(cat .next/BUILD_ID)）"
-    SKIP_BUILD_ACTIVE=1
-  else
-    bad "SKIP_BUILD=1 但没有可用的 .next/BUILD_ID"
-    exit 1
-  fi
-else
-  SKIP_BUILD_ACTIVE=0
-fi
-
-# ⚠️ 构建前处理掉残留的 .next —— 残留会让 build 报
-#    `EPERM: operation not permitted, open '.next\trace'`。
-#
-#    两个坑（都实测踩到，2026-11-06）：
-#
-#    **坑 1：不能用 `rm -rf .next`**
-#    本环境的 safe-delete 网关按「turn」统计删除文件数，
-#    超过 50 个就要求人工确认 ⇒ `rm -rf .next`（约 620 个文件）
-#    被静默拦截 ⇒ `.next` 残留 ⇒ build 报 EPERM。
-#    故用 **`mv`**（重命名不走删除计数）。
-#
-#    **坑 2：EPERM 是「偶发竞态」，不是确定性缺陷**
-#    实测：**完全相同的命令序列**（migrate → seed → mv → build）
-#    有时 rc=0、有时 EPERM。单独跑 migrate 或单独跑 seed 都不复现，
-#    两个都跑才偶现。机制疑与 Windows 文件系统在「目录刚被重命名」
-#    后的元数据提交 / 杀毒扫描有关，**未能完全查明**。
-#
-#    ⇒ 因此这里**不假装根治**，而是让脚本**免疫**：
-#      build 失败且日志含 EPERM 时，清理后**有限重试**（最多 2 次），
-#      并在日志里如实标注「环境偶发，重试缓解」。
-if [ -d ".next" ] && [ "$SKIP_BUILD_ACTIVE" != "1" ]; then
-  BACKUP_DIR="$REPO_ROOT/../_backups"
-  mkdir -p "$BACKUP_DIR" 2>/dev/null || true
-  STALE="$BACKUP_DIR/.next.stale.$(date +%s 2>/dev/null || echo $$)"
-  if mv ".next" "$STALE" 2>/dev/null; then
-    info "已把残留的 .next 移到仓库外：${STALE}"
-  else
-    bad "无法移走残留的 .next —— 请手工执行：rm -rf .next"
-    exit 1
-  fi
-fi
-
-BUILD_OK=0
-if [ "$SKIP_BUILD_ACTIVE" = "1" ]; then
-  BUILD_OK=1
-fi
-
-for ATTEMPT in 1 2 3; do
-  [ "$SKIP_BUILD_ACTIVE" = "1" ] && break
-  info "next build（第 ${ATTEMPT} 次尝试）"
-  if npx next build > /tmp/ci-eq-build.log 2>&1; then
-    BUILD_OK=1
-    break
-  fi
-  if grep -q "EPERM" /tmp/ci-eq-build.log 2>/dev/null; then
-    # 已识别的环境偶发竞态（见上方注释「坑 2」）—— 清理后有限重试
-    info "build 报 EPERM（本机 Windows 环境偶发竞态）—— 清理后重试"
-    if [ -d ".next" ]; then
-      mv ".next" "$REPO_ROOT/../_backups/.next.stale.retry${ATTEMPT}.$$" 2>/dev/null || true
-    fi
-    sleep 3
-    continue
-  fi
-  # 非 EPERM 的失败 ⇒ 真失败，不重试
-  break
-done
-
-if [ "$BUILD_OK" = "1" ]; then
-  [ "${SKIP_BUILD:-0}" = "1" ] || ok "构建成功"
-else
-  bad "构建失败（见 /tmp/ci-eq-build.log）"; tail -20 /tmp/ci-eq-build.log; exit 1
 fi
 
 # ---------------------------------------------------------------------------

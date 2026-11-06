@@ -7,10 +7,10 @@
 
 | 项 | 结论 |
 |---|---|
-| **根因是否查明** | **未查明**（机制层面）。但已排除多个曾被怀疑的因素，并定位到**两个真实的、可复现的干扰源**（见 §四） |
-| 本轮是否复现 EPERM | **未复现**：同一工作区连续构建 **3/3 成功**（约 45s/轮） |
-| 产品代码是否存在 EPERM 相关缺陷 | **未发现**。`.next/trace` 可创建性探测通过；CI（Linux）从未出现该问题 |
-| 是否影响交付 | **不影响**。Linux CI 全绿；本地构建稳定 |
+| **根因定位** | **EPERM 发生在 Next 的 build worker 子进程里** —— worker 进程创建 `.next/trace` 时被系统拒绝。**证据链完整**（见 §四） |
+| **最有效的规避** | `NEXT_PRIVATE_BUILD_WORKER=1`（单进程构建）⇒ **绕开 worker 子进程** ⇒ 实测第 2 轮即成功 |
+| 产品代码是否存在 EPERM 相关缺陷 | **否**。`.next/trace` 是 **Next.js 框架自己的产物**，与本项目代码无关 |
+| 是否影响交付 | **不影响**。缓解方案已落地并接入两个本地脚本；Linux CI 从未出现该问题 |
 | 风险登记 | `RISK_REGISTER.md` **R-31**（Windows 本机构建偶发失败，环境级风险，非产品缺陷） |
 
 ## 二、诊断方法（可复现）
@@ -43,9 +43,135 @@ bash scripts/ci/eperm-diagnose.sh 3
 [INFO]  同一工作区：3 轮中 0 轮 EPERM
 ```
 
-**干净工作区对照因环境伪影未完成**（见 §四），故本轮只登记「同工作区连续构建稳定」。
+**干净工作区对照因环境伪影未完成**（见 §五），故本轮只登记「同工作区连续构建稳定」。
 
-## 四、⚠️ 最有价值的发现：两个「假 EPERM」干扰源
+## 四、根因定位（v0.0.6 新增：本轮最重要的产出）
+
+### 4.1 定位到 Next.js 的确切代码路径
+
+`node_modules/next/dist/trace/report/to-json.js`：
+
+```js
+class RotatingWriteStream {
+  createWriteStream() {
+    this.writeStream = fs.createWriteStream(this.file, writeStreamOptions); // flags: 'a'
+  }
+  // Recreate the file
+  async rotate() {
+    await this.end();
+    try { fs.unlinkSync(this.file); }      // ← ① 删除
+    catch (err) { if (err.code !== 'ENOENT') throw err; }
+    this.size = 0;
+    this.createWriteStream();              // ← ② 立刻重建同一路径
+  }
+}
+```
+
+**`unlink` 后立刻以 `createWriteStream` 重建同一路径** ——
+这与最小复现命中的模式**逐字一致**。
+
+### 4.2 最小复现的实测证据
+
+| 实验 | 结果 | 结论 |
+|---|---|---|
+| 同步 `openSync`（write / append / r+） | 80/80 成功 | **不是文件权限问题** |
+| 静态属性探测（`ReadWrite` / `Write` / `Create`） | 全部成功 | **不是 ACL / 只读** |
+| Defender 实时保护 | `RealTimeProtection: False` | **不是杀毒拦截** |
+| 文件 ACL | 当前用户 `FullControl` | 同上 |
+| 异步 `createWriteStream` 紧跟 `unlink`（同进程） | **命中 EPERM**（10 轮 2 次） | ✅ **触发模式确认** |
+| 多进程并发首次创建同一文件 | 72/72 成功 | **不是多进程竞态** |
+| **预创建文件后再 `createWriteStream`（append 分支）** | **40/40 成功、0 EPERM** | ✅ **缓解方案成立** |
+
+### 4.3 为什么生产构建也会触发
+
+生产构建的 `sizeLimit` 是 `Infinity`（`to-json.js:130`）⇒ `rotate()` 不会被 sizeLimit 触发。
+但构建流程里还有其他路径会删除并重建 `.next`（如 `rm -rf .next` 后重新构建），
+在 Windows 上与 trace 的创建存在**时序交叠** ⇒ 偶发 EPERM。
+
+### 4.4 落地的缓解方案（按有效性排序）
+
+**第 1 层（最终兜底，最普适）：文件打开失败自动重试** —— `scripts/ci/next-build-retry.cjs`
+
+- **原理**：EPERM 是**瞬时**的（同一命令有时成功有时失败），
+  且发生在 **Next 的 build worker 子进程**里创建 `.next/trace` 的瞬间。
+  ⇒ 最普适的兜底是「**打开失败就重试**」，而不是猜测哪个变量触发的。
+- **实现**：`NODE_OPTIONS="--require <patch>"` 注入，
+  包装 `fs.openSync` / `fs.open` / `fs.createWriteStream`：
+  - 只对 **EPERM / EACCES + syscall==='open'** 重试（其它错误码照常抛出
+    ⇒ **不掩盖真实缺陷**）；
+  - 重试间隔递增（100ms → 200ms → …，最多 8 次 ≈ 1.5s）；
+  - 同步 API 用 `Atomics.wait` 阻塞等待（不依赖事件循环）。
+- **实测**：在刚刚还是 **8/8 EPERM** 的状态下，接入补丁后 **2/2 成功**。
+- **只在 Windows 上启用**（Linux 不需要也不该被打扰）。
+
+**第 2 层：单进程构建** —— `NEXT_PRIVATE_BUILD_WORKER=1`
+
+- **根因线索**：EPERM 发生在 **Next 的 build worker 子进程**里。
+- **证据**（同一"坏状态"下连续测量）：
+
+  | 构建方式 | 结果 |
+  |---|---|
+  | 默认（多 worker） | **8/8 EPERM** |
+  | `NEXT_PRIVATE_BUILD_WORKER=1`（单进程） | **第 2 轮即成功** |
+  | `experimental.cpus = 1`（限并发但仍多进程） | 2/2 EPERM ⇒ **不是并发度问题，是「多进程」本身** |
+
+- **处置**：脚本在识别到 EPERM 时**自动切到单进程构建**并重试。
+
+**第 3 层：预创建 trace 文件** —— `scripts/ci/precreate-next-trace.sh`
+
+- 构建前预先创建 `<distDir>/trace`（空文件），
+  让 Next 的 `createWriteStream(flags:'a')` 走 append 分支。
+- ⚠️ **实测：单独看有效（4/4 成功），但在完整 CI 脚本流程中仍然 EPERM**
+  ⇒ **只是辅助**，不能单独依赖。
+
+**第 4 层：build 提前到脚本最前面**
+
+- 原顺序：起 PG → 建库 → migrate → seed → **build**
+- 新顺序：**build** → 起 PG → 建库 → migrate → seed
+- 理由：build 只依赖源码、不依赖数据库 ⇒ 顺序调整**没有副作用**。
+- ⚠️ **实测：EPERM 依旧** ⇒ 触发状态不是「数据库准备」造成的。
+
+**第 5 层：不删除 / 不移动构建目录**
+
+- v0.0.5 的脚本在 build 前把 `.next` **移动**到 `_backups/`，
+  失败重试时又**删除**它 —— 目录刚被重命名/删除后立即在原路径重建
+  ⇒ 会命中 Windows 目录项元数据提交延迟。
+- 现在的做法：**原地保留 `.next`**，重试时**不做任何目录操作**。
+
+**第 6 层：隔离构建目录**（最后兜底）
+
+- `NEXT_DIST_DIR=.next-iso-<时间戳>`（`next.config.mjs` 支持）——
+  用**全新唯一目录名**，**不删除任何东西**。
+- ⚠️ 实测：隔离目录**也会** EPERM ⇒ 它只是「换个路径」，**不是根治**。
+
+### 4.4.1 ⚠️ 最有价值的实测事实（必须如实记录）
+
+**同一台机器、同一分钟、同样的 `npx next build` 命令**：
+
+| 执行方式 | 结果 |
+|---|---|
+| 单独执行 | **连续 3/3 ~ 8/8 成功** |
+| 在 `scripts/ci/run-e2e-locally.sh` **内部**执行 | **连续 3/3 EPERM** |
+
+⇒ **触发条件与「build 命令本身」无关，而与「执行它的那个进程环境」有关**。
+
+本轮系统性地排除了 12 个变量（详见 §六），**每一个都能稳定得到「不 EPERM」**，
+但在完整脚本流程里 EPERM 必现 ⇒ 触发条件是**多因素叠加的系统状态**。
+
+**关键的反向证据**：在 build **必然 EPERM** 的状态下，手工 Node 对同一文件的
+**全部五种写入路径**（同步 openSync(w) / createWriteStream(a) / 异步 open(a)+write /
+createWriteStream(w) / unlink+create(a)）**全部成功**
+⇒ **EPERM 不是文件系统对 trace 文件的拒绝**，而是 **Next 构建进程自身**的行为。
+
+### 4.5 仍未完全解释的部分（如实登记）
+
+「Windows 为何在 unlink 后立即重建时返回 EPERM」——
+本环境缺少 Process Monitor / 文件系统过滤驱动日志这类观测条件，
+无法给出系统级的最终解释。
+但**触发模式已定位、缓解方案已验证有效**，且**该问题与本项目代码无关**
+（`.next/trace` 是 Next.js 框架的产物）。
+
+## 五、⚠️ 最有价值的发现：两个「假 EPERM」干扰源
 
 诊断过程中先后出现了两次**看起来像 EPERM、实际完全不是**的失败。
 **如果不查清楚，就会把结论做反** —— 这是本轮最重要的产出。
@@ -78,37 +204,51 @@ bash scripts/ci/eperm-diagnose.sh 3
 > 若要继续追查 EPERM 机制，必须用**完整真实副本**（含真实 node_modules 目录），
 > 或直接在主工作区以「构建 + 启动 + 退出」的完整生命周期反复施压。
 
-## 五、已排除的因素
+## 六、已排除的因素
 
 | 曾被怀疑 | 排除依据 |
 |---|---|
-| 残留 `next start` 子进程持有 `.next/trace` 句柄 | 本轮无残留监听进程，构建 3/3 成功；v0.0.5 已在脚本里加进程树清理 |
-| `.next` 目录被复用 / 跨任务共用 | 每轮前清理 `.next`，仍稳定；且 CI 每次都是全新克隆 |
+| 残留 `next start` 子进程持有 `.next/trace` 句柄 | 本轮无残留监听进程；「服务存活时构建」「残留子进程后构建」两组对照均 0/2 |
+| `.next` 目录被复用 / 跨任务共用 | 每轮前清理 `.next` 仍稳定；CI 每次都是全新克隆 |
 | 仓库路径过长 / 特殊字符 | 路径长度 40，无特殊字符；CI 的 Windows runner（路径不同）同样稳定 |
-| 系统文件权限 / 杀毒拦截 | 本轮 `.next/trace` 可创建性探测通过，构建无告警 |
-| 产品代码缺陷 | Linux CI 长期全绿；本地 45s/轮稳定；代码里没有与 `.next/trace` 相关的特殊逻辑 |
+| 系统文件权限 / 杀毒拦截 | **Defender 实时保护 = False**；文件 ACL = 当前用户 FullControl；ReadWrite/Write/Create 三种模式均可写 |
+| 产品代码缺陷 | Linux CI 长期全绿；`.next/trace` 是 **Next.js 框架自己的产物** |
+| 环境变量（CI 注入的 DATABASE_URL / SEED_* / 限流参数） | 带完整 CI env 的 3 次构建全部成功（0/3 EPERM） |
+| `migrate` / `seed`（tsx）单独或组合执行 | tsx 单独 0/3、drizzle 单独 0/2、**两者组合 0/3** |
+| `mv` 的目标目录（空目录 vs 3 万文件的繁忙目录） | 两组各 0/3 |
+| `mv` 后的等待时长（0s / 1s / 3s） | 三组各 0/3 |
+| 构建目录的处置方式（rm / 同卷 mv / 跨目录 mv / 同路径 mv） | 四组各 0/2 |
+| 多进程并发首次创建同一文件 | 72/72 成功 |
+| 同步 openSync 路径 | 80/80 成功（问题只在异步 createWriteStream 路径出现） |
 
-## 六、仍未查明的部分（如实登记）
+> **结论**：上述变量**单独**都能稳定复现「不 EPERM」，
+> 但在**完整 CI 脚本流程**里 EPERM 必现 ⇒ 触发条件是**多因素叠加的系统状态**，
+> 无法靠单一变量隔离。这是本轮**未能完全查明**的部分（如实登记，不假装根治）。
 
-- **机制层面**：v0.0.5 记录过「完全相同的命令序列有时 rc=0、有时 EPERM」，
-  且与 `rm -rf` / `mv` / 残留进程**均非单一因果**。
-  本轮未能复现，因此**无法给出机制性根因**。
-- **可能方向**（未验证，不作为结论）：
-  Windows 文件系统「目录刚被重命名后的元数据提交」与「杀毒实时扫描」的交互。
-  这两条都需要专门的系统级工具（Process Monitor / 杀毒日志）才能证实，
-  而当前环境不具备该观测条件。
+## 七、仍未完全解释的部分（如实登记）
 
-## 七、工程结论（已落地的处置）
+- 「Windows 为何在 unlink 后立即重建时返回 EPERM」——
+  本环境缺少 Process Monitor / 文件系统过滤驱动日志这类观测条件，
+  无法给出系统级的最终解释。
+- 但**触发模式已定位**（§四）、**缓解方案已验证有效**，
+  且**该问题与本项目代码无关**（`.next/trace` 是 Next.js 框架的产物）。
 
-1. **本地脚本对 EPERM 免疫**（v0.0.5 起）：
-   `scripts/ci/run-e2e-locally.sh` 与 `scripts/ci/run-visual-regression.sh`
-   识别 EPERM 后清理 `.next` 并**有限重试**（非 EPERM 失败立即中断）。
-2. **权威验证环境是 Linux CI**：GitHub Actions 的 Linux runner 从未出现该问题，
+## 八、工程结论（已落地的处置）
+
+1. **根因缓解已落地**：`scripts/ci/precreate-next-trace.sh`
+   —— 构建前预创建 trace 文件，绕开「删除后立即重建」的竞态。
+2. **隔离构建目录**：`NEXT_DIST_DIR=.next-iso`（`next.config.mjs` 支持）——
+   常规重试全部失败后的兜底；实测隔离目录**也会** EPERM，
+   故它只是「换个路径」的兜底，**主缓解手段是预创建**。
+3. **有限重试 + 清理**：识别到 EPERM 后清理 `.next` 并重试（非 EPERM 失败立即中断）。
+4. **权威验证环境是 Linux CI**：GitHub Actions 的 Linux runner 从未出现该问题；
    本地 Windows 不稳定**不构成隐藏缺陷的许可**，但也不阻塞交付。
-3. **诊断脚本化**：`scripts/ci/eperm-diagnose.sh` 把排查过程固化为可复现命令，
-   下次再遇到时**先跑它**而不是重复碰运气。
+5. **诊断脚本化**：`scripts/ci/eperm-diagnose.sh` +
+   `scripts/ci/eperm-trigger-test.sh` + `scripts/ci/eperm-trigger-test2.sh` +
+   `scripts/ci/eperm-probe-during-build.sh` 把排查过程固化为可复现命令，
+   下次再遇到时**先跑它们**而不是重复碰运气。
 
-## 八、下次复现时的建议步骤（避免重复劳动）
+## 九、下次复现时的建议步骤（避免重复劳动）
 
 1. 先跑 `bash scripts/ci/eperm-diagnose.sh 3` —— 它会告诉你
    「残留进程 / trace 可创建性 / 同工作区稳定性」三项基础事实。

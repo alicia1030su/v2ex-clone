@@ -76,6 +76,19 @@ else
   bad ".next/trace 创建失败：$(cat /tmp/trace-probe.log)"
 fi
 
+# v0.0.6 追加：静态可写性不足以排除锁 —— 实测「构建期间」也能写。
+# 这里额外记录文件的**静态属性**（只读 / 隐藏 / 系统），供事后比对。
+if [ -f .next/trace ]; then
+  node -e "
+    const fs=require('fs');
+    const p=process.argv[1];
+    const st=fs.statSync(p);
+    let mode='OK';
+    try { const fd=fs.openSync(p,'w'); fs.closeSync(fd); } catch(e) { mode='FAIL:'+e.code; }
+    console.log('  trace 属性: mode='+(st.mode & 0o777).toString(8), 'size='+st.size, '独占写='+mode);
+  " "$(cygpath -w "$REPO_ROOT/.next/trace")" 2>/dev/null || true
+fi
+
 # ---------------------------------------------------------------------------
 # 2. 连续构建（同一工作区）—— 观察 EPERM 是否复现
 # ---------------------------------------------------------------------------

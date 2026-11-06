@@ -76,6 +76,14 @@ export CODEBUDDY_SAFE_DELETE_ENABLED=0
 export CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
 export CODEBUDDY_SAFE_DELETE_SANDBOX=0
 
+# v0.0.6：注入 EPERM 自动重试补丁（Windows 专用，见 next-build-retry.cjs）
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    _RETRY_PATCH="$(cygpath -w "$REPO_ROOT/scripts/ci/next-build-retry.cjs")"
+    export NODE_OPTIONS="--require ${_RETRY_PATCH}"
+    ;;
+esac
+
 PASS=0; FAIL=0
 ok()   { printf '[PASS]  %s\n' "$1"; PASS=$((PASS+1)); }
 bad()  { printf '[FAIL]  %s\n' "$1"; FAIL=$((FAIL+1)); }
@@ -109,6 +117,44 @@ if port_open; then
 else
   bad "PostgreSQL 未就绪（${PGHOST}:${PGPORT}）"
   exit 1
+fi
+
+# 4. next build（EPERM 免疫：识别后清理 + 有限重试；非 EPERM 立即中断）
+# ---------------------------------------------------------------------------
+
+if [ "${SKIP_BUILD:-0}" = "1" ]; then
+  # ⚠️ v0.0.6：实测发现 **SKIP_BUILD 复用旧 .next 会让视觉回归失真** ——
+  #   复用的 .next 与当前源码不一致（CSS 缺失）⇒ Firefox@320 复现 14px 溢出、
+  #   218~246 项「跨浏览器不一致」，而这些全是**工具环境假象**，不是产品缺陷。
+  #   视觉回归必须基于**当前源码的构建**，故此处直接拒绝 SKIP_BUILD。
+  bad "视觉回归不支持 SKIP_BUILD=1（复用的 .next 与当前源码不一致 ⇒ 结论失真）"
+  exit 1
+else
+  BUILD_OK=0
+  for ATTEMPT in 1 2 3 4 5; do
+    info "next build（第 ${ATTEMPT} 次尝试）"
+    # v0.0.6：预创建 trace 文件（Windows EPERM 缓解，见 precreate-next-trace.sh）
+    bash "$REPO_ROOT/scripts/ci/precreate-next-trace.sh" "${NEXT_DIST_DIR:-.next}" 2>/dev/null || true
+    if npx next build > /tmp/vis-build.log 2>&1; then
+      BUILD_OK=1
+      break
+    fi
+    if grep -q "EPERM" /tmp/vis-build.log; then
+      # ⚠️ v0.0.6：EPERM 发生在 Next 的 **build worker 子进程**里 ⇒
+      #    切换单进程构建（NEXT_PRIVATE_BUILD_WORKER=1）绕开 worker；
+      #    且**不删除/不移动** .next（避免引入目录元数据提交竞态）。
+      info "识别到 EPERM（Windows 偶发竞态）—— 切换**单进程构建**并等待后重试"
+      export NEXT_PRIVATE_BUILD_WORKER=1
+      sleep 3
+      continue
+    fi
+    break
+  done
+  if [ "$BUILD_OK" = "1" ]; then
+    ok "构建成功"
+  else
+    bad "构建失败（见 /tmp/vis-build.log）"; tail -20 /tmp/vis-build.log; exit 1
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -151,39 +197,6 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. next build（EPERM 免疫：识别后清理 + 有限重试；非 EPERM 立即中断）
-# ---------------------------------------------------------------------------
-
-if [ "${SKIP_BUILD:-0}" = "1" ]; then
-  # ⚠️ v0.0.6：实测发现 **SKIP_BUILD 复用旧 .next 会让视觉回归失真** ——
-  #   复用的 .next 与当前源码不一致（CSS 缺失）⇒ Firefox@320 复现 14px 溢出、
-  #   218~246 项「跨浏览器不一致」，而这些全是**工具环境假象**，不是产品缺陷。
-  #   视觉回归必须基于**当前源码的构建**，故此处直接拒绝 SKIP_BUILD。
-  bad "视觉回归不支持 SKIP_BUILD=1（复用的 .next 与当前源码不一致 ⇒ 结论失真）"
-  exit 1
-else
-  BUILD_OK=0
-  for ATTEMPT in 1 2 3; do
-    info "next build（第 ${ATTEMPT} 次尝试）"
-    if npx next build > /tmp/vis-build.log 2>&1; then
-      BUILD_OK=1
-      break
-    fi
-    if grep -q "EPERM" /tmp/vis-build.log; then
-      info "识别到 EPERM（Windows 偶发竞态）—— 清理 .next 后有限重试"
-      rm -rf ".next" 2>/dev/null || true
-      sleep 3
-      continue
-    fi
-    break
-  done
-  if [ "$BUILD_OK" = "1" ]; then
-    ok "构建成功"
-  else
-    bad "构建失败（见 /tmp/vis-build.log）"; tail -20 /tmp/vis-build.log; exit 1
-  fi
-fi
-
 # ---------------------------------------------------------------------------
 # 5. 启动应用（退出时杀整个进程树）
 # ---------------------------------------------------------------------------
