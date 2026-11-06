@@ -45,6 +45,7 @@ v0.0.5 走的是「**先补功能、再补验证**」的路线，
 | **@ 提及通知** | `src/lib/mentions.ts` + 回复时写入 `type: 'mention'` 通知 —— 补齐了一个「**UI 一直有、生成逻辑一直没有**」的半成品 |
 | **社区动作频率限制** | `src/lib/community-rate-limit.ts`（**用户 + IP 双维度**，阈值可 env 覆盖） |
 | **多浏览器 × 多视口 E2E** | `E2E_CROSS=1` 展开 **3 浏览器 × 5 视口 = 15 个 project** |
+| **v0.0.5 升级 / 备份恢复验证** | `scripts/release/verify-upgrade-v005.sh` —— **PASS=17 / FAIL=0**（原地升级 + 幂等 + 备份恢复，**全部实跑**）；`docs/UPGRADE_RECOVERY_v0.0.5.md`（含**实跑中发现的 4 个 Windows 专属缺陷**）|
 | **v0.0.5 新增路径性能压测** | `scripts/perf/v005-path-benchmark.ts` —— 搜索 / 通知 / 积分三条路径；`docs/PERF_BENCHMARK_v0.0.5.md`（**实测报告**，含「2 字中文查询命中不了 trigram 索引」的发现与决策）|
 
 #### B. 修复的**真实缺陷**（19 项，全部由实测发现，不是代码审查臆测）
@@ -82,6 +83,7 @@ v0.0.5 走的是「**先补功能、再补验证**」的路线，
 - `docs/SEARCH_BENCHMARK_v0.0.5.md` —— **四方案横向实测 + 性能对照报告**
 - `docs/CROSS_BROWSER_VISUAL_REPORT_v0.0.5.md` —— 跨浏览器 × 跨视口实测
 - `docs/COMMUNITY_FEATURES_EVALUATION_v0.0.5.md` —— **私信等社区能力评估**（含原站实测：**原站没有私信功能**）
+- `docs/UPGRADE_RECOVERY_v0.0.5.md` —— **v0.0.5 安装 / 升级 / 恢复验证报告**（**PASS=17 / FAIL=0 全部实跑**；含**实跑中发现的 4 个 Windows 专属缺陷**—— 静态审查永远发现不了这一类问题）
 - `docs/PERF_BENCHMARK_v0.0.5.md` —— **v0.0.5 新增路径性能压测报告**（搜索 / 通知 / 积分；含**压测脚本自身的两次返工**记录与「**2 字中文查询命中不了 trigram 索引**」的实测发现）
 
 ---
