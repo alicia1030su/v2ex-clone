@@ -266,16 +266,18 @@ Windows 本机偶发问题仍由重试补丁兜底。**机制最后一环未完�
 
 ### 9.2 本轮实际同步
 
-最终 SHA `535c421` 固定后，**一次性**同步到 **0.0.7**（提交 `d3c1682`，PR #28）。
+最终 SHA `535c421` 固定后，**一次性**同步到 **0.0.7**（提交 `d3c1682`，PR #28 已合并
+→ master `a0eea16`）。**候选包由 master 最终提交 `a0eea16` 重建**。
 **不是**只改 ZIP 文件名 —— 包内 7 处载体全部是真实 0.0.7。
 
 ### 9.3 候选包
 
 | 项 | v0.0.5 | v0.0.6 | **v0.0.7** |
 |---|---|---|---|
-| ZIP | `…-v0.0.5-candidate-2ffea3e-deploy.zip` | `…-v0.0.6-candidate-657f849-deploy.zip` | **`v2ex-clone-v0.0.7-candidate-d3c1682-deploy.zip`** |
-| 大小 | 51,769 B | 51,769 B | **51,773 B** |
-| SHA256 | `47656d2b…` | `8a173352…` | **`1c11d806766b78c7c3f7887cfa6c462a678eddbb6ed8d5934302ddcd9b95bb6b`** |
+| ZIP | `…-v0.0.5-candidate-2ffea3e-deploy.zip` | `…-v0.0.6-candidate-657f849-deploy.zip` | **`v2ex-clone-v0.0.7-candidate-a0eea16-deploy.zip`** |
+| 大小 | 51,769 B | 51,769 B | **51,774 B** |
+| SHA256 | `47656d2b…` | `8a173352…` | **`b53e47c38847a9cd505ca24ddf373d28b7a72f724bc5a269fa8adfd2d0ba4266`** |
+| 来源提交 | `2ffea3e` | `657f849` | **`a0eea16`（master 最终提交）** |
 | 校验 | OK | OK | **`sha256sum -c` OK** |
 | 包内 VERSION | 0.0.4 | 0.0.4 | **0.0.7** ✅ |
 | 12 个必需文件 | 齐全 | 齐全 | **齐全** |
@@ -344,7 +346,7 @@ Windows 本机偶发问题仍由重试补丁兜底。**机制最后一环未完�
 | 项 | 状态 |
 |---|---|
 | PR #27 | **MERGED**（squash）→ master `535c421` |
-| PR #28 | 版本同步 + CHANGELOG + 交付报告 + 交接文档（release/v0.0.7 → master） |
+| PR #28 | **MERGED**（squash）→ master `a0eea16`（版本同步 + CHANGELOG + 交付报告 + 交接文档） |
 | 工作流 | CI / Docker-Redis / 安装验证 / 视觉回归验收 / **E2E 跨浏览器矩阵（新增）** / **原站对照探测（新增）** |
 | CI 链接 | https://github.com/alicia1030su/v2ex-clone/pull/27 （checks 页） |
 | Tag / Release | **未创建**（R-01 阻断） |
