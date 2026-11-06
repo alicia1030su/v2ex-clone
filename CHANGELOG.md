@@ -7,6 +7,74 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [Unreleased] — v0.0.7（已合入 master `535c421`，尚未发布）
+
+> **版本载体已同步到 0.0.7**（最终 SHA `535c421` 固定后一次性同步，7 个载体全部复验通过）。
+> **R-01 未解决 ⇒ 不建 v0.0.7 Tag、不发公开 Release**，只交付候选产物。
+> PR #27 已于 2026-11-07 合并（squash），CI 全绿：
+> **3000 条跨浏览器用例（15 分片 × 200）全部通过**、341+12 条单元测试、
+> 63 组合视觉回归、Docker 安装验证、原站探测。
+
+### v0.0.7：跨浏览器稳定性、真实 V2EX 视觉对照、测试可靠性和发行质量完善版
+
+#### A. 820 个失败用例的归因（全部有取证证据）
+
+v0.0.6 的 703 个失败产物批量提取错误类型：1022 处
+`apiRequestContext.connect ECONNREFUSED 127.0.0.1:3010` + 368 处
+`page.goto: Could not connect to server` ⇒ **主体是「长时间压测后服务器不可达」**。
+
+**Linux 分片矩阵**（15 分片 = 3 浏览器 × 5 视口，每片独立 runner VM / 测试库 /
+应用端口 / SMTP 端口 / workers=1 / retries=0 / fail-fast=false）把同一批用例
+收敛到 **9 个失败**，并暴露 **1 个真实产品缺陷**。
+
+#### B. 唯一的真实产品缺陷（V7-05，严重）
+
+**303 重定向把用户带到错误的 host。**
+`new URL(redirect, request.url)` —— Next 在 `next start` 下按**服务器自身 hostname**
+（默认 localhost）重建 `request.url`，而非客户端实际请求的 Host 头。
+
+取证（逐步 nav-diag）：baseURL 与注册后 URL 都是 `127.0.0.1`（正确），
+提交原生表单（`POST /api/replies`）后被 303 到 **`localhost`**。
+
+后果：① 浏览器出现**两个** `v2_csrf` cookie（middleware 按请求 host 各下发一个）；
+② 之后任何写操作携带 A 域 token、服务端读到 B 域 ⇒ `verifyCsrf` 失败
+⇒ **403「CSRF 校验失败」**；③ **反代 / 多域名 / 局域网部署下用户被重定向到
+打不开的 host**。
+
+修法：新增 `src/lib/redirect-url.ts` —— `buildRedirectUrl(request, path)` 用请求头
+构造同源 URL（`x-forwarded-host` 优先于 `host`，`x-forwarded-proto` 决定协议；
+Host 缺失回退 `request.url`；协议相对 URL 显式拦为 `/`），replies 路由改用它。
+12 条单元测试锁住行为。
+
+#### C. 另外 4 项测试基础设施缺陷（V7-01 ~ V7-04）
+
+| ID | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| V7-01 | 矩阵把 200/200 全过判成失败（13 分片全红） | Playwright JSON 的 `test.status` 是**期望状态**、`result.status` 才是实际结果 | 按 `result.status` 判定 + **与原生 `stats` 交叉核对**（不一致即 exit 3） |
+| V7-02 | Firefox 全视口稳定 403 | 浏览器有两个 `v2_csrf` cookie，`cookies.find()` 取错域那个 | 按**当前 URL 的 host** 精确匹配 domain，失败时退回 `document.cookie` |
+| V7-03 | 楼层计数差 1 | `page.waitForURL` 在 URL 已匹配时**立即返回**（实测 1ms） | 轮询等待「楼层数确实 +1」这个真实终态，断言一条不少 |
+| V7-04 | 导航被应用自身导航打断 | 删除后 `router.refresh()` 的迟到 RSC（notFound）触发同 URL 导航 | 新增 `gotoResilient` helper（被 "interrupted by another navigation" 打断时重试） |
+
+#### D. 原站对照：查清了为什么不可达
+
+| 环境 | 网络层 | 内容层 |
+|---|---|---|
+| 开发机 Windows | DNS 正常（128.121.146.109），**TCP/TLS 直连与代理路径均超时** ⇒ 网络层阻断 | — |
+| GitHub Actions Linux | **DNS/TCP/TLS 全部正常** | 原站对自动化访问返回 **HTTP 403 + Cloudflare 挑战页**（"Just a moment..."） |
+
+按合规要求**不绕过**访问控制 ⇒ 原站对照维持 **UNVERIFIED**。
+探测脚本已能识别挑战页并标记 `blocked: 'anti-bot'`，不再把错误页当成有效对照
+（此前会把挑战页的 22 项测量当作原站数据）。
+
+#### E. 发行质量
+
+- **版本载体同步自动化**（`scripts/release/sync-version.mjs`）：7 个载体
+  （package.json / deploy/VERSION / .env.example / install.sh / install.ps1 /
+  docker-compose.yml / README.md）+ 脏树保护 + 写后复验 + 三模式
+  （同步 / --verify / --dry-run）
+- **Windows EPERM 补丁审计**（`next-build-retry.cjs`）：8 项要求逐条核对通过，
+  并修正「重试耗尽时在 setTimeout 里 throw ⇒ 未捕获异常」
+
 ## [Unreleased] — v0.0.6（已合入 master `657f849`，尚未发布）
 
 > ⚠️ **版本号尚未同步**：`package.json`、`deploy/VERSION` 等版本载体仍为 `0.0.4`。
