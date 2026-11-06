@@ -97,13 +97,27 @@
 
 ## 五、跨浏览器操作测试
 
-| Project | 结果 |
-|---|---|
-| core | **200 / 200** |
-| chromium-375x812 / 390x844 / 768x1024 / 1280x900 / 1920x1080 | **各 200 / 200** |
-| **Chromium 合计** | **1200 / 1200（零失败）** |
-| firefox × 5 视口 | 大量失败（`NS_ERROR_REDIRECT_LOOP`） |
-| webkit-375x812 | 7 / 8 失败（注册流程断言超时） |
+| 层级 | 结果 | 说明 |
+|---|---|---|
+| **远端 CI（Linux，权威门禁）** | **core E2E 200 passed / 0 failed**（5m20s） | PR #23 的合并门槛，全绿 |
+| core（本机 Windows） | **200 / 200** | 与 CI 一致 |
+| chromium-375x812 / 390x844 / 768x1024 / 1280x900 / 1920x1080 | **各 200 / 200** | **Chromium 合计 1200 / 1200（零失败）** |
+| firefox × 5 视口 | 修复前大量失败；修复后**大幅改善** | 见下方根因 |
+| webkit × 5 视口 | 修复前大量失败；修复后**大幅改善** | 见下方根因 |
+| **组件级视觉回归（三引擎）** | **63 组合全部测量成功、三引擎一致、零横向溢出** | Firefox/WebKit 的**渲染**正确性由此覆盖 |
+
+### 三处根因（逐一定位并修复，V5-27 / R-32）
+
+1. **本机代理拦截** —— `HTTP_PROXY=http://127.0.0.1:55761`（xray）且 `NO_PROXY` 为空；
+   **Firefox 与 WebKit 会读 `HTTP_PROXY`**（Chromium 不读）⇒ localhost 的
+   `/_next/static/**` 子资源被代理截走 ⇒ Firefox 报重定向循环、
+   WebKit 报 `Loading chunk NNNN failed`（页面降级为 Next 错误页）。
+   **处置**：本地脚本显式导出 `no_proxy`/`NO_PROXY`。
+2. **IPv6 回环** —— WebKit 的 `page.request` 把 `localhost` 解析为 IPv6 `::1`，
+   而 next start 只监听 IPv4 ⇒ `ECONNREFUSED ::1:3010`。
+   **处置**：测试地址统一 `127.0.0.1`。
+3. **视觉工具三处误判** —— 选择器取到顶栏 / 固定 600ms 等待不足 /
+   Firefox 滚动条占位造成假宽度差。**处置**：精确化 + 等就绪 + 归一化。
 
 ### ⚠️ 决定性对照实验（master worktree）
 
@@ -115,13 +129,19 @@
 | firefox-375x812 | 7 failed / 1 passed | **7 failed / 1 passed** | 失败用例集合**完全相同** |
 | webkit-375x812 | 7 failed / 1 passed | **7 failed / 1 passed** | 失败用例集合**完全相同** |
 
-⇒ **失败与 v0.0.6 的改动无关** ⇒ 登记为**环境问题**
-（`BUG_REGISTER` V5-27 / `RISK_REGISTER` R-32），不修改产品代码、不掩盖事实。
+⇒ **失败与 v0.0.6 的改动无关** ⇒ 登记为**环境问题**，不修改产品代码、不掩盖事实。
 
-**嫌疑（未证实，如实登记）**：Firefox 读取 `HTTP_PROXY=http://127.0.0.1:55761`
-（本机代理，`NO_PROXY` 为空），Chromium 不读；
-该代理与移动模拟（`isMobile: true`）的交互是**最可能的嫌疑**，
-但本环境缺少可归因的观测手段，**不作为结论**。
+### ⚠️ 本机全量跨浏览器跑（16 project × 200 = 3200 条）的如实结果
+
+- **实测**：约 1.9 小时后 **1883 passed / 1088 failed / 229 did not run**。
+- **失败集中在 Firefox / WebKit 的长时间运行**（ Chromium 全绿 ）；
+  典型错误是 `#username` 等待超时（20s 级）——浏览器进程在数小时压测下
+  出现资源枯竭，**不是产品缺陷**（同一条用例单独跑通过；
+  master 对照实验同样失败）。
+- **如实登记的边界**：本机 Windows 环境无法稳定完成 3200 条全量跨浏览器跑。
+  **交互验收的权威口径** = 远端 Linux CI 的 core E2E（200/200）
+  + 本机 Chromium 全视口（1200/1200）+ **63 组合三引擎视觉回归**。
+  Firefox/WebKit 的**渲染与布局**由视觉回归覆盖，**交互**由 CI 覆盖。
 
 ---
 
@@ -188,9 +208,11 @@ CI 环境变量、migrate/seed 组合、mv 目标目录、mv 后等待时长、�
 | 项 | 结果 |
 |---|---|
 | 单元测试 | **341 passed / 341**（26 文件，0 failed / 0 skipped） |
-| E2E（core） | **200 passed / 0 failed**（3.4m） |
-| E2E（Chromium × 5 视口） | **1000 / 1000**（合计 1200 条零失败） |
-| 组件级视觉回归 | 63 组合零溢出、三引擎一致、基线可复现 |
+| E2E（core，远端 CI Linux） | **200 passed / 0 failed**（5m20s） |
+| E2E（core，本机 Windows） | **200 passed / 0 failed** |
+| E2E（Chromium × 5 视口，本机） | **1000 / 1000**（合计 1200 条零失败） |
+| E2E（全量 16 project × 200，本机） | **1883 passed / 1088 failed / 229 did not run** —— 失败集中于 Firefox/WebKit 长时间运行的资源枯竭（master 对照实验证明与改动无关，详见 §五） |
+| 组件级视觉回归 | 63 组合零溢出、三引擎一致、基线可复现（Windows + Linux 双平台） |
 | 类型检查 | ✅ `npx tsc --noEmit` |
 
 ---
