@@ -477,3 +477,110 @@ global-setup 是同一个道理的另一个实例，只是**从来没被对齐�
 | 密码重置 E2E（CI 一致 env） | **4 / 4 通过** |
 | 全量 E2E（CI 一致 env） | 见下（本轮重跑确认） |
 | 类型检查 | ✅ `npx tsc --noEmit` |
+
+---
+
+# 第 6 轮状态快照（2026-11-06，主理人）—— 远端 CI E2E 失败已修复
+
+> 本轮**唯一任务**（任务书 §一）：修复 PR #22 的远端 CI E2E 失败。
+> 远端 run：`42142762352`。修复提交：`ff18c1d` / `3ae22ed` / `d480f02` / `5b9f8e3`。
+
+## A. 远端失败现象
+
+```
+E2E 测试 job FAILED
+✘ 188 [core] › e2e/v005-password-reset-flow.spec.ts:57:1
+      › 游客：未登录也能打开「忘记密码」页
+Error: listen EADDRINUSE: address already in use 127.0.0.1:3025
+```
+
+## B. 根因（两层）
+
+### 表层：CI 与 spec 抢同一个端口
+
+CI 有「启动 fake SMTP server」步骤，spec 的 `beforeAll` 也起一个 —— 都监听 3025。
+fake server **必须**跑在测试进程里 ⇒ CI 那步是**纯冗余且有害**。
+
+**修法**：删掉 CI 的启动/停止步骤。
+
+### 深层：删掉端口冲突后，又暴露了第二个缺陷
+
+以 CI 一致环境本地复现，端口冲突没了，但**全链路用例返回 429**。
+
+证据链：
+```
+rate_limit_buckets 实测：
+  ratelimit:forgot_password_ip:127.0.0.1 | count=12 | window_start=09:45
+  ratelimit:signup_ip:127.0.0.1         | count=3  | window_start=09:50
+```
+⇒ `clearRateLimits()` 根本没生效。
+
+再下钻：
+```
+SHELL_TOKEN=ci-debug-token-not-for-production      ← shell 注入
+DIAG_WORKER_TOKEN="test-debug-token-local-only"    ← worker 实际拿到的
+```
+
+**根因**：`e2e/global-setup.ts` 用 `loadEnv({ override: true })`
+⇒ **ENV_FILE 文件覆盖了 shell 注入**，而服务端（next start）继承 shell
+⇒ 两边令牌不一致 ⇒ debug 端点 401 ⇒ **限流静默失效** ⇒ 429。
+
+这与 `src/lib/env-loader.mjs` 的语义（shell > ENV_FILE > …）**正好相反**
+—— `drizzle.config.ts` 顶部的长注释早已明确「父进程注入的变量最高优先级」，
+global-setup 是同一个道理的另一个实例，只是**从来没被对齐过**。
+
+## C. 修法（两层，缺一不可）
+
+1. **根本**：`global-setup` 的 `override` 改为恒 `false`，对齐 env-loader
+2. **防御**：`clearRateLimits` 失败时**抛错**而非静默返回
+   （原实现静默 ⇒ 限流没清 ⇒ 429 ⇒ 而 429 完全指不到真正原因）
+
+> **本轮最重要的工程教训**：
+> **静默失效是最危险的问题形态** ——
+> 它把「配置错误」伪装成「业务逻辑失败」，
+> 让排查者沿着完全错误的方向花掉整轮时间。
+
+## D. 新增回归护栏（`tests/v005-e2e-fixtures.spec.ts`，5 条）
+
+固定端口唯一性 / `FakeSmtpServer` 只走 `start()` / fake server 由 spec 自己起 /
+CI 不得有 fake SMTP 启动命令 / `FakeSmtpServer.start` 对 EADDRINUSE 给出清晰错误。
+
+## E. 新增 `scripts/ci/run-e2e-locally.sh`
+
+把 CI 的 e2e job 固化成脚本（建全新库 → migrate → seed → build → 启动 → E2E → 收尾）。
+**为什么需要**：用超长一行 shell 命令复现 CI 时，某一步失败会让后续 `export` 不执行
+⇒ `LOCAL_BASE` 没设上 ⇒ **175 个用例一起挂**，而报错指不到「export 没执行」。
+
+## F. ⚠️ 本机 Windows 的 build EPERM 问题（**未根治，如实记录**）
+
+`next build` 报 `EPERM: operation not permitted, open '.next\trace'`。
+
+实测结论：
+- **不是确定性缺陷** —— 完全相同的命令序列有时 rc=0、有时 EPERM
+- 与 `rm -rf` / `mv` / 残留进程都**不是**单一因果关系（逐一验证过）
+- 机制疑与 Windows 文件系统「目录刚被重命名后的元数据提交 / 杀毒扫描」有关，**未能查明**
+
+**当前处理**：
+- 脚本对 EPERM **免疫**（识别后清理 + 有限重试，非 EPERM 失败立即中断）
+- 脚本支持 `SKIP_BUILD=1` 复用已有 `.next`
+- **CI（Linux）上不存在此问题** —— 远端 CI 是更权威的验证环境
+
+⚠️ 这不是「盲目重跑碰运气」：重试只针对**已识别的 EPERM**、次数有限、每次有明确日志。
+
+## G. 本轮实测
+
+| 项 | 结果 |
+|---|---|
+| 单元测试 | **327 passed / 327（25 文件）** |
+| 密码重置 E2E（本地 CI 等价：全新库 + CI env） | **4 / 4 通过** |
+| 本地 CI 等价复现自检 | **PASS=8 / FAIL=0**（含 debug 端点可用性自检） |
+| 全量 E2E（本地） | 见下（受 Windows build 偶发问题影响） |
+| 远端 CI | ⏳ **待确认**（已推送 4 个修复提交） |
+
+## H. 下一步
+
+等远端 CI 结果。若全绿 ⇒ 按任务书 §二 进入 v0.0.5 发布准备
+（代码审查 → CHANGELOG/FEATURE_MATRIX/BUG_REGISTER/RISK_REGISTER/SESSION_HANDOFF 检查 →
+发布门禁 → 固定 SHA 构建 → 真实安装验证 → SHA256SUMS → 候选镜像 → Digest 核验）。
+
+**R-01 未解决前不建正式 Tag、不发公开 Pre-release。**
