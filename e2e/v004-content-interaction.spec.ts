@@ -9,6 +9,7 @@ import {
   createTopicViaUi,
   submitReplyViaUi,
   pickNodeId,
+  gotoResilient,
   USER_A,
   USER_B,
 } from './helpers';
@@ -173,6 +174,23 @@ test.describe('v0.0.4 感谢', () => {
     const replyId = Number(replies[replies.length - 1].id);
 
     const r = await apiPost(page, '/api/thanks', { replyId });
+    // ⚠️ v0.0.7：失败现场取证 —— Linux 矩阵 firefox 全视口此用例曾稳定 403
+    //   （期望 400）。403 只可能来自 guardCsrf。带上下文 token 的单点诊断
+    //   证明 CSRF 机制本身可用 ⇒ 差异在「UI 导航之后的 cookie 状态」。
+    //   这里在断言失败前把现场打出来，让下次失败一眼定位。
+    if (r.status() !== 400) {
+      const ctxCookies = await page.context().cookies();
+      const docCookie = await page.evaluate(() => document.cookie).catch(() => '');
+      const bodyText = await r.text().catch(() => '');
+      console.log(
+        '[thanks-diag] status=' + r.status(),
+        'body=' + bodyText.slice(0, 120),
+        'ctx_csrf=' + JSON.stringify(ctxCookies.filter((c) => c.name === 'v2_csrf')),
+        'doc_has_csrf=' + /(^|; )v2_csrf=/.test(docCookie),
+        'current_url=' + page.url(),
+        'LOCAL_BASE=' + (process.env.LOCAL_BASE ?? '(未设置)'),
+      );
+    }
     expect(r.status()).toBe(400);
     const body = await r.json();
     expect(body?.ok).toBe(false);
@@ -246,7 +264,11 @@ test.describe('v0.0.4 主题编辑 / 软删除 / 恢复', () => {
       .toBe(404);
 
     // 游客看不到（404）
-    await page.goto('/');
+    // ⚠️ v0.0.7：用 gotoResilient —— 删除后 router.refresh() 的迟到 RSC
+    //    （notFound 载荷）会触发「导航到当前 URL 渲染 404」，与 goto 竞态
+    //    （Linux webkit-375x812 实测：Navigation interrupted by another
+    //    navigation to /t/24）。属测试竞态，非产品缺陷。
+    await gotoResilient(page, '/');
     const res = await page.request.get(`/t/${topicId}`);
     expect(res.status()).toBe(404);
 

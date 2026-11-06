@@ -1,0 +1,115 @@
+name: V2EX 原站对照探测（v0.0.7）
+
+# ---------------------------------------------------------------------------
+# v0.0.7：真实 V2EX 原站公开页面几何探测
+#
+# ## 为什么在 CI 上跑
+#
+# 开发机（Windows）实测：DNS 正常解析（128.121.146.109），但 TCP/TLS
+# 直连与代理路径均超时 ⇒ 网络层阻断。任务书授权：「若当前 Windows 环境
+# 无法访问，允许在合规的独立 Linux 环境观察公开页面」。
+#
+# ## 合规边界（与 tools/visual/v2ex-probe.mjs 一致）
+#
+# - 只读、低频：每页面只加载一次，无轮询无并发
+# - 只用公开页面：不登录、不绕过访问控制
+# - 只输出**数值测量**：不镜像原站 HTML/CSS/JS/图片
+# - 不采集私人数据
+#
+# ## 判定口径
+#
+# - 原站不可达 ⇒ 明确输出 UNVERIFIED，**不**把本站视觉回归冒充成原站一致
+# - 原站可达 ⇒ 输出测量 JSON（artifact），由人工审查后与本站基线对照
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: 原站公开页面几何探测
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.4'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 安装 Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 网络诊断（DNS / TCP / TLS）
+        id: net
+        run: |
+          echo "=== DNS ==="
+          getent hosts www.v2ex.com || echo "DNS 解析失败"
+          echo "=== TCP 443 连通性 ==="
+          timeout 10 bash -c 'cat < /dev/null > /dev/tcp/www.v2ex.com/443' 2>&1 \
+            && echo "TCP 443 可连接" || echo "TCP 443 不可连接（超时/拒绝）"
+          echo "=== HTTPS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" --max-time 15 \
+            https://www.v2ex.com/ || echo "HTTPS 请求失败"
+
+      - name: 探测原站公开页面（只读低频）
+        id: probe
+        run: |
+          set +e
+          node tools/visual/v2ex-probe.mjs --base https://www.v2ex.com 2>&1 | tee /tmp/v2ex-probe.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: 判定与汇总
+        if: always()
+        run: |
+          # 找到最新探测报告
+          REPORT=$(ls -t docs/evidence/visual/v2ex-probe-*.json 2>/dev/null | head -1)
+          if [ -z "$REPORT" ]; then
+            echo "::error::没有找到探测报告 —— 探测脚本未正常运行"
+            exit 1
+          fi
+          REACHABLE=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$REPORT','utf8')).reachable)")
+          {
+            echo "### V2EX 原站对照探测"
+            echo ""
+            echo "- 报告：\`$REPORT\`"
+            BLOCKED=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$REPORT','utf8')).blocked || '')" 2>/dev/null || echo '')
+          if [ "$BLOCKED" != "" ] && [ "$BLOCKED" != "false" ]; then
+            echo "- 结果：**网络可达但被反爬拦截（anti-bot）⇒ UNVERIFIED**"
+            echo "- 说明：Linux runner 网络层可达（DNS/TCP/TLS 正常），但原站对自动化访问返回 Cloudflare 挑战页"
+            echo "- 合规：**不绕过**访问控制；挑战页的测量值不构成与原站的视觉对照证据"
+          elif [ "$REACHABLE" = "true" ]; then
+              echo "- 结果：**原站可达** —— 测量数据见 artifact，需人工审查后与本站基线对照"
+              node -e "
+              const r = JSON.parse(require('fs').readFileSync('$REPORT','utf8'));
+              for (const [k, p] of Object.entries(r.pages)) {
+                if (p.error) { console.log('- \`' + k + '\`：失败 ' + p.error); continue; }
+                console.log('- \`' + k + '\`（HTTP ' + p.httpStatus + '）：' + Object.keys(p.values).length + ' 项测量');
+              }"
+            else
+              REASON=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$REPORT','utf8')).reason)")
+              echo "- 结果：**原站不可达 ⇒ UNVERIFIED**"
+              echo "- 原因：$REASON"
+              echo ""
+              echo "> ⚠️ 按任务书纪律：本站 63 组合视觉回归**不构成**与原站视觉一致的证据。"
+              echo "> 原站对照项维持 UNVERIFIED，不得据此宣称高保真复刻。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "探测完成（reachable=$REACHABLE）"
+
+      - name: 上传探测报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v2ex-probe-${{ github.run_id }}
+          path: |
+            docs/evidence/visual/v2ex-probe-*.json
+            /tmp/v2ex-probe.log
+          retention-days: 30
+          if-no-files-found: error

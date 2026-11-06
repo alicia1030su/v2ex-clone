@@ -46,13 +46,39 @@ test.describe('主题与回复', () => {
 
     const replyText = `E2E 回复 ${Date.now()}`;
     await page.fill('textarea[name="content"]', replyText);
-    await Promise.all([
-      page.waitForURL(/\/t\/\d+/, { timeout: 30_000 }),
-      page.click('form button[type="submit"]'),
-    ]);
 
-    // 新回复的楼层号必须大于之前的最大楼层号（递增且唯一）
-    const floorsAfterRes = await page.request.get('/api/debug/floors?topicId=1', { headers: { 'x-debug-token': process.env.DEBUG_ENDPOINT_TOKEN ?? '' } });
+    // ⚠️ v0.0.7：**不能**用 `Promise.all([waitForURL(/\/t\/\d+/), click])` 等待提交完成。
+    //
+    // 实测根因（Linux 矩阵 webkit-375x812 / 768x1024 失败）：
+    //   `page.waitForURL` 在**当前 URL 已匹配**时**立即返回**（实测 1ms，
+    //    见 tools/diag 里的最小验证）—— 而本用例已经在 `/t/1` 上
+    //    ⇒ waitForURL 不等表单提交完成就放行
+    //    ⇒ 紧接着的 floors 查询早于服务端落库
+    //    ⇒ `floorsAfter.length === floorsBefore.length`（差 1）。
+    //   Chromium / Firefox 只是**碰巧**赢得这场竞态（查询往返更慢），
+    //   WebKit 更快 ⇒ 稳定失败。**这是测试竞态，不是产品缺陷**。
+    //
+    // 修法：轮询等待「楼层数确实 +1」这个**真实终态**，再做完整断言。
+    //   断言一条不少（递增 / 唯一 / 最大值提升），只是不再靠竞态蒙对。
+    await page.click('form button[type="submit"]');
+
+    const floorsQuery = () =>
+      page.request.get('/api/debug/floors?topicId=1', {
+        headers: { 'x-debug-token': process.env.DEBUG_ENDPOINT_TOKEN ?? '' },
+      });
+
+    await expect
+      .poll(
+        async () => {
+          const r = await floorsQuery();
+          const f = (await r.json()).floors ?? [];
+          return f.length;
+        },
+        { timeout: 20_000, intervals: [200, 300, 500, 800, 1000] },
+      )
+      .toBe(floorsBefore.length + 1);
+
+    const floorsAfterRes = await floorsQuery();
     const floorsAfter: number[] = (await floorsAfterRes.json()).floors ?? [];
     expect(floorsAfter.length).toBe(floorsBefore.length + 1);
     expect(Math.max(...floorsAfter)).toBeGreaterThan(maxFloorBefore);

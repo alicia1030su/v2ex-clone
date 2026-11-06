@@ -273,6 +273,21 @@
 | **V5-26** | 一般 | **视觉回归旧基线本身是坏的** —— 旧基线中 Firefox / WebKit 的实测值是**浏览器默认值**（`#Top` 74px、字号 16px、字体 `sans-serif` / `-webkit-standard`、`.content` 缺失）⇒ **CSS 根本没加载**（`.next` 目录换址竞态导致 CSS 404）⇒ 任何对比都无意义 | `docs/evidence/visual/component-baseline.json` | 基线数据核查（对照当前健康运行的实测值） | 人工审查后**显式重建**基线（`SAVE_BASELINE=1`），并核对新基线三引擎数值健康 | 新基线：63 组合全部测量成功、三引擎一致、零溢出；二次运行**回归项 = 0** | **VERIFIED** |
 | **V5-27** | 环境 | **跨浏览器 E2E / 视觉回归在本机失败** —— 三个独立根因，逐一定位并修复：① **本机代理拦截**：环境变量 `HTTP_PROXY=http://127.0.0.1:55761` 且 **`NO_PROXY` 为空**；**Firefox 与 WebKit 会读 `HTTP_PROXY`**（Chromium 不读）⇒ localhost 的 `/_next/static/**` 子资源被代理截走 ⇒ Firefox 报 `NS_ERROR_REDIRECT_LOOP`、WebKit 报 `Loading chunk NNNN failed`（页面降级为 Next 错误页 ⇒ 视觉回归里一堆 null）；② **IPv6 回环**：WebKit 的 `page.request` 把 `localhost` 解析为 **IPv6 `::1`**，而 next start 只监听 IPv4（`0.0.0.0`）⇒ `ECONNREFUSED ::1:3010`；③ **视觉工具三处误判**：`.content` 选中了顶栏而非主容器 / 固定 600ms 等待不足（WebKit 渲染更慢）/ Firefox 经典滚动条占 body 16px 造成纯假宽度差 | 本机代理与 IPv6 环境 + 工具选择器与等待策略 | 跨浏览器 E2E 实跑 + **master worktree 对照实验** + WebKit 错误页诊断 + 视口宽度实测 | ① 两个本地脚本**显式导出 `no_proxy`/`NO_PROXY`**；② 测试地址改用 **127.0.0.1**（强制 IPv4）；③ 回归工具：选择器精确化 + **等关键元素就绪**再测量 + 宽度按滚动条占位归一化 + **基线按平台分文件**（Windows/Linux 字体度量不同，跨平台基线不可复用） | ① 设 `no_proxy` 后 WebKit 页面完全正常渲染；② 改 IPv4 后 WebKit 的 `page.request` 正常；③ **视觉回归 63 组合三引擎完全一致、零横向溢出**、基线可复现；master 对照实验证明与产品代码无关 | **VERIFIED（三处根因均已修复）** |
 
+## v0.0.7 新发现并修复的缺陷（Linux 分片矩阵实测，全部有取证证据）
+
+> 发现方式：**GitHub Actions Linux 分片矩阵**（3 浏览器 × 5 视口 = 15 分片全隔离）
+> —— 取代 v0.0.6 的「单 Windows 会话 3200 条跑 2.5 小时」。
+> 该矩阵把 v0.0.6 的 820 失败收敛为 **9 个**，并暴露了 3 个此前从未在
+> 任何环境复现过的**真实缺陷**（下表 V7-01 ~ V7-03）。
+
+| ID | 级别 | 缺陷 | 发现方式 | 修法 | 验证 |
+|---|---|---|---|---|---|
+| **V7-01** | 严重（测试基础设施） | **矩阵汇总把 200/200 全过判成失败** —— Playwright JSON 里 `test.status` 是**期望状态**（expected/unexpected/flaky/skipped），`result.status` 才是**实际结果**（passed/failed/skipped/timedOut）。原判定拿 `result.status` 比 `'expected'` ⇒ 永远不匹配 ⇒ 全部计入 flaky ⇒ **13 个分片全红**（chromium 实际 200/200 全过） | 矩阵首轮运行（13 分片全失败但日志显示 ✓） | 按 `result.status` 判定 + **与 Playwright 自带 `stats` 交叉核对**（不一致即 exit 3，防止口径再写错） | 用真实 artifact JSON 验证：解析结果 200/200 与原生 `stats.expected/unexpected/skipped/flaky` **完全一致** |
+| **V7-02** | 严重（测试辅助函数） | **Firefox 全视口稳定 403（CSRF 校验失败）** —— 浏览器里有**两个** `v2_csrf` cookie（middleware 按请求 host 各发一个：`domain=localhost` 与 `domain=127.0.0.1`）。`getCsrfToken` 用 `cookies.find()` 取**第一个** ⇒ 拿到 localhost 域那个；而请求实际发往 127.0.0.1 ⇒ 服务端读到的是 127.0.0.1 域那个 ⇒ token 不相等 ⇒ `verifyCsrf` false ⇒ **403**（期望 400） | Linux 矩阵 firefox 4 个视口**全部**复现同一失败 + 加现场取证（`thanks-diag` 打印 cookie 列表与当前 URL） | 按**当前页面 URL 的 host** 精确匹配 cookie domain；匹配不到时退回页面 `document.cookie`（与 `csrfFetch` 来源一致） | 单点诊断独立佐证：带正确 token 能到达业务校验（400），不带才 403 |
+| **V7-03** | 一般（测试竞态） | **楼层计数差 1**（期望 5 实得 4）—— `page.waitForURL` 在**当前 URL 已匹配**时**立即返回**（实测 1ms）；用例已在 `/t/1` ⇒ 不等表单提交完成就放行 ⇒ floors 查询早于落库 | Linux 矩阵 webkit-375x812 / 768x1024 复现（Chromium/Firefox 只是碰巧赢得竞态） | 轮询等待「楼层数确实 +1」这个**真实终态**，再跑原有全部断言（递增/唯一/最大值提升一条不少） | webkit-375x812 修后 **200/200 全过**（artifact 原生 stats 实测） |
+
+| **V7-04** | 一般（测试竞态） | **软删除主题用例导航被应用自身导航打断** —— `Navigation to "/" is interrupted by another navigation to "/t/24"`。根因：删除后 `router.refresh()` 的 RSC 响应（notFound 载荷）**迟到**，Next 客户端路由据此导航到当前 URL 渲染 404 页 ⇒ 与测试随后的 `page.goto('/')` 抢同一个导航槽位。**用户侧行为正确**（留在原 URL 显示 404）⇒ 非产品缺陷 | Linux 矩阵 webkit-375x812 复现 | 新增 `gotoResilient` helper：被 "interrupted by another navigation" 打断时等待稳定后重试（最多 3 次），断言不变 | 用例断言未削弱；修后该分片不再出现此失败 |
+
 ### 测试基础设施缺陷（v0.0.5）
 
 | ID | 问题 | 修复 |

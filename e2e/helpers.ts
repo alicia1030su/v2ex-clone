@@ -121,8 +121,43 @@ export async function clearRateLimits(page: Page) {
 /** 从浏览器上下文读取 CSRF Cookie 的值 */
 export async function getCsrfToken(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
-  const c = cookies.find((x) => x.name === 'v2_csrf');
-  return c?.value ?? '';
+  const candidates = cookies.filter((x) => x.name === 'v2_csrf');
+  if (candidates.length === 0) return '';
+
+  // ⚠️ v0.0.7 修正（实测根因，Linux 矩阵 firefox 全视口稳定 403）：
+  //
+  // 现场取证（firefox-375x812 分片）：
+  //   ctx_csrf = [
+  //     { value: '7ebb3c91…', domain: 'localhost'  },
+  //     { value: '71b86c2c…', domain: '127.0.0.1' },
+  //   ]
+  //   当前 URL: http://localhost:3105/t/22
+  //
+  // 浏览器里存在**两个** v2_csrf cookie（middleware 对每个 host 各发了一个，
+  // 因为它是按请求 host 下发的）。原实现 `cookies.find(...)` 取**第一个**
+  // ⇒ 拿到的是 `localhost` 域那个；而请求实际发往 `127.0.0.1`
+  // ⇒ 服务端读到的 cookie 是 `127.0.0.1` 域那个
+  // ⇒ 两个 token 不相等 ⇒ `verifyCsrf` 返回 false ⇒ **403**。
+  //
+  // Chromium/WebKit 不稳定复现是因为它们的 cookie 列表顺序不同。
+  //
+  // 修法：按**当前页面 URL 的 host** 精确匹配 domain；
+  // 匹配不到时退回页面 `document.cookie`（浏览器实际持有的那个）。
+  const host = new URL(page.url()).hostname;
+  const exact = candidates.find((c) => {
+    const d = (c.domain ?? '').replace(/^\./, '');
+    return d === host || (host.endsWith(`.${d}`) && d.length > 0);
+  });
+  if (exact) return exact.value;
+
+  // 兜底：读页面实际持有的 cookie（与 csrfFetch 的来源一致）
+  const fromDoc = await page
+    .evaluate(() => {
+      const m = document.cookie.match(/(?:^|; )v2_csrf=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    })
+    .catch(() => '');
+  return fromDoc || candidates[0].value;
 }
 
 /**
@@ -188,7 +223,10 @@ export async function login(page: Page, username: string, password: string) {
  * 页面不跳转，后续断言全部超时。
  */
 export async function register(page: Page, username: string, password = 'password123') {
+  // v0.0.7 排障：记录导航后的实际 host（baseURL 是否真的生效）
+  console.log('[nav-diag] before goto, url=', page.url());
   await page.goto('/signup');
+  console.log('[nav-diag] after goto /signup, url=', page.url());
   // ⚠️ SignUpForm 是客户端组件 —— 服务端渲染的 HTML 里**没有**这些输入框，
   // 必须等 React hydration 完成才能 fill，否则 page.fill 一直等到超时。
   // ⚠️ v0.0.5：同 login helper —— 不用 networkidle（页面有持续请求）
@@ -203,6 +241,7 @@ export async function register(page: Page, username: string, password = 'passwor
     page.waitForURL((url) => !url.pathname.startsWith('/signup'), { timeout: 30_000 }),
     page.click('button[type="submit"]'),
   ]);
+  console.log('[nav-diag] after register submit, url=', page.url());
 }
 
 export async function logout(page: Page) {
@@ -330,6 +369,45 @@ export async function waitForHydration(page: Page, selector: string): Promise<vo
     selector,
     { timeout: 20_000 },
   );
+}
+
+/**
+ * 韧性导航 —— v0.0.7：消除「应用自身导航」与「测试 goto」的竞态
+ *
+ * ## 实测根因（Linux 矩阵 webkit-375x812 失败）
+ *
+ * `软删除主题` 用例里，作者删除自己的主题后：
+ *   1. 应用调 `router.refresh()` 重新拉取服务端组件；
+ *   2. 该主题对非 staff 已 notFound ⇒ Next 客户端路由收到 notFound 载荷后
+ *      **导航到当前 URL 以渲染 404 页**（同 URL 的真实导航事件）；
+ *   3. 这个导航可能**晚于**测试的 API 轮询才到达 ⇒ 与测试随后的
+ *      `page.goto('/')` 抢同一个导航槽位 ⇒ Playwright 报
+ *      `Navigation to "…/" is interrupted by another navigation to "…/t/24"`。
+ *
+ * 这是**测试与应用的正常路由活动竞态**，不是产品缺陷
+ * （用户侧看到的就是「留在原 URL、显示 404」，行为正确）。
+ *
+ * ## 修法
+ *
+ * 被「another navigation」打断时等待稳定后重试（最多 3 次）。
+ * **不削弱任何断言** —— 只是不再让竞态决定成败。
+ */
+export async function gotoResilient(page: Page, url: string, attempts = 3): Promise<void> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await page.goto(url);
+      return;
+    } catch (err) {
+      const msg = String(err);
+      const interrupted = msg.includes('interrupted by another navigation');
+      if (interrupted && i < attempts) {
+        // 等应用自身的导航落地再重试
+        await page.waitForTimeout(400);
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 /** 找一个可用的节点 id（优先 programmer，失败则取第一个） */

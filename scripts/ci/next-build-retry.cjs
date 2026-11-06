@@ -124,9 +124,12 @@ fs.createWriteStream = function patchedCreateWriteStream(path, options) {
     return origCreateWriteStream.call(fs, path, opts);
   }
 
-  // EPERM ⇒ 延迟后重开（用一个最小 Writable 占位，随后替换为真实 stream）
+  // EPERM ⇒ 延迟后重开。重试耗尽时**不能在 setTimeout 回调里 throw** ——
+  // 那会变成未捕获异常（uncaughtException），进程直接崩溃且栈完全不指向
+  // 「是哪个文件打开失败」。正确做法：在占位 stream 上发 error 事件，
+  // 让调用方按正常的 stream 错误语义处理（v0.0.7 审计修正）。
   const stream = require('stream');
-  const holder = { stream: null, pending: [] };
+  const holder = { stream: null, pending: [], lastError: null };
   const attempt = (n) => {
     try {
       const real = origCreateWriteStream.call(fs, path, opts);
@@ -135,12 +138,21 @@ fs.createWriteStream = function patchedCreateWriteStream(path, options) {
       holder.pending.length = 0;
       return real;
     } catch (e) {
-      if (!isRetryable(e) || n >= MAX_RETRY) throw e;
+      holder.lastError = e;
+      if (!isRetryable(e) || n >= MAX_RETRY) {
+        // 耗尽或非可重试错误 ⇒ 通知占位 stream 的监听者
+        process.nextTick(() => {
+          if (holder.destroyed) return;
+          holder.emit('error', e);
+        });
+        return null;
+      }
       setTimeout(() => attempt(n + 1), BASE_DELAY_MS * (n + 1));
+      return null;
     }
   };
   setTimeout(() => attempt(0), BASE_DELAY_MS);
-  return new stream.Writable({
+  const placeholder = new stream.Writable({
     write(chunk, enc, cb) {
       if (holder.stream) holder.stream.write(chunk, enc, cb);
       else {
@@ -148,7 +160,15 @@ fs.createWriteStream = function patchedCreateWriteStream(path, options) {
         cb();
       }
     },
+    destroy(err, cb) {
+      holder.destroyed = true;
+      if (holder.stream) holder.stream.destroy(err);
+      cb(err);
+    },
   });
+  // 让 attempt() 能把 error 事件发到占位 stream 上
+  holder.emit = placeholder.emit.bind(placeholder);
+  return placeholder;
 };
 
 process.on('exit', () => {
