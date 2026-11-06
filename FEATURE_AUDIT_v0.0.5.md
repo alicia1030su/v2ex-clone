@@ -47,7 +47,7 @@
 | 收藏 | **VERIFIED** | `api/collections`、`CollectButton`、`/bookmarks` | E2E `feature.spec.ts` |
 | 签到 | **VERIFIED** | `api/checkin`、`CheckinButton`（SettingsForm 内） | `tests/credits-concurrency.spec.ts`（8 条，含并发幂等） |
 | 积分 / 排行榜 | **VERIFIED**（用户侧） | `api/credits`、`api/leaderboard`、`CreditBadge`、`/leaderboard` | `tests/credits-concurrency.spec.ts` |
-| 通知 | **PARTIAL** | `api/notifications`、`NotificationsList`、`/notifications` | ⚠️ 仅 `reply` 与 `topic_thanks` 两种类型被写入；`mention`/`node_thanks`/`system` 在 schema 定义但**从未写入** |
+| 通知 | **PARTIAL** → **v0.0.5 部分补齐** | `api/notifications`、`NotificationsList`、`/notifications`、`src/lib/mentions.ts` | ✅ `mention` **v0.0.5 已补齐**（回复里 @ 某人 ⇒ 对方收到通知；19 条单元 + 6 条 E2E）；⚠️ 仍缺 `node_thanks` / `system` 两种类型（schema 定义但未写入）|
 | 修改个人资料 | **VERIFIED** | `api/users/me`、`api/settings/profile`、`SettingsForm` | E2E `v004-account-admin.spec.ts` |
 | 头像上传 | **PARTIAL** | `api/users/avatar`、`SettingsForm` | ⚠️ 见 §七（sharp 未装、EXIF 未处理） |
 | 节点申请 | **VERIFIED** | `/nodes/request`、`NodeRequestForm`、`api/node-requests` | E2E `v004-four-roles-ui.spec.ts`（V4-20 修复后通过） |

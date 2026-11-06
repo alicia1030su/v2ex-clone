@@ -63,6 +63,7 @@ v0.0.4 的变更见 `CHANGELOG.md` `[Unreleased]` 段落与 `docs/ACCEPTANCE_CHE
 | 关注用户的主题列表 | ✅ 已实现 | `src/app/api/users/follows/topics/route.ts` (GET) |
 | 用户收藏管理 | ✅ 已实现 | `src/app/api/collections/route.ts` (v0.0.2 已有) |
 | 通知已读 / 全部已读 / 删除 | ✅ 已实现 | `src/app/api/notifications/route.ts` (GET / POST / DELETE)；`src/components/NotificationsList.tsx` (UI) |
+| **@ 提及通知** | ✅ 已实现（**v0.0.5 补齐半成品**） | `src/lib/mentions.ts`（解析 `@username`，边界：只对真实用户 / 不给自己 / 去重 / 单条上限 10）；`src/app/api/replies/route.ts`（回复时写入 `type: 'mention'` 通知）；`tests/v005-mentions.spec.ts`（19 条）、`e2e/v005-mentions.spec.ts`（6 条端到端）；`docs/COMMUNITY_FEATURES_EVALUATION_v0.0.5.md`（**含原站实测：无私信功能的证据**）。**v0.0.5 修复**：提及的用户名长度规则曾与注册校验不一致（3-20 vs 2-32）⇒ 13-32 字符的合法用户名 @ 提及**静默失效** ⇒ 已对齐并加一致性守护测试 |
 
 ## 社区积分与互动机制
 

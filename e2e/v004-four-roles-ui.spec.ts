@@ -53,7 +53,8 @@ import {
 /** 从 /go/new 的真实 <select> 里读第一个可用节点 id（纯 DOM，不发 API 请求） */
 async function firstNodeIdViaUi(page: Page): Promise<number> {
   await page.goto('/go/new');
-  await page.waitForLoadState('networkidle');
+  // ⚠️ v0.0.5：不用 networkidle（页面有持续请求，网络永不空闲）
+  await page.waitForLoadState('domcontentloaded');
   const values = await page
     .locator('select[name="nodeId"] option')
     .evaluateAll((opts: Element[]) =>

@@ -216,7 +216,8 @@ test.describe('v0.0.4 主题编辑 / 软删除 / 恢复', () => {
     await expect(page.locator('#Main')).toContainText(newContent, { timeout: 30_000 });
 
     // 刷新后仍正确（等组件的 reload 完成后再操作）
-    await page.waitForLoadState('networkidle');
+    // ⚠️ v0.0.5：不用 networkidle（页面有持续请求，网络永不空闲）
+  await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#Main')).toContainText(newContent, { timeout: 30_000 });
   });
 

@@ -35,7 +35,8 @@ test.describe('v0.0.4 积分与签到', () => {
     await clearRateLimits(page);
 
     await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
+    // ⚠️ v0.0.5：不用 networkidle（页面有持续请求，网络永不空闲）
+  await page.waitForLoadState('domcontentloaded');
 
     // 签到按钮由 SettingsForm 在**客户端**取到 /api/checkin 状态后才渲染 ——
     // 服务端首屏 HTML 里没有它。必须等它真的出现（而不是只等页面加载完）。

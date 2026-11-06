@@ -101,5 +101,15 @@ export async function POST(request: Request) {
     reason: '发布主题',
   });
 
-  return NextResponse.json({ ok: true, redirect: `/t/${topic.id}` }, { status: 201 });
+  // ⚠️ v0.0.5：补 `topicId` 字段。
+  //
+  // 原响应只有 `redirect`（`/t/<id>`），调用方要拿 id 只能**解析字符串** ——
+  // 很不方便，也让 E2E 写出了 `Number(body.topic?.id ?? body.id)` 这种
+  // 到处 fallback 的代码（实测踩到：全部得到 NaN）。
+  //
+  // 保留 `redirect` 不变（**向后兼容**），只是多给一个结构化字段。
+  return NextResponse.json(
+    { ok: true, redirect: `/t/${topic.id}`, topicId: topic.id },
+    { status: 201 },
+  );
 }

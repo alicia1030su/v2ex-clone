@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { dbUrlFor, adminUrlOf } from './helpers/test-spec-base';
 import postgres from 'postgres';
 import { sql } from 'drizzle-orm';
 import { db } from '../src/db';
@@ -36,8 +37,18 @@ import { schema } from '../src/db/schema';
  */
 
 const TEST_DB = 'v2ex_v005_search';
-const ADMIN_URL = 'postgres://v2ex:v2ex_test_password_local_only@127.0.0.1:55440/postgres';
-const DB_URL = `postgres://v2ex:v2ex_test_password_local_only@127.0.0.1:55440/${TEST_DB}`;
+
+// ⚠️ v0.0.5：**不能硬编码连接串**。
+//
+// 实测踩到（CI 首次失败）：原实现写死了
+// `postgres://v2ex:v2ex_test_password_local_only@127.0.0.1:55440/...`，
+// 而 CI 的 service container 用的是 `localhost:5432` + 另一套口令
+// ⇒ 本地全绿、CI 直接 `ECONNREFUSED 127.0.0.1:55440`。
+//
+// 改用项目统一的 `dbUrlFor` / `adminUrlOf`（tests/helpers/test-spec-base.ts）：
+// 它们从 `DATABASE_URL` 派生出目标端点 ⇒ 本地与 CI 自动对齐。
+const ADMIN_URL = adminUrlOf(TEST_DB);
+const DB_URL = dbUrlFor(TEST_DB);
 
 let admin: ReturnType<typeof postgres>;
 let client: ReturnType<typeof postgres>;

@@ -285,8 +285,21 @@ describe('v0.0.5 安全 · 会话与口令', () => {
     expect(setCookie).toContain('httpOnly: true');
     expect(setCookie).toMatch(/sameSite:\s*'lax'/);
     expect(setCookie).toMatch(/path:\s*'\/'/);
-    // 生产环境必须 Secure
-    expect(setCookie).toMatch(/secure:\s*process\.env\.NODE_ENV === 'production'/);
+    // ⚠️ v0.0.5：`secure` 的判定已从「按 NODE_ENV」改为「按**实际请求协议**」。
+    //
+    // 原因（v0.0.5 跨浏览器实测发现）：`next start`（**任何**部署方式，
+    // 含本地 HTTP 调试与非 HTTPS 部署）都会设 `NODE_ENV=production`
+    // ⇒ 旧判定会让 Cookie 带 `Secure`。
+    // **WebKit 在 HTTP 下直接拒绝存储带 Secure 的 Cookie**
+    // （Chromium / Firefox 对 localhost 有放宽）⇒ 所有写操作 403。
+    //
+    // 新判定优先级：`x-forwarded-proto` → `APP_URL`/`NEXT_PUBLIC_APP_URL`
+    // /`PUBLIC_BASE_URL` 是否 https → 否则视为 HTTP。
+    expect(setCookie).toMatch(/secure:\s*isHttpsRequest\(\)/);
+    // 判定函数本身必须真的看协议，而不是又退回 NODE_ENV
+    expect(auth).toContain('function isHttpsRequest');
+    expect(auth).toMatch(/forwarded-proto|x-forwarded-proto/);
+    expect(auth).toMatch(/startsWith\('https:\/\/'\)/);
   });
 
   it('口令用 scrypt 且带随机盐', () => {
