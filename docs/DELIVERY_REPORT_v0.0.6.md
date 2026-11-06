@@ -133,10 +133,10 @@
 
 ### ⚠️ 本机全量跨浏览器跑（16 project × 200 = 3200 条）的如实结果
 
-- **实测**：约 1.9 小时后 **1883 passed / 1088 failed / 229 did not run**。
-- **失败集中在 Firefox / WebKit 的长时间运行**（ Chromium 全绿 ）；
-  典型错误是 `#username` 等待超时（20s 级）——浏览器进程在数小时压测下
-  出现资源枯竭，**不是产品缺陷**（同一条用例单独跑通过；
+- **实测**（完整跑完，2.5h）：**2263 passed / 820 failed**（3200 条中 3083 条执行，余为未跑到）。
+- **失败集中在 Firefox / WebKit 的长时间运行**（Chromium 全绿）；
+  典型失败是 `#username` 等待超时（20s 级）与交互类断言超时——浏览器进程在
+  数小时压测下出现资源枯竭，**不是产品缺陷**（同一条用例单独跑通过；
   master 对照实验同样失败）。
 - **如实登记的边界**：本机 Windows 环境无法稳定完成 3200 条全量跨浏览器跑。
   **交互验收的权威口径** = 远端 Linux CI 的 core E2E（200/200）
@@ -211,7 +211,7 @@ CI 环境变量、migrate/seed 组合、mv 目标目录、mv 后等待时长、�
 | E2E（core，远端 CI Linux） | **200 passed / 0 failed**（5m20s） |
 | E2E（core，本机 Windows） | **200 passed / 0 failed** |
 | E2E（Chromium × 5 视口，本机） | **1000 / 1000**（合计 1200 条零失败） |
-| E2E（全量 16 project × 200，本机） | **1883 passed / 1088 failed / 229 did not run** —— 失败集中于 Firefox/WebKit 长时间运行的资源枯竭（master 对照实验证明与改动无关，详见 §五） |
+| E2E（全量 16 project × 200，本机） | **2263 passed / 820 failed**（2.5h 完整跑完，3083/3200 执行）—— 失败集中于 Firefox/WebKit 长时间运行的资源枯竭（master 对照实验证明与改动无关，详见 §五） |
 | 组件级视觉回归 | 63 组合零溢出、三引擎一致、基线可复现（Windows + Linux 双平台） |
 | 类型检查 | ✅ `npx tsc --noEmit` |
 
