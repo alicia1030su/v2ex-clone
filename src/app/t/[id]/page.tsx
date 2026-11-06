@@ -10,6 +10,7 @@ import { getTopicById, listReplies, REPLIES_PER_PAGE } from '@/server/queries';
 import Wrapper from '@/components/Wrapper';
 import PageNav from '@/components/PageNav';
 import CollectButton from '@/components/CollectButton';
+import ReportButton from '@/components/ReportButton';
 import { readCsrfToken } from '@/lib/csrf';
 import TopicActions from '@/components/TopicActions';
 import ReplyItem from '@/components/ReplyItem';
@@ -34,7 +35,24 @@ export default async function TopicPage({
   const user = await getSessionUser();
   const csrfToken = await readCsrfToken();
   const topic = await getTopicById(topicId);
-  if (!topic || topic.status === 'deleted') notFound();
+  if (!topic) notFound();
+
+  // v0.0.5：已软删除的主题 —— **staff 仍可访问并恢复**。
+  //
+  // 原实现：`if (!topic || topic.status === 'deleted') notFound();`
+  // 后果是删除后**连版主/管理员都进不去该页**，「恢复」按钮永远点不到
+  // ⇒ 内容恢复只能靠后台或手输 URL，UI 闭环是断的
+  // （`FEATURE_AUDIT_v0.0.5.md` §二 记录的真实缺陷，E2E 实测发现）。
+  //
+  // 修法：游客与非 staff 的普通用户仍然看不到（notFound，不泄露
+  // 「这里曾有内容」）；staff 看到「已删除」页面 + 恢复按钮。
+  //
+  // 作者本人**不**放行 —— 原站行为是作者删掉后自己 also 看不到，
+  // 恢复是管理动作，不应让作者自舞。
+  if (topic.status === 'deleted') {
+    const isStaff = user?.role === 'moderator' || user?.role === 'admin';
+    if (!isStaff) notFound();
+  }
 
   const nodeRows = await db
     .select()
@@ -142,6 +160,10 @@ export default async function TopicPage({
         </div>
         <div className="cell_ops">
           <CollectButton target="topic" id={topicId} />
+          {/* v0.0.5：举报入口 —— 未登录点击会引导去登录；作者本人不渲染 */}
+          {topic.authorId !== user?.id ? (
+            <ReportButton target="topic" id={topicId} />
+          ) : null}
         </div>
       </div>
 

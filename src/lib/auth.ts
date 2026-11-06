@@ -38,12 +38,51 @@ export async function destroySession(sessionId: string): Promise<void> {
   await db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId));
 }
 
+/**
+ * 当前请求是否走 HTTPS
+ *
+ * ⚠️ v0.0.5：**不能**用 `NODE_ENV === 'production'` 判定 ——
+ *    `next start`（含本地 HTTP 调试、非 HTTPS 部署）也会设
+ *    `NODE_ENV=production`。
+ *
+ *    实测（v0.0.5 跨浏览器）：**WebKit** 在 HTTP 下会**直接拒绝存储**
+ *    带 `Secure` 属性的 Cookie（Chromium / Firefox 对 localhost 有放宽），
+ *    于是 `document.cookie` 读不到 ⇒ 所有写操作一律 403。
+ *
+ *    判定依据（按优先级）：
+ *      1. `x-forwarded-proto: https`（反代后已是 HTTPS）
+ *      2. `NEXTAUTH_URL` / `APP_URL` 是 https（配置层声明）
+ *      3. 否则视为 HTTP
+ *
+ *    ⚠️ 安全影响：HTTP 部署下 Cookie 不带 `Secure` ⇒ 会随明文传输。
+ *    这是 HTTP 部署的固有风险（会话 Cookie 同理），
+ *    且 `SameSite=Lax` 仍能挡住绝大多数 CSRF。
+ *    生产部署应当在**反向代理后用 HTTPS**。
+ */
+function isHttpsRequest(): boolean {
+  // ① 反代声明（部署层最准）
+  const forwardedProto = process.env.FORWARDED_PROTO?.split(',')[0]?.trim();
+  if (forwardedProto) return forwardedProto === 'https';
+
+  // ② 应用自身的公开地址（配置层声明）
+  const appUrl = (
+    process.env.APP_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.PUBLIC_BASE_URL ??
+    ''
+  ).trim();
+  if (appUrl.startsWith('https://')) return true;
+
+  // ③ 未声明 ⇒ 视为 HTTP（本地开发 / 内网 HTTP 部署）
+  return false;
+}
+
 export async function setSessionCookie(sessionId: string): Promise<void> {
   const store = await cookies();
   store.set(SESSION_COOKIE, sessionId, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttpsRequest(),
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   });

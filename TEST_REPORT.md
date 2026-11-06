@@ -1,5 +1,19 @@
 # 测试报告（TEST_REPORT）
 
+> ✅ **v0.0.5 测试基线权威值（2026-11-06 集成收尾）**：
+>
+> | 项 | 实测 | 证据 |
+> |---|---|--|
+> | 单元测试 | **327 passed / 327（25 文件 / 0 failed / 0 skipped）** | PR #22 远端 CI「类型检查 / 单元测试」job ✅（HEAD `5163244`） |
+> | E2E（core） | **200 passed / 0 failed** | 同上 CI「E2E 测试」job ✅ |
+> | 跨浏览器 × 跨视口 | **160 / 160 通过**（Chromium / Firefox / WebKit × 5 视口） | `docs/CROSS_BROWSER_VISUAL_REPORT_v0.0.5.md` |
+> | 类型检查 | ✅ `npx tsc --noEmit` | CI job |
+> | 升级 / 备份恢复验证 | **PASS=17 / FAIL=0** | `docs/UPGRADE_RECOVERY_v0.0.5.md` |
+> | 性能压测（新增路径） | 搜索 P95 6ms / 通知 P95 1ms / 积分 P95 1ms | `docs/PERF_BENCHMARK_v0.0.5.md` |
+> | 发布门禁 | **PASS=62 / FAIL=0 / BLOCK=1**（BLOCK = R-01 授权） | `scripts/release/preflight.sh --target=0.0.5 --dev-baseline=0.0.4` |
+>
+> 下方正文是 **v0.0.3 / v0.0.4 的历史快照**，保留作版本演进记录，不作为 v0.0.5 验收依据。
+
 > ⚠️ **状态覆盖声明（v0.0.4 收尾轮，2026-11-04）**：本文件主体是 **v0.0.3 的历史快照**，
 > 下方表格里的「E2E 67 passed」「视觉 64 项 / 96.9% / 90.6%」「负载测试未执行」
 > 均为当时数字，**不得作为 v0.0.4 验收依据**。v0.0.4 的最新证据如下：

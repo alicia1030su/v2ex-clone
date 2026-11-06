@@ -234,3 +234,43 @@
 | V4-T4 | 客户端组件表单在 hydration 前 `fill`/点击 → 超时 | helpers 统一 `waitForLoadState('networkidle')` + 等输入框可见 |
 | V4-T5 | `uniqueName()` 随机空间过小，跨轮次碰撞导致复用旧会话 | 改「时间戳 + 进程内计数器 + 6 位随机」 |
 | V4-T6 | 视觉汇总脚本在仓库外，「52 条」分母不可复核 | 入仓 `tools/visual/summarize-visual-diff.py` + 产出 `geometry-summary.json`（三套口径机器可读） |
+
+---
+
+## v0.0.5 新发现并修复的缺陷（全部有实测证据）
+
+> 编号规则：v0.0.4 用 `V4-xx`，v0.0.5 起用 **`V5-xx`**。
+> 所有条目均由**真实浏览器 E2E / 真实压测 / 远端 CI 实跑 / 版本库核查**发现，
+> 不是代码审查臆测。
+
+| ID | 级别 | 缺陷 | 位置 | 发现方式 | 修复 | 验证方式 | 状态 |
+|---|---|---|---|---|---|---|---|
+| **V5-01** | 严重 | **@ 提及的用户名长度规则与注册校验不一致 ⇒ 合法用户名静默失效** —— `mentions.ts` 写 `{3,20}`，注册允许 `{2,32}` ⇒ **13–32 字符的用户名永远无法被提及**，且**用户得不到任何提示** | `src/lib/mentions.ts`（`USERNAME_RE` 与匹配正则） vs `src/app/api/auth/signup/route.ts` | E2E 首跑失败：`uniqueName('ment_a')` 生成 23 字符用户名 ⇒ 匹配不上 ⇒ **一个 mention 通知都没产生** | 与注册逐字对齐为 `{2,32}`；新增**一致性守护测试**（解析两处源码的正则，断言长度区间完全相同）⇒ 将来任何一边改了、另一边没跟上，测试立刻红 | ① 单元 19/19 全绿（含新守护）<br>② E2E 6/6 全绿<br>③ 守护测试在两处规则不同时**实测会红** | **VERIFIED** |
+| **V5-02** | 严重 | **生产环境头像上传后立刻 404** —— Next.js 静态资源机制只服务「**构建时已存在**」的文件，运行时写入 `public/uploads/` 的文件**不会被服务** ⇒ 头像功能在生产**完全不可用** | `src/app/api/users/avatar/route.ts` + 新增 `src/app/uploads/[...path]/route.ts` | E2E 实测：`POST /api/users/avatar` 返回 200 且带 `avatar: "/uploads/avatars/3/xxx.png"`，但随后 `GET` 该 URL 得 **404** | 新增**专用路由** `src/app/uploads/[...path]/route.ts` 从磁盘流式返回，与 Next 静态资源机制解耦；带 `X-Content-Type-Options: nosniff` 与 `Cache-Control: immutable` | E2E「下载落盘文件验证是 256×256 的 PNG」通过（证明路由真的能服务） | **VERIFIED** |
+| **V5-03** | 严重 | **Docker 重建后头像全部丢失** —— `deploy/docker-compose.yml` **没有**为 `public/uploads` 挂卷（`.gitignore` 里写着「由容器卷挂载提供」，但 compose 里根本没配） | `deploy/docker-compose.yml` + `Dockerfile` | 收尾轮静态核查 | 新增 named volume `uploads-data:/app/public/uploads`；Dockerfile 预创建该目录并 `chown` 给 `nextjs`(uid 1001) | YAML 解析通过；CI 的「Docker 构建与启动验证」job ✅ | **VERIFIED** |
+| **V5-04** | 严重 | **WebKit 在 HTTP 下拒绝存储带 `Secure` 的 Cookie ⇒ 所有写操作 403** —— `secure: process.env.NODE_ENV === 'production'`，而 `next start`（**任何**部署方式，含本地 HTTP 调试与非 HTTPS 部署）都会设 `NODE_ENV=production` ⇒ Cookie 带 `Secure`。**Chromium / Firefox 对 localhost 有放宽，WebKit 没有** ⇒ 只在 WebKit 复现 | `src/middleware.ts` + `src/lib/auth.ts` | **跨浏览器 × 跨视口实测**（3 浏览器 × 5 视口 = 15 project）：WebKit 全部 5 个视口登录失败 | 按**请求的实际协议**判定（`request.nextUrl.protocol` + `x-forwarded-proto`；会话 Cookie 用 `isHttpsRequest()` 看 `x-forwarded-proto` → `APP_URL` 等），而不是按环境变量 | 跨浏览器 160/160 通过；安全护栏同步断言新判定 | **VERIFIED** |
+| **V5-05** | 严重 | **`body { min-width: 820px }` 从未被媒体查询覆盖 ⇒ v0.0.4 声称的「移动端响应式重排」实际从未生效** —— 原有 `max-width: 600px` 查询只覆盖了 `.content { min-width: 0 }`，**漏掉了 body 自己** ⇒ body 仍被撑到 820px ⇒ 任何窄视口横向滚动 | `src/app/globals.css` | 跨浏览器实测：3 浏览器 × 375/390/768 视口**全部**横向滚动；实测溢出元素 `div right=820 vw=375` / `div.content right=800` / `div.site-nav right=790` | 新增 `≤900px` 断点（`body { min-width: 0; overflow-x: hidden }` + `#Top > .content { min-width: 0; max-width: 100% }`） | 跨浏览器实测通过（`scrollWidth - clientWidth ≤ 1`） | **VERIFIED** |
+| **V5-06** | 一般 | **响应式断点（600px）与桌面最小宽（820px）不匹配** ⇒ 768×1024 平板下主内容区只占 **57%**（438/768） | `src/app/globals.css` | 跨浏览器实测 | 重排断点从 `600px` 提到 **`820px`**（与 body 桌面最小宽对齐） | 跨浏览器实测：768 视口下主区占满 | **VERIFIED** |
+| **V5-07** | 严重 | **`AvatarCropper` 的 `onError` 导致无限重渲染** —— `onError` 是父组件每次渲染都新建的内联函数 ⇒ 放进 `useEffect` 依赖数组 ⇒ effect 无限重跑（effect → setState → 父组件重渲染 → onError 新引用 → …）⇒ 页面卡死 | `src/components/AvatarCropper.tsx` | E2E 报「Target page, context or browser has been closed」 | 用 **ref** 持有最新 `onError`，effect 只依赖 `file` | 头像 E2E 5/5 通过 | **VERIFIED** |
+| **V5-08** | 严重 | **SMTP 超时完全失效（可无限挂起）** —— `readResponse` 只注册 `socket.on('timeout')`，依赖 socket 的**空闲超时**；但「连接刚建立、服务器一个字节都没发」时计时器**根本没在跑** ⇒ `readResponse` 永久挂起 | `src/lib/mailer.ts` | 协议级测试（静默服务器） | 改用**独立计时器** + `Promise.race`，超时与 socket 活动完全无关 | 协议测试实测超时 2085ms < 6s 上限 | **VERIFIED** |
+| **V5-09** | 一般 | **`SMTP_TIMEOUT_MS` 在模块加载时被固化** ⇒ 运行时改 env 无效 ⇒ **超时行为无法测试** | `src/lib/mailer.ts` | 协议级测试 | 改为 `smtpTimeoutMs()` 函数，每次调用时读取 | 协议测试可通过 env 控制超时 | **VERIFIED** |
+| **V5-10** | 严重 | **邮件日志写入可无限挂起** ⇒ 数据库不可用时 `await db.insert(...)` 永久等待 ⇒ **整个 `sendMail()` 跟着挂死** ⇒ **数据库故障时「忘记密码」请求永远不返回**（用户看到无限 loading） | `src/lib/mailer.ts`（`writeEmailLog`） | 代码审查 + 实测 | 改用**独立的一次性客户端**写日志，超时后 `client.end()` **主动断开**（`Promise.race` 只解决「主流程不等」，挂起的查询仍占连接且会让进程无法退出） | 单元测试覆盖降级路径 | **VERIFIED** |
+| **V5-11** | 严重 | **`src/lib/smtp-client.ts` 是死代码（无任何生产调用方）** ⇒ 文档把它标注为「SMTP 客户端实现」是**不实的**；「邮件已发送」从未与真实服务器对话过 ⇒ **生产 SMTP 路径零测试覆盖** | `src/lib/smtp-client.ts`（已删除） | 写协议级测试时**全仓检索**发现 | 删除死代码；协议测试改为**直测生产路径 `sendMail()`** ⇒ 「测试通过」=「生产可用」 | 协议测试 6/6 全绿（直测生产路径） | **VERIFIED** |
+| **V5-12** | 严重 | **CI 与 E2E spec 抢同一个端口 ⇒ EADDRINUSE** —— `.github/workflows/ci.yml` 有「启动 fake SMTP server」步骤，而 spec 的 `beforeAll` **自己也会起一个**，都监听 3025 | `.github/workflows/ci.yml` | **远端 CI 实跑**（run `42142762352`，E2E job 失败） | 删除 CI 的启动/停止步骤（fake server **必须**跑在测试进程里，测试才能直接断言收到的邮件） | 远端 CI 复跑 E2E job ✅ | **VERIFIED** |
+| **V5-13** | 严重 | **`e2e/global-setup.ts` 的 env 覆盖语义与 `env-loader` 相反 ⇒ 令牌不一致 ⇒ 限流静默失效** —— `loadEnv({ override: true })` 让 `ENV_FILE` 文件覆盖 shell 注入；服务端（next start）继承 shell ⇒ **两边 `DEBUG_ENDPOINT_TOKEN` 不一致** ⇒ debug 端点 401 ⇒ **限流根本没被清** ⇒ 429 | `e2e/global-setup.ts` | 远端 CI 失败后本地复现，逐层下钻（`rate_limit_buckets` 计数 12 + worker 与服务端令牌不同） | ① `override` 恒为 `false`，对齐 `env-loader` 的「shell 注入最高优先级」<br>② **`clearRateLimits` 失败时抛错**而非静默返回（原实现静默 ⇒ 429 的报错**完全指不到**「限流没被清」） | 本地 CI 等价复现 **PASS=8 / FAIL=0**，E2E 全部通过 | **VERIFIED** |
+| **V5-14** | 一般 | **`tests/v005-search-quality.spec.ts` 硬编码了本地连接串** ⇒ 本地全绿、CI 直接 `ECONNREFUSED 127.0.0.1:55440` | `tests/v005-search-quality.spec.ts` | 远端 CI 失败 | 改用项目统一的 `dbUrlFor` / `adminUrlOf`（从 `DATABASE_URL` 派生）⇒ 本地与 CI 自动对齐 | 远端 CI「类型检查 / 单元测试」✅ | **VERIFIED** |
+| **V5-15** | 一般 | **发布门禁硬编码目标版本与迁移条数** ⇒ v0.0.5 复用时必然 FAIL ×4（检查 v0.0.4 Tag 是否存在、期望 journal 恰好 3 条、把「载体 = 0.0.4」判成异常） | `scripts/release/preflight.sh` | 准备 v0.0.5 发布时实跑门禁 | 参数化 `--target=` / `--dev-baseline=`；迁移条数从**实际迁移文件数推导** ⇒ 将来加 0004/0005 时门禁自动跟随 | `preflight.sh --target=0.0.5 --dev-baseline=0.0.4` ⇒ **PASS=62 / FAIL=0** | **VERIFIED** |
+| **V5-16** | 一般 | **发帖 / 回复 API 的响应不含结构化 id** ⇒ 调用方要拿 id 只能**解析 `redirect` 字符串** | `src/app/api/topics/route.ts`、`src/app/api/replies/route.ts` | 写 E2E 时实测 `Number(body.topic?.id ?? body.id)` 全部得到 NaN | 补 `topicId` / `replyId` 字段（**保留 `redirect` 不变，向后兼容**） | E2E 能直接拿到 id | **VERIFIED** |
+| **V5-17** | 严重 | **Firefox@320×568 横向溢出 23px** —— 本站「布局用 table」（头像 24px + 间隔 10px + 标题 auto，如 HotTopics）中，Firefox 的 table **按内容扩展而不收缩** ⇒ `td width="auto"` 里的长标题把 table 撑到 328px ⇒ 320 视口下溢出。（Chromium / WebKit 愿意收缩 ⇒ **只跑 Chromium 永远发现不了**） | `src/components/HotTopics.tsx` 等布局 table + `src/app/globals.css` | **组件级视觉回归首轮实跑**（7 视口 × 3 浏览器 × 3 页面） | `.box table { table-layout: fixed }`（列宽按首行声明分配，table 永不超过 `width="100%"`）+ `.box td { overflow-wrap: anywhere; word-break: break-word }`；**只作用于 `.box` 内 table**，不影响 `.markdown_body table`（数据表格语义不同） | 回归复测：Chromium / WebKit / Firefox @320 均 0px 溢出；63 组合全部测量成功；基线已建立（`docs/evidence/visual/component-baseline.json`） | **VERIFIED** |
+
+### 测试基础设施缺陷（v0.0.5）
+
+| ID | 问题 | 修复 |
+|---|---|---|
+| V5-T1 | **本地 CI 复现用超长一行 shell 命令** ⇒ 某一步失败会让后续 `export` 不执行 ⇒ `LOCAL_BASE` 没设上 ⇒ `clearRateLimits` 连到默认 3000 ⇒ **175 个用例一起挂**，而报错指不到「export 没执行」 | 新增 `scripts/ci/run-e2e-locally.sh` 把 CI 的 e2e job **固化成脚本**（建全新库 → migrate → seed → build → 启动 → E2E → 收尾），带自检 |
+| V5-T2 | **`next start` 残留导致 build EPERM** —— `trap kill $SRV_PID` 只杀 npx 包装器，**真正的 next 服务器是子进程**，继续持有 `.next/trace` 写句柄 | 退出时杀**整个进程树**（`taskkill //F //T //PID`），并记录实际监听端口的 PID；build 前也先清理端口占用 |
+| V5-T3 | **`next build` 偶发 EPERM（本机 Windows）** —— 完全相同的命令序列有时 rc=0、有时 EPERM；与 `rm -rf` / `mv` / 残留进程**均非单一因果**（逐一验证过） | ⚠️ **未根治**（机制未查明，疑与 Windows 文件系统「目录刚被重命名后的元数据提交 / 杀毒扫描」有关）。脚本改为**免疫**：识别 EPERM 后清理 + **有限重试**（非 EPERM 失败立即中断），并支持 `SKIP_BUILD=1`。**CI（Linux）上不存在此问题** |
+| V5-T4 | **`clearRateLimits` 静默失效** ⇒ 限流没清 ⇒ 429，而报错指不到真正原因 | 失败时**抛错**，并带上每个令牌尝试过的状态码与「测试进程与服务端令牌不一致」的排查指引 |
+| V5-T5 | **fake SMTP 的 EADDRINUSE 裸错误指不到真正原因** | `FakeSmtpServer.start` 显式识别 EADDRINUSE，并列出最常见两个原因（两处同时起 server / 上次没退干净） |
+| V5-T6 | **两个 E2E spec 可能声明同一个固定端口** | 新增 `tests/v005-e2e-fixtures.spec.ts`（5 条护栏）：端口唯一性 / 只走 `start()` / spec 自己起 / CI 不得有启动命令 / EADDRINUSE 有清晰错误 |
+| V5-T7 | **`SKIP_BUILD` 检查放在 `.next` 清理之后**（`5b9f8e3` 引入的顺序缺陷）—— 先备份/移走 `.next`，再检查 `SKIP_BUILD=1` ⇒ `BUILD_ID` 已被移走 ⇒ 复现流程必然失败，与 `SKIP_BUILD`「复用可用 `.next` 重跑 E2E」的设计目的相悖 | 判定顺序对调：先 `SKIP_BUILD` → 再决定是否清理；构建块同样加 `SKIP_BUILD_ACTIVE` 守卫（`5163244`） |

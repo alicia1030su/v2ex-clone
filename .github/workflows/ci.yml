@@ -74,6 +74,31 @@ env:
   SEED_ADMIN_PASSWORD: ci-admin-password-12345
   SEED_DEMO_USERS: '1'
   SEED_DEMO_PASSWORD: ci-demo-password-12345
+  # ---- SMTP（v0.0.5：本地 fake SMTP server，供「忘记密码」全链路 E2E）----
+  #
+  # 「忘记密码」全链路测试需要邮件**真的投递出去**，才能验证
+  # 「邮件进箱 → 链接有效 → 改密 → 旧会话失效」这条链路。
+  #
+  # ⚠️ **CI 不需要（也不能）自己起 fake SMTP server** ——
+  #    它由 `e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
+  #    在**测试进程内**启动（默认端口 3025）。
+  #    之所以必须跑在测试进程里：fake server 收到的邮件
+  #    要被测试**直接断言**，不能靠「读邮箱」之类的间接手段。
+  #
+  #    实测教训（远端 run 42142762352，E2E job 失败）：
+  #    CI 里曾加过一个「启动 fake SMTP server」步骤，
+  #    与 spec 的 beforeAll **抢同一个端口** ⇒ EADDRINUSE。
+  #    该步骤已删除；这里只保留**服务端**要用的 SMTP 配置。
+  #
+  # ⚠️ `SMTP_ALLOW_REAL_IN_TEST=1` 让 `sendMail()` 绕过内存 outbox，
+  #    直达**生产** SMTP 实现（src/lib/mailer.ts 的 deliverViaSmtp）——
+  #    只有隔离测试环境（APP_RUNTIME_ENV=test + TEST_ENV_ISOLATED=1）
+  #    才允许这个开关生效，生产环境误配也无效。
+  SMTP_ALLOW_REAL_IN_TEST: '1'
+  SMTP_HOST: 127.0.0.1
+  SMTP_PORT: '3025'
+  SMTP_FROM: noreply@v2ex-clone.local
+  SMTP_SECURE: '0'
   # ---- 限流参数 ----
   #
   # 这里**必须用与生产一致的默认值**，不能为了「让测试快点跑完」而调高。
@@ -220,6 +245,23 @@ jobs:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
         run: npx next build
 
+      # ⚠️ v0.0.5 删除：此处原有「启动 fake SMTP server」步骤 —— **纯冗余，且有害**。
+      #
+      # 远端 CI 实测失败（run 42142762352，E2E job）：
+      #   Error: listen EADDRINUSE: address already in use 127.0.0.1:3025
+      #
+      # 根因：`e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
+      # **自己会起一个** fake SMTP server（默认端口 3025）——
+      # 因为 fake server 必须跑在**测试进程**里，才能让测试直接断言收到的邮件。
+      #
+      # 而这里又起了一个独立进程的 fake server ⇒ **同一个端口被监听两次** ⇒ EADDRINUSE。
+      #
+      # 服务端要用的 SMTP 配置（SMTP_HOST / SMTP_PORT / SMTP_ALLOW_REAL_IN_TEST）
+      # 已在 **workflow 级 env** 里配好，不需要这里额外起进程。
+      #
+      # 保留 `scripts/fake-smtp-server.ts`（CLI 包装）——
+      # 它仍可用于本地手工调试（`npx tsx scripts/fake-smtp-server.ts 3025`）。
+
       - name: 启动应用
         env:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
@@ -267,6 +309,8 @@ jobs:
           REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
           LOCAL_BASE: http://localhost:3000
           BROWSER_CHANNEL: chromium
+          # 忘记密码全链路 E2E 需要连到本地 fake SMTP server
+          E2E_SMTP_PORT: '3025'
         run: npx playwright test --reporter=list
 
       - name: 停止应用

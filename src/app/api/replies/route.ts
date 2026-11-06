@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
@@ -8,6 +8,7 @@ import { grantCredits, creditAmounts } from '@/lib/credit-service';
 import { allocateFloor, ensureFloorCounter } from '@/server/floor';
 import { sanitizeRedirect } from '@/lib/redirect';
 import { getFormData } from '@/lib/csrf';
+import { extractMentions, buildMentionMessage } from '@/lib/mentions';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,6 +96,8 @@ export async function POST(request: Request) {
   //   冲突时重新分配（不复用旧值），不再做 +attempt 偏移。
   let inserted = false;
   let replyFloor = 0;
+  /** 新回复的 id（供 JSON 响应返回；表单提交路径可能没有） */
+  let createdReplyId: number | undefined;
   for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
     const floor = await allocateFloor(topicId);
     try {
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
         .returning({ id: schema.replies.id });
       inserted = true;
       replyFloor = floor;
+      createdReplyId = reply.id;
 
       await db
         .update(schema.topics)
@@ -128,6 +132,47 @@ export async function POST(request: Request) {
           replyId: reply.id,
           message: `${user.username} 回复了你的主题：${topic.title}`,
         });
+      }
+
+      // ── @ 提及通知（v0.0.5 补齐）──────────────────────────────
+      //
+      // `notificationType` 枚举里一直有 `mention`，UI 也一直有「提及」标签，
+      // 但此前**没有任何代码写入它** ⇒ 半成品功能。本轮补齐。
+      //
+      // 边界（详见 src/lib/mentions.ts）：
+      //  - 只对**真实存在**的用户发通知
+      //  - 不给自己发
+      //  - 同一条内容里 @ 同一用户只通知一次
+      //  - 单条内容最多 10 个提及通知
+      const mentionedUsernames = extractMentions(content);
+      if (mentionedUsernames.length > 0) {
+        const mentionedUsers = await db
+          .select({ id: schema.users.id, username: schema.users.username })
+          .from(schema.users)
+          .where(
+            and(
+              inArray(schema.users.username, mentionedUsernames),
+              ne(schema.users.id, user.id),
+            ),
+          );
+
+        if (mentionedUsers.length > 0) {
+          await db.insert(schema.notifications).values(
+            mentionedUsers.map((u) => ({
+              userId: u.id,
+              type: 'mention' as const,
+              actorId: user.id,
+              topicId,
+              replyId: reply.id,
+              message: buildMentionMessage({
+                actorName: user.username,
+                topicTitle: topic.title,
+                isReply: true,
+                floor: replyFloor,
+              }),
+            })),
+          );
+        }
       }
 
       // 回复积分（v0.0.4 补齐闭环）
@@ -185,7 +230,15 @@ export async function POST(request: Request) {
   }
 
   if (ct.includes('application/json')) {
-    return NextResponse.json({ ok: true, redirect });
+    // ⚠️ v0.0.5：补 `replyId` 字段（同 topics API 的理由 ——
+    //    原响应只有 `redirect`，调用方要解析字符串才能拿到 id）。
+    //    `replyId` 可能是 undefined（表单提交路径没有 inserted 变量），
+    //    所以用可选字段。
+    return NextResponse.json({
+      ok: true,
+      redirect,
+      ...(createdReplyId ? { replyId: createdReplyId } : {}),
+    });
   }
   return NextResponse.redirect(new URL(redirect, request.url), { status: 303 });
 }

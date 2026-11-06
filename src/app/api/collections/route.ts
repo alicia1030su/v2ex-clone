@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
   // CSRF 校验（置于鉴权之后：未登录请求直接 401，不泄露端点存在性）
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('collection', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as {
     target?: 'topic' | 'node';

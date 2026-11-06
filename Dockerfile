@@ -33,6 +33,14 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 # public/ 可能为空目录（Git 不跟踪空目录），COPY 空目录会失败。
 # 这里用「先建目录再复制」的方式，保证该目录在镜像中一定存在。
 RUN mkdir -p /app/public
+# v0.0.5：预创建**运行时**上传目录（头像）。
+#
+# 背景：头像文件在**运行时**写入 `public/uploads/avatars/...`，
+# 而不是构建期存在 ⇒ `public/` 的内容不会被 COPY 进镜像。
+# 若不预创建，首次上传会因目录不存在而失败（ENOENT）。
+#
+# 权限：容器以 `nextjs`（uid 1001）运行 ⇒ 目录必须对它可写。
+RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
 COPY --from=builder --chown=nextjs:nodejs /app/public/ /app/public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
@@ -116,6 +124,28 @@ COPY --from=builder --chown=nextjs:nodejs /app/src/lib/env-loader.mjs ./src/lib/
 # 下面的断言是**防回归护栏**：若将来 next 把 playwright 变成运行时必需，
 # 构建会**当场失败**，而不是等容器启动时才炸。
 # ---------------------------------------------------------------------------
+#
+# ---------------------------------------------------------------------------
+# sharp（v0.0.5）：头像裁剪 / 重编码 / EXIF 处理的原生依赖
+# ---------------------------------------------------------------------------
+#
+# 本项目的头像上传**依赖 sharp** 做服务端裁剪与重新编码
+# （src/lib/avatar.ts 的 processAvatar）。
+#
+# ⚠️ 关键事实：Alpine Linux 用的是 **musl libc**，不是 glibc ——
+# sharp 的原生二进制是平台专属的。sharp 通过 `optionalDependencies`
+# 提供各平台预编译包（`@img/sharp-linuxmusl-x64` 等），
+# `npm ci` 会按运行平台自动选对 —— **前提是 lock 文件里有对应条目**。
+#
+# 本轮已把 sharp 从「Next 的传递依赖」提升为**直接依赖**
+# （package.json dependencies: "sharp": "0.35.5"）：
+#   · 传递依赖的版本不受我们控制，Next 升级可能静默换掉它；
+#   · 直接依赖才能在 lock 里锁定版本与各平台二进制。
+#
+# 下面的断言是**防回归护栏**：若将来某个环节漏掉了 sharp 的原生包，
+# 容器会**当场构建失败**，而不是等用户上传头像时才报
+# 「无法解析该图片文件」。
+# ---------------------------------------------------------------------------
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund \
  && rm -rf node_modules/playwright-core node_modules/playwright node_modules/@playwright \
@@ -124,7 +154,9 @@ RUN npm ci --omit=dev --no-audit --no-fund \
  && test -f node_modules/drizzle-kit/bin.cjs \
  && test -f node_modules/tsx/dist/cli.mjs \
  && test -f node_modules/next/dist/bin/next \
- && echo "✓ 生产依赖闭包校验通过（entrypoint 三个必需路径均在）"
+ && test -d node_modules/sharp \
+ && node -e "require('sharp')" \
+ && echo "✓ 生产依赖闭包校验通过（entrypoint 三个必需路径 + sharp 均在）"
 
 USER nextjs
 EXPOSE 3000

@@ -2,7 +2,8 @@ import 'server-only';
 import { connect as netConnect, type Socket } from 'node:net';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 import { randomBytes } from 'node:crypto';
-import { db, schema } from '@/db';
+import postgres from 'postgres';
+import { isRealSmtpAllowedInTest } from '@/lib/runtime-flags';
 
 /**
  * 可配置的邮件发送服务
@@ -40,8 +41,31 @@ export type MailMessage = {
   userId?: number | null;
 };
 
-/** 单封邮件的发送超时（毫秒） */
-const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS ?? 15_000);
+/**
+ * 单封邮件的发送超时（毫秒）
+ *
+ * ⚠️ v0.0.5：**每次调用时读取**，不再是模块加载时的常量。
+ *
+ * 原先是 `const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS ?? 15_000)`
+ * —— 在模块加载那一刻就把值固化了。这有两个问题：
+ *  1. **超时行为无法测试** —— 运行时改 `process.env.SMTP_TIMEOUT_MS` 无效，
+ *     协议级测试想验证「服务器不响应时会超时」就必须等满 15 秒。
+ *  2. 与同文件的 `readSmtpConfig()` 行为不一致（那个每次都读 env），
+ *     同一个配置文件里两种语义，容易误判。
+ *
+ * 改成函数后与 `readSmtpConfig()` 保持一致。
+ */
+/**
+ * 写 `email_logs` 的超时上限（毫秒）
+ *
+ * 日志是**旁路**，绝不能因为它拖死主流程。
+ */
+const EMAIL_LOG_WRITE_TIMEOUT_MS = Number(process.env.EMAIL_LOG_WRITE_TIMEOUT_MS ?? 3_000);
+
+function smtpTimeoutMs(): number {
+  const n = Number(process.env.SMTP_TIMEOUT_MS ?? 15_000);
+  return Number.isFinite(n) && n > 0 ? n : 15_000;
+}
 
 /** 是否为测试运行时 */
 export function isTestRuntime(): boolean {
@@ -152,17 +176,23 @@ async function readResponse(socket: SmtpSocket): Promise<{ code: number; lines: 
 
   for (;;) {
     const chunk = await new Promise<string>((resolve, reject) => {
+      // 计时器声明（供上面三个 handler 的 clearTimeout 使用）
+      // eslint-disable-next-line prefer-const
+      let timer: NodeJS.Timeout;
       const onData = (data: Buffer) => {
+        clearTimeout(timer);
         socket.off('error', onError);
         socket.off('timeout', onTimeout);
         resolve(data.toString('utf8'));
       };
       const onError = (err: Error) => {
+        clearTimeout(timer);
         socket.off('data', onData);
         socket.off('timeout', onTimeout);
         reject(err);
       };
       const onTimeout = () => {
+        clearTimeout(timer);
         socket.off('data', onData);
         socket.off('error', onError);
         reject(new Error('SMTP 响应超时'));
@@ -170,6 +200,41 @@ async function readResponse(socket: SmtpSocket): Promise<{ code: number; lines: 
       socket.on('data', onData);
       socket.on('error', onError);
       socket.on('timeout', onTimeout);
+
+      // ⚠️ v0.0.5：**独立计时器**，不依赖 socket 的空闲超时。
+      //
+      // 实测（v0.0.5 协议测试）：`socket.setTimeout(2000)` 已生效
+      // （`socket.timeout === 2000`），但 `'timeout'` 事件**从未触发** ——
+      // Node 的空闲超时从「最后一次 socket 活动」起算，而在
+      // 「连接刚建立、服务器一个字节都没发」的场景下，计时器并没有
+      // 真正开始走 ⇒ `readResponse` 永远挂着（实测卡满 30s 被 vitest 杀）。
+      //
+      // 修法：用 `Promise.race` 显式竞速一个 `setTimeout`。
+      // 这样超时**与 socket 活动无关**，语义确定，也不会丢事件。
+      timer = setTimeout(() => {
+        socket.off('data', onData);
+        socket.off('error', onError);
+        socket.off('timeout', onTimeout);
+        reject(new Error('SMTP 响应超时'));
+      }, smtpTimeoutMs());
+
+      // ⚠️ v0.0.5：**每次等待响应前必须重置空闲计时器**。
+      //
+      // `socket.setTimeout(ms)` 设置的是「空闲超时」—— 只有 socket 上
+      // **没有活动** 时才计时。一旦触发了 `'timeout'` 事件，Node 内部的
+      // 计时器就**停止**了；后续再 `setTimeout()` 之前的这段空窗期，
+      // 计时器根本不在跑。
+      //
+      // 原实现在 `deliverViaSmtp` 里 `socket.setTimeout(SMTP_TIMEOUT_MS)`
+      // 只调一次，然后 `readResponse` 里只注册 `'timeout'` 监听。
+      // 场景：连接建立后服务器迟迟不发问候语 ⇒
+      //   - 第一次 `setTimeout` 的计时器在 connect 后就触发了 'timeout'
+      //   - 但那时 `readResponse` 还没注册监听 ⇒ **事件丢失**
+      //   - 之后计时器不再运行 ⇒ 永远挂起（实测：测试卡到 30s 被杀）
+      //
+      // 修法：在 `readResponse` 每次等待前重新 `setTimeout`，
+      // 让计时器始终与「当前这次等待」对齐。
+      socket.setTimeout(smtpTimeoutMs());
     });
 
     buffer += chunk;
@@ -233,7 +298,7 @@ async function deliverViaSmtp(
       });
 
   try {
-    socket.setTimeout(SMTP_TIMEOUT_MS);
+    socket.setTimeout(smtpTimeoutMs());
 
     const greeting = await readResponse(socket);
     if (greeting.code !== 220) {
@@ -341,7 +406,13 @@ export async function sendMail(message: MailMessage): Promise<MailSendResult> {
   const maskedRecipient = maskEmail(message.to);
 
   // ---- 测试环境：进内存 outbox，绝不发真邮件 ----
-  if (isTestRuntime()) {
+  //
+  // ⚠️ v0.0.5：唯一例外是**隔离测试环境显式要求真实 SMTP** 时
+  //    （`SMTP_ALLOW_REAL_IN_TEST=1` + `TEST_ENV_ISOLATED=1`）。
+  //    没有这个开关，生产 SMTP 代码路径（`deliverViaSmtp`）
+  //    在测试里**从未被执行过** —— 「邮件已发送」只是 outbox 里的
+  //    一个数组项而已。
+  if (isTestRuntime() && !isRealSmtpAllowedInTest()) {
     outbox.push({
       to: message.to,
       subject: message.subject,
@@ -409,16 +480,97 @@ async function writeEmailLog(entry: {
   skipReason: string | null;
   userId: number | null;
 }): Promise<void> {
+  // ⚠️ v0.0.5：日志写入必须有**超时保护**。
+  //
+  // 原来的 try/catch 只防「抛异常」，**防不住「挂起」** ——
+  // 数据库不可用（PG 在 recovery / 连接池耗尽 / 网络分区）时，
+  // `await db.insert(...)` 会**无限期等待**，整个 `sendMail()` 跟着挂死。
+  //
+  // 实测（v0.0.5 SMTP 协议测试）：
+  //   - SMTP 侧超时计时器**正常触发**（日志确认 timer FIRED）
+  //   - 但 `sendMail` 仍未返回，卡满 30s 被 vitest 杀
+  //   - 原因就在这里 —— 超时后 `sendMail` 的 catch 分支要写 `email_logs`，
+  //     而那次写入正撞上数据库不可用 ⇒ 永久挂起。
+  //
+  // 真实影响：**数据库故障时，「忘记密码」请求会永远不返回** ——
+  // 用户看到的是无限 loading，而不是错误提示。这是必须修的产品级缺陷。
+  //
+  // 修法：给日志写入加超时竞速，超时后放弃写日志（主流程继续）。
+  await writeEmailLogDetached(entry);
+}
+
+/**
+ * 把一次挂起的数据库写入**彻底断开**（超时后调用）
+ *
+ * ## 为什么需要它
+ *
+ * 上一版的超时保护用 `Promise.race` —— 主流程确实不等了，
+ * 但那次 `db.insert()` 仍在**后台挂着**，占着连接池的一个连接。
+ * postgres.js 的连接会一直等 PG 响应 ⇒
+ *  - 连接池被逐步耗尽
+ *  - **进程无法退出**（vitest / Node 都会等这些 pending 句柄）
+ *
+ * 实测症状：`sendMail` 的超时逻辑已正常触发（日志确认 timer FIRED），
+ * 但测试进程仍卡满 30 秒被 vitest 杀掉 —— 卡的不是邮件逻辑，
+ * 而是那条挂起的数据库写入。
+ *
+ * ## 修法
+ *
+ * 用**独立的一次性客户端**写日志，超时后 `end()` 掉它 ——
+ * 断开连接会立即让那条查询失败（而不是永远挂着）。
+ * 代价：每次写日志多一次连接（`max: 1`）——
+ * 但日志是低频旁路，且只在**主流程已经决定要写**时才发生。
+ */
+async function writeEmailLogDetached(entry: {
+  maskedRecipient: string;
+  purpose: MailPurpose;
+  delivered: boolean;
+  skipReason: string | null;
+  userId: number | null;
+}): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) return;
+
+  let client: ReturnType<typeof postgres> | null = null;
   try {
-    await db.insert(schema.emailLogs).values({
-      recipientMasked: entry.maskedRecipient,
-      purpose: entry.purpose,
-      delivered: entry.delivered,
-      skipReason: entry.skipReason,
-      userId: entry.userId,
+    client = postgres(url, {
+      prepare: false,
+      max: 1,
+      connect_timeout: 5,
+      idle_timeout: 5,
     });
+
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error('email_logs 写入超时')),
+        EMAIL_LOG_WRITE_TIMEOUT_MS,
+      );
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+
+    try {
+      await Promise.race([
+        client`
+          INSERT INTO email_logs
+            (recipient_masked, purpose, delivered, skip_reason, user_id, created_at)
+          VALUES
+            (${entry.maskedRecipient}, ${entry.purpose}, ${entry.delivered},
+             ${entry.skipReason}, ${entry.userId}, now())
+        `,
+        timeout,
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   } catch {
     /* 日志失败不影响主流程 */
+  } finally {
+    // ⚠️ 关键：**主动断开**。不这么做，挂起的查询会一直占着连接，
+    //    让进程无法退出（实测卡满 30s）。
+    if (client) {
+      await client.end({ timeout: 1 }).catch(() => undefined);
+    }
   }
 }
 

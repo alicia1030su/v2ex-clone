@@ -76,6 +76,8 @@ export function buildNavLinks(user: NavUser): NavLink[] {
     { href: '/leaderboard', label: '积分' },
     // 关注动态：已关注用户发布的主题（后端 GET /api/users/follows/topics）
     { href: '/following', label: '关注' },
+    // v0.0.5：我的举报（用户可见的处理反馈）
+    { href: '/reports', label: '我的举报' },
   ];
 
   // 管理后台入口 —— **仅对 moderator / admin 呈现**

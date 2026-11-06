@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { thankReply, unthankReply, ContentError } from '@/lib/content-service';
 import { rateLimitByUser } from '@/lib/rate-limit';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,9 @@ export async function DELETE(request: Request) {
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（取消感谢）
+  const rl = await guardCommunityAction('thanks', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as { replyId?: number } | null;
   const replyId = Number(body?.replyId);

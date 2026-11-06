@@ -1,4 +1,6 @@
 import { Page, expect } from '@playwright/test';
+import * as nodeFs from 'node:fs';
+import * as nodePath from 'node:path';
 
 /**
  * 测试账号
@@ -7,6 +9,19 @@ import { Page, expect } from '@playwright/test';
  * seed 的口令由 SEED_ADMIN_PASSWORD / SEED_DEMO_PASSWORD 决定，
  * 硬编码会让「seed 用强口令、测试用弱口令」的两边对不上（登录必然失败）。
  */
+/**
+ * ⚠️ v0.0.5：这两个口令必须由**测试进程**自己拿到，
+ *    不能指望服务端进程的环境变量 —— 它们是**两个进程**。
+ *
+ * 实测踩到：用 `lisi` 登录一直返回 401「用户名或密码不正确」，
+ * 原因就是**启动测试的那条命令**没带 `SEED_DEMO_PASSWORD`，
+ * 于是这里退回默认值 `password123`，
+ * 而服务端 seed 用的是 `SEED_DEMO_PASSWORD=LocalDemoPass12345`
+ * ⇒ 两边对不上 ⇒ 登录必然失败。
+ *
+ * 跑 E2E 时**必须**同时给服务端与测试进程传：
+ *   SEED_DEMO_PASSWORD=…  SEED_ADMIN_PASSWORD=…
+ */
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? 'password123';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'admin12345';
 
@@ -14,6 +29,40 @@ export const ADMIN = { username: 'admin', password: ADMIN_PASSWORD };
 export const USER_A = { username: 'lisi', password: DEMO_PASSWORD };
 export const USER_B = { username: 'wangwu', password: DEMO_PASSWORD };
 export const MODERATOR = { username: 'moderator', password: DEMO_PASSWORD };
+
+/**
+ * 调试端点令牌
+ *
+ * ⚠️ v0.0.5：**必须与「服务端进程」用的是同一份令牌**，否则清理会静默失效。
+ *
+ * 实测踩到（E2E 反复失败，报错完全指不到真正原因）：
+ *   - 服务端 `next start` 读的是 `.env.test` ⇒ 令牌 = `test-debug-token-local-only`
+ *   - 测试进程 `playwright.config.ts` 用 dotenv 加载 `.env.test`，
+ *     但 dotenv **不覆盖已存在的环境变量** ⇒ 若 shell 里 export 了
+ *     `DEBUG_ENDPOINT_TOKEN=local-debug-token`，测试进程拿到的就是**另一个值**
+ *   - 两边不一致 ⇒ debug 端点返回 401 ⇒ **限流根本没被清**
+ *   - 表现：注册 / 登录 / 发帖莫名其妙地 429 或超时
+ *
+ * 修法：把「进程 env 的令牌」与「`.env.test` 里的令牌」**都试一遍**，
+ * 谁能用就用谁 —— 这样无论 shell 里有没有覆盖都能工作。
+ */
+function debugTokens(): string[] {
+  const out: string[] = [];
+  const fromEnv = process.env.DEBUG_ENDPOINT_TOKEN?.trim();
+  if (fromEnv) out.push(fromEnv);
+
+  // 从 `.env.test` 再取一次（服务端大概率读的是它）
+  try {
+    const file = nodePath.join(__dirname, '..', '.env.test');
+    const m = /^DEBUG_ENDPOINT_TOKEN\s*=\s*(.+)$/m.exec(nodeFs.readFileSync(file, 'utf8'));
+    const v = m?.[1]?.trim().replace(/^["']|["']$/g, '');
+    if (v && !out.includes(v)) out.push(v);
+  } catch {
+    // 文件不存在 ⇒ 忽略
+  }
+
+  return out;
+}
 
 /**
  * 清理限流计数。
@@ -25,11 +74,48 @@ export const MODERATOR = { username: 'moderator', password: DEMO_PASSWORD };
  * 未配置 DEBUG_ENDPOINT_TOKEN 时静默跳过 —— 用例本身不依赖清理动作。
  */
 export async function clearRateLimits(page: Page) {
-  const token = process.env.DEBUG_ENDPOINT_TOKEN;
-  if (!token) return;
-  await page.request.post('/api/debug/reset-rate-limits', {
-    headers: { 'x-debug-token': token },
-  });
+  const tokens = debugTokens();
+  if (tokens.length === 0) {
+    throw new Error(
+      'clearRateLimits: 拿不到 DEBUG_ENDPOINT_TOKEN —— 既不在进程 env 里，也不在 .env.test 里。\n' +
+        '没有它就无法清理限流，后续请求会累积到阈值并返回 **429**，\n' +
+        '而那个报错完全指不到「限流没被清」这个真正原因。',
+    );
+  }
+
+  const attempts: string[] = [];
+  for (const token of tokens) {
+    const res = await page.request.post('/api/debug/reset-rate-limits', {
+      headers: { 'x-debug-token': token },
+    });
+    // 200 ⇒ 成功，停止尝试
+    if (res.status() === 200) return;
+    attempts.push(`  token=${token.slice(0, 6)}… → HTTP ${res.status()}`);
+  }
+
+  // ⚠️ v0.0.5：**所有令牌都失败时抛错**，而不是静默返回。
+  //
+  // 实测踩到（远端 CI E2E 失败，本地花了一整轮才定位）：
+  //   原实现在失败时**静默 return** ⇒ 限流没被清 ⇒
+  //   后续 forgot-password 累积到阈值 ⇒ 返回 **429**。
+  //
+  //   而 429 的报错只说「forgot-password 返回 429」——
+  //   **完全指不到**「clearRateLimits 静默失败了」这个真正原因。
+  //
+  // 现在：失败会**立刻**在这里抛出，并带上所有尝试过的令牌与状态码。
+  throw new Error(
+    `clearRateLimits 失败 —— 限流**没有被清空**。\n` +
+      `\n` +
+      `尝试过的令牌：\n${attempts.join('\n')}\n` +
+      `\n` +
+      `最常见的原因：**测试进程与服务端用了不同的 DEBUG_ENDPOINT_TOKEN**。\n` +
+      `  · 服务端（next start）读的是 shell 注入的值\n` +
+      `  · 测试 worker 读的是 global-setup 加载的值\n` +
+      `  · 两者不一致 ⇒ debug 端点返回 401\n` +
+      `\n` +
+      `排查：确认启动服务与启动 playwright 的 shell 里\n` +
+      `DEBUG_ENDPOINT_TOKEN 是同一个值。`,
+  );
 }
 
 /** 从浏览器上下文读取 CSRF Cookie 的值 */
@@ -78,7 +164,12 @@ export async function apiPost(
 export async function login(page: Page, username: string, password: string) {
   await page.goto('/signin');
   // 同 register：SignInForm 是客户端组件，需等 hydration
-  await page.waitForLoadState('networkidle');
+  //
+  // ⚠️ v0.0.5：不用 `networkidle` —— 页面有**持续的网络请求**
+  //    （通知轮询等），网络永远不会真正空闲 ⇒ 等满 20s 超时
+  //    （实测踩到：新开的 context 里登录页 #username 等不到）。
+  //    `domcontentloaded` + 显式等元素可见更可靠。
+  await page.waitForLoadState('domcontentloaded');
   await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
 
   await page.fill('#username', username);
@@ -100,7 +191,8 @@ export async function register(page: Page, username: string, password = 'passwor
   await page.goto('/signup');
   // ⚠️ SignUpForm 是客户端组件 —— 服务端渲染的 HTML 里**没有**这些输入框，
   // 必须等 React hydration 完成才能 fill，否则 page.fill 一直等到超时。
-  await page.waitForLoadState('networkidle');
+  // ⚠️ v0.0.5：同 login helper —— 不用 networkidle（页面有持续请求）
+  await page.waitForLoadState('domcontentloaded');
   await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
 
   await page.fill('#username', username);
@@ -171,7 +263,8 @@ export async function createTopicViaUi(
   // 实测（v0.0.4）：单独跑一个用例时因为前面有多次 API 往返，
   // hydration 恰好已完成，测试能过；但整套连跑时序不同就会失败 ——
   // 这正是「靠运气通过」的典型，必须显式等待。
-  await page.waitForLoadState('networkidle');
+  // ⚠️ v0.0.5：不用 networkidle（页面有持续请求，网络永不空闲）
+  await page.waitForLoadState('domcontentloaded');
 
   // ⚠️ v0.0.4（V4-20）：用 `id` 定位，**不用** `name="title"` ——
   // 表单内 input 的 `name` 若与 `HTMLFormElement` 的 DOM 属性同名
@@ -266,7 +359,8 @@ export async function submitReplyViaUi(
   content: string,
 ): Promise<void> {
   await page.goto(`/t/${topicId}`);
-  await page.waitForLoadState('networkidle');
+  // ⚠️ v0.0.5：不用 networkidle（页面有持续请求，网络永不空闲）
+  await page.waitForLoadState('domcontentloaded');
 
   const textarea = page.locator('textarea[name="content"]').first();
   await expect(textarea).toBeVisible({ timeout: 20_000 });

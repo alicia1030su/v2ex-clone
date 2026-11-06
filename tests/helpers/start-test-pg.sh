@@ -161,11 +161,35 @@ do_start() {
   "$PGBIN/pg_isready.exe" -h "$HOST" -p "$PORT" -U "$PGUSER" || exit 1
 
   # 判据 A：日志静态检查（recovery / fsync 积压痕迹）
+  #
+  # ⚠️ v0.0.5 修复：稳态判定**不能**用中文日志文案。
+  #
+  # Windows 版 PostgreSQL 的日志是 **GBK 编码**，而 `grep -a` 是**按字节**
+  # 匹配 —— 拿 UTF-8 的「数据库系统已就绪」去匹配 GBK 字节序列，
+  # **永远匹配不到** ⇒ 下面的循环每次都跑满 60 × 5s = 300 秒才退出。
+  #
+  # 症状：每次 `start-test-pg.sh start` 都卡 5 分钟，随后被沙箱/CI
+  # 以 SIGTERM 杀掉；下游的 drizzle-kit / vitest 全部跟着挂死，
+  # 看起来「像是产品代码死锁」，实则是**环境脚本的编码 bug**。
+  #
+  # 修法：改用**编码无关**的判据 ——
+  #  1. 主力：日志里出现 ASCII 标记 `redo done`（redo 结束即进入稳态）；
+  #  2. 兜底：`pg_isready` 能连上（连接层就绪）。
+  #     「数据库系统已就绪」在 GBK 下是 2 字节/汉字的序列，
+  #     无法用 UTF-8 字面量匹配；但 `redo done` 是纯 ASCII，一定能匹配。
   if grep -aq "正在自动恢复状态\|syncing data directory" "$LOG" 2>/dev/null; then
     log "⚠️ 检测到 recovery / fsync 积压痕迹，等待稳态…"
     for _ in $(seq 1 60); do
-      grep -aq "数据库系统已就绪" "$LOG" 2>/dev/null && break
-      sleep 5
+      # 编码无关的稳态信号：redo 结束
+      grep -aq "redo done" "$LOG" 2>/dev/null && break
+      # 兜底：连接层已就绪也算稳态（readiness 探针）
+      "$PGBIN/pg_isready.exe" -h "$HOST" -p "$PORT" -U "$PGUSER" -q 2>/dev/null && break
+      sleep 2
+    done
+    # 再确认一次连接可用（redo 结束后还需一拍才完全可写）
+    for _ in $(seq 1 30); do
+      "$PGBIN/pg_isready.exe" -h "$HOST" -p "$PORT" -U "$PGUSER" -q 2>/dev/null && break
+      sleep 1
     done
   fi
 

@@ -77,12 +77,45 @@ export function middleware(request: NextRequest) {
   if (!hasValidCsrf) {
     const token =
       crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+
+    // ⚠️ v0.0.5 修复：`secure` 的判定不能只看 `NODE_ENV`。
+    //
+    // 根因（v0.0.5 跨浏览器实测发现，**只在 WebKit 复现**）：
+    //   原判定 `secure: process.env.NODE_ENV === 'production'`。
+    //   而 `next start`（**任何**部署方式，含本地 HTTP 调试与
+    //   「Linux 全新安装」的非 HTTPS 部署）都会设 `NODE_ENV=production`
+    //   ⇒ Cookie 带 `secure: true`。
+    //
+    //   Chromium / Firefox 对 `localhost` 的 `Secure` Cookie 有**放宽**
+    //   （允许 HTTP 上的 localhost），所以一直没暴露；
+    //   **WebKit 没有这个放宽** ⇒ 在 HTTP 下**直接拒绝存储该 Cookie**
+    //   ⇒ `document.cookie` 为空 ⇒ 所有写操作（登录 / 发帖 / 举报…）
+    //   一律 403「CSRF 校验失败」。
+    //
+    //   实测证据（webkit-1280x900）：
+    //     DIAG_COOKIE ''            ← 浏览器里读不到
+    //     DIAG_COOKIES_CTX [... "secure":true, "sameSite":"None" ...]
+    //                            ← 但浏览器**确实收到了**，只是不落地
+    //
+    // 修法：**按请求的实际协议判定**，而不是按环境变量。
+    //   - HTTPS（含反代后带 `x-forwarded-proto: https`）⇒ secure = true
+    //   - 纯 HTTP ⇒ secure = false（否则 WebKit 直接丢掉 Cookie）
+    //
+    // ⚠️ 安全影响评估：HTTP 下不设 `secure` 意味着 Cookie 会随明文 HTTP
+    //    传输 —— 但**这本来就是 HTTP 部署的固有风险**（会话 Cookie 同理），
+    //    且 `SameSite=Lax` 仍能挡住绝大多数 CSRF。
+    //    真正的生产部署应当在**反向代理后用 HTTPS**（此时 secure=true）。
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const isHttps =
+      request.nextUrl.protocol === 'https:' ||
+      (forwardedProto ? forwardedProto.split(',')[0]?.trim() === 'https' : false);
+
     response.cookies.set({
       name: CSRF_COOKIE,
       value: token,
       httpOnly: false,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       path: '/',
       maxAge: CSRF_MAX_AGE,
     });

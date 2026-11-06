@@ -64,7 +64,7 @@ export default async function AdminPage() {
         <div className="header">
           <a href="/">V2EX</a> <span className="chevron">&nbsp;›&nbsp;</span> 管理后台
         </div>
-        <AdminConsole canChangeRole={isAdmin(user)} />
+        <AdminConsole canChangeRole={isAdmin(user)} canAdjustCredits={isAdmin(user)} />
       </div>
     </Wrapper>
   );

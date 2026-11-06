@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { guardCommunityAction } from '@/lib/community-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('follow', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as { userId?: number } | null;
   const targetId = Number(body?.userId);
@@ -74,6 +78,9 @@ export async function DELETE(request: Request) {
 
   const csrfDenied = await guardCsrf(request);
   if (csrfDenied) return csrfDenied;
+  // v0.0.5：社区动作频率限制（用户 + IP 双维度）
+  const rl = await guardCommunityAction('follow', user?.id ?? null);
+  if (rl) return rl;
 
   const body = (await request.json().catch(() => null)) as { userId?: number } | null;
   const targetId = Number(body?.userId);
