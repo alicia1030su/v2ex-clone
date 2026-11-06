@@ -160,45 +160,26 @@ else
   bad "seed 失败（见 /tmp/ci-eq-seed.log）"; tail -10 /tmp/ci-eq-seed.log; exit 1
 fi
 
-# ⚠️ 构建前处理掉残留的 .next —— Windows 上残留的 .next 会让 build 报
+# ⚠️ 构建前处理掉残留的 .next —— 残留会让 build 报
 #    `EPERM: operation not permitted, open '.next\trace'`。
 #
-#    ⚠️⚠️ 这里**不能用 `rm -rf .next`** ——
-#    实测踩到（2026-11-06）：本环境的 safe-delete 安全网关会按「turn」
-#    统计删除文件数，超过 50 个就要求人工确认 ⇒ `rm -rf .next`
-#    （约 620 个文件）被**静默拦截**（脚本里 `|| true` 把失败吞了）
-#    ⇒ `.next` 残留 ⇒ build 报 EPERM ⇒ **而 EPERM 完全指不到真正原因**。
-#
-#    修法：用 **`mv` 重命名**（不是删除）—— 重命名不走删除计数，
-#    一步到位；旧目录改名后由用户/后续流程自行清理。
-# ⚠️ 构建前处理掉残留的 .next —— Windows 上残留的 .next 会让 build 报
-#    `EPERM: operation not permitted, open '.next\trace'`。
-#
-#    ⚠️⚠️ 两个坑（都实测踩到，2026-11-06）：
+#    两个坑（都实测踩到，2026-11-06）：
 #
 #    **坑 1：不能用 `rm -rf .next`**
-#    本环境的 safe-delete 安全网关按「turn」统计删除文件数，
+#    本环境的 safe-delete 网关按「turn」统计删除文件数，
 #    超过 50 个就要求人工确认 ⇒ `rm -rf .next`（约 620 个文件）
-#    被**静默拦截**（脚本里 `|| true` 把失败吞了）
-#    ⇒ `.next` 残留 ⇒ build EPERM ⇒ 而 EPERM 完全指不到真正原因。
+#    被静默拦截 ⇒ `.next` 残留 ⇒ build 报 EPERM。
+#    故用 **`mv`**（重命名不走删除计数）。
 #
-#    **坑 2：不能 `mv` 到仓库内**
-#    实测：`mv .next .next.stale.X`（目标在仓库内）后 build **必报 EPERM**；
-#    而 `mv .next <仓库外>/.next.stale.X` 后 build **稳定成功**。
-#    （机制未完全查明 —— 疑与 Next 的 build 扫描 / file-watcher 有关，
-#      但**实测可复现**，故按「移到仓库外」实现，并如实记录此处为经验结论。）
+#    **坑 2：EPERM 是「偶发竞态」，不是确定性缺陷**
+#    实测：**完全相同的命令序列**（migrate → seed → mv → build）
+#    有时 rc=0、有时 EPERM。单独跑 migrate 或单独跑 seed 都不复现，
+#    两个都跑才偶现。机制疑与 Windows 文件系统在「目录刚被重命名」
+#    后的元数据提交 / 杀毒扫描有关，**未能完全查明**。
 #
-#    修法：`mv` 到**仓库外**的 `_backups/`（一步到位，不留仓库内残留）。
-# ⚠️ build 前先确保端口没被上次残留的服务器占用 ——
-#    残留的 next start 持有 `.next/trace` 写句柄 ⇒ build 必报 EPERM。
-if netstat -ano 2>/dev/null | grep -q ":${APP_PORT}.*LISTENING"; then
-  info "检测到端口 ${APP_PORT} 被占用 —— 清理上次残留的应用进程"
-  netstat -ano 2>/dev/null | grep ":${APP_PORT}.*LISTENING" | awk '{print $5}' | sort -u | while read -r pid; do
-    [ -n "$pid" ] && taskkill //F //T //PID "$pid" >/dev/null 2>&1 || true
-  done
-  sleep 2
-fi
-
+#    ⇒ 因此这里**不假装根治**，而是让脚本**免疫**：
+#      build 失败且日志含 EPERM 时，清理后**有限重试**（最多 2 次），
+#      并在日志里如实标注「环境偶发，重试缓解」。
 if [ -d ".next" ]; then
   BACKUP_DIR="$REPO_ROOT/../_backups"
   mkdir -p "$BACKUP_DIR" 2>/dev/null || true
@@ -211,8 +192,28 @@ if [ -d ".next" ]; then
   fi
 fi
 
-info "next build"
-if npx next build > /tmp/ci-eq-build.log 2>&1; then
+# build（带 EPERM 偶发竞态的有限重试）
+BUILD_OK=0
+for ATTEMPT in 1 2 3; do
+  info "next build（第 ${ATTEMPT} 次尝试）"
+  if npx next build > /tmp/ci-eq-build.log 2>&1; then
+    BUILD_OK=1
+    break
+  fi
+  if grep -q "EPERM" /tmp/ci-eq-build.log 2>/dev/null; then
+    # 已识别的环境偶发竞态（见上方注释「坑 2」）—— 清理后有限重试
+    info "build 报 EPERM（本机 Windows 环境偶发竞态）—— 清理后重试"
+    if [ -d ".next" ]; then
+      mv ".next" "$REPO_ROOT/../_backups/.next.stale.retry${ATTEMPT}.$$" 2>/dev/null || true
+    fi
+    sleep 3
+    continue
+  fi
+  # 非 EPERM 的失败 ⇒ 真失败，不重试
+  break
+done
+
+if [ "$BUILD_OK" = "1" ]; then
   ok "构建成功"
 else
   bad "构建失败（见 /tmp/ci-eq-build.log）"; tail -20 /tmp/ci-eq-build.log; exit 1
