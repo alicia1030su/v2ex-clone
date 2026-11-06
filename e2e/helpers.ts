@@ -223,10 +223,7 @@ export async function login(page: Page, username: string, password: string) {
  * 页面不跳转，后续断言全部超时。
  */
 export async function register(page: Page, username: string, password = 'password123') {
-  // v0.0.7 排障：记录导航后的实际 host（baseURL 是否真的生效）
-  console.log('[nav-diag] before goto, url=', page.url());
   await page.goto('/signup');
-  console.log('[nav-diag] after goto /signup, url=', page.url());
   // ⚠️ SignUpForm 是客户端组件 —— 服务端渲染的 HTML 里**没有**这些输入框，
   // 必须等 React hydration 完成才能 fill，否则 page.fill 一直等到超时。
   // ⚠️ v0.0.5：同 login helper —— 不用 networkidle（页面有持续请求）
@@ -241,7 +238,6 @@ export async function register(page: Page, username: string, password = 'passwor
     page.waitForURL((url) => !url.pathname.startsWith('/signup'), { timeout: 30_000 }),
     page.click('button[type="submit"]'),
   ]);
-  console.log('[nav-diag] after register submit, url=', page.url());
 }
 
 export async function logout(page: Page) {
