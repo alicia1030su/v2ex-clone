@@ -271,6 +271,7 @@
 | **V5-24** | 一般 | **静态资源 404** —— `globals.css` 两处引用 `/static/img/shadow_light.png`，而 `public/static/img/` **根本不存在** ⇒ 每次页面加载必 2 个 404 | `src/app/globals.css` | 浏览器网络面板（`response` 监听捕获 404） | 改用等价 CSS 渐变（零二进制资产、无外部素材依赖） | 复测：三引擎均无 404 | **VERIFIED** |
 | **V5-25** | 一般 | **视觉回归工具的两类误报** —— ① font-family 跨引擎序列化差异（chromium 带引号 / FF·WebKit 不带）；② rgba alpha 的 8bit 舍入差异（0.227 vs 0.228，含 `1px solid rgba(...)` 内嵌形式）⇒ 首轮 143 项「跨浏览器不一致」里绝大多数是工具假象 | `tools/visual/regression.mjs` | 首轮回归输出分析 | 样式值归一化（去引号 + 统一逗号 + alpha 8bit 量化）+ 宽度严格 / 高度 4% 容差 / 溢出 ≤1px 视为 0 | 复测：跨浏览器不一致 **143 → 0**；三页 63 组合全部一致 | **VERIFIED** |
 | **V5-26** | 一般 | **视觉回归旧基线本身是坏的** —— 旧基线中 Firefox / WebKit 的实测值是**浏览器默认值**（`#Top` 74px、字号 16px、字体 `sans-serif` / `-webkit-standard`、`.content` 缺失）⇒ **CSS 根本没加载**（`.next` 目录换址竞态导致 CSS 404）⇒ 任何对比都无意义 | `docs/evidence/visual/component-baseline.json` | 基线数据核查（对照当前健康运行的实测值） | 人工审查后**显式重建**基线（`SAVE_BASELINE=1`），并核对新基线三引擎数值健康 | 新基线：63 组合全部测量成功、三引擎一致、零溢出；二次运行**回归项 = 0** | **VERIFIED** |
+| **V5-27** | 环境 | **Firefox / WebKit 移动视口 E2E 在本机全部失败** —— Firefox：`NS_ERROR_REDIRECT_LOOP`（页面快照是「无法连接服务器」错误页）；WebKit：注册流程断言超时（30s 级）。**与 v0.0.6 的改动无关**：在 **master（未改动）** 的独立 worktree 上**两者同样 7/8 失败**（失败用例集合完全相同）；同时 Chromium 5 个视口 **1200/1200 全绿** | 本机环境（浏览器 + 本机代理/网络栈交互） | 跨浏览器 E2E 实跑 + **master worktree 对照实验**（两个浏览器各一轮） | 属**环境问题**，不修改产品代码；已登记 `RISK_REGISTER` **R-32** | 对照实验：master 与当前分支失败用例**完全相同** ⇒ 排除产品回归；Chromium 1200/1200 全绿 | **环境问题（非缺陷）** |
 
 ### 测试基础设施缺陷（v0.0.5）
 

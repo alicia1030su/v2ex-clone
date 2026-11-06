@@ -283,6 +283,8 @@
 
 | **R-31** | **Windows 本机 `next build` 偶发 EPERM**（`EPERM: operation not permitted, open '.next\trace'`）—— v0.0.5 记录「完全相同的命令序列有时 rc=0、有时 EPERM」，与 `rm -rf` / `mv` / 残留进程**均非单一因果** | 中（**环境级**，非产品缺陷） | 小～中（本机构建可能需重试；**不影响** Linux CI 与交付） | 🟡 **已做专项诊断，机制未查明（如实登记）**：v0.0.6 新增 `scripts/ci/eperm-diagnose.sh` 固化排查过程并出具 `docs/WINDOWS_EPERM_DIAGNOSIS_v0.0.6.md`。**本轮实测：同工作区连续构建 3/3 成功（45s/轮）、`.next/trace` 可创建、无残留监听进程 ⇒ 未复现**。**已排除**：残留 next 进程句柄、`.next` 跨任务共用、路径长度/特殊字符、系统权限与杀毒拦截、产品代码缺陷。**本轮最有价值的产出是识别出两个「假 EPERM」干扰源**：① Git Bash 的 `ln -s` 创建 MSYS 文本链接 ⇒ 报「找不到 next 包」而错误文本含 EPERM 字样；② `next-env.d.ts` 引用构建产物 `.next/types/routes.d.ts` ⇒ 干净工作区类型检查必失败。**处置**：本地脚本对 EPERM 免疫（识别后清理 + 有限重试，非 EPERM 立即中断）；**权威验证环境为 Linux CI**（GitHub Actions Linux runner 从未出现该问题）。⚠️ **不构成隐藏缺陷的许可**：CI 与本地均需持续观察；详见诊断报告 §六（未查明部分） |
 
+| **R-32** | **Firefox / WebKit 移动视口 E2E 在本机全部失败** —— Firefox 报 `NS_ERROR_REDIRECT_LOOP`（页面快照是 Firefox 的「无法连接服务器」错误页）；WebKit 报断言超时（30s 级，注册流程卡住）。**与 v0.0.6 的改动无关** —— 在 **master（未改动）** 的独立 worktree 上**两者同样 7/8 失败**（失败用例集合完全相同）；同轮 Chromium 5 视口 **1200/1200 全绿** | 中（**本机环境**，非产品缺陷） | 小（不影响 Chromium 与 CI；仅影响本机 Firefox/WebKit 移动视口 E2E） | 🟡 **已用对照实验定性为环境问题**：① master（未改动）在独立 worktree 上**同样失败**（Firefox 与 WebKit 各 7/8，失败用例集合完全一致）⇒ **排除产品回归**；② Chromium 5 视口 1200/1200 全绿 ⇒ 与 v0.0.6 的 `<tbody>` / 移动端 CSS 改动无关；③ 组件级视觉回归中 **Firefox 的 21 个组合全部测量成功、零溢出** ⇒ 浏览器本身可用，失败只出现在**长时间运行的 E2E 并发**场景。**未完全查明的部分**：Firefox 读取 `HTTP_PROXY=http://127.0.0.1:55761`（本机代理，`NO_PROXY` 为空）而 Chromium 不读 —— 该代理与移动模拟（`isMobile: true`）的交互是**最可能的嫌疑**，但本环境缺少可归因的观测手段，**不作为结论**。**处置**：不修改产品代码；本机以 Chromium 覆盖交互验收，Firefox/WebKit 以**组件级视觉回归**（63 组合、三引擎一致、零溢出）覆盖；CI（Linux）不受影响 |
+
 ### 风险裁决记录（决策与权衡）
 | 冲突点 | devops 结论 | QA 结论 | **主理人裁决** | 理由 |
 |---|---|---|---|---|

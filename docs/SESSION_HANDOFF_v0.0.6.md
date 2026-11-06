@@ -127,23 +127,45 @@
   63 组合视觉回归与跨浏览器一致性，**不构成**与原站视觉一致的结论。
 - CI 工作流里已固化「原站可达性探测 + 不可达时显式声明」。
 
-## F. Windows EPERM 诊断进展（未完结，如实记录）
+## F. Windows EPERM 诊断进展（**已完成**，见下）
 
-- 本轮**复现了** EPERM（`scripts/ci/run-e2e-locally.sh` 运行时，
-  `EPERM: operation not permitted, open '...\.next\trace'`）。
-- **第一轮对照实验**（4 组 × 2 轮）：`.next` 的处置方式
-  （原地删 / 同父目录移 / 跨目录移 / 同路径移走）**均 0/2 EPERM**
-  ⇒ **处置方式不是触发条件**。
-- **第二轮对照实验**（服务存活 / 残留子进程）首次运行**无效**
-  （顺序错了：先删 `.next` 再启动服务 ⇒ 服务找不到 BUILD_ID 根本起不来），
-  已修正为「先构建 → 再启动服务 → 再构建」，正在重跑。
-- ⚠️ **两个「假 EPERM」干扰源已识别**（详见诊断报告 §四）：
-  ① Git Bash `ln -s` 的 MSYS 文本链接；② `next-env.d.ts` 引用构建产物。
-- 风险登记：**R-31**（环境级，非产品缺陷）。
+### 已完成的诊断（提交 `95d7119`）
+
+**根因定位**：EPERM 发生在 **Next 的 build worker 子进程**里创建 `.next/trace` 的瞬间。
+
+| 证据 | 结果 |
+|---|---|
+| 默认（多 worker）构建 | **8/8 EPERM** |
+| `NEXT_PRIVATE_BUILD_WORKER=1`（单进程） | **第 2 轮即成功** |
+| `experimental.cpus = 1`（限并发但仍多进程） | 2/2 EPERM ⇒ **不是并发度，是「多进程」本身** |
+| build **必然 EPERM** 的状态下，手工 Node 对同一文件的 5 种写入路径 | **全部成功** ⇒ 不是文件系统权限 |
+| 同一分钟、同一命令：单独执行 vs 脚本内执行 | 8/8 OK vs 3/3 EPERM |
+
+**最终兜底**：`scripts/ci/next-build-retry.cjs`
+—— `NODE_OPTIONS="--require <patch>"` 注入，包装 `fs.openSync` / `fs.open` /
+`fs.createWriteStream`，**只对 EPERM 重试**（其它错误码照常抛出）。
+实测：8/8 EPERM 状态下 → 2/2 成功。
+
+**分层缓解**：① 文件打开重试（主）② 单进程构建 ③ 预创建 trace 文件
+④ build 提前到脚本最前 ⑤ 不删除/不移动构建目录 ⑥ 隔离构建目录（`NEXT_DIST_DIR`）。
+
+**排查脚本**：`eperm-diagnose.sh` / `eperm-trigger-test.sh` /
+`eperm-trigger-test2.sh` / `eperm-probe-during-build.sh`
+—— 排除了 12 个变量（构建目录处置方式、服务存活时序、文件静态权限、
+Defender、ACL、CI 环境变量、migrate/seed 组合、mv 目标目录、mv 后等待时长、
+多进程并发、同步 openSync、分离进程）。
+
+⚠️ **仍未完全解释的部分**：触发条件是**多因素叠加的系统状态**，
+无法靠单一变量隔离（如实登记，不假装根治）。
+
+### E2E 实测结果
+
+- core：**200 passed / 0 failed（3.4m）** —— 本地 CI 等价复现 PASS=8 / FAIL=0
+- 单元：**341 passed / 341（26 文件）**
+- 视觉回归：**63 组合**三引擎一致、零溢出、基线二次运行回归项 = 0
 
 ## G. 下一步
 
-1. ⏳ 等 EPERM 第二轮实验结果 → 补完诊断报告。
-2. ⏳ 跑完整 E2E（core + 跨浏览器 160 条）验证 v0.0.6 改动无回归。
-3. ⏳ 创建 PR → CI 全绿后合并 → 固定最终 SHA → 候选产物。
-4. ⏳ 更新 CHANGELOG / FEATURE_MATRIX / TEST_REPORT 的 v0.0.6 段落。
+1. ⏳ 跨浏览器 E2E（15 project）完成确认。
+2. ⏳ 创建 PR → CI 全绿后合并 → 固定最终 SHA → 候选产物。
+3. ⏳ 更新 CHANGELOG / FEATURE_MATRIX / TEST_REPORT 的 v0.0.6 段落（**已写，待提交**）。

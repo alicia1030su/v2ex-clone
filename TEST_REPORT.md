@@ -1,5 +1,21 @@
 # 测试报告（TEST_REPORT）
 
+> ✅ **v0.0.6 测试基线权威值（2026-11-06）**：
+>
+> | 项 | 实测 | 证据 |
+> |---|---|---|
+> | 单元测试 | **341 passed / 341（26 文件 / 0 failed / 0 skipped）** | 本地 `ENV_FILE=.env.test npx vitest run`；CI「类型检查 / 单元测试」job |
+> | E2E（core） | **200 passed / 0 failed（3.4m）** | 本地 CI 等价复现（`scripts/ci/run-e2e-locally.sh`）**PASS=8 / FAIL=0** |
+> | 组件级视觉回归 | **63 组合**（7 视口 × 3 浏览器 × 3 页面）全部测量成功，**三引擎一致**、**零横向溢出**、基线二次运行**回归项 = 0** | `tools/visual/regression.mjs` + `docs/evidence/visual/component-baseline.json` |
+> | 跨浏览器 × 跨视口 E2E | 3 浏览器 × 5 视口 = 15 project | `E2E_CROSS=1` 展开 |
+> | 类型检查 | ✅ `npx tsc --noEmit` | CI job |
+> | 升级 / 备份恢复验证 | **PASS=17 / FAIL=0** | `docs/UPGRADE_RECOVERY_v0.0.5.md` |
+> | 发布门禁 | **PASS=62 / FAIL=0 / BLOCK=1**（BLOCK = R-01 授权） | `scripts/release/preflight.sh --target=0.0.5 --dev-baseline=0.0.4` |
+>
+> ⚠️ **原站对照**：实测原站不可达（HTTP 000 超时）⇒ 12 个页面的原站对照
+> **全部标记 UNVERIFIED**。本轮的视觉结论仅覆盖**本站自身**的
+> 跨视口 / 跨浏览器一致性，**不构成**与原站视觉一致的结论。
+
 > ✅ **v0.0.5 测试基线权威值（2026-11-06 集成收尾）**：
 >
 > | 项 | 实测 | 证据 |
