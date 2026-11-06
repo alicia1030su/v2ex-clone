@@ -67,9 +67,15 @@ export SEED_ADMIN_PASSWORD="ci-admin-password-12345"
 export SEED_DEMO_USERS="1"
 export SEED_DEMO_PASSWORD="ci-demo-password-12345"
 export SESSION_SECRET="ci-only-session-secret-0123456789abcdef0123456789abcdef"
-export APP_URL="http://localhost:${APP_PORT}"
-export NEXT_PUBLIC_APP_URL="http://localhost:${APP_PORT}"
-export LOCAL_BASE="http://localhost:${APP_PORT}"
+# ⚠️ v0.0.6：用 **127.0.0.1**（强制 IPv4），不要用 localhost。
+#   实测：WebKit 的 `page.request` 把 `localhost` 解析为 **IPv6 ::1**，
+#   而 next start 只监听 IPv4（0.0.0.0）⇒
+#   `AggregateError: connect ECONNREFUSED ::1:3010`
+#   ⇒ 跨浏览器 E2E 在 WebKit 下**全部**失败（与产品代码无关）。
+#   Chromium / Firefox 会回退到 IPv4，所以只有 WebKit 受影响。
+export APP_URL="http://127.0.0.1:${APP_PORT}"
+export NEXT_PUBLIC_APP_URL="http://127.0.0.1:${APP_PORT}"
+export LOCAL_BASE="http://127.0.0.1:${APP_PORT}"
 export ENV_FILE=".env.test"
 export NODE_OPTIONS=""
 export CODEBUDDY_SAFE_DELETE_ENABLED=0

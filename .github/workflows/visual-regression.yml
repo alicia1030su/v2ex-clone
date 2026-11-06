@@ -205,8 +205,28 @@ jobs:
           #    这里只取「回归项合计」后面的**数字**，不依赖冒号全半角。
           REGRESS=$(grep -oE "回归项合计.{0,2}[0-9]+" /tmp/visual-regression.log | grep -oE "[0-9]+$" || echo 0)
           INCONSISTENT=$(grep -oE "不一致组件合计.{0,2}[0-9]+" /tmp/visual-regression.log | grep -oE "[0-9]+$" || echo 0)
+          SAVED=$(grep -c "基线已保存" /tmp/visual-regression.log || true)
 
-          echo "退出码=$RC  回归项=$REGRESS  跨浏览器不一致=$INCONSISTENT  溢出项=$OVERFLOW  基线缺失=$MISSING"
+          echo "退出码=$RC  回归项=$REGRESS  跨浏览器不一致=$INCONSISTENT  溢出项=$OVERFLOW  基线缺失=$MISSING  基线已保存=$SAVED"
+
+          # ⚠️ **基线建立模式**：本次是显式的「建立基线」运行
+          #    （workflow_dispatch + update_baseline=true）⇒
+          #    判定口径不同 —— 不做「与基线对比」的回归判定，
+          #    只检查**溢出**（布局是否被破坏）与**测量是否完整**。
+          if [ "$SAVED" != "0" ]; then
+            if [ "$OVERFLOW" != "0" ]; then
+              echo "::error::基线建立完成，但检测到横向溢出（$OVERFLOW 处）—— 布局有问题，不应入库"
+              exit 1
+            fi
+            MEASURED=$(grep -c "测量完成" /tmp/visual-regression.log || true)
+            if [ "$MEASURED" = "0" ]; then
+              echo "::error::基线建立失败：测量未完成"
+              exit 1
+            fi
+            echo "::warning::基线已建立（平台 linux）。请从 artifact 下载 component-baseline-linux.json，"
+            echo "::warning::**人工审查后**提交入库 —— 未经审查的基线不得作为回归依据。"
+            exit 0
+          fi
 
           if [ "$MISSING" != "0" ]; then
             echo "::error::视觉基线缺失（component-baseline-linux.json）—— 不得静默通过。"
@@ -236,6 +256,7 @@ jobs:
           name: visual-evidence-${{ github.run_id }}
           path: |
             docs/evidence/visual/runs/
+            docs/evidence/visual/component-baseline-linux.json
             /tmp/visual-regression.log
             /tmp/visual-server.log
           retention-days: 14

@@ -11,7 +11,7 @@ export DATABASE_URL="postgres://v2ex:v2ex_test_password_local_only@127.0.0.1:554
 export APP_RUNTIME_ENV=test TEST_ENV_ISOLATED=1 DISABLE_CAPTCHA=1
 export ENABLE_DEBUG_ENDPOINTS=1 DEBUG_ENDPOINT_TOKEN="ci-debug-token-not-for-production"
 export SESSION_SECRET="ci-only-session-secret-0123456789abcdef0123456789abcdef"
-export APP_URL="http://localhost:3010" NEXT_PUBLIC_APP_URL="http://localhost:3010"
+export APP_URL="http://127.0.0.1:3010" NEXT_PUBLIC_APP_URL="http://127.0.0.1:3010"
 export ENV_FILE=".env.test"
 export NODE_OPTIONS="" CODEBUDDY_SAFE_DELETE_ENABLED=0 CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
 # v0.0.6：绕过本机代理（Firefox/WebKit 会读 HTTP_PROXY ⇒ localhost 子资源被截走）
