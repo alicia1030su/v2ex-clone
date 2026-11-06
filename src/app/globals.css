@@ -261,6 +261,41 @@ a:visited {
   border-bottom-left-radius: var(--box-border-radius);
   border-bottom-right-radius: var(--box-border-radius);
 }
+
+/* ---------------------------------------------------------------------------
+   布局用 table 的窄屏加固（v0.0.6）
+   ---------------------------------------------------------------------------
+   根因（v0.0.6 组件级视觉回归实测发现，**仅 Firefox 复现**）：
+
+   本站有多处「布局用 table」（头像 24px + 间隔 10px + 标题 auto），
+   例如 `src/components/HotTopics.tsx` 的「今日热议主题」。
+
+   在 **320×568** 视口下：
+     · Chromium / WebKit ⇒ 溢出 0px（table 愿意收缩以适应容器）
+     · **Firefox ⇒ 溢出 23px**（table 按内容扩展，`td width="auto"` 里的
+       长标题不可断词 ⇒ 把 table 撑到 328px）
+
+   这正是任务书 §四.2 要求「**多浏览器测试**」的价值 ——
+   只跑 Chromium 永远发现不了这个问题。
+
+   修法（不改变布局语义，只让 table 严格遵守自身宽度）：
+     1. `table-layout: fixed` —— 列宽按**首行声明的宽度**分配，
+        不再按内容弹性扩展 ⇒ table 永远不会超过 `width="100%"`
+     2. 标题单元格允许断词 —— 超长标题换行而非撑破容器
+
+   ⚠️ 只作用于 `.box` 内的 table（本站的「布局 table」都在 box 里），
+      不影响 Markdown 正文里的 `.markdown_body table`（那是数据表格，
+      语义完全不同，已在下方单独处理）。
+--------------------------------------------------------------------------- */
+.box table {
+  table-layout: fixed;
+}
+
+/* 布局 table 的单元格：允许长词断行，避免撑破容器 */
+.box td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .cell:first-child {
   border-top: none;
   border-top-left-radius: var(--box-border-radius);
