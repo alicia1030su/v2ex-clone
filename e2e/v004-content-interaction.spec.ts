@@ -188,6 +188,7 @@ test.describe('v0.0.4 感谢', () => {
         'ctx_csrf=' + JSON.stringify(ctxCookies.filter((c) => c.name === 'v2_csrf')),
         'doc_has_csrf=' + /(^|; )v2_csrf=/.test(docCookie),
         'current_url=' + page.url(),
+        'LOCAL_BASE=' + (process.env.LOCAL_BASE ?? '(未设置)'),
       );
     }
     expect(r.status()).toBe(400);

@@ -30,6 +30,16 @@ async function main() {
 
   const log = (...a) => console.log('[diag]', ...a);
 
+  // ---- 0. 记录 baseURL 与实际导航 host ----
+  log('DIAG_BASE_URL env =', process.env.LOCAL_BASE ?? '(未设置)');
+  const firstNav = page.goto(BASE + '/', { waitUntil: 'domcontentloaded' }).catch((e) => {
+    log('首次导航失败:', e.message.slice(0, 120));
+    return null;
+  });
+  await firstNav;
+  log('首次导航后 page.url() =', page.url());
+  log('首次导航后 cookie domains =', JSON.stringify((await ctx.cookies()).map((c) => c.domain)));
+
   // ---- 1. 注册（与用例同流程：字段名以 SignUpForm 为准）----
   const user = 'diag' + Math.random().toString(36).slice(2, 8);
   log('注册用户', user);

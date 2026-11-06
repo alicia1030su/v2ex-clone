@@ -219,6 +219,10 @@ jobs:
         id: e2e
         run: |
           set +e
+          # 打印 baseURL 实际取值（v0.0.7 排障：页面 host 与 cookie domain 不一致）
+          echo "::debug::LOCAL_BASE=$LOCAL_BASE APP_URL=$APP_URL NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
+          node -e "console.log('::debug::resolved baseURL =', require('url').resolve(process.env.LOCAL_BASE ?? 'http://localhost:3000', '/t/1'))"
+
           # ⚠️ **不要**在 CLI 上传 --reporter —— 会覆盖 playwright.config.ts 里
           #    json reporter 的 outputFile 配置 ⇒ test-results/e2e-results.json
           #    不会生成 ⇒ 汇总步骤解析不到文件 ⇒ 把「全 pass」误判成失败。
