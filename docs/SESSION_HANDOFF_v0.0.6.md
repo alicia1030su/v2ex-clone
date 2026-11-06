@@ -216,18 +216,41 @@ Windows 与 Linux 的默认字体不同 ⇒ 同样的文本高度不同
 - 基线建立仅允许 `workflow_dispatch` + `update_baseline=true`，
   产出走 artifact ⇒ **人工审查后入库**
 
-## H. PR 与交付状态
+## H. 最终交付状态（v0.0.6 已完成，2026-11-06）
 
 | 项 | 状态 |
 |---|---|
-| 分支 | `feat/v0.0.6-visual-fidelity`（已推送） |
-| PR | **#23**（https://github.com/alicia1030su/v2ex-clone/pull/23） |
-| 工作流 | CI / Docker-Redis / 安装验证 / **视觉回归验收（新增）** |
-| 发布门禁（dev, target=0.0.6） | **PASS=62 / FAIL=4 / BLOCK=1** —— 4 个 FAIL 全是「版本载体未同步」（G-VER-01 预期）；BLOCK = R-01 授权 |
-| Tag / Release | **不创建**（R-01 未解决）⇒ 只交付候选产物 |
+| PR | **#23 已合并**（squash，2026-11-06T12:46:33Z） |
+| 分支 HEAD | `472a707`（CI 全绿后合并） |
+| **master SHA** | **`657f849`** |
+| 4 个工作流 | **全部 ✅**：CI（341/341 + E2E 200/0）/ Docker-Redis / 安装验证 / 视觉回归验收（63 组合） |
+| Linux 视觉基线 | `component-baseline-linux.json`（run 42217738053 建立 → 人工审查 63/63 健康 → 入库 `472a707`） |
+| 候选产物 | `v0.0.6-candidate-657f849-deploy.zip`（51,769 B，SHA256 `8a173352…e5f14`，`sha256sum -c` **OK**） |
+| 发布门禁（master 657f849） | **PASS=62 / WARN=13 / FAIL=4 / BLOCK=1 / INFO=1** —— FAIL 全是版本载体同步（G-VER-01 预期）；BLOCK = R-01 |
+| Tag / Release | **未创建**（R-01 未解决）⇒ 停在候选成果，符合门禁纪律 |
 
-## I. 下一步
+### 合并提交内容（squash 后 12 项真实缺陷修复 + 工程化）
 
-1. ⏳ 等 PR #23 的 4 个工作流全绿（含 Linux 视觉基线建立 + 入库）。
-2. ⏳ 合并 PR #23 → 固定最终 SHA → 构建候选产物（ZIP + SHA256SUMS + 镜像 Digest）。
-3. ⏳ 更新交接文档最终状态。
+三核心页面：React #418 水合（tbody）、窄屏顶栏遮挡（#Top 高度自适应）、
+节点头部元素重叠（纵向堆叠）、回复楼层信息重复渲染、死投票按钮移除、
+NodeHeader 占位符右边距、SecondaryTabs 窄屏溢出（&nbsp; 不可断空白）。
+工程化：确定性 seed（mulberry32 + 时间锚点）、视觉回归工具
+（选择器精确化 / 等就绪 / 滚动条归一化 / 双平台基线）、
+视觉验收工作流 + 21 条护栏、EPERM 重试补丁、代理与 IPv6 根因修复。
+
+## I. 会话恢复要点（给下一个会话）
+
+1. **R-01 仍 DEFERRED** —— 未授权前不得建 Tag / 发 Release / 改历史 / 改可见性。
+   若要正式发布 v0.0.6：先取得 R-01 授权，再同步版本载体
+   （`deploy/VERSION`、`package.json`、`CHANGELOG`），跑 preflight
+   `--phase=release`，然后才允许打 Tag。
+2. **本机三个环境坑（都已修，别再重复排查）**：
+   ① `HTTP_PROXY`（xray）+ `NO_PROXY` 为空 ⇒ 脚本已显式导出 `no_proxy`；
+   ② WebKit 解析 localhost 到 IPv6 ⇒ 测试地址已统一 `127.0.0.1`；
+   ③ Windows EPERM ⇒ `scripts/ci/next-build-retry.cjs` 已兜底。
+3. **视觉基线按平台分文件**：Windows 用 `component-baseline-win32.json`，
+   Linux CI 用 `component-baseline-linux.json`；更新必须走
+   `workflow_dispatch + update_baseline=true` → 下载 artifact → 人工审查 → 入库。
+4. **跨浏览器不一致只是 warning 不阻断**（字体度量差异）；
+   回归项与横向溢出仍是 error 阻断。
+5. 完整交付证据见 `docs/DELIVERY_REPORT_v0.0.6.md`。
