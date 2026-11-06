@@ -219,18 +219,6 @@ jobs:
         id: e2e
         run: |
           set +e
-          # 排障取证：**写进文件**（stdout 的 debug 行在 artifact 里看不到）
-          {
-            echo "LOCAL_BASE=$LOCAL_BASE"
-            echo "APP_URL=$APP_URL"
-            echo "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
-            echo "resolved=$(node -e "console.log(new URL('/t/1', process.env.LOCAL_BASE ?? 'http://localhost:3000').href)")"
-            echo "--- curl 127.0.0.1 headers ---"
-            curl -s -D - -o /dev/null --max-time 10 "http://127.0.0.1:$APP_PORT/" | grep -iE "^(location|set-cookie):" || echo "(无 location / set-cookie)"
-            echo "--- curl localhost headers ---"
-            curl -s -D - -o /dev/null --max-time 10 "http://localhost:$APP_PORT/" | grep -iE "^(location|set-cookie):" || echo "(无 location / set-cookie)"
-          } > /tmp/host-diag.txt 2>&1
-          cat /tmp/host-diag.txt
 
           # ⚠️ **不要**在 CLI 上传 --reporter —— 会覆盖 playwright.config.ts 里
           #    json reporter 的 outputFile 配置 ⇒ test-results/e2e-results.json
@@ -326,7 +314,6 @@ jobs:
             test-results/
             /tmp/e2e-run.log
             /tmp/app-server.log
-            /tmp/host-diag.txt
           retention-days: 14
           if-no-files-found: warn
 
