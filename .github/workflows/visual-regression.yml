@@ -69,6 +69,12 @@ env:
   RATE_LIMIT_POST_MAX: '5'
   RATE_LIMIT_REPLY_MAX: '20'
   RATE_LIMIT_WINDOW_SECONDS: '60'
+  # ⚠️ 必须显式注入 —— service container 不会自动注入到 job 的 env。
+  #    缺失时 drizzle-kit migrate 会**静默失败**（无错误信息，只有 exit 1），
+  #    这与 ci.yml 里各步骤显式设置 DATABASE_URL 的做法一致。
+  DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_visual
+  REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
+  REDIS_PASSWORD: ci-redis-password-not-real
 
 jobs:
   visual:
@@ -138,7 +144,12 @@ jobs:
           fi
 
       - name: 迁移
-        run: npx drizzle-kit migrate
+        run: |
+          set -euo pipefail
+          echo "::group::迁移前自检"
+          echo "DATABASE_URL=${DATABASE_URL%%:*}://***@${DATABASE_URL##*@}"
+          npx drizzle-kit migrate
+          echo "::endgroup::"
 
       - name: seed（确定性数据）
         env:
