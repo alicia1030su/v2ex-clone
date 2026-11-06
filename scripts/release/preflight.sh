@@ -43,27 +43,50 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT" || exit 2
 
 # --- 参数解析 --------------------------------------------------------------
+#
+# ⚠️ v0.0.5：目标版本改为**可参数化**（`--target=`）。
+#
+# 原实现把 `TARGET='0.0.4'` / `VTAG='v0.0.4'` **硬编码**在脚本里 ——
+# 于是 v0.0.5 想复用这个门禁时，它会去检查「v0.0.4 的 Tag 是否存在」
+# （v0.0.4 已发布 ⇒ 必然 BLOCK），
+# 并期望「迁移 journal 恰好 3 条」（v0.0.5 加了 0003 ⇒ 必然 FAIL）。
+#
+# 修法：目标版本从命令行传入，默认仍是 0.0.4（保持既有行为不变）。
 PHASE='dev'
-case "${1:-}" in
-  ''|--phase=dev)     PHASE='dev' ;;
-  --phase=release)    PHASE='release' ;;
-  -h|--help)
-    printf '用法：bash scripts/release/preflight.sh [--phase=dev|--phase=release]\n'
-    printf '  dev     （默认）开发态：版本载体保持 0.0.3 属预期，不判 FAIL\n'
-    printf '  release 发布时刻：最终 SHA 固定后运行，要求版本载体全部同步到 0.0.4\n'
-    exit 0 ;;
-  *)
-    printf '未知参数：%s（可用 --phase=dev / --phase=release / --help）\n' "$1" >&2
-    exit 2 ;;
-esac
-if [ "$#" -gt 1 ]; then
-  printf '参数过多：只接受一个 --phase 参数\n' >&2
-  exit 2
-fi
+TARGET_ARG=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --phase=dev)      PHASE='dev' ;;
+    --phase=release)  PHASE='release' ;;
+    --target=*)       TARGET_ARG="${1#--target=}" ;;
+    --dev-baseline=*) DEV_BASELINE_ARG="${1#--dev-baseline=}" ;;
+    -h|--help)
+      printf '用法：bash scripts/release/preflight.sh [--phase=dev|--phase=release] [--target=0.0.5]\n'
+      printf '  dev     （默认）开发态：版本载体保持开发基线属预期，不判 FAIL\n'
+      printf '  release 发布时刻：最终 SHA 固定后运行，要求版本载体全部同步到目标版本\n'
+      printf '  target  目标版本号（默认 0.0.4）—— v0.0.5 起需显式指定\n'
+      printf '  dev-baseline  开发态的版本载体基线（默认 0.0.3；= 上一个已发布版本）\n'
+      exit 0 ;;
+    *)
+      printf '未知参数：%s（可用 --phase=dev / --phase=release / --target=X.Y.Z / --help）\n' "$1" >&2
+      exit 2 ;;
+  esac
+  shift
+done
 
-TARGET='0.0.4'
-VTAG='v0.0.4'
-DEV_BASELINE='0.0.3'
+TARGET="${TARGET_ARG:-0.0.4}"
+VTAG="v${TARGET}"
+
+# ⚠️ v0.0.5：开发态基线也**可参数化**（`--dev-baseline=`）。
+#
+# 原实现写死 `DEV_BASELINE='0.0.3'` ——
+# 但 v0.0.4 发布时版本载体**已经同步到 0.0.4**了（实测 `package.json version = 0.0.4`），
+# 于是 v0.0.5 的门禁会把「载体 = 0.0.4」判成
+# 「既非开发态 0.0.3 也非发布态 0.0.5」⇒ **FAIL**。
+#
+# 语义澄清：**开发态基线 = 上一个已发布版本**。
+# v0.0.4 发布后，v0.0.5 开发期间载体就应该是 0.0.4。
+DEV_BASELINE="${DEV_BASELINE_ARG:-0.0.3}"
 EXPECTED_IMAGE="ghcr.io/alicia1030su/v2ex-clone:${VTAG}"
 DEV_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v${DEV_BASELINE}"
 
@@ -76,7 +99,7 @@ info()  { printf '[INFO]  %s\n' "$1";  INFO=$((INFO+1));  }
 note()  { printf '        %s\n' "$1"; }
 section(){ printf '\n--- %s ---\n' "$1"; }
 
-printf '=== v0.0.4 PREFLIGHT (READ-ONLY, phase=%s) ===\n' "$PHASE"
+printf '=== %s PREFLIGHT (READ-ONLY, phase=%s) ===\n' "$VTAG" "$PHASE"
 printf 'repo   : %s\n' "$REPO_ROOT"
 printf 'target : %s / %s\n' "$TARGET" "$VTAG"
 printf 'phase  : %s\n' "$PHASE"
@@ -322,11 +345,22 @@ fi
 # ---------------------------------------------------------------------------
 section '4. 迁移物与幂等性（只读静态检查，不跑 migrate）'
 # ---------------------------------------------------------------------------
+# ⚠️ v0.0.5：期望的迁移条数**从实际迁移文件推导**，不再硬编码 '3'。
+#
+# 原实现写死 3 条（v0.0.4 的 0000/0001/0002）——
+# v0.0.5 加了 `0003_v005_reports.sql` ⇒ 必然 FAIL。
+#
+# 推导方式：`drizzle/*.sql` 的文件数 vs journal 的条目数 ——
+# 两者必须**相等**（每个迁移文件对应一条 journal 记录）。
+# 这样将来再加 0004/0005 时，门禁**自动跟随**，不需要改脚本。
+EXPECTED_MIGRATIONS="$(find drizzle -maxdepth 1 -name '0*.sql' -type f 2>/dev/null | wc -l | tr -d ' ')"
 JOURNAL="$(node -p "require('./drizzle/meta/_journal.json').entries.length" 2>/dev/null || echo '?')"
-[ "$JOURNAL" = '3' ] \
-  && ok "drizzle/meta/_journal.json 有 ${JOURNAL} 条迁移（0000/0001/0002）" \
-  || fail "迁移 journal 条目数 = ${JOURNAL}（期望 3）"
-for f in drizzle/0000_init.sql drizzle/0001_striped_magdalene.sql drizzle/0002_v004_perf_indexes.sql; do
+if [ "$JOURNAL" = "$EXPECTED_MIGRATIONS" ]; then
+  ok "drizzle/meta/_journal.json 有 ${JOURNAL} 条迁移，与迁移文件数一致（${EXPECTED_MIGRATIONS} 个）"
+else
+  fail "迁移 journal 条目数 = ${JOURNAL}，但 drizzle/ 下有 ${EXPECTED_MIGRATIONS} 个迁移文件（两者必须一致）"
+fi
+for f in drizzle/*.sql; do
   [ -f "$f" ] && ok "存在 ${f}" || fail "缺少 ${f}"
 done
 IDX_TOTAL=$(grep -c 'CREATE INDEX' drizzle/0002_v004_perf_indexes.sql 2>/dev/null | head -1)
