@@ -160,6 +160,20 @@ else
   bad "seed 失败（见 /tmp/ci-eq-seed.log）"; tail -10 /tmp/ci-eq-seed.log; exit 1
 fi
 
+# ⚠️ SKIP_BUILD 检查必须放在「清理 .next」**之前** ——
+#    否则会先把要复用的 .next 移走（实测踩到）。
+if [ "${SKIP_BUILD:-0}" = "1" ]; then
+  if [ -f ".next/BUILD_ID" ]; then
+    ok "跳过 build（SKIP_BUILD=1），复用现有 .next（BUILD_ID=$(cat .next/BUILD_ID)）"
+    SKIP_BUILD_ACTIVE=1
+  else
+    bad "SKIP_BUILD=1 但没有可用的 .next/BUILD_ID"
+    exit 1
+  fi
+else
+  SKIP_BUILD_ACTIVE=0
+fi
+
 # ⚠️ 构建前处理掉残留的 .next —— 残留会让 build 报
 #    `EPERM: operation not permitted, open '.next\trace'`。
 #
@@ -180,7 +194,7 @@ fi
 #    ⇒ 因此这里**不假装根治**，而是让脚本**免疫**：
 #      build 失败且日志含 EPERM 时，清理后**有限重试**（最多 2 次），
 #      并在日志里如实标注「环境偶发，重试缓解」。
-if [ -d ".next" ]; then
+if [ -d ".next" ] && [ "$SKIP_BUILD_ACTIVE" != "1" ]; then
   BACKUP_DIR="$REPO_ROOT/../_backups"
   mkdir -p "$BACKUP_DIR" 2>/dev/null || true
   STALE="$BACKUP_DIR/.next.stale.$(date +%s 2>/dev/null || echo $$)"
@@ -192,23 +206,13 @@ if [ -d ".next" ]; then
   fi
 fi
 
-# build（带 EPERM 偶发竞态的有限重试）
-#
-# `SKIP_BUILD=1` 可跳过（用于「已有可用 .next、只想重跑 E2E」的场景）——
-# 本机 Windows 上 build 有偶发的句柄时序问题（见上方注释），
-# 而 E2E 本身不依赖 build，跳过它能让我们继续验证真正的目标。
-if [ "${SKIP_BUILD:-0}" = "1" ]; then
-  if [ -f ".next/BUILD_ID" ]; then
-    ok "跳过 build（SKIP_BUILD=1），复用现有 .next（BUILD_ID=$(cat .next/BUILD_ID)）"
-    BUILD_OK=1
-  else
-    bad "SKIP_BUILD=1 但没有可用的 .next/BUILD_ID"
-    exit 1
-  fi
+BUILD_OK=0
+if [ "$SKIP_BUILD_ACTIVE" = "1" ]; then
+  BUILD_OK=1
 fi
 
-BUILD_OK=0
 for ATTEMPT in 1 2 3; do
+  [ "$SKIP_BUILD_ACTIVE" = "1" ] && break
   info "next build（第 ${ATTEMPT} 次尝试）"
   if npx next build > /tmp/ci-eq-build.log 2>&1; then
     BUILD_OK=1
