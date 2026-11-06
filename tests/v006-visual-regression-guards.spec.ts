@@ -78,6 +78,19 @@ describe('视觉回归工作流的纪律（v0.0.6 护栏）', () => {
     expect(wf).toContain('origin_status');
   });
 
+  it('关键门禁（回归项 / 溢出 / 基线缺失）必须失败，不得伪装成 success', () => {
+    // 三项必须以 ::error:: 报出并 exit 1
+    expect(wf).toMatch(/::error::视觉回归失败[\s\S]{0,200}exit 1/);
+    expect(wf).toMatch(/::error::检测到横向溢出[\s\S]{0,200}exit 1/);
+    expect(wf).toMatch(/::error::视觉基线缺失[\s\S]{0,400}exit 1/);
+  });
+
+  it('跨浏览器不一致只告警不阻断（字体度量差异不是产品回归），但必须可见', () => {
+    expect(wf).toContain('::warning::同视口下跨浏览器存在');
+    // 不得把它写成 error + exit 1
+    expect(wf).not.toMatch(/::error::同视口下跨浏览器存在[\s\S]{0,200}exit 1/);
+  });
+
   it('原站不可达时必须显式声明「不构成与原站一致的结论」', () => {
     expect(wf).toContain('不构成');
   });

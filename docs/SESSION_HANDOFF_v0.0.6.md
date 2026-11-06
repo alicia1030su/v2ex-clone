@@ -164,8 +164,70 @@ Defender、ACL、CI 环境变量、migrate/seed 组合、mv 目标目录、mv �
 - 单元：**341 passed / 341（26 文件）**
 - 视觉回归：**63 组合**三引擎一致、零溢出、基线二次运行回归项 = 0
 
-## G. 下一步
+## G. 跨浏览器 E2E 实测 + 三处根因（全部已修复）
 
-1. ⏳ 跨浏览器 E2E（15 project）完成确认。
-2. ⏳ 创建 PR → CI 全绿后合并 → 固定最终 SHA → 候选产物。
-3. ⏳ 更新 CHANGELOG / FEATURE_MATRIX / TEST_REPORT 的 v0.0.6 段落（**已写，待提交**）。
+| Project | 修复前 | 修复后 |
+|---|---|---|
+| core | 200/200 | **200/200** |
+| chromium × 5 视口 | 1000/1000 | **1000/1000** |
+| firefox × 5 视口 | 大量失败（`NS_ERROR_REDIRECT_LOOP`） | 大幅改善 |
+| webkit × 5 视口 | 大量失败（页面降级为 Next 错误页） | 大幅改善 |
+
+### 三处根因（逐一定位，均已修复）
+
+1. **本机代理拦截** —— `HTTP_PROXY=http://127.0.0.1:55761`（xray）且 **`NO_PROXY` 为空**；
+   **Firefox 与 WebKit 会读 `HTTP_PROXY`**（Chromium 不读）⇒ localhost 的
+   `/_next/static/**` 子资源被代理截走 ⇒ Firefox 报重定向循环、
+   WebKit 报 `Loading chunk NNNN failed`（页面降级 ⇒ 视觉回归里一堆 null）。
+   **处置**：两个本地脚本**显式导出 `no_proxy`/`NO_PROXY`**。
+   实测：设 `no_proxy` 后 WebKit 页面**完全正常渲染**。
+
+2. **IPv6 回环** —— WebKit 的 `page.request` 把 `localhost` 解析为 **IPv6 `::1`**，
+   而 next start 只监听 IPv4（`0.0.0.0`）⇒ `ECONNREFUSED ::1:3010`。
+   **处置**：测试地址统一改用 **127.0.0.1**。
+
+3. **视觉回归工具三处误判** ——
+   ① `.content` 选中了**顶栏**而非主容器（`querySelector` 取文档序第一个）；
+   ② 固定 600ms 等待不足（WebKit 渲染更慢）⇒ 改为**等关键元素就绪**；
+   ③ Firefox 经典滚动条占 body 16px 造成纯假宽度差 ⇒ 按滚动条占位**归一化**。
+
+   **处置**后：**视觉回归 63 组合三引擎完全一致、零横向溢出**、基线可复现。
+
+### 决定性对照实验（master worktree）
+
+在 **origin/master（未改动的 v0.0.5）** 的**独立 git worktree** 上，
+跑**完全相同**的 `e2e/auth.spec.ts --project=<浏览器>-375x812`：
+
+| 浏览器 | 当前分支（v0.0.6） | master（未改动） | 结论 |
+|---|---|---|---|
+| firefox-375x812 | 7 failed / 1 passed | **7 failed / 1 passed** | 失败用例集合**完全相同** |
+| webkit-375x812 | 7 failed / 1 passed | **7 failed / 1 passed** | 失败用例集合**完全相同** |
+
+⇒ **失败与 v0.0.6 的改动无关** ⇒ 登记为**环境问题**
+（`BUG_REGISTER` V5-27 / `RISK_REGISTER` R-32），不修改产品代码、不掩盖事实。
+
+### 基线按平台分文件（v0.0.6 新增）
+
+Windows 与 Linux 的默认字体不同 ⇒ 同样的文本高度不同
+⇒ 实测 WebKit@320 高度差 39~51px（8%）⇒ **跨平台基线不可复用**。
+
+- 基线文件：`component-baseline-<platform>.json`（`win32` / `linux`）
+- CI 显式用 `--platform=linux`；基线缺失 ⇒ **明确失败**，不静默通过
+- 基线建立仅允许 `workflow_dispatch` + `update_baseline=true`，
+  产出走 artifact ⇒ **人工审查后入库**
+
+## H. PR 与交付状态
+
+| 项 | 状态 |
+|---|---|
+| 分支 | `feat/v0.0.6-visual-fidelity`（已推送） |
+| PR | **#23**（https://github.com/alicia1030su/v2ex-clone/pull/23） |
+| 工作流 | CI / Docker-Redis / 安装验证 / **视觉回归验收（新增）** |
+| 发布门禁（dev, target=0.0.6） | **PASS=62 / FAIL=4 / BLOCK=1** —— 4 个 FAIL 全是「版本载体未同步」（G-VER-01 预期）；BLOCK = R-01 授权 |
+| Tag / Release | **不创建**（R-01 未解决）⇒ 只交付候选产物 |
+
+## I. 下一步
+
+1. ⏳ 等 PR #23 的 4 个工作流全绿（含 Linux 视觉基线建立 + 入库）。
+2. ⏳ 合并 PR #23 → 固定最终 SHA → 构建候选产物（ZIP + SHA256SUMS + 镜像 Digest）。
+3. ⏳ 更新交接文档最终状态。
