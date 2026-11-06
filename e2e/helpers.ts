@@ -121,8 +121,43 @@ export async function clearRateLimits(page: Page) {
 /** 从浏览器上下文读取 CSRF Cookie 的值 */
 export async function getCsrfToken(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
-  const c = cookies.find((x) => x.name === 'v2_csrf');
-  return c?.value ?? '';
+  const candidates = cookies.filter((x) => x.name === 'v2_csrf');
+  if (candidates.length === 0) return '';
+
+  // ⚠️ v0.0.7 修正（实测根因，Linux 矩阵 firefox 全视口稳定 403）：
+  //
+  // 现场取证（firefox-375x812 分片）：
+  //   ctx_csrf = [
+  //     { value: '7ebb3c91…', domain: 'localhost'  },
+  //     { value: '71b86c2c…', domain: '127.0.0.1' },
+  //   ]
+  //   当前 URL: http://localhost:3105/t/22
+  //
+  // 浏览器里存在**两个** v2_csrf cookie（middleware 对每个 host 各发了一个，
+  // 因为它是按请求 host 下发的）。原实现 `cookies.find(...)` 取**第一个**
+  // ⇒ 拿到的是 `localhost` 域那个；而请求实际发往 `127.0.0.1`
+  // ⇒ 服务端读到的 cookie 是 `127.0.0.1` 域那个
+  // ⇒ 两个 token 不相等 ⇒ `verifyCsrf` 返回 false ⇒ **403**。
+  //
+  // Chromium/WebKit 不稳定复现是因为它们的 cookie 列表顺序不同。
+  //
+  // 修法：按**当前页面 URL 的 host** 精确匹配 domain；
+  // 匹配不到时退回页面 `document.cookie`（浏览器实际持有的那个）。
+  const host = new URL(page.url()).hostname;
+  const exact = candidates.find((c) => {
+    const d = (c.domain ?? '').replace(/^\./, '');
+    return d === host || (host.endsWith(`.${d}`) && d.length > 0);
+  });
+  if (exact) return exact.value;
+
+  // 兜底：读页面实际持有的 cookie（与 csrfFetch 的来源一致）
+  const fromDoc = await page
+    .evaluate(() => {
+      const m = document.cookie.match(/(?:^|; )v2_csrf=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    })
+    .catch(() => '');
+  return fromDoc || candidates[0].value;
 }
 
 /**

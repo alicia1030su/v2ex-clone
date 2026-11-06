@@ -244,22 +244,39 @@ jobs:
           let stats = { passed: 0, failed: 0, skipped: 0, flaky: 0, total: 0 };
           try {
             const r = JSON.parse(fs.readFileSync('test-results/e2e-results.json', 'utf8'));
+            // ⚠️ v0.0.7 修正（实测踩到）：Playwright JSON 里
+            //    `test.status` 是**期望状态**（'expected'/'unexpected'/'flaky'/'skipped'），
+            //    `result.status` 才是**实际结果**（'passed'/'failed'/'skipped'/'timedOut'）。
+            //    原判定拿 result.status 去比 'expected' ⇒ 永远不匹配
+            //    ⇒ 全部计入 flaky ⇒ 200/200 全过的分片也被判失败。
             const walk = (suites) => {
               for (const s of suites ?? []) {
                 for (const spec of s.specs ?? []) {
                   stats.total++;
-                  const ok = spec.tests?.every(t => t.results?.every(rr => rr.status === 'expected'));
-                  const failed = spec.tests?.some(t => t.results?.some(rr => rr.status === 'unexpected'));
-                  const skipped = spec.tests?.every(t => t.results?.every(rr => rr.status === 'skipped'));
-                  if (failed) stats.failed++;
-                  else if (skipped) stats.skipped++;
-                  else if (ok) stats.passed++;
+                  const results = (spec.tests ?? []).flatMap(t => t.results ?? []);
+                  if (results.length === 0) { stats.skipped++; continue; }
+                  const allPassed = results.every(rr => rr.status === 'passed');
+                  const anyBad = results.some(rr => rr.status !== 'passed' && rr.status !== 'skipped');
+                  const allSkipped = results.every(rr => rr.status === 'skipped');
+                  if (allPassed) stats.passed++;
+                  else if (allSkipped) stats.skipped++;
+                  else if (anyBad) stats.failed++;
                   else stats.flaky++;
                 }
                 walk(s.suites);
               }
             };
             walk(r.suites);
+            // 与 Playwright 自带 stats 交叉核对（不一致说明解析口径又错了）
+            if (r.stats) {
+              const native = { passed: r.stats.expected, failed: r.stats.unexpected, skipped: r.stats.skipped, flaky: r.stats.flaky };
+              const diff = Object.keys(native).filter(k => native[k] !== stats[k]);
+              if (diff.length) {
+                console.log('::error::汇总口径与 Playwright stats 不一致：' +
+                  diff.map(k => k + '(解析=' + stats[k] + ',原生=' + native[k] + ')').join(', '));
+                process.exit(3);
+              }
+            }
           } catch (e) {
             console.log('::error::无法解析 e2e-results.json：' + e.message);
             process.exit(2);
