@@ -7,6 +7,7 @@ import { rateLimitByUser } from '@/lib/rate-limit';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
 import { allocateFloor, ensureFloorCounter } from '@/server/floor';
 import { sanitizeRedirect } from '@/lib/redirect';
+import { buildRedirectUrl } from '@/lib/redirect-url';
 import { getFormData } from '@/lib/csrf';
 import { extractMentions, buildMentionMessage } from '@/lib/mentions';
 
@@ -240,5 +241,11 @@ export async function POST(request: Request) {
       ...(createdReplyId ? { replyId: createdReplyId } : {}),
     });
   }
-  return NextResponse.redirect(new URL(redirect, request.url), { status: 303 });
+  // ⚠️ v0.0.7：不能用 `new URL(redirect, request.url)` ——
+  //   Next 的 request.url 用**服务器自身 hostname**（默认 localhost）重建，
+  //   而非客户端实际请求的 Host 头 ⇒ 会把用户重定向到错误的 host
+  //   （实测：127.0.0.1 被换成 localhost ⇒ 浏览器出现两个 v2_csrf cookie
+  //    ⇒ 后续写操作一律 403「CSRF 校验失败」；反代/多域名部署下更严重）。
+  //   改用请求头里的 Host 构造同源 URL（见 src/lib/redirect-url.ts）。
+  return NextResponse.redirect(buildRedirectUrl(request, redirect), { status: 303 });
 }
