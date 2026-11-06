@@ -193,6 +193,20 @@ if [ -d ".next" ]; then
 fi
 
 # build（带 EPERM 偶发竞态的有限重试）
+#
+# `SKIP_BUILD=1` 可跳过（用于「已有可用 .next、只想重跑 E2E」的场景）——
+# 本机 Windows 上 build 有偶发的句柄时序问题（见上方注释），
+# 而 E2E 本身不依赖 build，跳过它能让我们继续验证真正的目标。
+if [ "${SKIP_BUILD:-0}" = "1" ]; then
+  if [ -f ".next/BUILD_ID" ]; then
+    ok "跳过 build（SKIP_BUILD=1），复用现有 .next（BUILD_ID=$(cat .next/BUILD_ID)）"
+    BUILD_OK=1
+  else
+    bad "SKIP_BUILD=1 但没有可用的 .next/BUILD_ID"
+    exit 1
+  fi
+fi
+
 BUILD_OK=0
 for ATTEMPT in 1 2 3; do
   info "next build（第 ${ATTEMPT} 次尝试）"
@@ -214,7 +228,7 @@ for ATTEMPT in 1 2 3; do
 done
 
 if [ "$BUILD_OK" = "1" ]; then
-  ok "构建成功"
+  [ "${SKIP_BUILD:-0}" = "1" ] || ok "构建成功"
 else
   bad "构建失败（见 /tmp/ci-eq-build.log）"; tail -20 /tmp/ci-eq-build.log; exit 1
 fi
