@@ -334,6 +334,7 @@ Windows 本机偶发问题仍由重试补丁兜底。**机制最后一环未完�
 | **R-31**（Windows build EPERM） | 🟡 根因定位到 Next build worker + 重试兜底；机制最后一环未完全解释 |
 | **原站视觉对照** | ❌ **UNVERIFIED** —— 开发机网络层阻断 + CI 反爬拦截；按合规要求不绕过 |
 | 本地 PostgreSQL 稳定性 | 🟡 本机磁盘 I/O 劣化导致 PG 反复 crash recovery（**环境问题，非产品缺陷**） |
+| 「密码重置全链路」偶发超时 | 🟡 分片矩阵中 firefox-1280x900 曾出现一次 `waitForResponse` 60s 超时（fake SMTP server 正常监听 3208、`SMTP_PORT` 与 `E2E_SMTP_PORT` 一致），**同一提交重跑即通过** ⇒ SMTP 投递时序偶发，非确定性缺陷。**未加重试掩盖**（retries=0），如实登记 |
 | 未使用任何降级手段 | ✅ 未删除失败用例、未降低阈值、未自动更新视觉基线、未隐藏环境问题 |
 
 ---
@@ -343,7 +344,7 @@ Windows 本机偶发问题仍由重试补丁兜底。**机制最后一环未完�
 | 项 | 状态 |
 |---|---|
 | PR #27 | **MERGED**（squash）→ master `535c421` |
-| PR #28 | 版本同步 + CHANGELOG（release/v0.0.7 → master） |
+| PR #28 | 版本同步 + CHANGELOG + 交付报告 + 交接文档（release/v0.0.7 → master） |
 | 工作流 | CI / Docker-Redis / 安装验证 / 视觉回归验收 / **E2E 跨浏览器矩阵（新增）** / **原站对照探测（新增）** |
 | CI 链接 | https://github.com/alicia1030su/v2ex-clone/pull/27 （checks 页） |
 | Tag / Release | **未创建**（R-01 阻断） |
