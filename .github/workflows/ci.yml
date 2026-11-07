@@ -197,7 +197,20 @@ jobs:
           PGPORT: '5432'
           PGUSER: v2ex
           PGPASSWORD: ci-postgres-password-not-real
-        run: bash scripts/release/verify-upgrade-v008.sh
+        run: |
+          set -o pipefail
+          bash scripts/release/verify-upgrade-v008.sh 2>&1 | tee /tmp/v008-upgrade.log
+
+      - name: 上传升级验证日志
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: upgrade-verification-${{ github.run_id }}
+          path: |
+            /tmp/v008-upgrade.log
+            /tmp/v008-migrate*.log
+          retention-days: 7
+          if-no-files-found: warn
 
   # -------------------------------------------------------------------------
   # 2. E2E（真实启动应用 + Playwright）
