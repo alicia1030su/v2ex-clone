@@ -60,7 +60,7 @@ psql_q() {
 }
 
 printf '%s═══ v0.0.8 升级验证（v0.0.7 → v0.0.8）═══%s\n' "$C_BLD" "$C_RST"
-printf '  PG: %s:%s  旧库=%s  新库=%s  恢复库=%s\n' "$PGHOST" "$PGPORT" "$OLD_DB" "$NEW_DB" "$RESTORE_DB"
+printf '  PG: %s:%s  升级库=%s  恢复库=%s\n' "$PGHOST" "$PGPORT" "$OLD_DB" "$RESTORE_DB"
 
 command -v psql >/dev/null 2>&1 || [ -x "/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/psql.exe" ] \
   || die "找不到 psql 客户端"
@@ -150,7 +150,6 @@ fi
 # --- 7. 备份与恢复验证 ----------------------------------------------------
 info "备份与恢复验证…"
 BACKUP_FILE="/tmp/v008-upgrade-backup.sql"
-if psql_q "$NEW_DB" "" >/dev/null 2>&1; then :; fi
 if (cd "$REPO_ROOT" && node -e "
   const { execFileSync } = require('child_process');
   const bin = 'pg_dump';
