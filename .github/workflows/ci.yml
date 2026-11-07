@@ -175,24 +175,29 @@ jobs:
         # 防止「前端调了但后端没这个端点」的偏差静默存在。
         run: node scripts/ui-verify.cjs
 
-      - name: 静态测试（语法护栏，不依赖数据库）
-        # ⚠️ v0.0.8 新增：E2E/工具脚本的**语法**与结构护栏。
-        #
-        # 为什么单独一个 job（且不依赖 PG）：
-        #   v0.0.8 提交了一个 e2e/helpers.ts 的**注释块语法错误**，
-        #   `npx tsc --noEmit` **抓不到**（TS 对注释块比 Playwright 宽松）
-        #   ⇒ 错误进了 CI ⇒ 15 个分片全部「0 个用例被收集」
-        #   ⇒ 矩阵看起来「跑完了」，实际**一条都没跑**。
-        #
-        # 这一步能在**类型检查之后、E2E 之前**快速失败，
-        # 且不因本机 PG 不稳定而误报（纯静态检查）。
-        run: npx vitest run --config vitest.static.config.ts
-
       - name: 单元测试
         env:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
           REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
         run: npx vitest run
+
+      - name: 静态测试（不依赖数据库）
+        # 语法护栏 + 观测能力单测（纯静态 / 纯内存）
+        run: npx vitest run --config vitest.static.config.ts
+
+      - name: 原地升级验证（v0.0.7 → v0.0.8）
+        # ⚠️ v0.0.8 新增（任务书 §七「完成数据库升级、备份、恢复和回滚验证」）：
+        #   · 用**旧迁移集**建库 → 灌探针数据 → 跑新迁移
+        #   · 断言数据指纹**逐字节不变** + 迁移**幂等**（连跑 3 次）
+        #   · 备份 → 恢复到临时库 → 断言指纹一致（回滚路径）
+        #
+        # 只操作脚本自建的库（v2ex_upgrade_v008_* 前缀），不碰任何其它库。
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: v2ex
+          PGPASSWORD: ci-postgres-password-not-real
+        run: bash scripts/release/verify-upgrade-v008.sh
 
   # -------------------------------------------------------------------------
   # 2. E2E（真实启动应用 + Playwright）
