@@ -134,10 +134,22 @@ if [ -n "$_docker_path" ]; then
 fi
 
 # 组装「无 docker」的 PATH
-PATH_NO_DOCKER="$PATH"
-if [ -n "${DOCKER_BIN_DIR_POSIX:-}" ]; then
-  PATH_NO_DOCKER="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v -F "$DOCKER_BIN_DIR_POSIX" | paste -sd ':' -)"
-fi
+#
+# ⚠️ v0.0.9 真实缺陷（post-release-verify run `42417832086` 暴露）：
+#    旧写法只把 `command -v docker` 命中的**那一个**目录摘掉。
+#    GitHub 的 ubuntu runner 上 docker 同时存在于多个 bin 目录，
+#    摘掉第一个之后 `command -v docker` 会命中**下一个** ⇒
+#    负向测试根本没生效：install.sh 拿到了 docker，**真的装了一遍**
+#    （实测负向测试退出码 0、并留下了 .env），把 postgres 数据卷
+#    用**旧口令**初始化；随后测试把 .env 删掉，正式安装生成**新口令**
+#    ⇒ 应用连库 `password authentication failed for user "v2ex"`，
+#    首页永远起不来（`✗ 应用首页不可访问（000000）`）。
+#    正解：把 PATH 里**所有**能解析出 docker 的目录都摘掉。
+PATH_NO_DOCKER="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r _d; do
+  [ -n "$_d" ] || continue
+  if [ -x "$_d/docker" ]; then continue; fi
+  printf '%s\n' "$_d"
+done | paste -sd ':' -)"
 
 # 组装「有 docker shim」的 PATH
 SHIM_BIN="${WORK_ROOT}/shimbin"
@@ -159,23 +171,47 @@ SHIM
 chmod +x "$SHIM_BIN/docker"
 PATH_WITH_SHIM="${SHIM_BIN}:${PATH_NO_DOCKER}"
 
-set +e
-PATH="$PATH_NO_DOCKER" /bin/bash "$INST_DIR/install.sh" > "${WORK_ROOT}/install-nodocker.log" 2>&1
-NODOCKER_RC=$?
-set -e
-
-if [ "$NODOCKER_RC" -ne 0 ] && grep -q "未检测到 docker" "${WORK_ROOT}/install-nodocker.log"; then
-  ok "缺少 docker 时明确报错并退出非 0（退出码 ${NODOCKER_RC}）"
+# 自检：确认 PATH 里**真的**已经没有 docker 了。
+# 没有这一条，负向测试会在「其实还有 docker」的环境里静默变成
+# 「真装一遍」，既不报红也不可信 —— 正是 run `42417832086` 的情形。
+if PATH="$PATH_NO_DOCKER" command -v docker >/dev/null 2>&1; then
+  NODOCKER_TESTABLE=0
+  info "⚠️ 无法从 PATH 完全移除 docker ⇒ 「缺少 docker」负向测试**跳过**（如实标注，不冒充通过）"
 else
-  bad "缺少 docker 时的行为不正确（退出码 ${NODOCKER_RC}）"
+  NODOCKER_TESTABLE=1
 fi
 
-# 依赖检查失败时**不应**留下半成品 .env
-if [ -f "$INST_DIR/.env" ]; then
-  bad "依赖检查失败时仍生成了 .env（半成品）"
-  rm -f "$INST_DIR/.env"
-else
-  ok "依赖检查失败时不生成 .env（无半成品）"
+if [ "$NODOCKER_TESTABLE" -eq 1 ]; then
+  set +e
+  PATH="$PATH_NO_DOCKER" /bin/bash "$INST_DIR/install.sh" > "${WORK_ROOT}/install-nodocker.log" 2>&1
+  NODOCKER_RC=$?
+  set -e
+
+  if [ "$NODOCKER_RC" -ne 0 ] && grep -q "未检测到 docker" "${WORK_ROOT}/install-nodocker.log"; then
+    ok "缺少 docker 时明确报错并退出非 0（退出码 ${NODOCKER_RC}）"
+  else
+    bad "缺少 docker 时的行为不正确（退出码 ${NODOCKER_RC}）"
+  fi
+
+  # 依赖检查失败时**不应**留下半成品 .env
+  if [ -f "$INST_DIR/.env" ]; then
+    bad "依赖检查失败时仍生成了 .env（半成品）"
+    rm -f "$INST_DIR/.env"
+  else
+    ok "依赖检查失败时不生成 .env（无半成品）"
+  fi
+fi
+
+# 兜底：无论负向测试是否按预期生效，都先确保**没有**残留的容器与
+# 数据卷。postgres 数据卷一旦被旧口令初始化，后面的正式安装即使生成了
+# 全新口令也必然鉴权失败 —— 那种失败会伪装成「产品缺陷」，极难定位。
+if docker info >/dev/null 2>&1; then
+  docker rm -f v2ex-app v2ex-postgres v2ex-redis >/dev/null 2>&1 || true
+  for _v in v2ex_postgres-data v2ex_redis-data v2ex_uploads-data \
+            v2ex-clone-install_postgres-data v2ex-clone-install_redis-data \
+            v2ex-clone-install_uploads-data; do
+    docker volume rm -f "$_v" >/dev/null 2>&1 || true
+  done
 fi
 
 # Docker 守护进程未运行时的行为（与「没有 docker」是不同分支）

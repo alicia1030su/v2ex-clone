@@ -312,6 +312,11 @@ jobs:
           set -e
           if [ "$RC" -ne 0 ]; then
             tail -80 "$WORK/fresh-install.log"
+            # v0.0.9：把 app 容器自己的日志也打出来。不加这一条时，
+            # 失败现场只有 postgres 的「password authentication failed」，
+            # 看不到应用侧到底连的什么 —— 排查成本极高。
+            echo "--- app 容器日志（最后 60 行）---"
+            docker logs v2ex-app --tail 60 2>&1 || true
             fail "全新安装 13 项验收" "verify-fresh-install.sh 退出码 $RC"
           fi
           INST_DIR="$(sed -n 's/.*全新安装目录：//p' "$WORK/fresh-install.log" | head -1 | tr -d '\r')"
