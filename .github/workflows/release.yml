@@ -100,6 +100,25 @@ env:
   TEST_ENV_ISOLATED: '1'
   DISABLE_CAPTCHA: '1'
   ENABLE_DEBUG_ENDPOINTS: '1'
+  # ---- 应用地址（v0.0.9 补齐）----
+  #
+  # 此前 release.yml 缺这两个变量 ⇒ 找回密码邮件**fail-closed**
+  # （未配置 PUBLIC_BASE_URL / APP_URL 就拒绝发送）⇒ 邮件根本不发
+  # ⇒ `v005-password-reset-flow.spec.ts` 必然失败
+  # （实测 run 42378085346：「20000ms 内未收到邮件（已收到 0 封）」）。
+  APP_URL: http://localhost:3000
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  # ---- 测试用假 SMTP（v0.0.9 补齐）----
+  #
+  # 应用与测试进程**必须**指向同一个端口（契约由 spec 的 beforeAll 显式校验）。
+  # 目标端口是 spec 自己起的**本地 fake SMTP server**（真实 TCP + 真实 SMTP 协议），
+  # 绝不会投递到任何真实收件人。
+  SMTP_ALLOW_REAL_IN_TEST: '1'
+  SMTP_HOST: 127.0.0.1
+  SMTP_PORT: '3025'
+  E2E_SMTP_PORT: '3025'
+  SMTP_FROM: noreply@v2ex-clone.local
+  SMTP_SECURE: '0'
 
 jobs:
   # ===========================================================================
@@ -893,6 +912,9 @@ jobs:
           ENABLE_DEBUG_ENDPOINTS: '1'
           LOCAL_BASE: http://localhost:3000
           CI: 'true'
+          # APP_URL / NEXT_PUBLIC_APP_URL / SMTP_* 在 **workflow 级 env** 里
+          # 统一配置（见文件顶部）—— 应用进程与测试进程都要继承它们，
+          # 放在 step 级只对应用生效，测试进程会拿不到。
         run: |
           set -euo pipefail
           npx next start -p 3000 &
