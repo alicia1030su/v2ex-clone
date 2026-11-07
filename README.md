@@ -24,33 +24,35 @@
 
 ## 当前版本：v0.0.9（开发预览版 / Pre-release）
 
-> ✅ **版本号已同步（v0.0.4，主理人裁决 R-20）**：版本载体已由 `0.0.3` 一次性同步为 `0.0.4`。
-> 同步时机严格遵守「**最终 SHA 固定之后**」的规约 —— 避免出现「版本号已是 0.0.4、
-> 却没有对应 Tag 与 Release」的中间态。**v0.0.4 的 Tag 与 Release 见下方版本历史与 GitHub Releases。**
-> 门禁见 `docs/RELEASE_PROCESS_v0.0.4.md` §5.3（G-VER-01）。
-> **v0.0.4 的完整变更见 `CHANGELOG.md` 的 `[Unreleased]` 段落。**
+> ✅ **版本载体已同步到 0.0.9**（7 个载体复验通过：`node scripts/release/sync-version.mjs 0.0.9 --verify`）。
+> 同步严格遵守 G-VER-01「**最终 SHA 固定之后**」的规约 —— 避免出现「版本号已是 0.0.9、
+> 却没有对应 Tag 与 Release」的中间态。**v0.0.9 以公开 Pre-release 形态发布**（不是稳定版）。
+> 门禁与一次性风险接受见 [`docs/RISK_DECISION_v0.0.9.md`](docs/RISK_DECISION_v0.0.9.md)；
+> R-01 历史合规风险**维持 DEFERRED**，详见 `docs/R01_COMPLIANCE_REVIEW_v0.0.9.md`。
 
 | 项 | 值 |
 |---|---|
-| 版本号 | `v0.0.4`（**已同步**；版本载体于最终 SHA 固定时一次性同步，见上方裁决） |
-| 发布形态 | **开发预览版（Pre-release）** |
+| 版本号 | `v0.0.9`（**开发预览版 / Pre-release**；版本载体于最终 SHA 固定时一次性同步） |
+| 发布形态 | **开发预览版（Pre-release）**，不是稳定版 |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` |
-| 数据库迁移 | `drizzle/0000_init.sql`（v0.0.2 基线） + `drizzle/0001_striped_magdalene.sql`（v0.0.3） + `drizzle/0002_v004_perf_indexes.sql`（**v0.0.4**） |
+| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.9` |
+| 数据库迁移 | `drizzle/` 下 4 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports`），容器启动时幂等执行 |
 
-> **v0.0.4 是开发预览版。**
+> **v0.0.9 是开发预览版。**
 >
 > - **不保证与 V2EX 完全一致** —— 页面内容、交互细节与原站存在差异
-> - **不具备生产就绪条件** —— 未经生产环境验证，未做长时间稳定性验证
-> - **不建议用于生产环境** —— 若要使用，请自行评估风险并完成 `docs/INSTALL.md` 第 12 节的安全清单
+> - **不具备生产就绪条件** —— 1 小时持续运行已真实通过；**24 小时持续运行尚未完成**
+>   （旧单 Job 设计受平台 6 小时上限限制，见 `docs/SOAK_24H_FINDING_v0.0.9.md`）
+> - **不建议用于生产环境** —— 若要使用，请自行评估风险并完成 `deploy/INSTALL.md` 的安全清单
 > - 版本号遵循语义化版本：`0.0.x` 表示接口与行为**仍可能破坏性变更**
 >
-> ### 升级到 v0.0.4
+> ### 升级到 v0.0.9
 >
-> v0.0.4 支持从 v0.0.3 **原地升级**（不删库、不清卷、不重置口令）。
-> `./update.sh --version v0.0.4` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚。
-> 详见 [`docs/UPGRADE_RECOVERY_v0.0.4.md`](docs/UPGRADE_RECOVERY_v0.0.4.md)。
+> **唯一已公开发布的可升级基线是 v0.0.4**（v0.0.5 ~ v0.0.8 从未公开发布）。
+> `./update.sh --version v0.0.9` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
+> 升级前务必先 `./backup.sh`。详见 [`deploy/INSTALL.md`](deploy/INSTALL.md) §8，
+> 历史升级与回滚说明见 `docs/UPGRADE_RECOVERY_v0.0.4.md` / `docs/UPGRADE_RECOVERY_v0.0.5.md`。
 
 ### 版本历史
 
