@@ -85,8 +85,7 @@ jobs:
     with:
       segment_index: '1'
       segment_hours: '5'
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
 
   # ===========================================================================
   # 段 2 —— 续段 1
@@ -99,8 +98,7 @@ jobs:
       segment_index: '2'
       segment_hours: '5'
       prev_state_artifact: soak-state-1
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
 
   # ===========================================================================
   # 段 3
@@ -113,8 +111,7 @@ jobs:
       segment_index: '3'
       segment_hours: '5'
       prev_state_artifact: soak-state-2
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
 
   # ===========================================================================
   # 段 4
@@ -127,8 +124,7 @@ jobs:
       segment_index: '4'
       segment_hours: '5'
       prev_state_artifact: soak-state-3
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
 
   # ===========================================================================
   # 段 5 —— 最后一段（4 小时，累计 24 小时）
@@ -141,8 +137,7 @@ jobs:
       segment_index: '5'
       segment_hours: '4'
       prev_state_artifact: soak-state-4
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
 
   # ===========================================================================
   # 汇总 —— 核对累计真实时长
