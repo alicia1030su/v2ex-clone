@@ -610,20 +610,31 @@ jobs:
           # --exit-code=1：发现泄露即失败
           # --redact：报告里不打印明文
           #
-          # ⚠️ v0.0.9：使用仓库内的 `.gitleaks.toml`（**只含 allowlist，
-          #    不改任何检测规则**）。该配置按**精确字符串值**放行 3 个
-          #    E2E 测试固件口令（详见该文件内的说明）——
-          #    **不按路径放行**，因此 e2e 目录里的其它高熵字符串仍会被检出。
+          # ⚠️ v0.0.9：**刻意不加 `--config`**。
           #
-          #    干跑实测证据（run 42373086097）：未放行时命中 3 处，
-          #    全部是 `generic-api-key` 规则对「Password = <高熵测试值>」的误报。
+          # 本地实测（gitleaks 8.18.4）证明：**只要传了 --config，
+          # 而配置文件里没有完整的 [rules] 定义，默认规则集就不会被加载**
+          # ⇒ 扫描会「零泄漏通过」——这是最危险的一种假绿。
+          #
+          #   实测对照：
+          #     --config（有 [extend] useDefault）  → 规则不生效（8.18.4 不认 extend）
+          #     --config（有 [rules] 但不完整）    → 规则不生效
+          #     --config（只有 allowlists）        → 规则不生效
+          #     不传 --config                        → 规则完整生效 ✅
+          #
+          # ⇒ 因此**从源头消除误报**（把 E2E 测试固件的变量名从以
+          #    "Password" 结尾改成含 "ForTest" 的形式），
+          #    而不是用 allowlist 换掉规则集 —— 检测能力一点没削弱。
+          #
+          # 干跑实测证据（run 42373086097 / 42373509878 / 42373768954）：
+          #   误报来源是 `generic-api-key` 规则对「赋值目标名含 Password +
+          #   高熵字面量」的匹配，与该值是否是真密钥无关。
           set +e
           /tmp/gitleaks detect \
             --no-git \
             --redact \
             --no-banner \
             --exit-code=1 \
-            --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
             --report-format=json \
             --report-path=gitleaks-report.json \
             --source /tmp/gitleaks-scan 2>&1 | tee gitleaks-output.txt
