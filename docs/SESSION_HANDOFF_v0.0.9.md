@@ -135,7 +135,7 @@ v0.0.8 的 API 埋点存在**两个叠加缺陷**：
 | 运维故障注入 | ✅ **21/21**（0 跳过） | `scripts/release/verify-ops-resilience.sh` |
 | 全新安装验收 | ✅ **22/22** | `scripts/release/verify-fresh-install.sh` |
 | 长跑验证（短时） | ✅ **10/10** | `scripts/release/verify-soak.sh --duration 90s` |
-| v0.0.4→v0.0.9 升级 | ✅ 数据指纹**逐字节一致** | 60 项指标 diff 为空 |
+| v0.0.4→v0.0.9 升级 | ✅ 数据指纹**逐字节一致** | 42 项业务指纹 diff 为空（指纹文件 49 行） |
 
 ### 升级验证的关键证据
 

@@ -31,7 +31,7 @@
 | §一 接管与基线核实 | 只读核实 master / PR #29 #30 / Tag / Release / CI / R-01 | ✅ | master=`faf8d89`；PR #29 #30 均 MERGED；Tag 4 个；Release 4 个；PR 状态全部复核 |
 | §二 P0 候选安装链路 | 模式 A / 模式 B | 🟡 **B 完成，A 待授权** | `build-candidate.sh` / `rewrite-candidate-image.mjs` / `verify-candidate-install.sh` + `candidate-verify.yml` |
 | §三 P0 全新安装测试 | 13 项验收 + Windows PS5.1/PS7 | ✅ | `verify-fresh-install.sh` 22 项断言全通过 |
-| §四 P0 v0.0.4 → v0.0.9 升级 | 真实发布过的 v0.0.4 作基线 | ✅ | 数据指纹**逐字节一致**（60 项指标） |
+| §四 P0 v0.0.4 → v0.0.9 升级 | 真实发布过的 v0.0.4 作基线 | ✅ | 数据指纹**逐字节一致**（42 项业务指纹 / 指纹文件 49 行；索引 76→78、迁移 3→4）|
 | §五 P0 完整 UX 验收 | 四角色全流程 + 真实 DB 变化 | ✅ | `v009-four-roles-acceptance.spec.ts` 12/12 |
 | §六 P1 运维可靠性 | 健康检查 / DB / Redis / SMTP / 5xx / 慢查询 / 备份 / 磁盘 | ✅ | `verify-ops-resilience.sh` 21/21（0 跳过） |
 | §七 P1 长时间运行 | 24h 持续运行 + 长会话 + 备份恢复 | 🟡 **1 小时已达成，24h 未跑** | `soak-test.yml` + `verify-soak.sh`；**未跑完不声称达成 24h** |
