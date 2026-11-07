@@ -7,6 +7,134 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [Unreleased] — v0.0.9（候选，未发布）
+
+> **版本载体已同步到 0.0.9**（7 个载体复验通过）。
+> **R-01 维持 DEFERRED** ⇒ **不建 v0.0.9 Tag、不发公开 Release**，
+> 只交付候选产物。
+> **本轮未执行**：force push / Tag 移动删除 / Release 修改 / 远端历史改写 /
+> 仓库可见性变更 / GHCR 镜像推送 / artifact 删除。
+> PR #31 开放中。
+
+### v0.0.9：公开部署就绪 —— 候选安装链路、真实升级验证、运维可靠性
+
+#### A. P0 候选离线安装链路（任务书 §二「模式 B」）
+
+v0.0.8 暴露的老问题：部署包默认引用 `ghcr.io/.../v2ex-clone:v0.0.8`，
+而 v0.0.8 **没有对应镜像** ⇒ 用户安装必然失败。
+
+本轮实现**两种发行模式**并明确区分：
+
+| 模式 | 含义 | 本轮状态 |
+|---|---|---|
+| **A 正式在线安装** | 固定 SHA 构建 → 推送 GHCR → 验证 digest → 验证匿名 pull → 发布部署 ZIP → 全新环境下载安装 | ⬜ **需单独授权**（需 GHCR 推送 + 正式 Release + Tag） |
+| **B 候选隔离安装** | 固定 SHA 构建 → 导出 image tar → 候选 ZIP + SHA256SUMS → 独立环境 `docker load` → 候选标签跑 Compose → 验证迁移/Redis/健康检查/登录/发帖/回复/重启不丢数据 | ✅ **已实现并在 CI 实跑** |
+
+**新增**：
+- `scripts/release/build-candidate.sh` —— 强制校验 `HEAD == --sha` 且工作区干净；
+  版本载体未同步即拒绝构建；候选镜像**不推送任何远端仓库**。
+- `scripts/release/rewrite-candidate-image.mjs` —— 改写候选包内 4 处镜像引用
+  （compose / `.env.example` / `install.sh` / `install.ps1`）为候选标签。
+- `scripts/release/verify-candidate-install.sh` —— 独立环境完整安装验证。
+- `.github/workflows/candidate-verify.yml` —— ubuntu runner 上**真实执行**全链路。
+
+**关键设计**：候选包内 shell 脚本的换行符强制归一化为 LF
+（Windows 上 `core.autocrlf=true` 会产出 CRLF，Linux 用户执行 `install.sh` 直接失败）。
+
+#### B. P0 修复 API 错误率统计失效（任务书 §六）
+
+实测发现 v0.0.8 的 API 埋点存在**两个叠加缺陷**：
+
+1. **模块实例隔离** —— Next.js 把 middleware 编译成独立 webpack bundle，
+   与路由处理器**不共享模块实例** ⇒ `observability.ts` 的 `Map` 被求值两次 ⇒
+   `api.requests` **恒为 0**。
+2. **拿不到真实状态码** —— `NextResponse.next()` 返回的是 middleware 自己的
+   响应（恒 200），下游真实响应会**替换**它 ⇒ `byStatus` **恒为 `{200: N}`**，
+   连真实的 401/403/404 都不计入。
+
+⇒ 「关键接口错误率」在架构上就是**瞎的**，不满足任务书 §六。
+
+**修复**（三处**必须同时存在**）：
+- `src/lib/observability.ts` —— 状态挂到 `globalThis`（带版本化存储键）；
+- `src/middleware.ts` —— `export const runtime = 'nodejs'`（与路由同进程）；
+- `src/instrumentation.ts`（新增）—— Node HTTP 层拦截 `ServerResponse.writeHead`，
+  拿**真实** statusCode 与完整耗时。
+
+仅做前两处时 `byStatus` 仍恒为 `{200}` —— 实测确认。
+
+**实测**：`api.requests=13`、`byStatus={'200':4,'401':2,'404':1}`、
+`error4xxByRoute` 按路由聚合。
+
+#### C. P0 全新用户安装验收（任务书 §三）
+
+`scripts/release/verify-fresh-install.sh` —— 13 项清单逐条可执行，
+**22 项断言全通过**。全新目录 + 显式清空开发机环境变量。
+
+#### D. P0 v0.0.4 → v0.0.9 真实升级验证（任务书 §四）
+
+用**真实发布过的 v0.0.4**（tag `c0e7396`，3 个迁移）为基线 ——
+v0.0.5~v0.0.8 均未公开发布，不能用作升级基线。
+
+`scripts/release/generate-upgrade-fixture.mjs` 通过**真实 HTTP 接口**
+（而非直接写库）生成 seed 缺失、而升级最易丢失的数据：
+通知 / 积分流水 / 感谢 / 投票 / 收藏 / 头像文件。
+
+**实测结果**：数据指纹**逐字节一致**（60 项指标 diff 为空）；
+schema 变化符合预期（+2 索引 / +1 迁移）；迁移幂等（连跑 3 次仍 4 条）；
+v0.0.4 的旧口令哈希在 v0.0.9 **仍可登录**。
+
+#### E. P1 四角色完整 UX 验收（任务书 §五）
+
+`e2e/v009-four-roles-acceptance.spec.ts` —— **12 例全通过**，
+每项都用「操作前计数 → 操作 → 操作后计数」验证**真实数据库变化**。
+
+新增 `src/app/api/debug/table-count/route.ts`（仅测试读数）：
+复用既有调试鉴权；**只返回行数**；表名走**白名单**（14 张业务表）。
+
+#### F. P1 运维可靠性故障注入（任务书 §六）
+
+`scripts/release/verify-ops-resilience.sh` —— **21 项全通过，0 跳过**。
+含数据库断开注入、备份损坏检测（截断 .gz / 空备份 / 被篡改）、真实备份恢复。
+
+#### G. P1 长时间运行（任务书 §七）
+
+任务书禁止「没有实际运行就标注 24 小时完成」，故把长跑实现为
+**GitHub Actions 持久运行器**（`soak-test.yml`），并带**时长诚实性门禁**：
+实际时长达不到目标 ⇒ job 失败。
+
+`scripts/release/verify-soak.sh` —— 同一脚本在本地（短时）与 CI（长时）都能跑，
+**如实报告实际运行时长**与采样次数。
+
+#### H. P0 收紧 .gitignore（凭据泄露风险）
+
+既有规则只覆盖**固定名字**（`.env` / `.env.local` / `.env.test`），
+而本轮使用的 `.env.v009` / `.env.e2e009` / `.env.v009upg`
+**不匹配任何规则** ⇒ 含真实密钥且会被 `git add -A` 带进仓库。
+已改为忽略一切 `.env.*` 并显式放行模板。
+**历史核查**：全部 ref 扫描本轮 5 个密钥字面量，**命中数均为 0**。
+
+#### I. R-01 历史合规专项（任务书 §九）
+
+`docs/R01_COMPLIANCE_REVIEW_v0.0.9.md` —— **独立实测**（非照抄旧报告）。
+隔离副本清理演练证明：素材可从全部历史移除，且**业务代码逐字节一致**
+（405 文件，blob SHA256 不变），清理后 `tsc` 仍通过。
+
+**新发现**：已发布的 4 个 Release ZIP 与 4 个 GHCR 镜像**均不含**受影响素材
+⇒ 用户可获得面干净，无需重做。
+**但**：4 个已发布 Tag 仍使素材可达；且**改写历史也无法消除已下载/已缓存的内容**。
+
+#### J. CI 实跑暴露并修复的缺陷
+
+| 缺陷 | 发现方式 |
+|---|---|
+| `build-candidate.sh` 残留 `PYEOF` 行 | CI 实跑（本地 `bash -n` 检不出） |
+| `verify-soak.sh` 缺 `--pg-pass` 参数 | CI 实跑 |
+| `table-count` 用了未经参数化的 SQL 拼接 | 本仓安全守卫判红 |
+| `grep` 正则非法字符范围（`\-/`） | CI 实跑 |
+| `soak-test.yml` 未在功能分支注册 | 手动 dispatch 404 |
+
+---
+
 ## [Unreleased] — v0.0.8（已合入 master `3dc718c`，尚未发布）
 
 > **版本载体已同步到 0.0.8**（最终 SHA `3dc718c` 固定后一次性同步，7 个载体复验通过）。

@@ -89,22 +89,73 @@ export function maskEmailLocal(email: string): string {
   return `${head}***@${domain}`;
 }
 
-/** 进程内计数窗口（按事件名 + 级别） */
-const counters = new Map<string, number>();
-/** 慢请求记录（按路由归类） */
-const slowRequests: { route: string; durationMs: number; ts: string }[] = [];
+/**
+ * 进程内计数窗口（按事件名 + 级别）
+ *
+ * ## ⚠️ 为什么必须挂在 `globalThis` 上（v0.0.9 实测缺陷修复）
+ *
+ * **实测现象**：v0.0.8 引入的 API 埋点（middleware 里 `countMetric('api.request')`）
+ * 在 `/api/admin/ops` 里**永远显示 0**，而 Node 侧的计数
+ * （`ratelimit.check`、`mail.delivery.*`）却正常。
+ *
+ * **根因**：Next.js 的 `middleware.ts` 会被编译成**独立的 webpack bundle**
+ * （`.next/server/src/middleware.js`，Edge 版）或 `.next/server/middleware.js`
+ * （Node 版）。它与路由处理器的 bundle **不共享模块实例** ——
+ * 即使两者跑在同一个 Node 进程里，`observability.ts` 这个模块也��被
+ * **求值两次**，于是产生两个互不相通的 `Map`：
+ *
+ *   · middleware bundle 的 Map  ← 埋点写这里
+ *   · route bundle 的 Map       ← /api/admin/ops 读这里 ⇒ 永远是空
+ *
+ * （补充：v0.0.8 的 middleware 跑在 **Edge Runtime** —— 那是**另一个进程**
+ * 的另一个 V8 isolate，连 `globalThis` 都不是同一个对象 ⇒ 更不可能共享。
+ * v0.0.9 已把 middleware 切到 `runtime = 'nodejs'`，让它与路由同进程。）
+ *
+ * **修法**：把状态挂在 `globalThis` 上，用一个**稳定的字符串键**去取。
+ * `globalThis` 是**进程级**的，同进程内的不同 webpack bundle 共享同一个对象
+ * ⇒ 埋点与读取终于落到同一份状态上。
+ *
+ * **边界（必须如实说明）**：
+ *   - 本方案只在**同一进程**内有效。Next.js 多实例部署（多 worker / 多容器）
+ *     仍是**每进程一份**计数 —— 这是「进程内计数窗口」这一设计固有的性质，
+ *     不是缺陷；需要跨实例聚合时应把事件流送到集中式日志系统。
+ *   - 键名带版本号，避免热更新后新旧 bundle 拿到不同的存储。
+ */
+const METRICS_STORE_KEY = '__v2ex_observability_store_v1';
+
+type MetricsStore = {
+  counters: Map<string, number>;
+  slowRequests: { route: string; durationMs: number; ts: string }[];
+};
+
+type GlobalWithMetrics = typeof globalThis & {
+  [METRICS_STORE_KEY]?: MetricsStore;
+};
+
 /** 保留的最大慢请求条数 */
 const MAX_SLOW = 200;
 
+function store(): MetricsStore {
+  const g = globalThis as GlobalWithMetrics;
+  let s = g[METRICS_STORE_KEY];
+  if (!s) {
+    s = { counters: new Map<string, number>(), slowRequests: [] };
+    g[METRICS_STORE_KEY] = s;
+  }
+  return s;
+}
+
 /** 递增计数 */
 export function countMetric(name: string, by = 1): void {
-  counters.set(name, (counters.get(name) ?? 0) + by);
+  const c = store().counters;
+  c.set(name, (c.get(name) ?? 0) + by);
 }
 
 /** 记录一次慢请求 */
 export function recordSlowRequest(route: string, durationMs: number): void {
-  slowRequests.push({ route, durationMs, ts: new Date().toISOString() });
-  if (slowRequests.length > MAX_SLOW) slowRequests.splice(0, slowRequests.length - MAX_SLOW);
+  const list = store().slowRequests;
+  list.push({ route, durationMs, ts: new Date().toISOString() });
+  if (list.length > MAX_SLOW) list.splice(0, list.length - MAX_SLOW);
 }
 
 /** 读取当前计数快照 */
@@ -112,16 +163,18 @@ export function metricsSnapshot(): {
   counters: Record<string, number>;
   slowRequests: { route: string; durationMs: number; ts: string }[];
 } {
+  const s = store();
   return {
-    counters: Object.fromEntries(counters),
-    slowRequests: [...slowRequests],
+    counters: Object.fromEntries(s.counters),
+    slowRequests: [...s.slowRequests],
   };
 }
 
 /** 清空计数（测试用） */
 export function resetMetrics(): void {
-  counters.clear();
-  slowRequests.length = 0;
+  const s = store();
+  s.counters.clear();
+  s.slowRequests.length = 0;
 }
 
 /** 输出到 stdout（JSON-lines） */

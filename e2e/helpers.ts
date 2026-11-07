@@ -411,7 +411,25 @@ export async function gotoResilient(page: Page, url: string, attempts = 3): Prom
       return;
     } catch (err) {
       const msg = String(err);
-      const interrupted = msg.includes('interrupted by another navigation');
+      // ⚠️ v0.0.9：**不同浏览器的「导航被中断」错误文案不同**，必须都覆盖：
+      //
+      //   · Chromium： `net::ERR_ABORTED` / `interrupted by another navigation`
+      //   · Firefox： `NS_BINDING_ABORTED`（导航被同源的另一个导航取代）
+      //   · WebKit ： `interrupted by another navigation`
+      //
+      // 实测（v0.0.9 CI，run 42360422764）：firefox/1920x1080 分片
+      // 因 `NS_BINDING_ABORTED` 失败 1 条 —— 而 chromium/webkit 的同一条
+      // 用例通过 ⇒ 这**不是**产品缺陷，是**辅助函数只认 Chromium 文案**。
+      //
+      // 典型触发场景（见 v004-content-interaction.spec.ts）：
+      // 删除主题后应用自己会 `router.refresh()`，此时测试又发起 `goto('/')`
+      // ⇒ 两个导航竞争 ⇒ 后者被前者取代 ⇒ Firefox 抛 NS_BINDING_ABORTED。
+      const interrupted =
+        msg.includes('interrupted by another navigation') ||
+        msg.includes('NS_BINDING_ABORTED') ||
+        msg.includes('ERR_ABORTED') ||
+        msg.includes('Navigation interrupted');
+
       if (interrupted && i < attempts) {
         // 等应用自身的导航落地再重试
         await page.waitForTimeout(400);
