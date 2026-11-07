@@ -376,12 +376,69 @@ if [ -z "$CSRF" ]; then
   bad "未取得 CSRF 令牌"
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# 验证码 —— **按生产路径**求解，而不是关掉它
+#
+# ⚠️ 踩坑记录（CI 实测，run 42359029397）：
+#   候选 compose 里没有 DISABLE_CAPTCHA ⇒ 登录返回 400「请输入验证码」。
+#   `DISABLE_CAPTCHA=1` **只在隔离测试环境生效**
+#   （APP_RUNTIME_ENV=test 且 TEST_ENV_ISOLATED=1，见 src/lib/runtime-flags.ts）
+#   ⇒ 候选环境**不能**用它来绕过（那等于没测生产的登录路径）。
+#
+# 正确做法：走**真实**的验证码流程 ——
+#   1. GET /api/captcha ⇒ 拿到 { id, field, image }
+#   2. image 是 `data:image/svg+xml;base64,...`；
+#      解 base64 后从 SVG 的 `<text>` 元素里取出答案
+#      （本项目用 SVG 画字，答案就明文在 <text> 里 —— 见 src/server/captcha.ts）
+#   3. POST /api/auth/signin 带 { captchaId, captchaField, captchaText }
+#
+# ⇒ 这样验证的是**生产用户真正走的路径**（含验证码挑战与校验）。
+# ---------------------------------------------------------------------------
+solve_captcha() {
+  local cap_json="$1"
+  local cap_id cap_field cap_image svg text
+  cap_id="$(printf '%s' "$cap_json" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')"
+  cap_field="$(printf '%s' "$cap_json" | sed -n 's/.*"field":"\([^"]*\)".*/\1/p')"
+  cap_image="$(printf '%s' "$cap_json" | sed -n 's/.*"image":"data:image\/svg+xml;base64,\([^"]*\)".*/\1/p')"
+  if [ -z "$cap_id" ] || [ -z "$cap_field" ] || [ -z "$cap_image" ]; then
+    return 1
+  fi
+  svg="$(printf '%s' "$cap_image" | base64 -d 2>/dev/null)"
+  # 取所有 <text ...>N</text> 的 N，按出现顺序拼接
+  text="$(printf '%s' "$svg" | grep -oE '<text[^>]*>[^<]+</text>' \
+    | sed -E 's/<text[^>]*>([^<]+)<\/text>/\1/g' | tr -d '\n')"
+  if [ -z "$text" ]; then
+    return 1
+  fi
+  printf '%s|%s|%s' "$cap_id" "$cap_field" "$text"
+}
+
+CAPTCHA_SOLVED=""
+for attempt in 1 2 3; do
+  CAP_JSON="$(curl -s -b "$CK" -c "$CK" "http://localhost:${APP_PORT}/api/captcha")"
+  CAPTCHA_SOLVED="$(solve_captcha "$CAP_JSON" || true)"
+  if [ -n "$CAPTCHA_SOLVED" ]; then
+    break
+  fi
+  sleep 1
+done
+
+if [ -z "$CAPTCHA_SOLVED" ]; then
+  bad "无法求解验证码（生产路径未被绕过）"
+  exit 1
+fi
+CAP_ID="$(printf '%s' "$CAPTCHA_SOLVED" | cut -d'|' -f1)"
+CAP_FIELD="$(printf '%s' "$CAPTCHA_SOLVED" | cut -d'|' -f2)"
+CAP_TEXT="$(printf '%s' "$CAPTCHA_SOLVED" | cut -d'|' -f3)"
+ok "验证码已求解（走真实挑战流程，答案长度 ${#CAP_TEXT}）"
+
 LOGIN_CODE="$(curl -s -b "$CK" -c "$CK" -o /tmp/v009-login.json -w '%{http_code}' \
   -X POST "http://localhost:${APP_PORT}/api/auth/signin" \
   -H 'Content-Type: application/json' -H "x-csrf-token: $CSRF" \
-  -d "{\"username\":\"admin\",\"password\":\"${ADM_PW}\"}")"
+  -d "{\"username\":\"admin\",\"password\":\"${ADM_PW}\",\"captchaId\":\"${CAP_ID}\",\"captchaField\":\"${CAP_FIELD}\",\"captchaText\":\"${CAP_TEXT}\"}")"
 if [ "$LOGIN_CODE" = "200" ]; then
-  ok "管理员登录成功（HTTP 200）"
+  ok "管理员登录成功（HTTP 200，含验证码校验）"
 else
   bad "管理员登录失败（HTTP ${LOGIN_CODE}）：$(head -c 300 /tmp/v009-login.json)"
   exit 1
