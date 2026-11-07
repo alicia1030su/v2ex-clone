@@ -94,10 +94,17 @@ jobs:
           docker info >/dev/null 2>&1 || fail "Docker 守护进程" "不可用，拒绝以静态核验冒充真实安装"
           pass "运行环境" "$VERSION / $(docker --version) / $(docker compose version --short)"
 
-      - name: 检出发布 Tag（仅用于取验证脚本，不参与安装）
+      - name: 检出验证工具（取自本工作流所在提交，不参与安装）
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.version }}
+          # ⚠️ v0.0.9：原先是 `ref: ${{ inputs.version }}`（检出 **Tag** 的树）。
+          #    后果是「验收工具本身的修复永远不生效」——run 42418259427 就是这样：
+          #    master 上已修好 verify-fresh-install.sh 的 PATH 过滤 bug，
+          #    但实际执行的是 Tag 里那份旧脚本，症状一模一样地复现。
+          #    这里改成「本工作流所在的提交」：**工具跟着 master 走，
+          #    被验证的产物仍然只来自 Release 资产**（ZIP 与镜像），
+          #    二者职责分离，工具 bug 才可能被修复。
+          ref: ${{ github.sha }}
           path: verify-tools
           fetch-depth: 1
 
