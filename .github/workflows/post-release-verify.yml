@@ -156,7 +156,15 @@ jobs:
           # 明显 secret 扫描：私钥头 / 赋值式长口令。
           # 值含占位符、变量引用或为空的模板行不算（.env.example 全是空值）。
           # 单行 python（无 heredoc）——避免 YAML 块缩进被灌进 python 造成缩进错误。
-          python3 -c "import os,re,sys; root=sys.argv[1]; paths=[os.path.join(d,f) for d,_,fs in os.walk(root) for f in fs]; texts=[(p,open(p,encoding='utf-8',errors='ignore').read()) for p in paths if os.path.getsize(p)<2000000]; hits=[(p,l.strip()) for p,t in texts for l in t.splitlines() if re.search(r'BEGIN [A-Z ]*PRIVATE KEY',l) or re.match(r'^[A-Z_]*(PASSWORD|SECRET|TOKEN|API_KEY)[A-Z_]*=[^#\s<]{16,}',l.strip())]; print('疑似明文凭据命中：',hits); sys.exit(1 if hits else 0)" "$D" \
+          # ⚠️ v0.0.9 实测修正（用已发布的 v0.0.4 官方包匿名下载验证过）：
+          #   原判据 `=[^#\s<]{16,}` 会把 deploy/install.sh 里**生成随机口令的代码**
+          #     POSTGRES_PASSWORD_NEW="$(gen_random_hex 16)"
+          #   当成明文密钥（" $ ( 都不在排除集里，"$(gen_random_hex 是 17 个
+          #   连续非空白字符）⇒ 干净的包被误判为 FAIL。
+          #   现在要求赋值值是一串连续的 base64/hex/字母数字（>=16），
+          #   两侧可带引号、行尾可带注释；命令替换 / 变量 / 空值模板一律不命中。
+          #   正则里用 \x22 / \x27 表示引号，避免与 shell 双引号嵌套冲突。
+          python3 -c "import os,re,sys; root=sys.argv[1]; paths=[os.path.join(d,f) for d,_,fs in os.walk(root) for f in fs]; texts=[(p,open(p,encoding='utf-8',errors='ignore').read()) for p in paths if os.path.getsize(p)<2000000]; pat=re.compile(r'BEGIN [A-Z ]*PRIVATE KEY|^[A-Z_]*(?:PASSWORD|SECRET|TOKEN|API_KEY)[A-Z_]*=[\x22\x27]?([A-Za-z0-9+/=_-]{16,})[\x22\x27]?\s*(?:#.*)?$'); hits=[(p,l.strip()) for p,t in texts for l in t.splitlines() if pat.search(l.strip())]; print('疑似明文凭据命中：',hits); sys.exit(1 if hits else 0)" "$D" \
             || fail "包内 secret 扫描" "检出疑似明文凭据（见上方输出）"
           pass "包内容与安全" "$(find "$D" -type f | wc -l | tr -d ' ') 个文件 / 必需文件齐全 / 无 .env 与凭据 / 无明文 secret"
 
