@@ -56,7 +56,16 @@ on:
       - 'src/**'
       - 'scripts/release/verify-soak.sh'
       - '.github/workflows/soak-test.yml'
-      - '.github/workflows/soak-segment.yml'
+      # ⚠️ v0.0.9：**刻意不列** `.github/workflows/soak-segment.yml`。
+      #
+      # `soak-segment.yml` 是**可复用工作流**（`workflow_call`），它本身
+      # 没有 `push` 触发器。若把它的路径写进本工作流的 `push.paths`，
+      # 一次触及它的 push 会**同时**创建：
+      #   · 本工作流的 run（正常）；
+      #   · `soak-segment.yml` 的 run（**0 秒即失败**，因为它没有 push 触发器）。
+      # 实测：run 42380490805 / 42380491864 均 0s failure。
+      #
+      # ⇒ 只由本工作流通过 `uses:` 调用它。
 
 concurrency:
   group: soak-${{ github.ref }}

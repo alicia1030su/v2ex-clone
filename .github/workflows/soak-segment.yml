@@ -44,28 +44,19 @@ on:
     secrets:
       GH_TOKEN:
         required: true
-  # ⚠️ v0.0.9：必须同时声明 `workflow_dispatch`。
+  # ⚠️ v0.0.9：**刻意只有 `workflow_call`**，不声明其它触发器。
   #
-  # 只声明 `workflow_call` 的工作流**不会**被 GitHub 注册为可独立触发的
-  # 工作流 —— 实测：push 事件会创建一个 0 秒即失败的 run（连 job 都没排上），
-  # 因为该工作流没有 `push` / `workflow_dispatch` 触发器。
+  # 实测教训（run 42380490805 / 42380491864，均 0 秒 failure）：
+  #   给一个「由 soak-test.yml 通过 `uses:` 调用」的可复用工作流加上
+  #   `workflow_dispatch` 之类的独立触发器后，只要它的**文件路径**
+  #   出现在**任何**工作流的 `push.paths` 里，GitHub 就会为它创建一个
+  #   **连 job 都排不上**的 run（因为该文件在该事件下并不构成有效触发）。
   #
-  # ⇒ 声明 `workflow_dispatch` 后，它既能被 `soak-test.yml` 通过
-  #    `uses:` 调用，也能被人工单独触发（便于排查某一段的问题）。
-  workflow_dispatch:
-    inputs:
-      segment_index:
-        description: '本段序号'
-        required: true
-        default: '1'
-      segment_hours:
-        description: '本段目标时长（小时，≤ 5）'
-        required: true
-        default: '1'
-      prev_state_artifact:
-        description: '上一段状态 artifact 名'
-        required: false
-        default: ''
+  # ⇒ 正确做法：
+  #   · 本文件只保留 `workflow_call`；
+  #   · `soak-test.yml` 的 `push.paths` **不列**本文件；
+  #   · 需要单独排查某段时，用 `workflow_dispatch` 触发 `soak-test.yml`。
+  # （实测：只声明 `workflow_call` 时，GitHub **不会**为它创建无效 run。）
 
 permissions:
   contents: read
