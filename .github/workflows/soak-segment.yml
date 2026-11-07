@@ -66,6 +66,13 @@ on:
 
 permissions:
   contents: read
+  # ⚠️ v0.0.9：段与段之间通过 **artifact** 传递状态
+  #   （上传本段状态 `soak-state-N`、下载上一段状态）。
+  #   `actions/upload-artifact` 需要 `actions: write`，
+  #   `gh run download`（读 artifact）需要 `actions: read`。
+  #   此前只有 `contents: read` ⇒ artifact 上传/下载都会 403。
+  actions: read
+  actions: write
 
 env:
   NODE_VERSION: '22.23.4'

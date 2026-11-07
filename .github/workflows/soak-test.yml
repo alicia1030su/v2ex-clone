@@ -74,6 +74,13 @@ concurrency:
 
 permissions:
   contents: read
+  # ⚠️ v0.0.9：调用方**自己**也需要 artifact 权限 ——
+  #   被调用方（soak-segment.yml）声明的权限**不能**覆盖调用方的限制
+  #   （GitHub 取两者的交集）。
+  #   `summary` job 要用 `gh run download` 取回最后一段的状态 artifact ⇒
+  #   需要 `actions: read`。
+  actions: read
+  actions: write
 
 jobs:
   # ===========================================================================
