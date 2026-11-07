@@ -26,11 +26,11 @@ v0.0.8 完成两个 P0（**Host Header Poisoning 真实攻击面**、**SMTP 偶�
 | 5 | 完整单元与 E2E 结果 | 见 §3 | ✅ |
 | 6 | 跨浏览器矩阵结果 | **15 分片 × 204 = 3060 条全通过** | ✅ |
 | 7 | 视觉回归结果 | 63 组合，**回归项 0** | ✅ |
-| 8 | GitHub PR 和最终 CI 链接 | PR #29（代码）/ #30（版本同步）；CI 全绿 | ✅ |
+| 8 | GitHub PR 和最终 CI 链接 | PR #29（代码，**已合并**）/ #30（版本同步，**已合并**）；CI 全绿 | ✅ |
 | 9 | 安全扫描报告 | 攻击矩阵 19 场景 + 24 条安全单测 + 12 条脱敏单测 | ✅ |
-| 10 | 完整源码提交 SHA | master `3dc718c`（代码）+ release 分支（版本同步） | ✅ |
-| 11 | 可安装的 v0.0.8 候选 ZIP | `v2ex-clone-v0.0.8-candidate-<sha>-deploy.zip` | ✅ |
-| 12 | SHA256SUMS 和镜像 Digest | SHA256SUMS 已生成；**镜像未构建**（见 §7） | ⚠️ |
+| 10 | 完整源码提交 SHA | **master `28b8ebe`**（代码 `3dc718c` + 版本同步合并点） | ✅ |
+| 11 | 可安装的 v0.0.8 候选 ZIP | `v2ex-clone-v0.0.8-candidate-28b8ebe-deploy.zip`（56,495 B） | ✅ |
+| 12 | SHA256SUMS 和镜像 Digest | SHA256SUMS 已生成（`6eaa3bfc…`）；**镜像未构建**（见 §7.3） | ⚠️ |
 | 13 | 正确的中文 CHANGELOG | CHANGELOG v0.0.8 段落（A~H 八节） | ✅ |
 | 14 | 最新风险登记表 | RISK_REGISTER 已更新 v0.0.8 只读复核 | ✅ |
 | 15 | 版本发布门禁 Go/No-Go | **NO-GO**（R-01 未解决）⇒ 停在候选 | ✅ |
@@ -210,12 +210,26 @@ authorization / database_url / redis_url / reset_token / api_key
 ### 7.2 证明链
 
 ```
-代码提交（master 3dc718c）
-   └─→ PR #29 合并（CI 全绿：3060 E2E + 19 攻击场景 + 30 SMTP + 63 视觉）
-        └─→ 版本同步提交（release 分支，7 载体复验通过）
-             └─→ 候选包构建（由该提交构建，非改名）
-                  └─→ SHA256SUMS + 内容核验（14 必需文件齐全、无敏感文件、7 处版本真实 0.0.8）
+代码提交 master 3dc718c
+   └─→ PR #29 合并（CI 全绿：3060 E2E + 19 攻击场景 + 30 SMTP + 63 视觉 + 升级验证 7/7）
+        └─→ 版本同步提交（release/v0.0.8，7 载体复验通过）
+             └─→ PR #30 合并 ⇒ master 28b8ebe
+                  └─→ **由 master 28b8ebe 重建候选包**（非改名）
+                       └─→ SHA256SUMS + 内容核验
+                          （14 必需文件齐全、无敏感文件、7 处版本真实 0.0.8）
 ```
+
+**最终候选包**
+
+| 项 | 值 |
+|---|---|
+| 文件 | `v2ex-clone-v0.0.8-candidate-28b8ebe-deploy.zip` |
+| 大小 | 56,495 B |
+| SHA256 | `6eaa3bfc6d6a1593eea3383916a9061ff83d97854c6b2f951d53c2787753f6e9` |
+| 来源提交 | **master `28b8ebe`** |
+| 包内版本 | `deploy/VERSION` = 0.0.8；install.sh / install.ps1 / compose / .env.example **全部真实 0.0.8** |
+| 必需文件 | 14/14 齐全（含新增 `health-check.sh`） |
+| 敏感文件 | 无（已排除 `.env` / `INSTALL_CREDENTIALS.txt` / `*.log`） |
 
 **回答任务书 §七 的四个问题**：
 
