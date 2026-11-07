@@ -287,18 +287,28 @@ ok "Compose 已启动（候选镜像 ${CAND_TAG}）"
 step "5. 等待健康检查通过"
 # ---------------------------------------------------------------------------
 HEALTHY=0
+APP_CID=""
 for i in $(seq 1 60); do
-  H="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
-        "${PROJECT_NAME}-app-1" 2>/dev/null || echo none)"
-  if [ "$H" = "healthy" ]; then HEALTHY=1; break; fi
-  if [ "$H" = "exited" ] || [ "$H" = "dead" ]; then
-    bad "app 容器退出（${H}）"
-    docker compose -p "$PROJECT_NAME" logs --tail=80 app 2>&1 | sed 's/^/    /'
-    exit 1
+  # ⚠️ **不能**用 `${PROJECT_NAME}-app-1` 找容器 ——
+  #    候选包的 compose 里三个服务都写了**固定的 `container_name`**
+  #    （v2ex-app / v2ex-postgres / v2ex-redis），
+  #    容器名**与 compose 项目名无关** ⇒ 按项目名拼出来的名字永远不存在。
+  #
+  # 正确做法：用 `docker compose ps -q app` 让 compose 自己告诉我们容器 id。
+  APP_CID="$(docker compose -p "$PROJECT_NAME" ps -q app 2>/dev/null | head -1)"
+  if [ -n "$APP_CID" ]; then
+    H="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+          "$APP_CID" 2>/dev/null || echo none)"
+    if [ "$H" = "healthy" ]; then HEALTHY=1; break; fi
+    if [ "$H" = "exited" ] || [ "$H" = "dead" ]; then
+      bad "app 容器退出（${H}）"
+      docker compose -p "$PROJECT_NAME" logs --tail=80 app 2>&1 | sed 's/^/    /'
+      exit 1
+    fi
   fi
   sleep 3
 done
-[ "$HEALTHY" -eq 1 ] && ok "容器健康检查通过（healthy）" || { bad "健康检查未通过"; docker compose -p "$PROJECT_NAME" logs --tail=80 2>&1 | sed 's/^/    /'; exit 1; }
+[ "$HEALTHY" -eq 1 ] && ok "容器健康检查通过（healthy，容器 ${APP_CID}）" || { bad "健康检查未通过"; docker compose -p "$PROJECT_NAME" logs --tail=80 2>&1 | sed 's/^/    /'; exit 1; }
 
 # 就绪探针
 READY_CODE="$(curl -s -o /tmp/v009-ready.json -w '%{http_code}' "http://localhost:${APP_PORT}/api/health/ready" || echo 000)"
