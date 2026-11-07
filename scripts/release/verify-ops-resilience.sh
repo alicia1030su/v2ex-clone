@@ -271,10 +271,27 @@ fi
 # 空备份（解压后无内容）应被识别
 : > "$WORK/empty.sql"
 gzip -9 -c "$WORK/empty.sql" > "$WORK/empty.sql.gz"
-if ! gzip -cd "$WORK/empty.sql.gz" 2>/dev/null | head -c 4096 | grep -q . ; then
-  ok "空备份被内容非空校验正确识别"
+# 与 deploy/backup.sh、deploy/restore.sh 的内容校验**同一判据**（读到 EOF 统计字节数）。
+# ⚠️ 不要用 `gzip -cd ... | head -c 4096 | grep -q .`：那是 SIGPIPE 假失败（V9-13）。
+#    对**空**备份它恰好也返回非 0 ⇒ 看起来「测对了」，实际测的是「gzip 是否被信号杀死」，
+#    与「内容是否为空」无关。用这种写法做负向断言，等于给自己发一张假合格证。
+decompressed_bytes() { gzip -cd "$1" 2>/dev/null | wc -c | tr -d '[:space:]'; }
+if [ "$(decompressed_bytes "$WORK/empty.sql.gz")" -lt 1 ]; then
+  ok "空备份被内容非空校验正确识别（解压后 0 字节）"
 else
   bad "空备份未被识别"
+fi
+
+# 正向对照（V9-13 的核心）：一份**体积超过管道缓冲**的正常备份必须被判为「非空」。
+# 只做负向断言时，任何恒假的条件都能「通过」；正是缺了这一条，
+# 才让「正常备份被误判为空」这个缺陷从 v0.0.8 一路活到 v0.0.9 发布。
+awk 'BEGIN { for (i = 0; i < 20000; i++) printf "INSERT INTO t VALUES (%d);\n", i }' > "$WORK/big.sql"
+gzip -9 -c "$WORK/big.sql" > "$WORK/big.sql.gz"
+BIG_BYTES="$(decompressed_bytes "$WORK/big.sql.gz")"
+if [ "${BIG_BYTES:-0}" -gt 65536 ]; then
+  ok "大体积备份被判为非空（解压后 ${BIG_BYTES} 字节，已超过 64 KiB 管道缓冲）"
+else
+  bad "大体积备份未被正确判为非空（解压后 ${BIG_BYTES:-0} 字节）"
 fi
 
 # SHA256 校验能发现内容被篡改

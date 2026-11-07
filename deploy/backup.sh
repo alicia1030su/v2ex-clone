@@ -91,12 +91,40 @@ if ! gzip -t "$DB_FILE" 2>/dev/null; then
   die "备份完整性校验失败（gzip 结构损坏）—— 已删除该备份文件，请重试"
 fi
 
-# 内容非空校验：解压后必须有 SQL 内容（表定义或数据）
-if ! gzip -cd "$DB_FILE" 2>/dev/null | head -c 4096 | grep -q . ; then
+# 内容非空校验：解压后必须有 SQL 内容（表定义或数据）。
+#
+# ⚠️ 禁止写成 `gzip -cd "$f" | head -c 4096 | grep -q .`（v0.0.9 及更早的写法）。
+#
+#    在 `set -o pipefail` 下这是一条**假失败**流水线：head / grep 读到足够内容
+#    就**提前关闭管道**，还在写数据的 gzip 随即收到 SIGPIPE（退出码 141），
+#    pipefail 于是把「整条流水线」判为失败 ⇒ 一个**完全正常**的备份被误判
+#    「内容为空」并被删除。
+#
+#    实测：`PIPESTATUS = "141 0 0"` —— head 与 grep 都成功，只有 gzip 被信号杀死。
+#    而 pg_dump 输出一旦超过管道缓冲（Linux 默认 64 KiB）就必然命中，
+#    即「数据越多越备份不了」—— 故障方向与用户预期完全相反。
+#
+# 正确做法：用**读到 EOF** 的命令统计解压后字节数（不提前关管道），
+# 顺带用同一次遍历确认 pg_dump 头（awk 默认读到 EOF，同样不会触发 SIGPIPE）。
+DUMP_STATS="$(gzip -cd "$DB_FILE" 2>/dev/null | awk '
+  NR <= 5 && /PostgreSQL database dump/ { hdr = 1 }
+  { bytes += length($0) + 1 }
+  END { printf "%d %d", bytes, hdr + 0 }')"
+DECOMPRESSED_BYTES="${DUMP_STATS%% *}"
+DUMP_HAS_HEADER="${DUMP_STATS##* }"
+DECOMPRESSED_BYTES="${DECOMPRESSED_BYTES:-0}"
+DUMP_HAS_HEADER="${DUMP_HAS_HEADER:-0}"
+
+if [ "$DECOMPRESSED_BYTES" -lt 1 ]; then
   rm -f "$DB_FILE" "$SHA_FILE"
-  die "备份内容为空 —— 已删除该备份文件，请重试"
+  die "备份内容为空（解压后 0 字节）—— 已删除该备份文件，请重试"
 fi
-ok "备份完整性校验通过（gzip 结构 + 内容非空）"
+# pg_dump 一定会写 `-- PostgreSQL database dump` 头；缺失只提示不阻断
+# （不同的 pg_dump 版本 / 自定义格式可能存在差异，不因此删掉用户的备份）。
+if [ "$DUMP_HAS_HEADER" != "1" ]; then
+  warn "备份内容非空（解压后 ${DECOMPRESSED_BYTES} 字节），但未检出 pg_dump 头，请人工确认该文件"
+fi
+ok "备份完整性校验通过（gzip 结构 + 内容非空：解压后 ${DECOMPRESSED_BYTES} 字节）"
 
 # --- 2. .env 备份 ----------------------------------------------------------
 ENV_BACKUP="$BACKUP_DIR/.env-${TIMESTAMP}"

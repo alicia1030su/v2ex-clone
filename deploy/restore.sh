@@ -83,10 +83,33 @@ if [ -f "$SHA_FILE" ] && command -v sha256sum >/dev/null 2>&1; then
   ok "SHA256 校验通过"
 fi
 
-if ! gzip -cd "$DUMP_FILE" 2>/dev/null | head -c 4096 | grep -q . ; then
-  die "备份内容为空 —— 已拒绝恢复。"
+# 内容非空校验：解压后必须有 SQL 内容（表定义或数据）。
+#
+# ⚠️ 禁止写成 `gzip -cd "$f" | head -c 4096 | grep -q .`（v0.0.9 及更早的写法）。
+#    这条流水线在 `set -o pipefail` 下会**假失败**：head / grep 读到足够内容就
+#    提前关闭管道，gzip 收到 SIGPIPE（141），pipefail 把整条流水线判为失败 ⇒
+#    **一个完全正常的备份被拒绝恢复**。实测 `PIPESTATUS = "141 0 0"`。
+#    pg_dump 输出超过管道缓冲（Linux 默认 64 KiB）就必然命中 ——
+#    这意味着「数据越多，越恢复不了」，是本脚本最不能有的故障方向。
+#
+# 正确做法：用**读到 EOF** 的命令统计解压后字节数（不提前关管道），
+# 顺带用同一次遍历确认 pg_dump 头（awk 默认读到 EOF，不会触发 SIGPIPE）。
+HERE_DUMP_STATS="$(gzip -cd "$DUMP_FILE" 2>/dev/null | awk '
+  NR <= 5 && /PostgreSQL database dump/ { hdr = 1 }
+  { bytes += length($0) + 1 }
+  END { printf "%d %d", bytes, hdr + 0 }')"
+DECOMPRESSED_BYTES="${HERE_DUMP_STATS%% *}"
+DUMP_HAS_HEADER="${HERE_DUMP_STATS##* }"
+DECOMPRESSED_BYTES="${DECOMPRESSED_BYTES:-0}"
+DUMP_HAS_HEADER="${DUMP_HAS_HEADER:-0}"
+
+if [ "$DECOMPRESSED_BYTES" -lt 1 ]; then
+  die "备份内容为空（解压后 0 字节）—— 已拒绝恢复。"
 fi
-ok "备份完整性校验通过"
+if [ "$DUMP_HAS_HEADER" != "1" ]; then
+  warn "备份内容非空（解压后 ${DECOMPRESSED_BYTES} 字节），但未检出 pg_dump 头，请人工确认该文件"
+fi
+ok "备份完整性校验通过（解压后 ${DECOMPRESSED_BYTES} 字节）"
 
 # psql 默认在事务中执行，单条 --single-transaction 保证要么全成功要么全回滚。
 if gzip -dc "$DUMP_FILE" \

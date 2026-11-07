@@ -381,7 +381,63 @@ jobs:
           pass "通知端点（已认证）" "signup 建会话 → GET /api/notifications 200 / 结构合法"
 
           # ── 备份 ── 官方包 backup.sh：pg_dump + gzip + SHA256 + 完整性校验
-          ./backup.sh > "$WORK/backup.log" 2>&1 || { cat "$WORK/backup.log"; fail "备份 backup.sh" "脚本执行失败"; }
+          #
+          # ⚠️ V9-13（已发布包内置缺陷，本工作流首轮就抓到了）：
+          #    包内 backup.sh / restore.sh 用
+          #      `gzip -cd f | head -c 4096 | grep -q .`
+          #    判断「内容非空」。在 `set -o pipefail` 下这是**假失败**：
+          #    head/grep 提前关闭管道 ⇒ gzip 收到 SIGPIPE（141）⇒ 整条流水线判失败
+          #    ⇒ 正常备份被判「内容为空」**并被删除**；restore.sh 则**拒绝恢复**。
+          #    实测 PIPESTATUS="141 0 0"。pg_dump 输出超过 64 KiB 管道缓冲就必然命中，
+          #    即「数据越多越备份不了、越恢复不了」。
+          #
+          #    已发布的 v0.0.9 资产**不可覆盖**（本轮规约：不得删除/覆盖已有 Release），
+          #    所以这里不做「改红变绿」，而是：
+          #      ① 用**包内原脚本**复现该缺陷（记录为 XFAIL，带缺陷编号）；
+          #      ② 用 **master 上已修复的脚本**在**同一个实例**上重跑，
+          #         证明修复真实有效、且数据量确实超过管道缓冲；
+          #      ③ 若修复版也失败 ⇒ 真 FAIL（说明修复不到位或还有别的问题）。
+          xfail() { printf '%s\tXFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✗[已知缺陷] $1：$2"; }
+          set +e
+          ./backup.sh > "$WORK/backup.log" 2>&1
+          BACKUP_RC=$?
+          set -e
+          V913=0
+          if [ "$BACKUP_RC" -ne 0 ]; then
+            cat "$WORK/backup.log"
+            if grep -q '备份内容为空' "$WORK/backup.log"; then
+              V913=1
+              xfail "备份 backup.sh（V9-13）" \
+                "已发布包内脚本把正常备份误判「内容为空」并删除（SIGPIPE+pipefail）；已发布资产不可覆盖，修复见 master"
+            else
+              fail "备份 backup.sh" "脚本执行失败（退出码 $BACKUP_RC，非 V9-13 已知形态）"
+            fi
+          fi
+
+          if [ "$V913" = "1" ]; then
+            FIXED_SRC="$GITHUB_WORKSPACE/verify-tools/deploy"
+            for f in backup.sh restore.sh; do
+              [ -f "$FIXED_SRC/$f" ] || fail "V9-13 修复验证" "master 上缺少 deploy/$f"
+              cp "$FIXED_SRC/$f" "./$f.master-fixed"
+              chmod +x "./$f.master-fixed"
+            done
+            set +e
+            ./backup.sh.master-fixed > "$WORK/backup-fixed.log" 2>&1
+            FIX_RC=$?
+            set -e
+            if [ "$FIX_RC" -ne 0 ]; then
+              cat "$WORK/backup-fixed.log"
+              fail "V9-13 修复验证" "master 版 backup.sh 仍然失败（退出码 $FIX_RC）"
+            fi
+            # 必须证明「这份数据确实超过管道缓冲」——否则修复版通过是廉价的：
+            # 小 dump 在旧写法下也不会触发 SIGPIPE，测不出任何东西。
+            FIX_BYTES="$(sed -n 's/.*解压后 \([0-9][0-9]*\) 字节.*/\1/p' "$WORK/backup-fixed.log" | head -1)"
+            [ -n "$FIX_BYTES" ] || fail "V9-13 修复验证" "修复版未输出解压后字节数（判据可能被改动）"
+            [ "$FIX_BYTES" -gt 65536 ] \
+              || fail "V9-13 修复验证" "数据量仅 ${FIX_BYTES} 字节，未超过 64 KiB 管道缓冲 ⇒ 不能证明修复有效"
+            pass "V9-13 修复有效性" "master 版 backup.sh 在同一实例成功；解压后 ${FIX_BYTES} 字节（> 64 KiB 管道缓冲）"
+          fi
+
           BACKUP="$(ls -1t backups/v2ex-*.sql.gz | head -1)"
           [ -n "$BACKUP" ] && [ -s "$BACKUP" ] || fail "备份文件" "未生成非空 v2ex-*.sql.gz"
           gzip -t "$BACKUP" || fail "备份 gzip 结构" "gzip -t 失败"
@@ -405,8 +461,26 @@ jobs:
           #    （未带 --clean）。这里验证的是「备份可用 + 恢复脚本可执行 +
           #    恢复后核心数据未被破坏」；不主动删库重放，以免破坏本验收实例。
           #    若需验证「删库后完整还原」，应另起一次独立演练。
+          #
+          #    V9-13 命中时：包内 restore.sh 同样会以「备份内容为空」拒绝这份
+          #    正常备份 ⇒ 记录 XFAIL 后改用 master 版复跑（同一实例、同一份备份）。
+          RESTORE_SH=./restore.sh
+          if [ "$V913" = "1" ]; then
+            set +e
+            printf 'y\n' | ./restore.sh "$BACKUP" > "$WORK/restore-pkg.log" 2>&1
+            PKG_RESTORE_RC=$?
+            set -e
+            if [ "$PKG_RESTORE_RC" -ne 0 ] && grep -q '备份内容为空' "$WORK/restore-pkg.log"; then
+              xfail "恢复 restore.sh（V9-13）" \
+                "已发布包内脚本拒绝恢复正常备份（同一 SIGPIPE 根因）；修复见 master"
+              RESTORE_SH=./restore.sh.master-fixed
+            elif [ "$PKG_RESTORE_RC" -ne 0 ]; then
+              cat "$WORK/restore-pkg.log"
+              fail "恢复 restore.sh" "退出码 $PKG_RESTORE_RC（非 V9-13 已知形态）"
+            fi
+          fi
           set +e
-          printf 'y\n' | ./restore.sh "$BACKUP" > "$WORK/restore.log" 2>&1
+          printf 'y\n' | "$RESTORE_SH" "$BACKUP" > "$WORK/restore.log" 2>&1
           RESTORE_RC=$?
           set -e
           if [ "$RESTORE_RC" -ne 0 ]; then
@@ -416,7 +490,11 @@ jobs:
           TOPICS_AFTER_RESTORE="$(PSQL "select count(*) from topics where title='全新安装验收探针主题';")"
           [ "$TOPICS_AFTER_RESTORE" = "1" ] \
             || fail "恢复后数据完整" "探针主题数 = $TOPICS_AFTER_RESTORE（应为 1）"
-          pass "备份与恢复" "backup ${BACKUP_SIZE} 字节 / gzip+SHA256 OK / 损坏备份被拒 / restore 退出 0 / 探针主题仍在"
+          if [ "$V913" = "1" ]; then
+            pass "备份与恢复（修复版复跑）" "backup ${BACKUP_SIZE} 字节 / gzip+SHA256 OK / 损坏备份被拒 / restore 退出 0 / 探针主题仍在 —— 脚本取自 master（包内原版缺陷见 V9-13）"
+          else
+            pass "备份与恢复" "backup ${BACKUP_SIZE} 字节 / gzip+SHA256 OK / 损坏备份被拒 / restore 退出 0 / 探针主题仍在"
+          fi
 
           # ── Docker 重启后数据保留（部署级持久化，独立于脚本第 11 项再验一次）──
           docker compose --env-file .env restart > "$WORK/restart.log" 2>&1 \
@@ -457,20 +535,28 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           FAILS=0
           if [ -f "$RESULTS" ]; then
-            # 只把 FAIL 计入阻断；WARN 是「如实记录但不阻断」的已知问题行
-            # （当前唯一来源是 V9-09 包内脚本可执行位，已公开的 v0.0.9
-            #  资产不可覆盖，故记录而不判红）。WARN 行仍完整出现在上表里。
+            # 只把 FAIL 计入阻断。两个「如实记录但不阻断」的行类别：
+            #   · WARN  —— 本环境无法自动化，且已有其它层覆盖（如通知写入）；
+            #   · XFAIL —— 缺陷**确实存在于已发布资产中**，且已发布资产不可覆盖
+            #              （本轮规约：不得删除/覆盖已有 Release）。XFAIL 必须带
+            #              缺陷编号进结果表，并配套一条「master 修复有效性」PASS，
+            #              否则不许出现 —— 它不是「假装通过」的抽屉。
             FAILS="$(awk -F'\t' '$2 == "FAIL" {n++} END {print n+0}' "$RESULTS")"
           fi
           WARNS=0
+          XFAILS=0
           if [ -f "$RESULTS" ]; then
             WARNS="$(awk -F'\t' '$2 == "WARN" {n++} END {print n+0}' "$RESULTS")"
+            XFAILS="$(awk -F'\t' '$2 == "XFAIL" {n++} END {print n+0}' "$RESULTS")"
           fi
           if [ "$FAILS" -gt 0 ]; then
             echo "::error::发布后独立验收有 $FAILS 项 FAIL（详见 Step Summary）"
             exit 1
           fi
-          echo "✓ 全部验收项 PASS（$(wc -l < "$RESULTS" | tr -d ' ') 项，其中 WARN $WARNS 项）"
+          if [ "$XFAILS" -gt 0 ]; then
+            echo "::warning::有 $XFAILS 项已发布资产内置缺陷（XFAIL）：$(awk -F'\t' '$2 == "XFAIL" {printf "%s; ", $1}' "$RESULTS")"
+          fi
+          echo "✓ 无 FAIL（共 $(wc -l < "$RESULTS" | tr -d ' ') 项，WARN $WARNS 项，XFAIL $XFAILS 项）"
 
       - name: 清理验收实例（非验收项，失败不影响判定）
         if: always()
