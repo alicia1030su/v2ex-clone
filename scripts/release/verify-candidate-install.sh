@@ -458,7 +458,7 @@ TOPIC_TITLE="候选安装验证主题 $$"
 TOPIC_CODE="$(curl -s -b "$CK" -c "$CK" -o /tmp/v009-topic.json -w '%{http_code}' \
   -X POST "http://localhost:${APP_PORT}/api/topics" \
   -H 'Content-Type: application/json' -H "x-csrf-token: $CSRF" \
-  -d "{\"nodeId\":${NODE_ID},\"title\":\"${TOPIC_TITLE}\",\"content\":\"候选安装验证内容\"}")"
+  -d "{\"nodeId\":${NODE_ID},\"title\":\"${TOPIC_TITLE}\",\"content\":\"候选安装验证主题正文，用于验证发帖链路真实落库。\"}")"
 if [ "$TOPIC_CODE" = "201" ] || [ "$TOPIC_CODE" = "200" ]; then
   ok "发帖成功（HTTP ${TOPIC_CODE}）"
 else
