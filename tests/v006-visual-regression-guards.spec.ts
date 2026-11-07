@@ -22,9 +22,18 @@ const source = readFileSync(TOOL, 'utf8');
 
 describe('视觉回归工具的失败语义（v0.0.6 护栏）', () => {
   it('基线文件不存在时必须以非 0 退出码结束', () => {
-    // catch 分支里必须有 process.exitCode = 1
-    const catchBlock = source.slice(source.indexOf('基线不存在'));
-    const segment = catchBlock.slice(0, 1200);
+    // ⚠️ v0.0.8：断言点从「catch 块的首个 1200 字符」改为**定位缺基线的
+    //    失败分支本身** —— v0.0.8 调整了读基线的位置（对比前先读一次以取
+    //    clockAnchor），原断言会因为「第一个匹配到『基线不存在』的注释」
+    //    而取错片段（实测：取到的是新加的注释文本 ⇒ 误报失败）。
+    //
+    //    用 lastIndexOf：脚本里有**两处**提到「基线不存在」——
+    //    前一处是 v0.0.8 新增的读基线注释，后一处才是真正的失败分支。
+    //
+    //    语义不变：**读基线失败 ⇒ 退出码非 0**。
+    const idx = source.lastIndexOf('基线不存在');
+    expect(idx).toBeGreaterThan(-1);
+    const segment = source.slice(idx, idx + 2000);
     expect(segment).toContain('process.exitCode = 1');
   });
 
@@ -39,11 +48,18 @@ describe('视觉回归工具的失败语义（v0.0.6 护栏）', () => {
 
   it('对比模式下不得自动写入基线文件', () => {
     // writeFile(BASELINE_FILE, ...) 只能出现在 SAVE_BASELINE 分支里
+    //
+    // ⚠️ v0.0.8：断言从「字符串精确匹配」改为**正则**（允许换行/空格差异）——
+    //    重构基线写入（加 clockAnchor 字段）后 `writeFile(\n    BASELINE_FILE,`
+    //    不再与单行字符串匹配 ⇒ 原断言恒失败（实测 expected -1）。
+    //    语义不变：**写基线只能发生在 SAVE_BASELINE 分支内**。
     const saveIdx = source.indexOf('if (SAVE_BASELINE)');
     const compareIdx = source.indexOf('} else if (COMPARE_BASELINE)');
-    const writeIdx = source.indexOf('writeFile(BASELINE_FILE');
+    const writeMatch = /writeFile\(\s*BASELINE_FILE/.exec(source);
     expect(saveIdx).toBeGreaterThan(-1);
     expect(compareIdx).toBeGreaterThan(saveIdx);
+    expect(writeMatch).not.toBeNull();
+    const writeIdx = writeMatch!.index;
     expect(writeIdx).toBeGreaterThan(saveIdx);
     expect(writeIdx).toBeLessThan(compareIdx);
   });

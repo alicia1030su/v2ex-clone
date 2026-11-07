@@ -5,7 +5,10 @@
  * 超过 1 天则显示日期（如「3 天前」），超过 30 天显示具体日期。
  */
 
-import { nowMs } from './app-now.js';
+// ⚠️ 不要写 './app-now.js' —— Next/webpack **不做** .js→.ts 扩展名映射
+//    （实测：Module not found: Can't resolve './app-now.js' ⇒ next build 失败）。
+//    无扩展名是本仓库的既有约定（见 src/lib/*.ts 的相互 import）。
+import { nowMs } from './app-now';
 
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
