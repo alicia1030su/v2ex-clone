@@ -14,6 +14,8 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
+import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -61,11 +63,26 @@ type PendingWait = {
   timer: NodeJS.Timeout;
 };
 
-/** 解析 tsx CLI 入口（devDependency；CI 上 npm ci 后必然存在） */
+/**
+ * 解析 tsx CLI 的**实际文件路径**（跨平台，不走 .bin shim）。
+ *
+ * ⚠️ 两个实测坑（都在本地冒烟里抓到，没让它进 CI）：
+ *   1. `require.resolve('tsx/dist/cli.mjs')` 报 ERR_PACKAGE_PATH_NOT_EXPORTED ——
+ *      tsx 的 package.json exports 没有开放 ./dist/cli.mjs 子路径；
+ *   2. `node_modules/.bin/tsx` 是 **shell shim**（Windows 上是 tsx.cmd），
+ *      不能直接 `node <shim>`，spawn 还要区分平台。
+ *
+ * 解法：resolve 被导出的 `tsx/package.json`（一定在），取其目录后
+ * 拼 `dist/cli.mjs`（bin 字段指向它，文件必然存在），用 node 直接跑。
+ */
 function resolveTsxBin(): string {
-  const { createRequire } = require('node:module') as typeof import('node:module');
   const req = createRequire(import.meta.url);
-  return req.resolve('tsx/dist/cli.mjs');
+  const pkgJson = req.resolve('tsx/package.json');
+  const cli = path.join(path.dirname(pkgJson), 'dist', 'cli.mjs');
+  if (!fs.existsSync(cli)) {
+    throw new Error(`tsx CLI 不存在：${cli}（请先 npm ci 安装依赖）`);
+  }
+  return cli;
 }
 
 /**
@@ -254,14 +271,30 @@ export async function startSmtpFixture(port = 0): Promise<SmtpFixture> {
         if (stopInfo) return stopInfo;
         throw new Error(`fake SMTP server 已退出但无 stopped 事件（code=${exitInfo.code}）`);
       }
-      // SIGTERM ⇒ server 优雅停止 ⇒ 发 stopped 事件
-      child.kill('SIGTERM');
-      const info = await Promise.race([
-        stopPromise,
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error('fake SMTP server 10s 内未确认停止')), 10_000),
-        ),
-      ]);
+      // ⚠️ 停止顺序（跨平台）：
+      //    1. 先走 **stdin quit 命令** —— Windows 上 child.kill('SIGTERM')
+      //       是 TerminateProcess，**不会**触发进程内的 SIGTERM 处理器
+      //       （实测：直接 kill ⇒ 无 stopped 事件、退出信号就是 SIGTERM）；
+      //    2. 等 stopped 事件（优雅退出确认）；
+      //    3. 超时兜底 SIGKILL（防僵尸）。
+      try {
+        child.stdin?.write('{"cmd":"quit"}\n');
+      } catch {
+        /* stdin 已断开时忽略，走下面的超时兜底 */
+      }
+      let info: SmtpStopInfo;
+      try {
+        info = await Promise.race([
+          stopPromise,
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error('fake SMTP server 10s 内未确认停止')), 10_000),
+          ),
+        ]);
+      } catch (err) {
+        // 优雅停止失败 —— 强制 kill 并抛出明确错误
+        child.kill('SIGKILL');
+        throw err;
+      }
       // 等进程真正退出（防僵尸）
       await new Promise<void>((resolve) => {
         if (exited) return resolve();

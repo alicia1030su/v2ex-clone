@@ -1,0 +1,180 @@
+name: SMTP 稳定性
+
+# ---------------------------------------------------------------------------
+# v0.0.8 P0：SMTP 投递**连续稳定性**验证（任务书 §四）
+#
+# v0.0.7 的 Linux 矩阵里「密码重置全链路」偶发超时（同一提交重跑即过）。
+# v0.0.8 已把根因修掉（fake SMTP server 从 Playwright worker 进程内
+# 挪到独立进程 + 事件驱动），本工作流负责**证明**修复有效：
+#
+#   · 独立隔离环境（自己的 PG / Redis / 应用实例 / SMTP 端口）
+#   · 连续 30 次完整关键流程（申请 → 邮件到达 → 链接有效 →
+#     令牌一次性 → 改密 → 新旧口令登录）
+#   · 每次记录：邮件延迟、总耗时、资源状态
+#   · 报告（JSON）随 artifact 上传；任一次失败 ⇒ job 红
+#
+# 为什么单独一个工作流而不是塞进 e2e-matrix：
+#   · 30 次迭代约 4 分钟，塞进 15 个分片会让矩阵总时长爆炸；
+#   · 稳定性测量需要**干净的环境**（不被同分片其他用例的限流/数据干扰）；
+#   · 计数口径：矩阵每分片恰好 200 条，多一个文件就破口径。
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: smtp-stability-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.23.4'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  DISABLE_CAPTCHA: '1'
+  ENABLE_DEBUG_ENDPOINTS: '1'
+  DEBUG_ENDPOINT_TOKEN: ci-debug-token-not-for-production
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: ci-postgres-password-not-real
+  POSTGRES_DB: v2ex_stab
+  REDIS_PASSWORD: ci-redis-password-not-real
+  SESSION_SECRET: ci-only-session-secret-0123456789abcdef0123456789abcdef
+  # SMTP：fake server 由 spec 的 beforeAll 以独立进程起（端口 3026）
+  SMTP_ALLOW_REAL_IN_TEST: '1'
+  SMTP_HOST: 127.0.0.1
+  SMTP_PORT: '3026'
+  E2E_SMTP_PORT_STABILITY: '3026'
+  SMTP_FROM: noreply@v2ex-clone.local
+  SMTP_SECURE: '0'
+  SMTP_STABILITY_RUN: '1'
+  SMTP_STABILITY_ITERATIONS: '30'
+
+jobs:
+  smtp-stability:
+    name: SMTP 连续稳定性（30 次全流程）
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: v2ex
+          POSTGRES_PASSWORD: ci-postgres-password-not-real
+          POSTGRES_DB: v2ex_stab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U v2ex -d v2ex_stab"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        env:
+          REDIS_PASSWORD: ci-redis-password-not-real
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli -a ci-redis-password-not-real ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 安装 Playwright 浏览器（chromium）
+        run: npx playwright install --with-deps chromium
+
+      - name: 建库 / 迁移 / seed
+        env:
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_stab
+          PGPASSWORD: ci-postgres-password-not-real
+        run: |
+          psql -h localhost -p 5432 -U v2ex -d postgres -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE IF EXISTS v2ex_stab" -c "CREATE DATABASE v2ex_stab"
+          npx drizzle-kit migrate
+          SEED_TIME_ANCHOR='2026-11-06T04:00:00.000Z' npx tsx scripts/seed.ts
+
+      - name: 构建
+        env:
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_stab
+        run: npx next build
+
+      - name: 启动应用（必须 HTTP 200 才放行）
+        env:
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_stab
+          REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
+          APP_URL: http://127.0.0.1:3010
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3010
+          LOCAL_BASE: http://127.0.0.1:3010
+        run: |
+          npx next start -p 3010 > /tmp/stab-server.log 2>&1 &
+          echo $! > /tmp/stab-server.pid
+          for i in $(seq 1 60); do
+            C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3010/ || echo 000)
+            [ "$C" = "200" ] && exit 0
+            sleep 1
+          done
+          echo "::error::应用未就绪"; tail -20 /tmp/stab-server.log; exit 1
+
+      - name: 运行 30 次连续稳定性测试
+        env:
+          LOCAL_BASE: http://127.0.0.1:3010
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_stab
+          REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
+        run: |
+          set -o pipefail
+          npx playwright test e2e/v008-smtp-stability.spec.ts \
+            --project=chromium --reporter=list 2>&1 | tee /tmp/stab-run.log
+
+      - name: 汇总稳定性结果
+        if: always()
+        run: |
+          if [ -f test-results/smtp-stability.json ]; then
+            node -e "
+            const r = require('./test-results/smtp-stability.json');
+            console.log('迭代:', r.iterations, '| pass:', r.pass, '| fail:', r.fail);
+            console.log('邮件延迟 ms:', JSON.stringify(r.mailLatencyMs));
+            console.log('server 停止时:', JSON.stringify(r.serverStop));
+            for (const x of r.results.filter(x => !x.ok)) {
+              console.log('  FAIL #' + x.index + ': ' + (x.error ?? '').slice(0, 200));
+            }
+            if (r.fail > 0) { console.log('::error::存在失败迭代'); process.exit(1); }
+            if (r.pass < r.iterations) { console.log('::error::有迭代未执行'); process.exit(1); }
+            "
+          else
+            echo "::error::缺少稳定性报告（测试没跑完？）"; exit 1
+          fi
+
+      - name: 上传稳定性报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smtp-stability-${{ github.run_id }}
+          path: |
+            test-results/smtp-stability.json
+            /tmp/stab-run.log
+            /tmp/stab-server.log
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: 清理
+        if: always()
+        run: |
+          [ -f /tmp/stab-server.pid ] && kill "$(cat /tmp/stab-server.pid)" 2>/dev/null || true

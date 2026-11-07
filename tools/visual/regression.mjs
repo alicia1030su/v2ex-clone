@@ -73,6 +73,23 @@ const SAVE_BASELINE = argv.includes('--save-baseline');
 const COMPARE_BASELINE = argv.includes('--compare-baseline');
 
 /**
+ * v0.0.8：浏览器时钟锚点（冻结用）
+ *
+ * 页面里的相对时间文案（src/lib/time.ts 的 relativeTime）用**当前墙上时钟**
+ * 计算 ⇒ 同一份种子数据在不同时刻渲染出不同长度的文本 ⇒ 窄视口下换行
+ * ⇒ 容器高度变化 ⇒ 视觉基线随时间「漂移」（实测：320x568 视口内容容器
+ * 高度差 120px，master 与特性分支**同样失败** ⇒ 与代码改动无关）。
+ *
+ * 冻结到**种子数据的时间锚点**（与 CI 的 SEED_TIME_ANCHOR 一致），
+ * 每次测量基于同一时刻 ⇒ 确定性。
+ *
+ * 可用环境变量 VISUAL_CLOCK_ANCHOR 覆盖（ISO8601）。
+ */
+const CLOCK_ANCHOR = new Date(
+  process.env.VISUAL_CLOCK_ANCHOR ?? '2026-11-06T04:00:00.000Z',
+);
+
+/**
  * v0.0.6：基线**按平台分文件**。
  *
  * ## 为什么必须分平台
@@ -318,6 +335,48 @@ async function main() {
   console.log(`[regression] base=${BASE}`);
   console.log(`[regression] 输出目录：${runDir}`);
 
+  // ── 决定本次测量用的时钟锚点 ──
+  //
+  // v0.0.8：相对时间文案在 **Server Component** 里渲染（用 Node 时钟），
+  // 同一份种子数据在不同时刻渲染出**不同长度**的文本 ⇒ 窄视口换行 ⇒
+  // 容器高度变化 ⇒ 基线随时间漂移（实测 320x568 视口差 120px；
+  // master 与特性分支**同样失败** ⇒ 与代码改动无关）。
+  //
+  // 锚点优先级：
+  //   1. VISUAL_CLOCK_ANCHOR（环境变量，最高优先级）
+  //   2. 基线文件里的 clockAnchor（对比模式 ⇒ 与基线同一时刻 ⇒ 必然自洽）
+  //   3. SEED_TIME_ANCHOR（与种子数据同刻 ⇒ 相对时间恒为「刚刚」）
+  //   4. 真实当前时刻（无锚点 ⇒ 旧行为；仅当既无基线也无锚点时）
+  //
+  // ⚠️ 关键：**应用侧**必须用同一个锚点（APP_NOW），
+  //    否则浏览器冻结了、服务器没冻结，测的仍是真实时钟下的渲染。
+  let clockAnchorIso = process.env.VISUAL_CLOCK_ANCHOR?.trim() ?? '';
+  let baseline = null;
+  if (!clockAnchorIso && COMPARE_BASELINE) {
+    try {
+      const raw = JSON.parse(await readFile(BASELINE_FILE, 'utf8'));
+      baseline = raw;
+      clockAnchorIso = typeof raw.clockAnchor === 'string' ? raw.clockAnchor : '';
+    } catch {
+      /* 基线不存在 ⇒ 后面会按「缺基线」处理 */
+    }
+  }
+  if (!clockAnchorIso) {
+    clockAnchorIso = process.env.SEED_TIME_ANCHOR?.trim() ?? '';
+  }
+  const clockAnchor = clockAnchorIso ? new Date(clockAnchorIso) : null;
+  const clockAnchorValid = clockAnchor && !Number.isNaN(clockAnchor.getTime());
+  if (clockAnchorIso && !clockAnchorValid) {
+    console.error(
+      `[regression] 时钟锚点不合法：${clockAnchorIso}（应为 ISO8601）—— 已回退真实时钟`,
+    );
+  }
+  console.log(
+    `[regression] 时钟锚点：${
+      clockAnchorValid ? clockAnchor.toISOString() : '（真实时钟 —— 基线会漂移！）'
+    }`,
+  );
+
   const results = {};
 
   for (const br of BROWSERS) {
@@ -335,6 +394,16 @@ async function main() {
         const page = await context.newPage();
         const key = `${br.key}/${vp.label}/${pg.key}`;
         try {
+          // ⚠️ v0.0.8：冻结浏览器时钟 —— 否则相对时间文案会随墙上时钟漂移。
+          //
+          // 现象（实测）：页面主题列表显示「8 小时前 / 1 天前」（src/lib/time.ts
+          // 的 relativeTime 用 `new Date()`）。基线保存于 11-06 12:30，
+          // 11-07 再跑时同一批数据变成「1 天前」⇒ 文本更长、在 320px 窄视口
+          // 换行 ⇒ 容器高度变化 120px ⇒ 视觉回归**误报**。
+          // （master 上同样失败 ⇒ 与任何代码改动无关，是基线的时间炸弹。）
+          //
+          // 冻结到 seed 的时间锚点 ⇒ 每次测量基于同一时刻 ⇒ 确定性。
+          await page.clock.setFixedTime(new Date(CLOCK_ANCHOR));
           await page.goto(BASE + pg.path, { waitUntil: 'domcontentloaded', timeout: 30_000 });
           // ⚠️ v0.0.6：不能只靠固定等待 —— WebKit 在 320px 的 /go/programmer
           //   上渲染更慢，600ms 时 `#Main` / `.content` 还没出现 ⇒
@@ -452,12 +521,39 @@ async function main() {
 
   // ── 基线保存 / 对比 ──
   if (SAVE_BASELINE) {
-    await writeFile(BASELINE_FILE, JSON.stringify({ savedAt: stamp, base: BASE, platform: PLATFORM, results }, null, 2), 'utf8');
+    await writeFile(
+      BASELINE_FILE,
+      JSON.stringify(
+        {
+          savedAt: stamp,
+          // v0.0.8：把本次使用的时钟锚点写进基线 ⇒
+          // 后续对比时用**同一个锚点**测量 ⇒ 基线不会随时间漂移。
+          clockAnchor: clockAnchorValid ? clockAnchor.toISOString() : null,
+          base: BASE,
+          platform: PLATFORM,
+          results,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
     console.log(`\n[regression] 基线已保存（平台 ${PLATFORM}）→ ${BASELINE_FILE}`);
+    if (!clockAnchorValid) {
+      console.log(
+        '[regression] ⚠️ 本次未使用固定时钟锚点 —— 基线会随墙上时钟漂移（建议设置 VISUAL_CLOCK_ANCHOR 或 SEED_TIME_ANCHOR）',
+      );
+    }
   } else if (COMPARE_BASELINE) {
     try {
       const baseline = JSON.parse(await readFile(BASELINE_FILE, 'utf8'));
       console.log(`\n════ 与基线对比（平台 ${PLATFORM}，基线保存于 ${baseline.savedAt}）════\n`);
+      // v0.0.8：基线自带锚点但本次没用 ⇒ 明确提示（否则对比结果无意义）
+      if (baseline.clockAnchor && !clockAnchorValid) {
+        console.log(
+          `[regression] ⚠️ 基线带时钟锚点（${baseline.clockAnchor}），但本次测量未冻结时钟 ⇒ 对比结果不可信`,
+        );
+      }
       let regressions = 0;
       const missingKeys = [];
       for (const [key, r] of Object.entries(results)) {

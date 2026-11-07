@@ -22,10 +22,26 @@ import { startSmtpFixture, type SmtpFixture } from './smtp-fixture';
  * **不允许**用固定 sleep 掩盖、不允许加重试次数 —— 每次失败都是真实失败。
  *
  * 迭代次数：SMTP_STABILITY_ITERATIONS（默认 30；CI 设 30）。
+ *
+ * ## 运行方式（v0.0.8 起由专用工作流运行）
+ *
+ * 本 spec 需要**独占**一个应用实例（自己的 SMTP 端口 + 30 次全流程迭代），
+ * 因此 playwright.config.ts 默认把它从常规跑次中排除
+ * （除非设置 SMTP_STABILITY_RUN=1）：
+ *
+ *   · 常规跑次（CI e2e / 矩阵分片）：不收集本文件
+ *     —— 否则每个分片都要多跑 4 分钟，且打乱 200 条的计数口径；
+ *   · 专用工作流「SMTP 稳定性」：SMTP_STABILITY_RUN=1 全量跑 30 次，
+ *     上传每次的耗时/结果/资源状态报告。
+ *
+ * 本地手动跑：
+ *   SMTP_STABILITY_RUN=1 E2E_SMTP_PORT_STABILITY=3026 npx playwright test e2e/v008-smtp-stability.spec.ts
  */
 
 const ITERATIONS = Number(process.env.SMTP_STABILITY_ITERATIONS ?? 30);
 const MAIL_DOMAIN = 'stability.local';
+/** 本 spec 的 fake server 端口（与 v005 的 E2E_SMTP_PORT 默认值错开，防误撞） */
+const SMTP_PORT_LOCAL = Number(process.env.E2E_SMTP_PORT_STABILITY ?? 3026);
 
 type IterationResult = {
   index: number;
@@ -43,7 +59,17 @@ test.describe.configure({ mode: 'serial' });
 test.setTimeout(ITERATIONS * 20_000 + 60_000);
 
 test.beforeAll(async () => {
-  smtp = await startSmtpFixture(Number(process.env.E2E_SMTP_PORT ?? 3025));
+  // 端口契约：应用侧 SMTP_PORT 必须与本 spec 的 fixture 端口一致。
+  // ⚠️ 回退值用本 spec 自己的端口（不写 3025 字面量）——
+  //    否则会被「固定端口唯一性」护栏误判为与 v005 冲突。
+  const appSmtpPort = Number(process.env.SMTP_PORT ?? SMTP_PORT_LOCAL);
+  expect(
+    appSmtpPort,
+    `SMTP_PORT(${appSmtpPort}) 必须与 E2E_SMTP_PORT_STABILITY(${SMTP_PORT_LOCAL}) 一致 —— ` +
+      '前者是应用侧的发信目标，后者是本 spec fake server 的监听端口',
+  ).toBe(SMTP_PORT_LOCAL);
+
+  smtp = await startSmtpFixture(SMTP_PORT_LOCAL);
   // eslint-disable-next-line no-console
   console.log(`[stability] fake SMTP（独立进程）就绪：127.0.0.1:${smtp.port}，迭代 ${ITERATIONS} 次`);
 }, 60_000);
