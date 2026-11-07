@@ -233,6 +233,43 @@ jobs:
           cat soak-evidence/evidence/baseline.txt 2>/dev/null || true
           exit $RC
 
+      # ── 本段时长诚实性闸门（v0.0.9 新增）────────────────────────
+      #
+      # ## 为什么需要
+      #
+      # `verify-soak.sh` 只**如实记录**实际时长，不因「跑不够」而失败
+      # （它的失败条件只有探针失败 / 零采样）。这意味着：若 runner
+      # 提前回收、job 被超时杀掉、或脚本提前退出，只要探针没红，
+      # 段就会被判绿 —— 而证据里写着「实际 3 分钟」。
+      # 「配置 1 小时、实际 3 分钟、结论是通过」正是任务书禁止的
+      # **对运行时长的错误承诺**。
+      #
+      # ## 判据
+      #
+      # 本段实际秒数 < 本段目标秒数 - 300（5 分钟余量，吸收
+      # sleep 粒度与 runner 调度抖动）⇒ **本 job 失败**。
+      # 失败即中止：状态 artifact 不会上传，后续段（needs:）不会启动。
+      - name: 核对本段实际时长（诚实性闸门）
+        run: |
+          set -euo pipefail
+          TARGET_HOURS="${{ inputs.segment_hours }}"
+          TARGET_SECONDS=$(( TARGET_HOURS * 3600 ))
+          BASELINE="soak-evidence/evidence/baseline.txt"
+          [ -f "$BASELINE" ] || {
+            echo "::error::未找到证据文件 $BASELINE —— 无法核对实际时长，按失败处理"; exit 1; }
+          ACTUAL="$(grep '实际运行时长' "$BASELINE" | grep -oE '[0-9]+' | head -1)"
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::无法从 $BASELINE 解析实际运行时长"; exit 1
+          fi
+          echo "  本段目标：${TARGET_SECONDS} 秒（${TARGET_HOURS} 小时）"
+          echo "  本段实际：${ACTUAL} 秒"
+          if [ "$ACTUAL" -lt "$((TARGET_SECONDS - 300))" ]; then
+            echo "::error::本段实际运行 ${ACTUAL} 秒 < 目标 ${TARGET_SECONDS} 秒 - 300 秒余量"
+            echo "::error::**不得**把未跑够的时段当作达成验证 —— 本段判红"
+            exit 1
+          fi
+          echo "  ✓ 本段实际时长达到目标（余量内）"
+
       - name: 上传本段状态（供下一段续跑）
         uses: actions/upload-artifact@v7
         with:
