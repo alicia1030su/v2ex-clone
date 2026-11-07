@@ -114,6 +114,63 @@ jobs:
       #   · 镜像内不含任何 .env / 凭据文件
       #   · entrypoint 三个必需运行时路径都在
       # ---------------------------------------------------------------------
+      # ⚠️ v0.0.8 新增：运维体检脚本（deploy/health-check.sh）的**真实可用性**
+      #   验证 —— 任务书 §六 要求「不能把文件存在当作功能可用」。
+      - name: '运维体检脚本可用性（§六）'
+        run: |
+          set -euo pipefail
+          cd "${{ github.workspace }}/deploy"
+          echo "===== 语法检查 ====="
+          bash -n health-check.sh && echo "  ✓ 语法 OK"
+
+          echo "===== 复制到安装目录并试跑（真实 compose 栈）====="
+          # 用仓库根 compose 起一套真实栈（与发布版同构）
+          cd "${{ github.workspace }}"
+          cat > .env.opscheck <<'EOF'
+          POSTGRES_USER=v2ex
+          POSTGRES_PASSWORD=ci-postgres-password-not-real
+          POSTGRES_DB=v2ex_ops
+          REDIS_PASSWORD=ci-redis-password-not-real
+          SESSION_SECRET=ci-only-session-secret-0123456789abcdef0123456789abcdef
+          SEED_ADMIN_PASSWORD=ci-admin-password-12345
+          APP_PORT=3000
+          APP_URL=http://localhost:3000
+          NEXT_PUBLIC_APP_URL=http://localhost:3000
+          EOF
+          docker compose --env-file .env.opscheck up -d --build
+          for i in $(seq 1 90); do
+            C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:3000/api/health/ready 2>/dev/null || echo 000)
+            [ "$C" = "200" ] && break
+            sleep 2
+          done
+          echo "  就绪探针 HTTP ${C}"
+
+          echo "===== 在安装目录跑体检脚本 ====="
+          mkdir -p /tmp/opsinst && cp -r deploy/. /tmp/opsinst/
+          cd /tmp/opsinst
+          cp "${{ github.workspace }}/.env.opscheck" .env
+          chmod +x *.sh
+          set +e
+          ./health-check.sh 2>&1 | tee /tmp/health-check.log
+          RC=${PIPESTATUS[0]}
+          set -e
+          echo "  体检脚本退出码 = ${RC}"
+          echo "===== 体检结论必须包含关键检查项 ====="
+          for kw in "容器状态" "应用就绪" "依赖可用性" "磁盘空间" "备份"; do
+            if grep -q "$kw" /tmp/health-check.log; then
+              echo "  ✓ 含「$kw」"
+            else
+              echo "  ✗ 缺少「$kw」—— 体检脚本不完整"; exit 1
+            fi
+          done
+          # 体检必须**识别出**「没有备份」这个事实（安装目录确实没有 backups/）
+          if grep -q "没有任何备份文件" /tmp/health-check.log; then
+            echo "  ✓ 正确报告「无备份」"
+          else
+            echo "  ⚠ 未报告「无备份」"
+          fi
+          rm -f .env.opscheck
+
       - name: '[9/9] 镜像内容与权限检查'
         run: |
           set -euo pipefail
