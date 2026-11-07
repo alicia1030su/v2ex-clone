@@ -1,57 +1,75 @@
 name: 长时间运行稳定性
 
 # ---------------------------------------------------------------------------
-# v0.0.9 —— 持续运行稳定性验证（任务书 §七）
+# v0.0.9 —— 持续运行稳定性验证
 #
-# ## ⚠️ 平台限制与本设计的由来（v0.0.9 修正）
+# ## 平台限制（本设计的存在理由）
 #
 # **GitHub-hosted runner 的单个 job 最长只能运行 6 小时。**
 # 因此「单 job 跑 24 小时」在架构上**不可能完成**。
-#
-# 早先版本声明默认 24 小时、却只给了 `timeout-minutes: 80`
+# 早先版本声明默认 24 小时、却只给 `timeout-minutes: 80`
 # ⇒ job 在 80 分钟被杀掉，而工作流宣称目标是 24 小时
-# ⇒ **对运行时长的错误承诺**。本版修正。
+# ⇒ **对运行时长的错误承诺**。该设计已废弃。
 #
-# ## 现设计：串行分段
+# ## 现设计：两种**如实**模式，按触发事件分流
 #
-#   段1(5h) → 段2(5h) → 段3(5h) → 段4(5h) → 段5(4h)
+#   ┌─ push / schedule ────────► **1 小时冒烟**（单段，job 级时长诚实闸门）
+#   │
+#   └─ workflow_dispatch ──────► **24 小时分段链**（串行 5 段）
+#                                  段1(5h) → 段2(5h) → 段3(5h) → 段4(5h) → 段5(4h)
 #
 #   · 每段是 `soak-segment.yml` 的独立调用，**每段 ≤ 5 小时**
 #     （低于平台 6 小时上限，留 40 分钟余量）；
 #   · 段与段之间用 `needs:` **串行**（不是 matrix —— matrix 是并行的！）；
 #   · 每段通过 artifact 传递「累计真实运行时长 + 采样证据」；
-#   · 最后做**累计时长核对**：累计真实时长达不到目标 ⇒ 失败。
+#   · 汇总 job 核对**累计时长**：累计真实时长达不到目标 ⇒ 失败。
 #
-# ## 时长诚实性（三重保障）
+# ## ⚠️ v0.0.9 修正：不再用「注释」承诺与「实际」不符的时长
 #
-#   1. 脚本报告的是**各段真实运行时长之和**（不是配置时长）；
+# 上一版在触发条件注释里写「push 到 master（1 小时冒烟）」，
+# 但 job 的 `segment_hours` 硬编码 5/5/5/5/4 —— **每次 push 实际都跑
+# 完整 24 小时链**，且 dispatch 的 `hours` 输入是**死参数**
+# （没有任何 job 读取它）。注释说 1 小时、实际跑 24 小时，
+# 本身就是一类「对运行时长的错误承诺」。本版把模式与触发事件
+# **在 job 级 `if` 上显式绑定**，注释与行为逐字对应。
+#
+# ## 时长诚实性（四重保障）
+#
+#   1. 每段 job 内置**本段时长闸门**：实际秒数 < 目标秒数 - 300 ⇒ job 失败；
 #   2. 汇总 job 核对**累计实际秒数** vs 目标秒数，达不到 ⇒ job 失败；
 #   3. 段与段之间的**空闲间隙**（排队、runner 启动）**不计入**累计时长
 #      ⇒ 「24 小时」指**应用实际持续运行** 24 小时，
-#      而不是「从派发到结束过了 24 小时」。这一点在报告里明确写出。
+#      而不是「从派发到结束过了 24 小时」；
+#   4. 证据文件（baseline.txt / state.env）同时记录
+#      「本段配置时长 / 本段实际时长 / 累计实际时长」三个数，
+#      任何声称「24 小时验证完成」的报告必须引用**累计实际时长**。
 #
-# ## 触发
+# ## 发布门禁中的定位（v0.0.9 发行决定，主人已授权一次性例外）
 #
-#   · workflow_dispatch（手动，可指定 hours）
-#   · schedule（每天一次，1 小时）
-#   · push 到 master / 功能分支（1 小时冒烟）
+#   · **1 小时冒烟**：纳入 v0.0.9 发布门禁（最终 SHA 上必须真实通过）；
+#   · **24 小时分段链**：**未完成** —— 明确列为后续稳定性验证项，
+#     不冒充、不伪造、不等待。发布时间以流水线日志与 artifact 为准。
 # ---------------------------------------------------------------------------
 
 on:
   workflow_dispatch:
-    inputs:
-      hours:
-        description: '目标持续运行时长（小时，1-72）。会被拆成多段串行执行'
-        required: false
-        default: '24'
+    # ⚠️ 刻意**不提供** `hours` 之类的时长输入。
+    # 上一版的 `hours` 输入没有任何 job 读取（死参数），
+    # 只会给人「可以指定任意时长」的错觉。dispatch 的语义
+    # 现在唯一且明确：**完整 24 小时分段链**。
+    # 需要其他时长 ⇒ 改 job 定义（受 PR 审查），不靠运行时可调。
   schedule:
-    # 每天 03:17 UTC（避开整点，减少与其他任务争抢 runner）
+    # 每天 03:17 UTC（避开整点，减少与其他任务争抢 runner）—— 1 小时冒烟
     - cron: '17 3 * * *'
   push:
     branches:
       - master
       - 'feat/v0.0.9-release-readiness'
       - 'release/v*'
+      # v0.0.9：补上 fix/** —— 与 ci.yml / install-verify.yml 的分支集一致。
+      # 缺它时，修复分支（含本次 soak 设计修复自身的验证）推上去
+      # **不会触发任何冒烟** ⇒ 新设计在合入 master 前未经受一次真实运行。
+      - 'fix/**'
     paths:
       - 'src/**'
       - 'scripts/release/verify-soak.sh'
@@ -68,8 +86,20 @@ on:
       # ⇒ 只由本工作流通过 `uses:` 调用它。
 
 concurrency:
-  group: soak-${{ github.ref }}
-  # 长跑**不取消**旧的运行 —— 被中途取消会丢失全部证据
+  # ⚠️ v0.0.9：按**事件类型**分租车道。
+  #
+  # 上一版所有事件共用一个组（`soak-${{ github.ref }}`）且
+  # `cancel-in-progress: false` ⇒ dispatch 的 24 小时链会把随后
+  # 每一次 push 冒烟**堵死排队**（实测：dispatch run 42382408316
+  # 在 push run 后面干等 24 小时，一个 job 都没跑）。
+  #
+  # 现在：
+  #   · push / schedule 冒烟 → `soak-smoke-<ref>`（互相之间最多排队 1 小时）
+  #   · dispatch 长跑链     → `soak-long-<ref>`（与冒烟**互不阻塞**）
+  #
+  # `cancel-in-progress: false` 对两者都保持：长跑被取消会丢失全部证据；
+  # 冒烟被取消同样丢掉一段真实运行记录 —— 排队好过假装跑过。
+  group: soak-${{ github.event_name == 'workflow_dispatch' && 'long' || 'smoke' }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -87,10 +117,30 @@ permissions:
 
 jobs:
   # ===========================================================================
-  # 段 1 —— 5 小时
+  # 冒烟 —— push / schedule 触发，1 小时，单段
+  # ===========================================================================
+  #
+  # 为什么 push 只跑 1 小时：
+  #   · 每次 push 都挂一条 24 小时链，等于用 runner 时间给「推送频率」买单；
+  #   · 冒烟的价值是**快速**发现「启动即坏 / 探针即失败」类回归，
+  #     1 小时足够暴露；更长的稳定性由 dispatch 链与每日 schedule 承担；
+  #   · 冒烟的**实际时长**由段内闸门核实，短跑会被判红，不会冒充。
+  smoke:
+    name: 持续运行冒烟 · 1 小时
+    if: github.event_name != 'workflow_dispatch'
+    uses: ./.github/workflows/soak-segment.yml
+    with:
+      segment_index: 'smoke'
+      segment_hours: '1'
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================================================
+  # 段 1 —— 5 小时（仅 dispatch）
   # ===========================================================================
   seg1:
     name: 持续运行 · 第 1 段
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/soak-segment.yml
     with:
       segment_index: '1'
@@ -103,6 +153,7 @@ jobs:
   # ===========================================================================
   seg2:
     name: 持续运行 · 第 2 段
+    if: github.event_name == 'workflow_dispatch'
     needs: seg1
     uses: ./.github/workflows/soak-segment.yml
     with:
@@ -117,6 +168,7 @@ jobs:
   # ===========================================================================
   seg3:
     name: 持续运行 · 第 3 段
+    if: github.event_name == 'workflow_dispatch'
     needs: seg2
     uses: ./.github/workflows/soak-segment.yml
     with:
@@ -131,6 +183,7 @@ jobs:
   # ===========================================================================
   seg4:
     name: 持续运行 · 第 4 段
+    if: github.event_name == 'workflow_dispatch'
     needs: seg3
     uses: ./.github/workflows/soak-segment.yml
     with:
@@ -145,6 +198,7 @@ jobs:
   # ===========================================================================
   seg5:
     name: 持续运行 · 第 5 段
+    if: github.event_name == 'workflow_dispatch'
     needs: seg4
     uses: ./.github/workflows/soak-segment.yml
     with:
@@ -155,10 +209,11 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ===========================================================================
-  # 汇总 —— 核对累计真实时长
+  # 汇总 —— 核对累计真实时长（仅 dispatch）
   # ===========================================================================
   summary:
     name: 汇总与时长核对
+    if: github.event_name == 'workflow_dispatch'
     needs: [seg1, seg2, seg3, seg4, seg5]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -168,7 +223,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # 目标：5+5+5+5+4 = 24 小时
+          # 目标：5+5+5+5+4 = 24 小时（与上面 5 个 seg job 的 segment_hours 逐字对应；
+          # 改动任何一段时长时必须同步改这里，否则闸门失去意义）
           TARGET_SECONDS=$(( (5 + 5 + 5 + 5 + 4) * 3600 ))
 
           gh run download "${{ github.run_id }}" \
