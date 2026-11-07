@@ -131,6 +131,21 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://127.0.0.1:3010
           LOCAL_BASE: http://127.0.0.1:3010
         run: |
+          # ⚠️ v0.0.8 诊断：把应用实际看到的 SMTP 配置打到日志 ——
+          #   首轮「30 次迭代收不到邮件」的根因排查需要这些实况。
+          #   （只打印**是否存在**与端口，不打印任何凭据。）
+          {
+            echo "APP_RUNTIME_ENV=${APP_RUNTIME_ENV:-<unset>}"
+            echo "TEST_ENV_ISOLATED=${TEST_ENV_ISOLATED:-<unset>}"
+            echo "SMTP_ALLOW_REAL_IN_TEST=${SMTP_ALLOW_REAL_IN_TEST:-<unset>}"
+            echo "SMTP_HOST=${SMTP_HOST:-<unset>}"
+            echo "SMTP_PORT=${SMTP_PORT:-<unset>}"
+            echo "SMTP_FROM=${SMTP_FROM:-<unset>}"
+            echo "SMTP_SECURE=${SMTP_SECURE:-<unset>}"
+            echo "PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-<unset>}"
+            echo "APP_URL=${APP_URL:-<unset>}"
+          } > /tmp/stab-env.txt
+          cat /tmp/stab-env.txt
           npx next start -p 3010 > /tmp/stab-server.log 2>&1 &
           echo $! > /tmp/stab-server.pid
           for i in $(seq 1 60); do
@@ -180,6 +195,7 @@ jobs:
             test-results/smtp-stability.json
             /tmp/stab-run.log
             /tmp/stab-server.log
+            /tmp/stab-env.txt
           retention-days: 14
           if-no-files-found: error
 
