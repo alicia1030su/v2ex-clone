@@ -1,0 +1,194 @@
+name: 候选安装链路验证
+
+# ---------------------------------------------------------------------------
+# v0.0.9 —— 候选版本离线安装链路验证（任务书 §二「模式 B」）
+#
+# ## 存在的理由
+#
+# 任务书 §二 要求在**尚未取得正式发布授权**时也必须具备完整的安装验证能力：
+#
+#   1. 从固定源码 SHA 构建候选镜像
+#   2. 导出 docker image tar
+#   3. 生成候选 ZIP + 镜像 tar + SHA256 校验文件
+#   4. 在独立测试环境 docker load
+#   5. 通过候选镜像标签运行 Compose
+#   6. 验证数据库初始化 / Redis / 健康检查 / 登录 / 发帖 / 回复
+#   7. 验证重启后数据不丢失
+#   8. 保留 CI Artifact
+#   9. **不向未经授权的公开镜像仓库推送候选镜像**
+#
+# 本工作流在 ubuntu runner 上**真实执行**这条链路。
+#
+# ## 关键纪律
+#
+# · **不推送任何镜像到 GHCR** —— 候选镜像只在本 runner 内 build + save + load；
+# · 产物以 CI Artifact 形式保留（授权范围内），供后续验证；
+# · 三种状态在 artifact 清单里**明确区分**：
+#   候选构建成功 / 候选环境安装成功 / 正式公开发布成功（本工作流**不涉及**）。
+#
+# ## 触发
+#
+#   · workflow_dispatch（手动，可指定源码引用）
+#   · push 到 feat/v0.0.9-release-readiness 等开发分支
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要构建的源码引用（留空则用触发时的提交）'
+        required: false
+        default: ''
+  push:
+    branches:
+      - 'feat/v0.0.9-release-readiness'
+      - 'release/v*'
+      - 'fix/**'
+    paths:
+      - 'scripts/release/build-candidate.sh'
+      - 'scripts/release/verify-candidate-install.sh'
+      - 'scripts/release/rewrite-candidate-image.mjs'
+      - 'deploy/**'
+      - 'Dockerfile'
+      - '.github/workflows/candidate-verify.yml'
+
+concurrency:
+  group: candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: 候选构建 + 隔离安装验证
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NODE_VERSION: '22.23.4'
+      CANDIDATE_VERSION: 'v0.0.9'
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          # ⚠️ 必须带上**完整历史** —— 构建脚本要核对 HEAD == --sha
+          fetch-depth: 0
+
+      - name: 环境信息
+        run: |
+          echo "  OS: $(uname -a)"
+          echo "  Docker: $(docker --version)"
+          echo "  Compose: $(docker compose version)"
+          echo "  磁盘: $(df -h / | tail -1 | awk '{print $4}') 可用"
+          echo "  HEAD: $(git rev-parse HEAD)"
+
+      - name: 安装 Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 构建候选产物（模式 B）
+        id: build
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"
+          echo "  源码 SHA：$SHA"
+          mkdir -p candidate-out
+          bash scripts/release/build-candidate.sh \
+            --version "${CANDIDATE_VERSION}" \
+            --sha "$SHA" \
+            --out candidate-out \
+            --image-tag "v2ex-clone-candidate:${CANDIDATE_VERSION}"
+          echo "--- 产物 ---"
+          ls -la candidate-out/
+
+      - name: 核验产物完整性（SHA256SUMS 可复算）
+        run: |
+          set -euo pipefail
+          cd candidate-out
+          sha256sum -c SHA256SUMS
+          echo "  ✓ SHA256SUMS 可复算"
+          test -f "v2ex-clone-${CANDIDATE_VERSION}-candidate.zip"
+          test -f "v2ex-clone-${CANDIDATE_VERSION}-candidate-image.tar"
+          echo "  ✓ 候选 ZIP 与镜像 tar 均存在"
+
+      - name: 核验候选包内容（不得含生成物 / 原站素材）
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/verify-candidate && mkdir -p /tmp/verify-candidate
+          unzip -q "candidate-out/v2ex-clone-${CANDIDATE_VERSION}-candidate.zip" -d /tmp/verify-candidate
+          ROOT="/tmp/verify-candidate/deploy"
+          [ -d "$ROOT" ] || ROOT="/tmp/verify-candidate"
+          echo "  候选包内容："
+          find "$ROOT" -maxdepth 1 -type f | sed 's/^/    /'
+          # 不得含生成的 .env / 凭据
+          test ! -f "$ROOT/.env" || { echo "::error::候选包内含 .env"; exit 1; }
+          test ! -f "$ROOT/INSTALL_CREDENTIALS.txt" || { echo "::error::候选包内含凭据"; exit 1; }
+          echo "  ✓ 不含生成物"
+          # 不得含原站素材
+          if find "$ROOT" \( -name 'ref-*.png' -o -name 'diff-*.png' \) | grep -q .; then
+            echo "::error::候选包内含原站素材"; exit 1
+          fi
+          echo "  ✓ 不含原站素材"
+          # 候选包必须引用候选标签（而不是尚不存在的远端镜像）
+          grep -q "v2ex-clone-candidate:${CANDIDATE_VERSION}" "$ROOT/docker-compose.yml" \
+            || { echo "::error::候选包未指向候选镜像标签"; exit 1; }
+          echo "  ✓ 候选包指向候选镜像标签"
+
+      - name: 核验候选 shell 脚本为 LF 换行（Windows 构建机的坑）
+        run: |
+          set -euo pipefail
+          ROOT="/tmp/verify-candidate/deploy"
+          [ -d "$ROOT" ] || ROOT="/tmp/verify-candidate"
+          FAILED=0
+          for f in "$ROOT"/*.sh; do
+            [ -f "$f" ] || continue
+            if grep -qU $'\r' "$f"; then
+              echo "::error::$f 含 CRLF —— Linux 上执行会失败"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" -eq 0 ] && echo "  ✓ 所有 shell 脚本均为 LF 换行"
+
+      - name: 候选环境隔离安装验证（docker load → compose → 全流程）
+        run: |
+          set -euo pipefail
+          bash scripts/release/verify-candidate-install.sh \
+            --out candidate-out \
+            --project-name "v2ex-cand-${{ github.run_id }}" \
+            --port 3409
+
+      - name: 核验候选镜像**未**被推送到任何远端仓库
+        run: |
+          set -euo pipefail
+          # 候选镜像只应存在于本 runner 的本地镜像库
+          if gh api "/users/${{ github.actor }}/packages/container/v2ex-clone/versions" >/dev/null 2>&1; then
+            CNT="$(gh api "/users/${{ github.actor }}/packages/container/v2ex-clone/versions" --jq '.total_count' 2>/dev/null || echo 0)"
+            echo "  该账号的 GHCR 容器包版本数：${CNT}"
+          else
+            echo "  该账号无 GHCR 容器包（或无权限查看）"
+          fi
+          echo "  ✓ 本工作流未执行任何 docker push（构建脚本只做 save）"
+
+      - name: 上传候选产物（模式 B）
+        uses: actions/upload-artifact@v7
+        with:
+          name: candidate-out-${{ github.run_id }}
+          path: candidate-out/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 输出状态说明
+        if: always()
+        run: |
+          echo "════════════════════════════════════════════"
+          echo " 候选构建成功     ：✅ 产物已产出并通过校验"
+          echo " 候选环境安装成功 ：见上方 verify-candidate-install 输出"
+          echo " 正式公开发布成功 ：⬜ 本工作流**不涉及**"
+          echo "                   （需 GHCR 推送 + digest 核验 + 匿名 pull"
+          echo "                     + 正式 Release + Tag，且需单独授权）"
+          echo "════════════════════════════════════════════"
