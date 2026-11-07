@@ -73,7 +73,7 @@ services:
     #   build:
     #     context: ..
     #     dockerfile: Dockerfile
-    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.8}
+    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.9}
     container_name: v2ex-app
     restart: unless-stopped
     depends_on:

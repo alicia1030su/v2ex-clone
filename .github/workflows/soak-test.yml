@@ -52,7 +52,10 @@ on:
     # 每天 03:17 UTC（避开整点，减少与其他任务争抢 runner）
     - cron: '17 3 * * *'
   push:
-    branches: [master]
+    branches:
+      - master
+      - 'feat/v0.0.9-release-readiness'
+      - 'release/v*'
     paths:
       - 'src/**'
       - 'scripts/release/verify-soak.sh'
