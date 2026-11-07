@@ -1738,6 +1738,16 @@ jobs:
           REQUIRED="docker-compose.yml .env.example install.sh install.ps1 start.sh stop.sh update.sh backup.sh README.md INSTALL.md VERSION LICENSE"
           rm -rf /tmp/verify-zip && mkdir -p /tmp/verify-zip
           unzip -q "$ZIP_NAME" -d /tmp/verify-zip
+          # ── D-01：安装包顶层目录必须是 `deploy/` ──
+          # Release Notes 里的安装命令（`cd <解压目录>/deploy`）依赖这个
+          # 结构。此处断言产物结构，与 publish-release 里针对 Notes 的
+          # 断言互为两侧 —— 任一侧改动而另一侧没跟上，流水线当场判红。
+          ZIP_ROOT="$(unzip -Z1 "$ZIP_NAME" | head -1 | cut -d/ -f1)"
+          if [ "$ZIP_ROOT" != "deploy" ]; then
+            echo "::error::安装包顶层目录应为 deploy，实际为 '${ZIP_ROOT}'"
+            exit 1
+          fi
+          echo "✓ 安装包顶层目录：${ZIP_ROOT}/"
           missing=0
           for f in $REQUIRED; do
             if [ ! -f "/tmp/verify-zip/deploy/$f" ]; then
@@ -2048,7 +2058,7 @@ jobs:
 
           **Linux / macOS**
           ```bash
-          unzip v2ex-clone-__VERSION__-deploy.zip
+          unzip v2ex-clone-__VERSION__-deploy.zip -d v2ex-clone-__VERSION__-deploy
           cd v2ex-clone-__VERSION__-deploy/deploy
           chmod +x install.sh
           ./install.sh
@@ -2056,7 +2066,7 @@ jobs:
 
           **Windows（PowerShell）**
           ```powershell
-          Expand-Archive -Path v2ex-clone-__VERSION__-deploy.zip -DestinationPath .
+          Expand-Archive -Path v2ex-clone-__VERSION__-deploy.zip -DestinationPath v2ex-clone-__VERSION__-deploy
           cd v2ex-clone-__VERSION__-deploy\deploy
           powershell -ExecutionPolicy Bypass -File .\install.ps1
           ```
@@ -2166,6 +2176,53 @@ jobs:
           sed -i "s|__DIGEST__|${IMAGE_DIGEST}|g" release-notes.md
           echo "Release Notes 已按版本 ${VERSION} 生成（镜像 digest=${IMAGE_DIGEST}）"
           echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+
+          # ── 安装路径与安装包实际结构的一致性闸门（D-01） ──
+          #
+          # 真实缺陷：ZIP 的顶层目录是 `deploy/`（`zip -r "$ZIP" deploy/`），
+          # 但旧 Notes 写的是
+          #     unzip v2ex-clone-vX.Y.Z-deploy.zip
+          #     cd v2ex-clone-vX.Y.Z-deploy/deploy
+          # —— 少一个 `-d`，解压后根本没有 `v2ex-clone-vX.Y.Z-deploy`
+          # 这一层，用户照抄命令会在第 2 行 `cd` 失败。
+          #
+          # 该缺陷自 v0.0.4 起就存在（v0.0.4 的 Release Notes 同样是
+          # 这条错误路径），属于**文档与产物脱节**，直接影响
+          # 「下载官方包 → 按文档部署可跑通」这一验收标准。
+          #
+          # 修法是给解压命令补 `-d <目录>`（与仓库内
+          # `docs/INSTALL.md` / `docs/DEPLOYMENT.md` 的既有写法一致），
+          # 然后在这里**逐条断言**，避免再次脱节。
+          EXPECT_DIR="v2ex-clone-${VERSION}-deploy"
+          NOTES_FAIL=0
+          if ! grep -qF "unzip v2ex-clone-${VERSION}-deploy.zip -d ${EXPECT_DIR}" release-notes.md; then
+            echo "::error::Notes 的 unzip 命令缺少 '-d ${EXPECT_DIR}'（解压后不存在该目录）"
+            NOTES_FAIL=1
+          fi
+          if ! grep -qF "cd ${EXPECT_DIR}/deploy" release-notes.md; then
+            echo "::error::Notes 的 Linux 安装路径不是 ${EXPECT_DIR}/deploy"
+            NOTES_FAIL=1
+          fi
+          if ! grep -qF "Expand-Archive -Path v2ex-clone-${VERSION}-deploy.zip -DestinationPath ${EXPECT_DIR}" release-notes.md; then
+            echo "::error::Notes 的 Expand-Archive 目标目录不是 ${EXPECT_DIR}"
+            NOTES_FAIL=1
+          fi
+          if ! grep -qF "cd ${EXPECT_DIR}\\deploy" release-notes.md; then
+            echo "::error::Notes 的 Windows 安装路径不是 ${EXPECT_DIR}\\deploy"
+            NOTES_FAIL=1
+          fi
+          # 反向断言：绝不能出现「解压到当前目录 + cd 到带版本号的子目录」
+          # 这种自相矛盾的组合（即本次修复掉的那条错误路径）。
+          if grep -qE '^unzip v2ex-clone-[^ ]+-deploy\.zip$' release-notes.md; then
+            echo "::error::Notes 仍有「unzip 无 -d」与「cd 到版本目录」混用的错误写法"
+            NOTES_FAIL=1
+          fi
+          if [ "$NOTES_FAIL" -ne 0 ]; then
+            echo "--- 实际安装段 ---"
+            sed -n '/^### 安装/,/^### 系统要求/p' release-notes.md
+            exit 1
+          fi
+          echo "✓ Release Notes 的安装路径与安装包实际结构（顶层 deploy/）一致"
 
       - name: 创建 Release（先 draft）
         env:

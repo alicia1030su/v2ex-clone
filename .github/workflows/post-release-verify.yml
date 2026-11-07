@@ -191,6 +191,46 @@ jobs:
             || fail "Release tag 与形态" "tag / 已发布 / Pre-release 三项不一致（见上方输出）"
           pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（已发布 · Pre-release）"
 
+      - name: ④.5 文档安装路径可达性（按 Release Notes 的 Linux 命令实跑）
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          cd "$WORK"
+          # 真实缺陷（D-01，自 v0.0.4 起存在）：安装包顶层是 `deploy/`，
+          # 而旧 Notes 写 `unzip <zip>` + `cd v2ex-clone-<ver>-deploy/deploy`
+          # —— 少 `-d`，解压后根本没那一层，用户照抄第二行就 cd 失败。
+          # 这里**直接执行文档里的命令**（只跳过最后一行真正启动安装），
+          # 用行动证明「按文档部署」这条路是通的，而不是靠肉眼读文档。
+          python3 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8')).get('body') or '')" "$WORK/release.json" > "$WORK/body.md" \
+            || fail "文档安装路径" "无法从 Release 读取 body"
+          awk '/^\*\*Linux \/ macOS\*\*$/{f=1;next} f&&/^```bash$/{g=1;next} g&&/^```$/{exit} g{print}' "$WORK/body.md" > "$WORK/doc-linux.sh"
+          BLOCK_LINES="$(wc -l < "$WORK/doc-linux.sh" | tr -d ' ')"
+          [ "$BLOCK_LINES" -ge 3 ] || fail "文档安装路径" "未从 Release Notes 解析出 Linux 安装命令块（$BLOCK_LINES 行）"
+          echo "--- Release Notes 中的 Linux 安装命令 ---"
+          cat "$WORK/doc-linux.sh"
+          # 最后一行是 `./install.sh`（真正启动安装，⑥ 会用官方包单独做，
+          # 避免重复安装）；其余命令原样执行。
+          grep -qxF './install.sh' "$WORK/doc-linux.sh" \
+            || fail "文档安装路径" "命令块最后一行不是 ./install.sh，文档结构异常"
+          grep -vxF './install.sh' "$WORK/doc-linux.sh" > "$WORK/doc-run.sh"
+          rm -rf "$WORK/doc-sandbox" && mkdir -p "$WORK/doc-sandbox"
+          cp "$WORK/$(cat "$WORK/zip-name.txt")" "$WORK/doc-sandbox/"
+          ( cd "$WORK/doc-sandbox" && bash -euo pipefail "$WORK/doc-run.sh" ) \
+            || fail "文档安装路径" "照抄 Release Notes 的命令执行失败（见上方输出）"
+          DOC_DIR="$WORK/doc-sandbox/v2ex-clone-${VERSION}-deploy/deploy"
+          [ -d "$DOC_DIR" ] || fail "文档安装路径" "执行文档命令后不存在目录 v2ex-clone-${VERSION}-deploy/deploy"
+          [ -x "$DOC_DIR/install.sh" ] || fail "文档安装路径" "文档路径下 install.sh 不存在或不可执行"
+          [ -f "$DOC_DIR/docker-compose.yml" ] && [ -f "$DOC_DIR/.env.example" ] \
+            || fail "文档安装路径" "文档路径下缺少 docker-compose.yml / .env.example"
+          # Windows / PowerShell 命令块无法在 ubuntu 上执行，做结构断言：
+          # 解压目标目录与 cd 目标必须一致，且都以版本目录为根。
+          grep -qF "Expand-Archive -Path v2ex-clone-${VERSION}-deploy.zip -DestinationPath v2ex-clone-${VERSION}-deploy" "$WORK/body.md" \
+            || fail "文档安装路径" "Windows 的 Expand-Archive 目标目录与版本目录不一致"
+          grep -qF "cd v2ex-clone-${VERSION}-deploy\\deploy" "$WORK/body.md" \
+            || fail "文档安装路径" "Windows 的 cd 路径不是 v2ex-clone-${VERSION}-deploy\\deploy"
+          pass "文档安装路径可达" "照抄 Notes 的 unzip/cd 命令后 install.sh 可执行（Linux）；Windows 命令结构一致"
+
       - name: ⑤ 匿名拉取 GHCR 镜像并用 Registry V2 交叉核对真实 digest
         run: |
           set -euo pipefail
