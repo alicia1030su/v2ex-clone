@@ -55,7 +55,8 @@ env:
   SEED_ADMIN_PASSWORD: ci-admin-password-12345
   SEED_DEMO_USERS: '1'
   SEED_DEMO_PASSWORD: ci-demo-password-12345
-  # SMTP：fake server 由 spec 的 beforeAll 在**测试进程内**起（端口见分片计算）；
+  # SMTP：fake server 由 spec 的 beforeAll 以**独立进程**起（v0.0.8，端口见分片计算）；
+  #      独立进程消除与 Playwright worker 的事件循环争抢（v0.0.7 偶发超时根因）。
   # 这里只配服务端投递目标。
   SMTP_ALLOW_REAL_IN_TEST: '1'
   SMTP_HOST: 127.0.0.1

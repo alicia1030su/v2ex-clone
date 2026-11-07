@@ -1,0 +1,154 @@
+name: 安全审计 Host Header
+
+# ---------------------------------------------------------------------------
+# v0.0.8 P0：Host Header Poisoning 攻击矩阵
+#
+# 背景：v0.0.7 的 303 重定向曾按请求头构造绝对 Location（Host Header
+# Poisoning 面）。v0.0.8 改为站内相对 Location + 邮件链接 fail-closed。
+#
+# 本工作流在**真实应用**上系统性复现攻击（伪造 Host / X-Forwarded-Host /
+# X-Forwarded-Proto / 多值转发头 / 畸形 Host / 开放重定向参数 /
+# 密码重置链接投毒 / HTML 泄漏），用**反向断言**锁住修复：
+#   任一场景出现「攻击者可控的 Location / 重置链接」⇒ job 红。
+#
+# 分级测试策略（任务书 §九）：安全修复必须带攻击复现与反向断言，
+# 因此在 PR 验证阶段就全量跑（不是只留到最终候选）。
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: security-host-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.23.4'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  DISABLE_CAPTCHA: '1'
+  ENABLE_DEBUG_ENDPOINTS: '1'
+  DEBUG_ENDPOINT_TOKEN: ci-debug-token-not-for-production
+  # 隔离测试环境（与 e2e-matrix 同口径）
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: ci-postgres-password-not-real
+  POSTGRES_DB: v2ex_sechost
+  REDIS_PASSWORD: ci-redis-password-not-real
+  SESSION_SECRET: ci-only-session-secret-0123456789abcdef0123456789abcdef
+  # SMTP：fake server 由攻击脚本以**独立进程**启动（v0.0.8 起）
+  SMTP_ALLOW_REAL_IN_TEST: '1'
+  SMTP_HOST: 127.0.0.1
+  SMTP_PORT: '3300'
+  SMTP_FROM: noreply@v2ex-clone.local
+  SMTP_SECURE: '0'
+  E2E_SMTP_PORT: '3300'
+
+jobs:
+  host-attack-matrix:
+    name: Host Header 攻击矩阵
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: v2ex
+          POSTGRES_PASSWORD: ci-postgres-password-not-real
+          POSTGRES_DB: v2ex_sechost
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U v2ex -d v2ex_sechost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        env:
+          REDIS_PASSWORD: ci-redis-password-not-real
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli -a ci-redis-password-not-real ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 安装 Playwright 浏览器（chromium）
+        run: npx playwright install --with-deps chromium
+
+      - name: 建库 / 迁移 / seed
+        env:
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_sechost
+          PGPASSWORD: ci-postgres-password-not-real
+        run: |
+          psql -h localhost -p 5432 -U v2ex -d postgres -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE IF EXISTS v2ex_sechost" -c "CREATE DATABASE v2ex_sechost"
+          npx drizzle-kit migrate
+          SEED_TIME_ANCHOR='2026-11-06T04:00:00.000Z' npx tsx scripts/seed.ts
+
+      - name: 构建
+        env:
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_sechost
+        run: npx next build
+
+      - name: 启动应用（必须 HTTP 200 才放行）
+        env:
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_sechost
+          REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
+          APP_URL: http://127.0.0.1:3010
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3010
+          LOCAL_BASE: http://127.0.0.1:3010
+        run: |
+          npx next start -p 3010 > /tmp/attack-server.log 2>&1 &
+          echo $! > /tmp/attack-server.pid
+          for i in $(seq 1 60); do
+            C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3010/ || echo 000)
+            [ "$C" = "200" ] && exit 0
+            sleep 1
+          done
+          echo "::error::应用未就绪"; tail -20 /tmp/attack-server.log; exit 1
+
+      - name: 运行 Host Header 攻击矩阵
+        env:
+          LOCAL_BASE: http://127.0.0.1:3010
+          ATTACK_REPORT_PATH: /tmp/attack-matrix-report.json
+          DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_sechost
+          REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
+        run: npx tsx tools/security/host-attack-matrix.ts 2>&1 | tee /tmp/attack-run.log
+
+      - name: 上传攻击矩阵报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: host-attack-matrix-${{ github.run_id }}
+          path: |
+            /tmp/attack-matrix-report.json
+            /tmp/attack-run.log
+            /tmp/attack-server.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: 清理
+        if: always()
+        run: |
+          [ -f /tmp/attack-server.pid ] && kill "$(cat /tmp/attack-server.pid)" 2>/dev/null || true
