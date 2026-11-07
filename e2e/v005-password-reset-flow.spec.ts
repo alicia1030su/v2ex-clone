@@ -47,6 +47,41 @@ import { startSmtpFixture, type SmtpFixture } from './smtp-fixture';
 
 const MAIL_DOMAIN = 'e2e.local';
 
+/**
+ * v0.0.9：Firefox 分片的**时间预算**修复（不削弱任何断言）
+ *
+ * ## 现象与根因
+ *
+ * 「邮箱枚举防护」在 Linux 跨浏览器矩阵里偶发
+ * `Test timeout of 60000ms exceeded`，报错停在 `waitForResponse`；
+ * 但失败截图里按钮仍是「发送重置链接」（未进入 pending 态）、
+ * trace 网络记录里**没有** `POST /api/auth/forgot-password` 请求，
+ * 且同一轮 chromium / webkit 全绿。
+ * ⇒ 不是产品 hang，而是**准备阶段**把全局 `timeout: 60_000` 耗光了：
+ *   清限流 → 完整注册 UI（goto + hydration + 填 4 个字段 + 等跳转）
+ *   → 登出 → 两轮「goto /forgot + 等 hydration + fill + 等响应」（中间再清一次限流）。
+ *   helpers 里单次等待本身就允许 20~30s，Firefox 上串行累加会顶满 60s，
+ *   此时请求还没来得及发出，测试就已被判超时。
+ *
+ * ## 修法（只动时间预算，不动断言）
+ *
+ * 1. 多步骤用例按步骤数**逐条显式**给整用例预算（见各处 `test.setTimeout`
+ *    的就地注释）；短用例「游客」继续用全局 60s，beforeAll / afterAll
+ *    仍用各自的 60s 第三参数，不做无谓放宽。
+ * 2. 每个 `waitForResponse` 给**独立且较短**的超时上限：请求真的没发出时
+ *    30s 就以「等不到响应」明确失败（fast-fail，且错误直指缺失的请求），
+ *    而不是一路挂到整用例预算、最后只报一句笼统的 `Test timeout exceeded`。
+ *    30s 的依据：覆盖应用侧单次 SMTP 等待上限（`SMTP_TIMEOUT_MS` 默认
+ *    15_000，见 src/lib/mailer.ts）+ 浏览器点击 / 调度余量，且仍显著短于
+ *    下面 90~180s 的整用例预算。
+ *
+ * ⚠️ 保持 `mode: 'serial'`、保持 `retries: 0`、保持「状态码相同 /
+ *    响应体逐字相同」等全部安全断言，也保持「先建 Promise 再点击」的
+ *    等待写法 —— 本次修复与这些语义无关。
+ */
+/** 单个响应的等待上限：请求未发出时快速失败，不拖死整条用例 */
+const RESPONSE_TIMEOUT = 30_000;
+
 /** 应用（Next 服务）被告知的 SMTP 端口 */
 const APP_SMTP_PORT = Number(process.env.SMTP_PORT ?? 3025);
 /** 测试侧 fake server 应监听的端口（必须与 APP_SMTP_PORT 一致） */
@@ -91,6 +126,11 @@ test('游客：未登录也能打开「忘记密码」页', async ({ page }) => 
 });
 
 test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**', async ({ page }) => {
+  // ⚠️ v0.0.9：本用例是「清限流 → 完整注册 UI → 登出 → 两轮 /forgot
+  //    申请（中间再清一次限流）」的两段式长链路，见文件头注释。
+  //    Firefox 上准备阶段就可能吃满全局 60s；给 120s 是给**准备阶段**
+  //    留预算，不是给响应本身放宽（响应等待另有 30s 独立上限）。
+  test.setTimeout(120_000);
   await page.goto('/forgot');
   await waitForHydration(page, '#email');
 
@@ -110,6 +150,7 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
   await page.fill('#email', `${known}@${MAIL_DOMAIN}`);
   const knownResponse = page.waitForResponse(
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: '发送重置链接' }).click();
   const knownRes = await knownResponse;
@@ -124,6 +165,7 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
   await page.fill('#email', `definitely_not_registered_${Date.now()}@${MAIL_DOMAIN}`);
   const unknownResponse = page.waitForResponse(
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: '发送重置链接' }).click();
   const unknownRes = await unknownResponse;
@@ -148,6 +190,10 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
 });
 
 test('频率限制：同一 IP 连续申请超限后返回 429', async ({ page }) => {
+  // ⚠️ v0.0.9：最多 14 次串行 POST（每次还要读一次 CSRF Cookie）
+  //    + 首尾两次 clearRateLimits，Firefox 上累计容易顶满 60s ⇒ 90s。
+  //    循环次数、429 / 200 断言一律不动。
+  test.setTimeout(90_000);
   // ⚠️ **不要**清限流 —— 这个用例就是要撞上限流。
   await clearRateLimits(page);
 
@@ -181,6 +227,12 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   page,
   context,
 }) => {
+  // ⚠️ v0.0.9：全链路 10 个阶段（注册 → 申请 → 等邮件 20s → 校验令牌
+  //    → 改密 → 重放 → 旧会话失效 → 旧/新密码各登录一次），是本文件最长的
+  //    一条真实用户路径；60s 全局预算在 Firefox 上明显不够 ⇒ 180s。
+  //    与仓库里 avatar 用例的 150s、本文件「服务中断」的 90s 同类：
+  //    按真实步骤数给预算，不是用 timeout 掩盖问题。
+  test.setTimeout(180_000);
   // ⚠️ 先清限流（IP 限流 10 次 / 15 分钟）——
   //    否则前一个用例的申请会累积到这个用例上，撞 429。
   await clearRateLimits(page);
@@ -219,6 +271,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   await page.fill('#email', email);
   const respPromise = page.waitForResponse(
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: '发送重置链接' }).click();
   const resp = await respPromise;
@@ -253,6 +306,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   if (await confirm.count()) await confirm.fill(newPwdForTest);
   const submitPromise = page.waitForResponse(
     (r) => r.url().includes('/api/auth/reset-password') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: '重置密码' }).click();
   const submitRes = await submitPromise;
@@ -317,6 +371,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   await page.fill('#password', pwdForTest);
   const oldLogin = page.waitForResponse(
     (r) => r.url().includes('/api/auth/signin') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: /登录|登 录|提交/ }).click();
   const oldRes = await oldLogin;
@@ -328,6 +383,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   await page.fill('#password', newPwdForTest);
   const newLogin = page.waitForResponse(
     (r) => r.url().includes('/api/auth/signin') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: /登录|登 录|提交/ }).click();
   const newRes = await newLogin;
@@ -348,6 +404,9 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
 test('服务中断：SMTP 停止后申请重置仍返回统一响应，且无邮件到达（错误可观察）', async ({
   page,
 }) => {
+  // ⚠️ v0.0.9：这条原本就有 90s 预算（test 第三参数），保持不变；
+  //    这里只补 waitForResponse 的 30s 独立上限，避免请求没发出时一路挂到
+  //    90s 才报笼统超时。停 / 起 fixture 与「错误可观察」断言均不动。
   await clearRateLimits(page);
   const username = uniqueName('smtp_down');
   const email = `${username}@${MAIL_DOMAIN}`;
@@ -363,6 +422,7 @@ test('服务中断：SMTP 停止后申请重置仍返回统一响应，且无邮
   await page.fill('#email', email);
   const respPromise = page.waitForResponse(
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
+    { timeout: RESPONSE_TIMEOUT },
   );
   await page.getByRole('button', { name: '发送重置链接' }).click();
   const resp = await respPromise;
