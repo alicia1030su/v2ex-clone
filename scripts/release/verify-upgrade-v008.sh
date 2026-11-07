@@ -40,7 +40,6 @@ PGPASSWORD="${PGPASSWORD:-v2ex_test_password_local_only}"
 export PGHOST PGPORT PGUSER PGPASSWORD
 
 OLD_DB="${OLD_DB:-v2ex_upgrade_v008_old}"
-NEW_DB="${NEW_DB:-v2ex_upgrade_v008_new}"
 RESTORE_DB="${RESTORE_DB:-v2ex_upgrade_v008_restore}"
 
 C_RED=$'\033[31m'; C_GRN=$'\033[32m'; C_YEL=$'\033[33m'; C_RST=$'\033[0m'; C_BLD=$'\033[1m'
@@ -67,7 +66,7 @@ command -v psql >/dev/null 2>&1 || [ -x "/c/Users/TYMO001/WorkBuddy/ai/_tools/pg
   || die "找不到 psql 客户端"
 
 # --- 0. 清理旧测试库（仅本脚本自己的） -------------------------------------
-for db in "$OLD_DB" "$NEW_DB" "$RESTORE_DB"; do
+for db in "$OLD_DB" "$RESTORE_DB"; do
   psql_q postgres "DROP DATABASE IF EXISTS $db" >/dev/null 2>&1
 done
 
@@ -111,12 +110,15 @@ FINGERPRINT_SQL="select 'probe:' || count(*) || ':' || coalesce(sum(id),0) from 
 FP_BEFORE="$(psql_q "$OLD_DB" "$FINGERPRINT_SQL" 2>/dev/null || echo 'n/a')"
 info "升级前指纹：${FP_BEFORE}"
 
-# --- 4. 跑 v0.0.8 的迁移 --------------------------------------------------
-info "跑 v0.0.8 的迁移（drizzle-kit migrate）…"
-psql_q postgres "CREATE DATABASE $NEW_DB" >/dev/null || die "建新库失败"
-export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${NEW_DB}"
+# --- 4. 在**同一个库上**跑 v0.0.8 的迁移（这才是「原地升级」）-----------
+#
+# ⚠️ v0.0.8 首次实现时的错误（CI 实测失败）：我建了**两个独立的新库**，
+#   于是探针数据在 old 库里、迁移跑在 new 库里 ⇒ 「升级后指纹 = n/a」。
+#   真实的原地升级是**同一个库**上跑新迁移 ⇒ 数据必须**原样保留**。
+info "在旧库 ${OLD_DB} 上跑 v0.0.8 的迁移（原地升级）…"
+export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${OLD_DB}"
 if (cd "$REPO_ROOT" && npx drizzle-kit migrate >/tmp/v008-migrate.log 2>&1); then
-  ok "迁移执行成功"
+  ok "迁移执行成功（原地升级）"
 else
   bad "迁移执行失败（详见 /tmp/v008-migrate.log）"
   tail -15 /tmp/v008-migrate.log 2>/dev/null
@@ -124,7 +126,7 @@ else
 fi
 
 # --- 5. 数据指纹比对（数据不变）------------------------------------------
-FP_AFTER="$(psql_q "$NEW_DB" "$FINGERPRINT_SQL" 2>/dev/null || echo 'n/a')"
+FP_AFTER="$(psql_q "$OLD_DB" "$FINGERPRINT_SQL" 2>/dev/null || echo 'n/a')"
 if [ "$FP_BEFORE" = "$FP_AFTER" ] && [ "$FP_BEFORE" != "n/a" ]; then
   ok "数据指纹升级前后一致（${FP_AFTER}）—— 用户数据未被改动"
 else
@@ -151,12 +153,11 @@ BACKUP_FILE="/tmp/v008-upgrade-backup.sql"
 if psql_q "$NEW_DB" "" >/dev/null 2>&1; then :; fi
 if (cd "$REPO_ROOT" && node -e "
   const { execFileSync } = require('child_process');
-  const bin = process.platform === 'win32'
-    ? 'C:/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/pg_dump.exe'
-    : 'pg_dump';
+  const bin = 'pg_dump';
+  // ⚠️ PGPASSWORD 已由脚本 export ⇒ pg_dump/psql 走 .pgpass/环境变量认证
   const out = execFileSync(bin, [
     '-h', process.env.PGHOST, '-p', String(process.env.PGPORT),
-    '-U', process.env.PGUSER, '-d', process.env.NEW_DB, '--no-owner', '--no-acl',
+    '-U', process.env.PGUSER, '-d', process.env.OLD_DB, '--no-owner', '--no-acl',
   ], { maxBuffer: 64 * 1024 * 1024, encoding: 'utf8' });
   require('fs').writeFileSync('/tmp/v008-upgrade-backup.sql', out);
 ") 2>/dev/null; then
@@ -185,7 +186,7 @@ printf '  通过 %s%s%s  失败 %s%s%s\n' "$C_GRN" "$PASS" "$C_RST" \
   "$([ "$FAIL" -gt 0 ] && echo "$C_RED" || echo "$C_GRN")" "$FAIL" "$C_RST"
 
 # 清理（本脚本自己的库）
-for db in "$OLD_DB" "$NEW_DB" "$RESTORE_DB"; do
+for db in "$OLD_DB" "$RESTORE_DB"; do
   psql_q postgres "DROP DATABASE IF EXISTS $db" >/dev/null 2>&1
 done
 rm -f "$BACKUP_FILE" /tmp/v008-migrate*.log 2>/dev/null
