@@ -21,8 +21,8 @@ Set-StrictMode -Version Latest
 
 # --- 常量 ------------------------------------------------------------------
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
-$AppVersion     = '0.0.7'
-$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.7'
+$AppVersion     = '0.0.8'
+$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.8'
 # 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
 # 之前硬编码写回 DefaultImage，会**静默忽略**调用方的取值。
 $ImageOverride  = $env:V2EX_IMAGE

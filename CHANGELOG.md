@@ -7,6 +7,148 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [Unreleased] — v0.0.8（已合入 master `3dc718c`，尚未发布）
+
+> **版本载体已同步到 0.0.8**（最终 SHA `3dc718c` 固定后一次性同步，7 个载体复验通过）。
+> **R-01 未解决 ⇒ 不建 v0.0.8 Tag、不发公开 Release**，只交付候选产物。
+> PR #29 已于 2026-11-07 合并（squash），CI 全绿：
+> **3060 条跨浏览器用例（15 分片 × 204）全部通过**、19 个 Host 攻击场景全部防御、
+> **SMTP 连续 30 次全通过**、63 组合视觉回归零回归。
+
+### v0.0.8：安全加固、稳定性治理、部署可靠性与真实运营能力
+
+#### A. P0 安全加固 —— Host Header Poisoning（任务书 §三）
+
+**审计发现**：v0.0.7 的 `src/lib/redirect-url.ts` 为修复「request.url 按服务器
+hostname 重建」而引入的修法，直接采信 `x-forwarded-host` / `host` /
+`x-forwarded-proto` 构造**绝对** Location ⇒ 直连或代理未剥离转发头时，
+攻击者可控制 303 的**域名与协议**（开放重定向 / 协议降级 / 缓存投毒 /
+反代跳错域名）。同类风险还在找回密码邮件链接（`request.url.origin` 回退链）。
+
+**修复**：
+
+1. **303 改用站内相对 Location**（RFC 7231 §7.1.2）—— 浏览器按**实际请求 URL**
+   解析 ⇒ host 与协议永远正确，且**不经任何请求头** ⇒ **投毒面为零**；
+   反代 / 多域名 / 局域网部署自动正确，localhost 与 127.0.0.1 不可能再混用。
+2. **邮件链接 fail-closed** —— 新增 `resolvePublicBaseUrl()`，只信运维配置
+   （`PUBLIC_BASE_URL` → `APP_URL`，严格校验协议/主机名/非法字符）；
+   未配置 ⇒ **拒绝发信** + 明确错误日志（响应仍统一，枚举防护不受影响）。
+3. 删除 `src/lib/redirect-url.ts`。
+
+**证据**：`tools/security/host-attack-matrix.ts` + 专用工作流 ——
+**19 个攻击场景**在真实应用上实测（13 个 303 场景 + 4 个密码重置链接投毒 +
+2 个 HTML 泄漏）：run `42336954558` **19/19 SAFE，0 VULNERABLE**。
+报告：`docs/SECURITY_AUDIT_v0.0.8.md`。
+
+#### B. P0 SMTP 偶发竞态根治（任务书 §四）
+
+**根因**：fake SMTP server 原先跑在 **Playwright worker 进程内** ⇒ 与浏览器协议
+处理**共用事件循环** ⇒ worker 繁忙时 SMTP socket 事件被延迟 ⇒ 客户端空闲超时
+竞速触发 ⇒ 投递失败 ⇒ 邮件永远不到（v0.0.7 矩阵偶发超时，同一提交重跑即过）。
+
+**修复（确定性就绪 + 事件到达，无 sleep / 无轮询 / 无重试掩盖）**：
+
+- `tests/helpers/fake-smtp-standalone.ts`：**独立进程** server，
+  stdout JSON-lines 协议（ready / mail / stopped / error），SIGTERM 优雅退出
+  并回报 `openSockets`；
+- `e2e/smtp-fixture.ts`：**事件驱动** fixture —— ready 事件后才发请求、
+  mail 事件到达才断言（含消费语义防旧邮件重复匹配）、
+  stopped 事件校验 `openSockets=0` + `exitCode=0`；进程猝死立即明确失败；
+- `e2e/v005-password-reset-flow.spec.ts` 重写：端口契约校验 +
+  资源释放断言 + 新增「服务中断后错误可观察」用例；
+- `e2e/v008-smtp-stability.spec.ts` + 专用工作流：连续 **30 次**全流程，
+  每次记录邮件延迟/耗时/资源状态（默认 testIgnore 排除，避免打乱矩阵 200 条口径）。
+
+**结果**：**30/30 全通过**，邮件延迟 p50=131ms / p95=174ms / max=182ms，
+server received=30 / openSockets=0 / exitCode=0。
+
+#### C. P1 运维与部署可靠性（任务书 §六）
+
+- **结构化日志**（`src/lib/observability.ts`）：JSON-lines 输出 ⇒ docker logs /
+  journald 直接采集；**脱敏**（password/token/cookie/session/secret/
+  authorization/database_url/redis_url/reset_token/api_key 一律 `[redacted]`）。
+- **埋点真正生效**（此前是「有工具、无埋点」）：
+  - middleware 层统一埋点 ⇒ **全部 API 自动覆盖**（状态码分布 / 4xx / 5xx / 慢请求）；
+  - rate-limit 埋点放在唯一的 `rateLimit()` ⇒ 所有限流全覆盖；
+  - mailer 投递成功/失败计数（按 purpose 分类）。
+- **健康检查**：`/api/health`（存活）、`/api/health/ready`（就绪：DB 必查、
+  Redis 配置了才查，200/503，不泄露连接串与错误栈）。
+- **运维总览**：`/api/admin/ops`（依赖可用性、磁盘比例、邮件/限流/API 错误率、
+  慢请求列表）。
+- **备份完整性校验**：`backup.sh` 生成 `.sha256` + gzip 结构校验 + 内容非空校验
+  （不过则**删除该备份并失败**）；`restore.sh` **恢复前**三层校验
+  （不过则**拒绝恢复**）。
+- **运维体检脚本**（`deploy/health-check.sh`）：容器状态/健康、就绪探针、
+  PG 与 Redis 可用性、磁盘使用率（阈值 85%）、备份存在性与完整性、
+  备份新鲜度（阈值 7 天）；不打印任何口令。
+- **容器健康检查**改探 `/api/health/ready` ⇒ 数据库瞬时抖动不再把容器标记
+  unhealthy（避免放大故障）。
+
+#### D. P1 测试环境稳定性（任务书 §五）
+
+`docs/POSTGRES_ENV_REPORT_v0.0.8.md`：
+本机 PG 反复 crash recovery 的**量化归因** —— 恢复期**逐文件 fsync ≈ 10 秒**
+（41 次日志事件），而同盘普通文件 flush-to-disk 仅 **6~26 ms**；
+已排除磁盘空间（770 GB 空闲）、卷健康、杀毒软件、内存
+⇒ **环境层劣化，非产品缺陷**。
+
+处置：重型测试全部迁往 **Linux CI 隔离容器**；
+新增 `tests/static/` **纯静态测试通道**（不依赖数据库 ⇒ 本机 PG 不稳也不误报）。
+**未**清空 data 目录、**未**删除业务库、**未**修改现有实例配置、
+**未**用 `fsync=off` 绕过（那会削弱数据安全性）。
+
+#### E. P1 视觉回归：基线的时间炸弹（任务书 §八）
+
+**对照实验**：master（未改任何 UI）跑视觉回归**逐字节相同地失败**
+⇒ 与本轮改动无关。
+
+**根因**：相对时间文案在 **Server Component** 里用 **Node 时钟**渲染 ⇒
+同一份种子数据在不同时刻渲染出**不同长度**的文本 ⇒ 320px 窄视口换行 ⇒
+容器高度变化 120px ⇒ 基线随时间漂移。
+
+**修复**：`APP_NOW` 注入**确定性时钟**（未设置 = 真实时钟 ⇒ 生产行为不变；
+非法值 ⇒ 明确错误日志）+ 基线自带 `clockAnchor` + 浏览器时钟同步冻结。
+原站对照仍 **UNVERIFIED**（不绕过 Cloudflare 反爬）。
+
+#### F. P1 R-01 历史合规只读复核（任务书 §十）
+
+`docs/R01_COMPLIANCE_REVIEW_v0.0.8.md`：
+
+- 受影响对象**全量登记 81 个**（assets 2 / html 46 / screenshots 20 / visual 13）
+  —— 含历史截图与差异热力图，**不止** HTML/CSS/JS；
+- 可达性：`master` **已不可达** ✅；仍可达 = **4 个已发布 Tag + 6 个远端分支**；
+- **新增区分**：`src/app/globals.css` 与原站 `combo.css` 的**声明块交集 = 0**
+  ⇒ 本站样式是**独立实现**，清理**不应**包含它；
+- 方案 A 细化（受影响 Tag 由 3 个增至 4 个；filter-repo 只含 4 个 evidence 目录）
+  + 回滚方案 + GitHub Support 资料清单。
+
+**本轮未执行**任何历史改写 / force push / Tag 移动或删除 / Release 修改 /
+仓库删除 / 可见性变更 —— 仍待主人单独授权。
+
+#### G. CI 纪律：三处「假绿」漏洞（任务书 §九）
+
+1. **汇总退出码无人消费** —— e2e-matrix 的汇总判失败时 job 仍是绿的
+   ⇒ 新增独立判定步骤把退出码落地为 job 失败；v2ex-parity-probe 同类问题一并修。
+2. **语法错误 tsc 抓不到** —— helpers.ts 的注释块错误让 15 个分片
+   「0 个用例被收集」却显示 success ⇒ 新增 `tests/static/` 语法护栏
+   （TypeScript `parseDiagnostics`，**不依赖数据库**）。
+3. **测试前提未验证** —— 攻击矩阵曾「19/19 SAFE」但 **303 从未发生**
+   （Playwright 默认 `maxRedirects: 20` **自动跟随**重定向吞掉 Location 头）
+   ⇒ 加 `maxRedirects: 0` + 前置探针（P1/P2）证明被测路径确实执行。
+
+**教训**：**「测试全绿」不等于「被测行为被检查到了」。**
+
+#### H. 测试结果
+
+| 项 | 结果 |
+|---|---|
+| 跨浏览器矩阵 | **15 分片 × 204 = 3060 条全部通过**（run `42341171720`），零失败 / 零跳过 / 零 not run |
+| Host 攻击矩阵 | **19/19 SAFE**，0 VULNERABLE（run `42336954558`） |
+| SMTP 稳定性 | **30/30 通过**，p50=131ms / max=182ms |
+| 单元测试 | 341 + 24（安全）+ 8（时钟）+ 12（观测）+ 3（静态护栏） |
+| 视觉回归 | 63 组合，**回归项 0**（冻结时钟后） |
+| Docker / 安装 / 原站探测 | 全绿 |
+
 ## [Unreleased] — v0.0.7（已合入 master `535c421`，尚未发布）
 
 > **版本载体已同步到 0.0.7**（最终 SHA `535c421` 固定后一次性同步，7 个载体全部复验通过）。
