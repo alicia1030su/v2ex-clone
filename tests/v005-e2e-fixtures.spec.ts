@@ -55,6 +55,11 @@ describe('v0.0.5 E2E 夹具护栏', () => {
    *
    * 固定端口 = 字面量数字（`port: 3025`）或带默认值的 env（`?? 3025`）。
    * `port: 0` 是**随机端口** ⇒ 不冲突，不计入。
+   *
+   * v0.0.8 注意：多个 spec 可以引用**同一个 env 变量**（如都读
+   * `E2E_SMTP_PORT`）而不冲突 —— 因为它们不会同时跑（稳定性套件被
+   * testIgnore 默认排除）。真正会撞的是**不同的 env 变量用了同一个
+   * 默认值**、或两个字面量相同。
    */
   it('没有两个 E2E spec 声明同一个固定端口', () => {
     const portOwners = new Map<string, string[]>();
@@ -116,20 +121,57 @@ describe('v0.0.5 E2E 夹具护栏', () => {
   });
 
   /**
-   * ③ fake SMTP server 必须跑在**测试进程**里
+   * ③ fake SMTP server 必须由 **E2E spec 自己的 beforeAll** 启动
    *
-   * `e2e/**` 里的 fake SMTP 必须在 spec 自己的 `beforeAll` 里启动 ——
-   * 这样测试才能**直接断言**收到的邮件。
+   * v0.0.8 起启动方式升级为「独立进程」（e2e/smtp-fixture.ts 的
+   * startSmtpFixture 内部 spawn tests/helpers/fake-smtp-standalone.ts）——
+   * 修掉 v0.0.7 的偶发超时根因（server 与 Playwright worker 共用事件循环）。
+   * 但「谁拥有生命周期」不变：仍然是 spec 自己的 beforeAll，
+   * 不能靠 CI workflow 起（见 ④），也不能靠别的 spec 起。
+   *
+   * 接受的形态：`FakeSmtpServer.start`（进程内，旧形态）
+   *            或 `startSmtpFixture`（独立进程，v0.0.8 起）。
    */
   it('fake SMTP server 由 E2E spec 自己的 beforeAll 启动', () => {
     const spec = path.join(E2E_DIR, 'v005-password-reset-flow.spec.ts');
     const src = read(spec);
 
-    // 必须在 beforeAll 里调用 FakeSmtpServer.start
-    const beforeAll = /test\.beforeAll\(([\s\S]*?)\}\)/.exec(src)?.[1] ?? '';
-    expect(beforeAll, '应能在 beforeAll 块内找到 FakeSmtpServer.start').toContain(
-      'FakeSmtpServer.start',
-    );
+    // 括号配对提取 beforeAll 函数体（正则太脆：beforeAll 以 `}, 60_000);`
+    // 结尾，`\}\)` 匹配不到它，会一路误吃到后面的用例里 —— v0.0.8 实测踩到）。
+    const start = src.indexOf('test.beforeAll(');
+    expect(start, 'spec 里应能找到 test.beforeAll').toBeGreaterThan(-1);
+    const openBrace = src.indexOf('{', start);
+    let depth = 0;
+    let end = -1;
+    for (let i = openBrace; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    const beforeAll = end > 0 ? src.slice(openBrace, end) : '';
+    expect(
+      beforeAll,
+      '应能在 beforeAll 块内找到 FakeSmtpServer.start 或 startSmtpFixture',
+    ).toMatch(/FakeSmtpServer\.start|startSmtpFixture/);
+  });
+
+  /**
+   * ③b v0.0.8：稳定性套件必须**默认被排除**、由专用工作流运行
+   *
+   * v008-smtp-stability.spec.ts 需要独占应用实例（30 次全流程迭代），
+   * 若随常规跑次收集会：打乱矩阵每分片 200 条的计数口径、
+   * 给每个分片平添 4 分钟。playwright.config.ts 用 testIgnore
+   * 默认排除它（SMTP_STABILITY_RUN=1 时解除）。
+   */
+  it('稳定性套件默认被 testIgnore 排除（由专用工作流运行）', () => {
+    const cfg = read(path.join(ROOT, 'playwright.config.ts'));
+    expect(cfg).toContain('v008-smtp-stability.spec.ts');
+    expect(cfg).toMatch(/testIgnore[\s\S]{0,200}SMTP_STABILITY_RUN/);
   });
 
   /**

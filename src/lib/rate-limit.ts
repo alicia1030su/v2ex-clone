@@ -1,4 +1,5 @@
 import 'server-only';
+import { countMetric } from '@/lib/observability';
 import { getKV } from './kv';
 import { resolveClientIp } from './client-ip';
 
@@ -35,7 +36,16 @@ export async function rateLimit(
   const key = `ratelimit:${scope}:${identifier}`;
   const { count, resetAt } = await kv.incrWindow(key, windowSeconds);
   const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
-  return { ok: count <= limit, count, limit, resetAt, retryAfterSeconds };
+  const ok = count <= limit;
+  // v0.0.8：异常限流统计（任务书 §六）
+  // 埋点放在**这里**而不是各个路由 —— 所有限流都经过这一个函数，
+  // 覆盖完整且不会漏（新增路由自动被统计）。
+  countMetric('ratelimit.check');
+  if (!ok) {
+    countMetric('ratelimit.blocked');
+    countMetric(`ratelimit.blocked.${scope}`);
+  }
+  return { ok, count, limit, resetAt, retryAfterSeconds };
 }
 
 export async function rateLimitByIp(

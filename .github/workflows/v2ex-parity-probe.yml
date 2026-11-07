@@ -68,10 +68,20 @@ jobs:
       - name: 判定与汇总
         if: always()
         run: |
+          # ⚠️ v0.0.8：探测脚本自身的退出码也要落地 ——
+          #   之前只写进 GITHUB_OUTPUT 却没人消费 ⇒ 脚本崩了也可能绿。
+          #   （与 e2e-matrix 同类漏洞，同轮修掉。）
+          PROBE_RC="${{ steps.probe.outputs.exit_code }}"
+          echo "探测脚本退出码：${PROBE_RC}"
+
           # 找到最新探测报告
           REPORT=$(ls -t docs/evidence/visual/v2ex-probe-*.json 2>/dev/null | head -1)
           if [ -z "$REPORT" ]; then
-            echo "::error::没有找到探测报告 —— 探测脚本未正常运行"
+            echo "::error::没有找到探测报告 —— 探测脚本未正常运行（退出码 ${PROBE_RC}）"
+            exit 1
+          fi
+          if [ "$PROBE_RC" != "0" ] && [ "$PROBE_RC" != "2" ] && [ "$PROBE_RC" != "3" ]; then
+            echo "::error::探测脚本异常退出（${PROBE_RC}）—— 见 /tmp/v2ex-probe.log"
             exit 1
           fi
           REACHABLE=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$REPORT','utf8')).reachable)")

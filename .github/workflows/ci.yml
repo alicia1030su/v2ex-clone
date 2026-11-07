@@ -74,21 +74,20 @@ env:
   SEED_ADMIN_PASSWORD: ci-admin-password-12345
   SEED_DEMO_USERS: '1'
   SEED_DEMO_PASSWORD: ci-demo-password-12345
-  # ---- SMTP（v0.0.5：本地 fake SMTP server，供「忘记密码」全链路 E2E）----
+  # ---- SMTP（v0.0.5 起：fake SMTP server；v0.0.8 改为独立进程）----
   #
   # 「忘记密码」全链路测试需要邮件**真的投递出去**，才能验证
   # 「邮件进箱 → 链接有效 → 改密 → 旧会话失效」这条链路。
   #
   # ⚠️ **CI 不需要（也不能）自己起 fake SMTP server** ——
-  #    它由 `e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
-  #    在**测试进程内**启动（默认端口 3025）。
-  #    之所以必须跑在测试进程里：fake server 收到的邮件
-  #    要被测试**直接断言**，不能靠「读邮箱」之类的间接手段。
+  #     它由 `e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
+  #     以**独立进程**启动（v0.0.8：tests/helpers/fake-smtp-standalone.ts，
+  #     经 e2e/smtp-fixture.ts 管理，stdout JSON-lines 事件驱动）。
+  #     之所以是独立进程：v0.0.7 曾把它跑在 Playwright worker 进程内，
+  #     与浏览器协议处理共用事件循环 ⇒ SMTP socket 事件被延迟 ⇒
+  #     Linux 矩阵里「密码重置全链路」偶发超时（同一提交重跑即过）。
   #
-  #    实测教训（远端 run 42142762352，E2E job 失败）：
-  #    CI 里曾加过一个「启动 fake SMTP server」步骤，
-  #    与 spec 的 beforeAll **抢同一个端口** ⇒ EADDRINUSE。
-  #    该步骤已删除；这里只保留**服务端**要用的 SMTP 配置。
+  #     CI 侧只保留**服务端**要用的 SMTP 配置（发信目标 = fake server）。
   #
   # ⚠️ `SMTP_ALLOW_REAL_IN_TEST=1` 让 `sendMail()` 绕过内存 outbox，
   #    直达**生产** SMTP 实现（src/lib/mailer.ts 的 deliverViaSmtp）——
@@ -176,6 +175,19 @@ jobs:
         # 防止「前端调了但后端没这个端点」的偏差静默存在。
         run: node scripts/ui-verify.cjs
 
+      - name: 静态测试（语法护栏，不依赖数据库）
+        # ⚠️ v0.0.8 新增：E2E/工具脚本的**语法**与结构护栏。
+        #
+        # 为什么单独一个 job（且不依赖 PG）：
+        #   v0.0.8 提交了一个 e2e/helpers.ts 的**注释块语法错误**，
+        #   `npx tsc --noEmit` **抓不到**（TS 对注释块比 Playwright 宽松）
+        #   ⇒ 错误进了 CI ⇒ 15 个分片全部「0 个用例被收集」
+        #   ⇒ 矩阵看起来「跑完了」，实际**一条都没跑**。
+        #
+        # 这一步能在**类型检查之后、E2E 之前**快速失败，
+        # 且不因本机 PG 不稳定而误报（纯静态检查）。
+        run: npx vitest run --config vitest.static.config.ts
+
       - name: 单元测试
         env:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
@@ -250,17 +262,12 @@ jobs:
       # 远端 CI 实测失败（run 42142762352，E2E job）：
       #   Error: listen EADDRINUSE: address already in use 127.0.0.1:3025
       #
-      # 根因：`e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
-      # **自己会起一个** fake SMTP server（默认端口 3025）——
-      # 因为 fake server 必须跑在**测试进程**里，才能让测试直接断言收到的邮件。
+      # 根因：当时 `e2e/v005-password-reset-flow.spec.ts` 的 `beforeAll`
+      # 会自己起一个 fake SMTP server（默认端口 3025）。
       #
-      # 而这里又起了一个独立进程的 fake server ⇒ **同一个端口被监听两次** ⇒ EADDRINUSE。
-      #
-      # 服务端要用的 SMTP 配置（SMTP_HOST / SMTP_PORT / SMTP_ALLOW_REAL_IN_TEST）
-      # 已在 **workflow 级 env** 里配好，不需要这里额外起进程。
-      #
-      # 保留 `scripts/fake-smtp-server.ts`（CLI 包装）——
-      # 它仍可用于本地手工调试（`npx tsx scripts/fake-smtp-server.ts 3025`）。
+      # v0.0.8 起 beforeAll 改为起**独立进程**（经 e2e/smtp-fixture.ts），
+      # 端口契约（SMTP_PORT === E2E_SMTP_PORT）在 beforeAll 里显式校验。
+      # 本步骤保持删除状态；CI 只配服务端 SMTP 环境变量。
 
       - name: 启动应用
         env:

@@ -6,6 +6,7 @@ import { rateLimitByIp, rateLimit } from '@/lib/rate-limit';
 import { sendMail, buildPasswordResetEmail, maskEmail } from '@/lib/mailer';
 import { createResetToken } from '@/lib/reset-token-store';
 import { resolveClientIp } from '@/lib/client-ip';
+import { resolvePublicBaseUrl } from '@/lib/public-base-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,40 +84,51 @@ export async function POST(request: Request) {
   const user = users[0];
 
   if (user && user.status === 'active') {
-    try {
-      const ip = await resolveClientIp();
-      const { token, expiresAt } = await createResetToken(user.id, ip);
-      const baseUrl =
-        process.env.PUBLIC_BASE_URL?.trim() ||
-        (process.env.APP_URL?.trim() ?? '') ||
-        new URL(request.url).origin;
-      const link = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
-      const ttlMinutes = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 60);
+    // ⚠️ v0.0.8 安全加固（P0）：重置链接的基址**只信运维配置**
+    //    （PUBLIC_BASE_URL → APP_URL）。绝不能从请求头推导 ——
+    //    Host / x-forwarded-host 可控 ⇒ 攻击者可让重置链接指向恶意域名
+    //    ⇒ 受害者点链接即泄露令牌 ⇒ 账号接管。详见 src/lib/public-base-url.ts。
+    const baseUrl = resolvePublicBaseUrl();
+    if (!baseUrl) {
+      // fail-closed：不发送任何带不可信链接的邮件。
+      // 响应仍保持统一（邮箱枚举防护优先），但错误必须**可观测**。
+      console.error(
+        '[forgot-password] 未配置 PUBLIC_BASE_URL / APP_URL，已拒绝发送重置邮件' +
+          '（修复：在 .env 里设置站点的公开访问地址，如 https://v2ex.example.com）。' +
+          `当前请求方：${maskEmail(email)}`,
+      );
+    } else {
+      try {
+        const ip = await resolveClientIp();
+        const { token, expiresAt } = await createResetToken(user.id, ip);
+        const link = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+        const ttlMinutes = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 60);
 
-      const mail = buildPasswordResetEmail({
-        username: user.username,
-        resetUrl: link,
-        ttlMinutes,
-      });
+        const mail = buildPasswordResetEmail({
+          username: user.username,
+          resetUrl: link,
+          ttlMinutes,
+        });
 
-      const result = await sendMail({
-        to: email,
-        purpose: 'password_reset',
-        userId: user.id,
-        subject: mail.subject,
-        text: mail.text,
-        html: mail.html,
-      });
+        const result = await sendMail({
+          to: email,
+          purpose: 'password_reset',
+          userId: user.id,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
+        });
 
-      if (!result.sent) {
-        // 未配置 SMTP 或发送失败 —— 必须如实反映状态，不能假装已发送
-        console.warn(
-          `[forgot-password] 邮件未送达（${maskEmail(email)}）：${result.reason ?? '未知原因'}`,
-        );
+        if (!result.sent) {
+          // 未配置 SMTP 或发送失败 —— 必须如实反映状态，不能假装已发送
+          console.warn(
+            `[forgot-password] 邮件未送达（${maskEmail(email)}）：${result.reason ?? '未知原因'}`,
+          );
+        }
+      } catch (err) {
+        console.error('[forgot-password] 处理失败:', err);
+        // 即便内部出错也返回统一响应（不泄露内部状态）
       }
-    } catch (err) {
-      console.error('[forgot-password] 处理失败:', err);
-      // 即便内部出错也返回统一响应（不泄露内部状态）
     }
   }
 

@@ -60,6 +60,34 @@ case "$reply" in
 esac
 
 info "恢复到数据库..."
+
+# --- 恢复前完整性校验（v0.0.8，任务书 §六）---------------------------------
+#
+# 恢复是最不能失败的时刻 ⇒ **先校验再恢复**：
+#   1. gzip 结构校验（gunzip -t）：识别截断/CRC 错误；
+#   2. SHA256 核对（若同目录有 .sha256 文件）：识别内容被改动；
+#   3. 内容非空：识别「能解压但是空的」备份。
+#
+# 校验不过 ⇒ **拒绝恢复**（宁可明确报错，也不要把数据库写成半截状态）。
+if ! gzip -t "$DUMP_FILE" 2>/dev/null; then
+  die "备份文件 gzip 结构损坏（可能被截断）—— 已拒绝恢复。请用其它备份文件。"
+fi
+
+SHA_FILE="${DUMP_FILE}.sha256"
+if [ -f "$SHA_FILE" ] && command -v sha256sum >/dev/null 2>&1; then
+  EXPECTED_SHA="$(awk '{print $1}' "$SHA_FILE" | head -1)"
+  ACTUAL_SHA="$(sha256sum "$DUMP_FILE" | awk '{print $1}')"
+  if [ -n "$EXPECTED_SHA" ] && [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+    die "备份文件 SHA256 不匹配（期望 ${EXPECTED_SHA}，实际 ${ACTUAL_SHA}）—— 已拒绝恢复。"
+  fi
+  ok "SHA256 校验通过"
+fi
+
+if ! gzip -cd "$DUMP_FILE" 2>/dev/null | head -c 4096 | grep -q . ; then
+  die "备份内容为空 —— 已拒绝恢复。"
+fi
+ok "备份完整性校验通过"
+
 # psql 默认在事务中执行，单条 --single-transaction 保证要么全成功要么全回滚。
 if gzip -dc "$DUMP_FILE" \
     | docker compose exec -T postgres psql \

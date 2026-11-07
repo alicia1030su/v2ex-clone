@@ -102,6 +102,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // v0.0.8：SMTP 稳定性套件（v008-smtp-stability.spec.ts）默认**不**随
+  // 常规跑次收集 —— 它需要独占一个应用实例（自己的 SMTP 端口、
+  // 30 次全流程迭代约 4 分钟），由专用工作流「SMTP 稳定性」运行
+  // （该工作流设 SMTP_STABILITY_RUN=1）。
+  // 本地想跑：SMTP_STABILITY_RUN=1 npx playwright test e2e/v008-smtp-stability.spec.ts
+  testIgnore: process.env.SMTP_STABILITY_RUN
+    ? undefined
+    : ['**/v008-smtp-stability.spec.ts'],
   // worker 是独立进程，需要显式透传环境变量（见 e2e/global-setup.ts）
   globalSetup: './e2e/global-setup.ts',
   reporter: [['list'], ['json', { outputFile: 'test-results/e2e-results.json' }]],

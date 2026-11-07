@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { register, logout, uniqueName, waitForHydration, clearRateLimits, getCsrfToken } from './helpers';
-import { FakeSmtpServer } from '../tests/helpers/fake-smtp-server';
+import {
+  register,
+  logout,
+  uniqueName,
+  waitForHydration,
+  clearRateLimits,
+  getCsrfToken,
+} from './helpers';
+import { startSmtpFixture, type SmtpFixture } from './smtp-fixture';
 
 /**
  * v0.0.5 忘记密码 —— **全链路端到端测试**
@@ -13,45 +20,66 @@ import { FakeSmtpServer } from '../tests/helpers/fake-smtp-server';
  *     → POST /api/auth/forgot-password（真实 CSRF 校验 + 真实限流）
  *       → 数据库写 password_reset_tokens
  *         → 生产 SMTP 实现 deliverViaSmtp()
- *           → fake SMTP server（真实 TCP + 真实 SMTP 协议）
+ *           → fake SMTP server（**独立进程**，真实 TCP + 真实 SMTP 协议）
  *             → 邮件里的链接
  *               → GET /api/auth/reset-password?token=...（校验令牌）
  *                 → POST /api/auth/reset-password（消费令牌 + 改密）
  *                   → 数据库：口令已改 + 旧会话全部失效
  *
- * ## 为什么 SMTP 用 fake server 而不是 Mailpit
+ * ## v0.0.8：SMTP 等待机制改为**事件驱动**（P0 稳定性修复）
  *
- * 本机 Docker daemon 未运行（`docker info` 报
- * `cannot find pipe/dockerDesktopLinuxEngine`）。
- * 改用 `tests/helpers/fake-smtp-server.ts` —— 一个实现 SMTP 子集的
- * 极简服务器，等效完成**协议级**验证。
+ * 历史问题（v0.0.7 Linux 矩阵偶发超时，同一提交重跑即过）：
+ *   fake server 原先跑在 **Playwright worker 进程内**，与浏览器协议处理
+ *   共用事件循环 ⇒ worker 繁忙时 SMTP socket 的 'data' 事件被延迟 ⇒
+ *   客户端空闲超时竞速触发 ⇒ 投递失败 ⇒ 邮件永远不到。
  *
- * ## 关键约束：fake server 必须跑在**测试进程**里
+ * 现在的机制（e2e/smtp-fixture.ts + tests/helpers/fake-smtp-standalone.ts）：
+ *   1. fake server 是**独立进程**（自有事件循环，与 worker 零争抢）；
+ *   2. **ready 事件**确认 TCP 监听就绪后才发请求（无固定 sleep）；
+ *   3. **mail 事件**（stdout JSON-lines）确认邮件完整收到才断言（无轮询）；
+ *   4. **stopped 事件**确认优雅退出，并校验 openSockets=0 / exitCode=0；
+ *   5. 进程意外死亡 ⇒ 等待中的承诺立即以明确错误失败（不静默挂起）。
  *
- * Next 服务是**独立进程**，它要通过 TCP 连到 fake server。
- * 所以 fake server 监听一个**固定端口**（默认 3025），
- * 测试再用环境变量告诉 Next 服务往哪儿发。
- *
- * 这也意味着：fake server 收到的邮件，测试进程可以直接断言 ——
- * 不需要任何「读邮箱」的间接手段。
+ * 端口契约：应用读 `SMTP_PORT`，spec 读 `E2E_SMTP_PORT`，
+ * 两者必须一致（workflow 与本地脚本都从同一处设置）。spec 启动时
+ * 会校验这个一致性，不一致立即失败并说明原因。
  */
 
-/** fake SMTP server 的固定端口（Next 服务要连过来） */
-const SMTP_PORT = Number(process.env.E2E_SMTP_PORT ?? 3025);
 const MAIL_DOMAIN = 'e2e.local';
 
-let smtp: FakeSmtpServer;
+/** 应用（Next 服务）被告知的 SMTP 端口 */
+const APP_SMTP_PORT = Number(process.env.SMTP_PORT ?? 3025);
+/** 测试侧 fake server 应监听的端口（必须与 APP_SMTP_PORT 一致） */
+const E2E_SMTP_PORT = Number(process.env.E2E_SMTP_PORT ?? APP_SMTP_PORT);
+
+let smtp: SmtpFixture;
 
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  smtp = await FakeSmtpServer.start({ port: SMTP_PORT });
+  // 端口契约校验：不一致时 fake server 起得再好邮件也到不了
+  expect(
+    E2E_SMTP_PORT,
+    `E2E_SMTP_PORT(${E2E_SMTP_PORT}) 必须与 SMTP_PORT(${APP_SMTP_PORT}) 一致 —— ` +
+      '前者是测试侧 fake server 的监听端口，后者是应用侧的发信目标',
+  ).toBe(APP_SMTP_PORT);
+
+  smtp = await startSmtpFixture(E2E_SMTP_PORT);
+  expect(smtp.port, 'fake SMTP server 实际监听端口必须符合预期').toBe(E2E_SMTP_PORT);
   // eslint-disable-next-line no-console
-  console.log(`[E2E-SMTP] fake server listening on 127.0.0.1:${smtp.port}`);
+  console.log(`[E2E-SMTP] 独立进程 fake server 就绪：127.0.0.1:${smtp.port}`);
 }, 60_000);
 
 test.afterAll(async () => {
-  if (smtp) await smtp.stop();
+  if (!smtp) return;
+  // 优雅停止 + **资源释放校验**：openSockets 必须为 0、退出码必须为 0
+  const info = await smtp.stop();
+  // eslint-disable-next-line no-console
+  console.log(
+    `[E2E-SMTP] server 已停止：received=${info.received} openSockets=${info.openSockets} exitCode=${info.exitCode}`,
+  );
+  expect(info.openSockets, '停止后不应有残留 socket').toBe(0);
+  expect(info.exitCode, '退出码必须为 0').toBe(0);
 }, 60_000);
 
 test('游客：未登录也能打开「忘记密码」页', async ({ page }) => {
@@ -171,7 +199,6 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   // ── ③ 退出并申请密码重置 ──
   await logout(page);
   await clearRateLimits(page);
-  const beforeCount = smtp.received.length;
 
   await page.goto('/forgot');
   await waitForHydration(page, '#email');
@@ -183,13 +210,9 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   const resp = await respPromise;
   expect(resp.status()).toBe(200);
 
-  // ── ④ 邮件真的进了 fake server ──
-  // （等待 SMTP 往返 + 投递）
-  await expect
-    .poll(() => smtp.received.length, { timeout: 15_000 })
-    .toBeGreaterThan(beforeCount);
-
-  const mail = smtp.received[smtp.received.length - 1];
+  // ── ④ 邮件真的进了 fake server（**事件驱动**，非轮询）──
+  // mail 事件意味着完整 SMTP 对话成功：EHLO → MAIL FROM → RCPT TO → DATA → 250。
+  const mail = await smtp.waitForMail((m) => m.to.includes(email), 20_000);
   expect(mail.to).toEqual([email]);
   expect(mail.subject.length).toBeGreaterThan(0);
 
@@ -296,3 +319,55 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
   const newRes = await newLogin;
   expect(newRes.status()).toBe(200);
 });
+
+/**
+ * v0.0.8 新增：**服务中断后错误可观察**。
+ *
+ * 停掉 fake SMTP server 后申请重置：
+ *   · HTTP 响应必须仍是统一的 200（邮箱枚举防护不受影响）；
+ *   · 邮件**确实不会到** —— 且失败是**可观测**的：
+ *     测试侧拿到明确的「未收到邮件」错误（带已收数量），
+ *     应用侧有 `[forgot-password] 邮件未送达` 警告日志。
+ *
+ * 这防止「邮件 silently 丢了没人知道」—— 比超时掩盖更危险的状态。
+ */
+test('服务中断：SMTP 停止后申请重置仍返回统一响应，且无邮件到达（错误可观察）', async ({
+  page,
+}) => {
+  await clearRateLimits(page);
+  const username = uniqueName('smtp_down');
+  const email = `${username}@${MAIL_DOMAIN}`;
+  await register(page, username);
+  await logout(page);
+  await clearRateLimits(page);
+
+  // 停掉 fake server（模拟邮件服务中断）
+  await smtp.stop();
+
+  await page.goto('/forgot');
+  await waitForHydration(page, '#email');
+  await page.fill('#email', email);
+  const respPromise = page.waitForResponse(
+    (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: '发送重置链接' }).click();
+  const resp = await respPromise;
+
+  // ① 枚举防护：仍返回统一 200（与邮箱是否存在无关）
+  expect(resp.status()).toBe(200);
+
+  // ② 邮件不到 —— 且等待以**明确错误**失败（不是静默通过）
+  await expect(
+    smtp.waitForMail((m) => m.to.includes(email), 5_000).then(
+      () => 'arrived',
+      (err: Error) => err.message,
+    ),
+  ).resolves.toMatch(/未收到邮件/);
+
+  // ③ 应用仍然健康（邮件服务故障不影响其他功能）
+  const health = await page.request.get('/api/health');
+  expect(health.status()).toBe(200);
+
+  // ── 恢复 server，供后续（本文件已无后续用例，但保持环境干净）──
+  smtp = await startSmtpFixture(E2E_SMTP_PORT);
+}, 90_000);

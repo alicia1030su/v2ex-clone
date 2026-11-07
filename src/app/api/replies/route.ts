@@ -6,8 +6,7 @@ import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
 import { allocateFloor, ensureFloorCounter } from '@/server/floor';
-import { sanitizeRedirect } from '@/lib/redirect';
-import { buildRedirectUrl } from '@/lib/redirect-url';
+import { sanitizeRedirect, seeOther } from '@/lib/redirect';
 import { getFormData } from '@/lib/csrf';
 import { extractMentions, buildMentionMessage } from '@/lib/mentions';
 
@@ -241,11 +240,18 @@ export async function POST(request: Request) {
       ...(createdReplyId ? { replyId: createdReplyId } : {}),
     });
   }
-  // ⚠️ v0.0.7：不能用 `new URL(redirect, request.url)` ——
-  //   Next 的 request.url 用**服务器自身 hostname**（默认 localhost）重建，
-  //   而非客户端实际请求的 Host 头 ⇒ 会把用户重定向到错误的 host
-  //   （实测：127.0.0.1 被换成 localhost ⇒ 浏览器出现两个 v2_csrf cookie
-  //    ⇒ 后续写操作一律 403「CSRF 校验失败」；反代/多域名部署下更严重）。
-  //   改用请求头里的 Host 构造同源 URL（见 src/lib/redirect-url.ts）。
-  return NextResponse.redirect(buildRedirectUrl(request, redirect), { status: 303 });
+  // ⚠️ v0.0.8 安全加固（P0）：303 使用**站内相对 Location**（`/t/123`）。
+  //
+  // 演进记录（三次修复，全部有取证证据）：
+  //   v0.0.6  `new URL(redirect, request.url)`  —— Next 在 next start 下按
+  //            **服务器自身 hostname**（localhost）重建 request.url ⇒ 用户被
+  //            带到错误 host（浏览器出现两个 v2_csrf cookie ⇒ 后续写操作 403）。
+  //   v0.0.7  改用请求头 Host/x-forwarded-host 构造绝对 URL —— 修好了换 host，
+  //            但引入 **Host Header Poisoning** 面：不可信代理/直连场景下
+  //            攻击者可控制 Location 的域名与协议（303 缓存投毒 / 反代跳错域名）。
+  //   v0.0.8  相对 Location —— RFC 7231 §7.1.2 允许；浏览器按**实际请求 URL**
+  //            解析 ⇒ host 与协议永远正确，且**不经任何请求头** ⇒ 无投毒面。
+  //
+  // 证据：docs/SECURITY_AUDIT_v0.0.8.md（攻击矩阵实测）。
+  return seeOther(redirect);
 }

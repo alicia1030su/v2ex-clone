@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { INTERNAL_CLIENT_IP_HEADER } from '@/lib/client-ip-constants';
+import { countMetric, recordSlowRequest, logWarn } from '@/lib/observability';
 
 /**
  * CSRF Cookie 下发 + 客户端 IP 注入中间件
@@ -119,6 +120,47 @@ export function middleware(request: NextRequest) {
       path: '/',
       maxAge: CSRF_MAX_AGE,
     });
+  }
+
+  // ---- 5. API 请求埋点（v0.0.8，任务书 §六「关键接口错误率 / 慢查询监测」）----
+  //
+  // 埋点放在 **middleware**（而不是逐个路由）⇒ **所有** API 请求自动覆盖，
+  // 新增路由不会漏。
+  //
+  // 只记录**路由路径**（`/api/replies`）与状态码/耗时，
+  // **不记录** query string / 用户标识 / 请求体 ⇒ 无隐私与安全风险。
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const t0 = Date.now();
+    const route = request.nextUrl.pathname;
+    const settle = () => {
+      const durationMs = Date.now() - t0;
+      countMetric('api.request');
+      countMetric(`api.status.${response.status}`);
+      if (response.status >= 500) {
+        countMetric('api.error.5xx');
+        countMetric(`api.error.5xx.${route}`);
+      } else if (response.status >= 400) {
+        countMetric('api.error.4xx');
+        countMetric(`api.error.4xx.${route}`);
+      }
+      if (durationMs >= 2000) {
+        recordSlowRequest(route, durationMs);
+        logWarn('slow_api_request', { route, durationMs, status: response.status });
+      }
+    };
+    try {
+      // 用 waitUntil 在响应完成后结算（不阻塞响应）
+      const anyResponse = response as Response & {
+        waitUntil?: (p: Promise<unknown>) => void;
+      };
+      if (typeof anyResponse.waitUntil === 'function') {
+        anyResponse.waitUntil(Promise.resolve().then(settle));
+      } else {
+        settle();
+      }
+    } catch {
+      /* 埋点失败绝不影响业务响应 */
+    }
   }
 
   return response;
