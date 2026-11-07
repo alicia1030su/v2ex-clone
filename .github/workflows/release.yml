@@ -1748,6 +1748,21 @@ jobs:
             exit 1
           fi
           echo "✓ 安装包顶层目录：${ZIP_ROOT}/"
+          # ── V9-09：包内脚本必须带可执行位 ──
+          # `zip` 会把 Git 的 100644 原样写进 ZIP 的外部属性，解压后就是
+          # 0644 ⇒ `./install.sh` 直接 Permission denied。
+          # v0.0.1~v0.0.9 的**全部**发布包都有这个问题（已用 v0.0.4 官方包
+          # 实测：6 个 .sh 全是 0o100644）；文档只写了 `chmod +x install.sh`，
+          # 于是主流程能跑，`./start.sh` / `./backup.sh` 仍然报错。
+          # 源码权限位已在 v0.0.9 之后修正为 100755，此处断言防止回退。
+          for f in /tmp/verify-zip/deploy/*.sh; do
+            if [ ! -x "$f" ]; then
+              echo "::error::包内脚本缺少可执行位：$(basename "$f")（Git 应为 100755）"
+              ls -l "$f"
+              exit 1
+            fi
+          done
+          echo "✓ 包内脚本均带可执行位（$(ls /tmp/verify-zip/deploy/*.sh | wc -l | tr -d ' ') 个）"
           missing=0
           for f in $REQUIRED; do
             if [ ! -f "/tmp/verify-zip/deploy/$f" ]; then
