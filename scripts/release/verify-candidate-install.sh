@@ -145,7 +145,11 @@ fi
 ok "候选 ZIP 不含 .env / 凭据文件"
 
 # 候选包引用的镜像标签（必须与镜像 tar 里的一致）
-CAND_TAG="$(grep -oE '[A-Za-z0-9._\-/]+:v?[0-9]+\.[0-9]+\.[0-9]+' "${DEPLOY_DIR}/docker-compose.yml" | head -1)"
+# ⚠️ 正则里的 `-` 必须放在**字符类末尾**（或转义为 `\-`）——
+#    `[A-Za-z0-9._\-/]` 里的 `\-/` 会被 grep 解析成「从 \ 到 / 的范围」，
+#    报 `grep: Invalid range end` 并以退出码 2 中断整个脚本。
+#    这正是 CI 首次实跑暴露的缺陷（本地未跑过 grep 提取路径）。
+CAND_TAG="$(grep -oE '[A-Za-z0-9._/-]+:v?[0-9]+\.[0-9]+\.[0-9]+' "${DEPLOY_DIR}/docker-compose.yml" | head -1)"
 if [ -z "$CAND_TAG" ]; then
   die "无法从候选 compose 中解析出镜像标签。"
 fi
