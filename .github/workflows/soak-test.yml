@@ -79,7 +79,10 @@ permissions:
   #   （GitHub 取两者的交集）。
   #   `summary` job 要用 `gh run download` 取回最后一段的状态 artifact ⇒
   #   需要 `actions: read`。
-  actions: read
+  #
+  # ⚠️ `actions` 只能写**一次** —— YAML 里重复的 key 会被后者覆盖（静默生效），
+  #    写了两次 `actions:` 只会保留 `write`，`read` 丢失。
+  #    （GitHub 权限模型里 `write` **蕴含** `read` ⇒ 写 `write` 一项即可。）
   actions: write
 
 jobs:

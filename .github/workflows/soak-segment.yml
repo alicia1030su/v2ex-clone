@@ -71,7 +71,10 @@ permissions:
   #   `actions/upload-artifact` 需要 `actions: write`，
   #   `gh run download`（读 artifact）需要 `actions: read`。
   #   此前只有 `contents: read` ⇒ artifact 上传/下载都会 403。
-  actions: read
+  #
+  # ⚠️ `actions` 只能写**一次** —— YAML 里重复的 key 会被后者覆盖（静默生效），
+  #    写了两次 `actions:` 只会保留 `write`，`read` 丢失。
+  #    （GitHub 权限模型里 `write` **蕴含** `read` ⇒ 写 `write` 一项即可。）
   actions: write
 
 env:
