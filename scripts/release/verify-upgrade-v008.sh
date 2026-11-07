@@ -1,22 +1,36 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# v0.0.8 升级验证：v0.0.7 → v0.0.8（原地升级）
+# v0.0.8 升级验证（原地升级 + 备份恢复 + 幂等）
 #
 # 任务书 §七要求：「完成数据库升级、备份、恢复和回滚验证」，
-# 且「不能将文件存在当作功能可用」。
+# 且「不能将文件存在当作功能可用」⇒ 做成**可执行的真实验证**。
 #
-# 本脚本验证**原地升级**这条路径（与 verify-upgrade-v005.sh 同构）：
-#   1. 用 **v0.0.7 的迁移集**建一个库（模拟「用户手上的旧版本数据库」）
-#   2. 灌入可识别的数据（用户 / 主题 / 回复 / 积分 / 头像 …）
+# ## 验证内容
+#
+#   1. 用 **drizzle-kit 自身**建基准库（journal 表完整）——
+#      ⚠️ 手工用 psql 应用迁移 SQL 会**漏建 `drizzle.__drizzle_migrations`**，
+#         导致后续 drizzle-kit 认为迁移都未应用 ⇒ 重复执行失败
+#         （v0.0.8 首版实现踩到，CI 实测失败）。
+#   2. 灌入可识别的探针数据
 #   3. 记录**数据指纹**（只读 SQL）
-#   4. 跑 **v0.0.8 的迁移**（`drizzle-kit migrate`）
-#   5. 再取指纹 ⇒ 断言 **data.* 逐字节不变**，schema.* 只在**预期**范围内变化
-#   6. 连跑 3 次迁移 ⇒ 断言**幂等**
-#   7. **回滚验证**：用备份恢复到临时库 ⇒ 数据与升级前一致
+#   4. 跑 **v0.0.8 的迁移**（同一库上 = 原地升级）
+#   5. 断言数据指纹**逐字节不变**（用户数据未被改动）
+#   6. **幂等**：连跑 3 次迁移均成功
+#   7. **备份 → 恢复到临时库** ⇒ 断言指纹一致（回滚路径）
+#
+# ## 关于「v0.0.7 的迁移集」
+#
+# v0.0.8 **没有新增数据库迁移**（最后迁移仍是 v0.0.5 的 0003_v005_reports.sql）
+# ⇒ v0.0.7 与 v0.0.8 的迁移集**相同**。
+#
+# 但「相同」不等于「无需验证」：升级路径仍要证明
+#   ① 迁移在已有数据的库上能安全重跑（幂等）；
+#   ② 迁移过程中用户数据**原样保留**；
+#   ③ 备份能恢复出同样的数据。
 #
 # ## 安全性
 #
-# - **只**操作本脚本自己建的库（`v2ex_upgrade_v008_*` 前缀）
+# - **只**操作本脚本自己建的库（`v2ex_upgrade_v008_*` 前缀），结束时清理
 # - 只**读**用户数据（指纹脚本是纯 SELECT）
 # - 不碰任何生产库 / 证据库
 # - 不做任何 git 操作、不访问网络
@@ -50,79 +64,71 @@ bad()  { FAIL=$((FAIL+1)); printf '  %s✗%s %s\n' "$C_RED" "$C_RST" "$*"; }
 info() { printf '  %s\n' "$*"; }
 die()  { printf '%s%s%s\n' "$C_RED" "$*" "$C_RST" >&2; exit 1; }
 
+# psql / pg_dump 客户端（Windows 用本地 exe，Linux 用系统命令）
+PSQL_BIN="psql"
+PGDUMP_BIN="pg_dump"
+if [ -x "/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/psql.exe" ]; then
+  PSQL_BIN="/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/psql.exe"
+  PGDUMP_BIN="/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/pg_dump.exe"
+fi
+
 psql_q() {
-  # 用本地 PG 客户端（Windows 用 psql.exe，Linux 用 psql）
-  local bin="psql"
-  if [ -x "/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/psql.exe" ]; then
-    bin="/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/psql.exe"
-  fi
-  "$bin" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$1" -X -t -A -c "$2"
+  "$PSQL_BIN" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$1" -X -t -A -c "$2"
 }
 
-printf '%s═══ v0.0.8 升级验证（v0.0.7 → v0.0.8）═══%s\n' "$C_BLD" "$C_RST"
+printf '%s═══ v0.0.8 升级验证（原地升级 + 备份恢复 + 幂等）═══%s\n' "$C_BLD" "$C_RST"
 printf '  PG: %s:%s  升级库=%s  恢复库=%s\n' "$PGHOST" "$PGPORT" "$OLD_DB" "$RESTORE_DB"
 
-command -v psql >/dev/null 2>&1 || [ -x "/c/Users/TYMO001/WorkBuddy/ai/_tools/pgsql/pgsql/bin/psql.exe" ] \
-  || die "找不到 psql 客户端"
+command -v "$PSQL_BIN" >/dev/null 2>&1 || [ -x "$PSQL_BIN" ] || die "找不到 psql 客户端"
 
-# --- 0. 清理旧测试库（仅本脚本自己的） -------------------------------------
+# --- 0. 清理本脚本自己的库 -----------------------------------------------
 for db in "$OLD_DB" "$RESTORE_DB"; do
   psql_q postgres "DROP DATABASE IF EXISTS $db" >/dev/null 2>&1
 done
 
-# --- 1. 建「旧版本」库：只用 v0.0.8 之前的迁移集 --------------------------
+# --- 1. 建基准库：必须用 drizzle-kit 自身 ----------------------------------
 #
-# v0.0.8 **没有新增数据库迁移**（本轮全是应用层改动）⇒ 旧库 = 当前迁移集的
-# 前 N-1 个迁移。若将来 v0.0.8 之后新增了迁移，这里必须同步调整。
-#
-# 迁移集来源：drizzle/ 目录下的 SQL 文件（按文件名排序即执行顺序）。
+# ⚠️ 关键：**不能**手工用 psql 应用迁移 SQL —— 那样没有
+#    `drizzle.__drizzle_migrations` journal 表 ⇒ drizzle-kit 会认为
+#    所有迁移都未应用 ⇒ 重复执行时报错（v0.0.8 首版实现踩到）。
 MIGRATIONS_DIR="$REPO_ROOT/drizzle"
-mapfile -t ALL_MIGRATIONS < <(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort)
-TOTAL=${#ALL_MIGRATIONS[@]}
-if [ "$TOTAL" -lt 2 ]; then
-  info "迁移集只有 ${TOTAL} 个文件 —— 无法构造「旧版本」库，跳过升级对比"
-  TOTAL=0
-else
-  info "迁移集共 ${TOTAL} 个文件；旧库将应用前 $((TOTAL-1)) 个"
-fi
+[ -d "$MIGRATIONS_DIR" ] || die "找不到迁移目录：$MIGRATIONS_DIR"
+TOTAL=$(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | wc -l | tr -d ' ')
+info "迁移集共 ${TOTAL} 个文件（v0.0.8 未新增迁移 ⇒ 与 v0.0.7 相同）"
 
-# 用 psql 直接应用「前 N-1 个迁移」（模拟旧版本数据库）
-if [ "$TOTAL" -gt 0 ]; then
-  psql_q postgres "CREATE DATABASE $OLD_DB" >/dev/null || die "建旧库失败"
-  for f in "${ALL_MIGRATIONS[@]:0:$((TOTAL-1))}"; do
-    psql_q "$OLD_DB" "$(cat "$f")" >/dev/null 2>&1 \
-      || psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$OLD_DB" -X -q -f "$f" >/dev/null 2>&1 \
-      || die "应用迁移失败：$(basename "$f")"
-  done
-  ok "旧版本数据库建成（${OLD_DB}，前 $((TOTAL-1)) 个迁移）"
+psql_q postgres "CREATE DATABASE $OLD_DB" >/dev/null || die "建库失败"
+export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${OLD_DB}"
+if (cd "$REPO_ROOT" && npx drizzle-kit migrate >/tmp/v008-migrate.log 2>&1); then
+  ok "基准库建成（${OLD_DB}，迁移 journal 完整）"
+else
+  bad "基准库迁移失败（详见 /tmp/v008-migrate.log）"
+  tail -15 /tmp/v008-migrate.log 2>/dev/null
+  exit 1
 fi
 
 # --- 2. 灌入可识别数据 ----------------------------------------------------
-if [ "$TOTAL" -gt 0 ]; then
-  psql_q "$OLD_DB" "CREATE TABLE IF NOT EXISTS _upgrade_probe (id serial primary key, note text, created_at timestamptz default now())" >/dev/null
-  psql_q "$OLD_DB" "INSERT INTO _upgrade_probe (note) VALUES ('v008-probe-1'),('v008-probe-2'),('v008-probe-3')" >/dev/null
-  PROBE_COUNT_BEFORE="$(psql_q "$OLD_DB" "select count(*) from _upgrade_probe")"
-  ok "灌入探针数据（${PROBE_COUNT_BEFORE} 行）"
-fi
+psql_q "$OLD_DB" "CREATE TABLE IF NOT EXISTS _upgrade_probe (id serial primary key, note text, created_at timestamptz default now())" >/dev/null \
+  || die "建探针表失败"
+psql_q "$OLD_DB" "INSERT INTO _upgrade_probe (note) VALUES ('v008-probe-1'),('v008-probe-2'),('v008-probe-3')" >/dev/null \
+  || die "灌探针数据失败"
+PROBE_COUNT_BEFORE="$(psql_q "$OLD_DB" 'select count(*) from _upgrade_probe')"
+ok "灌入探针数据（${PROBE_COUNT_BEFORE} 行）"
 
 # --- 3. 数据指纹（只读） --------------------------------------------------
 FINGERPRINT_SQL="select 'probe:' || count(*) || ':' || coalesce(sum(id),0) from _upgrade_probe"
 FP_BEFORE="$(psql_q "$OLD_DB" "$FINGERPRINT_SQL" 2>/dev/null || echo 'n/a')"
 info "升级前指纹：${FP_BEFORE}"
 
-# --- 4. 在**同一个库上**跑 v0.0.8 的迁移（这才是「原地升级」）-----------
+# --- 4. 原地升级：同一库上再跑一次迁移 ------------------------------------
 #
-# ⚠️ v0.0.8 首次实现时的错误（CI 实测失败）：我建了**两个独立的新库**，
-#   于是探针数据在 old 库里、迁移跑在 new 库里 ⇒ 「升级后指纹 = n/a」。
-#   真实的原地升级是**同一个库**上跑新迁移 ⇒ 数据必须**原样保留**。
-info "在旧库 ${OLD_DB} 上跑 v0.0.8 的迁移（原地升级）…"
-export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${OLD_DB}"
-if (cd "$REPO_ROOT" && npx drizzle-kit migrate >/tmp/v008-migrate.log 2>&1); then
-  ok "迁移执行成功（原地升级）"
+# 这正是「升级」的动作：库里有真实数据时，迁移必须**安全重跑**
+# （已应用的跳过、未应用的补上），且**不动用户数据**。
+info "在已有数据的库上重跑迁移（= 升级动作）…"
+if (cd "$REPO_ROOT" && npx drizzle-kit migrate >/tmp/v008-migrate-upgrade.log 2>&1); then
+  ok "升级迁移执行成功"
 else
-  bad "迁移执行失败（详见 /tmp/v008-migrate.log）"
-  tail -15 /tmp/v008-migrate.log 2>/dev/null
-  FAIL=$((FAIL+1))
+  bad "升级迁移执行失败（详见 /tmp/v008-migrate-upgrade.log）"
+  tail -15 /tmp/v008-migrate-upgrade.log 2>/dev/null
 fi
 
 # --- 5. 数据指纹比对（数据不变）------------------------------------------
@@ -135,39 +141,36 @@ fi
 
 # --- 6. 幂等：连跑 3 次迁移 ----------------------------------------------
 IDEMPOTENT=1
+FAILED_AT=0
 for i in 1 2 3; do
-  if ! (cd "$REPO_ROOT" && npx drizzle-kit migrate >/tmp/v008-migrate-$i.log 2>&1); then
+  if ! (cd "$REPO_ROOT" && npx drizzle-kit migrate >"/tmp/v008-migrate-idem-$i.log" 2>&1); then
     IDEMPOTENT=0
+    FAILED_AT=$i
     break
   fi
 done
 if [ "$IDEMPOTENT" = "1" ]; then
   ok "迁移幂等：连跑 3 次均成功"
 else
-  bad "迁移不幂等（第 ${i} 次失败）"
+  bad "迁移不幂等（第 ${FAILED_AT} 次失败）"
+  tail -10 "/tmp/v008-migrate-idem-${FAILED_AT}.log" 2>/dev/null
 fi
 
 # --- 7. 备份与恢复验证 ----------------------------------------------------
 info "备份与恢复验证…"
 BACKUP_FILE="/tmp/v008-upgrade-backup.sql"
-if (cd "$REPO_ROOT" && node -e "
-  const { execFileSync } = require('child_process');
-  const bin = 'pg_dump';
-  // ⚠️ PGPASSWORD 已由脚本 export ⇒ pg_dump/psql 走 .pgpass/环境变量认证
-  const out = execFileSync(bin, [
-    '-h', process.env.PGHOST, '-p', String(process.env.PGPORT),
-    '-U', process.env.PGUSER, '-d', process.env.OLD_DB, '--no-owner', '--no-acl',
-  ], { maxBuffer: 64 * 1024 * 1024, encoding: 'utf8' });
-  require('fs').writeFileSync('/tmp/v008-upgrade-backup.sql', out);
-") 2>/dev/null; then
+if (cd "$REPO_ROOT" && PGPASSWORD="$PGPASSWORD" "$PGDUMP_BIN" \
+      -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$OLD_DB" \
+      --no-owner --no-acl > "$BACKUP_FILE" 2>/tmp/v008-pgdump.log); then
   ok "备份生成（$(wc -c < "$BACKUP_FILE") 字节）"
 else
-  bad "备份生成失败"
+  bad "备份生成失败（$(tail -2 /tmp/v008-pgdump.log 2>/dev/null | tr '\n' ' ')"）
 fi
 
 if [ -s "$BACKUP_FILE" ]; then
   psql_q postgres "CREATE DATABASE $RESTORE_DB" >/dev/null || die "建恢复库失败"
-  if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$RESTORE_DB" -X -q -f "$BACKUP_FILE" >/dev/null 2>&1; then
+  if "$PSQL_BIN" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$RESTORE_DB" \
+       -X -q -v ON_ERROR_STOP=1 -f "$BACKUP_FILE" >/tmp/v008-restore.log 2>&1; then
     FP_RESTORED="$(psql_q "$RESTORE_DB" "$FINGERPRINT_SQL" 2>/dev/null || echo 'n/a')"
     if [ "$FP_RESTORED" = "$FP_AFTER" ]; then
       ok "恢复成功且数据指纹一致（${FP_RESTORED}）"
@@ -175,7 +178,7 @@ if [ -s "$BACKUP_FILE" ]; then
       bad "恢复后指纹不一致：期望=${FP_AFTER} 实际=${FP_RESTORED}"
     fi
   else
-    bad "恢复执行失败"
+    bad "恢复执行失败（$(tail -2 /tmp/v008-restore.log 2>/dev/null | tr '\n' ' ')"）
   fi
 fi
 
@@ -184,11 +187,11 @@ printf '\n%s═══ 汇总 ═══%s\n' "$C_BLD" "$C_RST"
 printf '  通过 %s%s%s  失败 %s%s%s\n' "$C_GRN" "$PASS" "$C_RST" \
   "$([ "$FAIL" -gt 0 ] && echo "$C_RED" || echo "$C_GRN")" "$FAIL" "$C_RST"
 
-# 清理（本脚本自己的库）
+# 清理（本脚本自己的库与临时文件）
 for db in "$OLD_DB" "$RESTORE_DB"; do
   psql_q postgres "DROP DATABASE IF EXISTS $db" >/dev/null 2>&1
 done
-rm -f "$BACKUP_FILE" /tmp/v008-migrate*.log 2>/dev/null
+rm -f "$BACKUP_FILE" /tmp/v008-migrate*.log /tmp/v008-pgdump.log /tmp/v008-restore.log 2>/dev/null
 
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0
