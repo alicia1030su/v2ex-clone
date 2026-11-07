@@ -216,7 +216,6 @@ if command -v sed >/dev/null 2>&1; then
     ok "已把 ${NORMALIZED} 个 shell 脚本的换行符归一化为 LF"
   fi
 fi
-PYEOF
 
 # 校验候选包内的镜像引用确实被改成了候选标签
 if ! grep -q "$IMAGE_TAG" "$DEPLOY_STAGE/docker-compose.yml" 2>/dev/null; then

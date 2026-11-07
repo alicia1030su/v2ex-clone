@@ -71,6 +71,9 @@ while [ $# -gt 0 ]; do
     --pg-bin)         PG_BIN="${2:-}"; shift 2 ;;
     --db)             DB_NAME="${2:-}"; shift 2 ;;
     --pg-port)        PG_PORT="${2:-}"; shift 2 ;;
+    --pg-host)        PG_HOST="${2:-}"; shift 2 ;;
+    --pg-user)        PG_USER="${2:-}"; shift 2 ;;
+    --pg-pass)        PG_PASS="${2:-}"; shift 2 ;;
     -h|--help)        grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -40; exit 0 ;;
     *) echo "未知参数：$1" >&2; exit 1 ;;
   esac
