@@ -227,8 +227,57 @@ export V2EX_IMAGE="$CAND_TAG"
 export SEED_DEMO_USERS=0
 export TRUST_PROXY_HEADERS=0
 
+# ---------------------------------------------------------------------------
+# ⚠️ 必须写出 `.env` 文件 —— 候选包的 compose 里有 `env_file: - .env`
+#
+# 踩坑记录（CI 实测，run 42357511495）：
+#   只 `export` 环境变量**不够** —— compose 的 `env_file` 指向的是**文件**，
+#   文件不存在 ⇒ `docker compose up` 直接失败：
+#     env file /path/to/.env not found
+#
+# 真实用户路径是 `install.sh` 生成 `.env` ⇒ 这里**按同等方式**生成一份，
+# 让验证覆盖「用户拿到包 → 装 → 跑起来」的真实链路。
+#
+# 口令随机生成、不打印明文、文件权限收紧到 600（与 install.sh 一致）。
+# ---------------------------------------------------------------------------
+ENV_FILE="${DEPLOY_DIR}/.env"
+if [ -f "${DEPLOY_DIR}/.env.example" ]; then
+  cp "${DEPLOY_DIR}/.env.example" "$ENV_FILE"
+else
+  : > "$ENV_FILE"
+fi
+
+set_env_value() {
+  local key="$1" value="$2"
+  local tmp
+  tmp="$(mktemp "${ENV_FILE}.XXXXXX")"
+  # `|` 作分隔符，避免口令里的 / & \ 等字符破坏 sed 替换
+  sed "s|^${key}=.*|${key}=${value}|" "$ENV_FILE" > "$tmp"
+  mv "$tmp" "$ENV_FILE"
+}
+
+set_env_value POSTGRES_USER "$POSTGRES_USER"
+set_env_value POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
+set_env_value POSTGRES_DB "$POSTGRES_DB"
+set_env_value REDIS_PASSWORD "$REDIS_PASSWORD"
+set_env_value SESSION_SECRET "$SESSION_SECRET"
+set_env_value SEED_ADMIN_USERNAME "$SEED_ADMIN_USERNAME"
+set_env_value SEED_ADMIN_EMAIL "$SEED_ADMIN_EMAIL"
+set_env_value SEED_ADMIN_PASSWORD "$SEED_ADMIN_PASSWORD"
+set_env_value APP_URL "$APP_URL"
+set_env_value NEXT_PUBLIC_APP_URL "$NEXT_PUBLIC_APP_URL"
+set_env_value APP_PORT "$APP_PORT"
+set_env_value V2EX_IMAGE "$V2EX_IMAGE"
+set_env_value SEED_DEMO_USERS "$SEED_DEMO_USERS"
+set_env_value TRUST_PROXY_HEADERS "$TRUST_PROXY_HEADERS"
+
+chmod 600 "$ENV_FILE" 2>/dev/null || true
+ok "已生成候选环境配置 .env（口令随机生成，权限收紧）"
+
 if ! docker compose -p "$PROJECT_NAME" up -d >/dev/null 2>&1; then
   bad "docker compose up 失败"
+  echo "  ----- compose 诊断 -----"
+  docker compose -p "$PROJECT_NAME" config 2>&1 | head -20 | sed 's/^/    /'
   docker compose -p "$PROJECT_NAME" logs --tail=80 2>&1 | sed 's/^/    /'
   exit 1
 fi
