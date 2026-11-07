@@ -49,6 +49,13 @@ env:
   SMTP_FROM: noreply@v2ex-clone.local
   SMTP_SECURE: '0'
   E2E_SMTP_PORT: '3300'
+  # ⚠️ v0.0.8：**必须**配 APP_URL / PUBLIC_BASE_URL ——
+  #   找回密码邮件的重置链接**只信运维配置**（src/lib/public-base-url.ts），
+  #   未配置 ⇒ fail-closed（拒绝发信）⇒ B 组测到的会是「没发邮件」，
+  #   而**不是**「链接未被投毒」—— 那是假结论。
+  APP_URL: http://127.0.0.1:3010
+  NEXT_PUBLIC_APP_URL: http://127.0.0.1:3010
+  PUBLIC_BASE_URL: http://127.0.0.1:3010
 
 jobs:
   host-attack-matrix:

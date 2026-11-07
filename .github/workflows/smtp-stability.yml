@@ -52,6 +52,13 @@ env:
   E2E_SMTP_PORT_STABILITY: '3026'
   SMTP_FROM: noreply@v2ex-clone.local
   SMTP_SECURE: '0'
+  # ⚠️ v0.0.8：**必须**配 APP_URL / PUBLIC_BASE_URL ——
+  #   找回密码邮件的重置链接**只信运维配置**（src/lib/public-base-url.ts），
+  #   未配置 ⇒ fail-closed（拒绝发信 + 明确错误日志）⇒ 邮件永远不到。
+  #   这正是 v0.0.8 安全加固的**预期行为**（防止 Host 头投毒劫持重置令牌）。
+  APP_URL: http://127.0.0.1:3010
+  NEXT_PUBLIC_APP_URL: http://127.0.0.1:3010
+  PUBLIC_BASE_URL: http://127.0.0.1:3010
   SMTP_STABILITY_RUN: '1'
   SMTP_STABILITY_ITERATIONS: '30'
 
