@@ -395,8 +395,25 @@ jobs:
           #   必须用远端 tag 指向的 commit，否则 Release 会指向错误的版本。
           # 由 resolve-tag job 用 `gh api` 解析（单一事实来源，不依赖 checkout）
           TAG_SHA="${{ needs.resolve-tag.outputs.sha }}"
+          DRY_RUN="${{ steps.meta.outputs.dry_run }}"
           if [ -z "$TAG_SHA" ]; then
-            echo "::error::无法读取远端 tag $VERSION 的目标 commit"
+            # ⚠️ v0.0.9：**干跑路径**允许 tag 尚不存在。
+            #
+            # 缺陷（实测，run 42372977190）：原实现无条件要求
+            # 「能读到远端 tag 指向的 commit」⇒ tag 不存在就报错中止
+            # ⇒ **干跑必须先有 tag 才能跑** ⇒ 与「正式发布前先干跑验证
+            #    流水线」的要求直接矛盾（而且会诱导「先建 tag 再试错」）。
+            #
+            # 修法：干跑时以**触发分支的 HEAD** 作为锚点
+            #       （正式发布路径仍严格要求 tag 已存在）。
+            if [ "$DRY_RUN" = "true" ]; then
+              HEAD_SHA="$(git rev-parse HEAD)"
+              echo "::notice::干跑模式：远端 tag $VERSION 尚不存在，以触发分支 HEAD 作为构建锚点"
+              echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+              echo "干跑锚点 commit = $HEAD_SHA"
+              exit 0
+            fi
+            echo "::error::无法读取远端 tag $VERSION 的目标 commit（正式发布要求 tag 已存在）"
             exit 1
           fi
           echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
