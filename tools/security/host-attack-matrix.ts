@@ -283,6 +283,41 @@ async function main(): Promise<void> {
       },
     ];
 
+    // ── 探针：先确认「回复确实能创建」与「表单分支确实返回 303」──
+    //
+    // ⚠️ v0.0.8 实测踩到：首轮 13 个场景全部 status=200 且无 Location，
+    //    看起来「全部 SAFE」，实际**攻击根本没发生**（303 从未出现）。
+    //    所以在跑场景之前先用两个对照请求把「测试前提」钉死：
+    //      P1（JSON 分支）→ 期望 200 + { ok:true, replyId }
+    //      P2（表单分支）→ 期望 **303** + Location
+    //    任一不符 ⇒ 直接判 ERROR（而不是继续跑出一堆假 SAFE）。
+    {
+      const jsonRes = await req.post(`${BASE}/api/replies`, {
+        headers: { 'x-csrf-token': csrf, 'content-type': 'application/json' },
+        data: { topicId, content: `probe-json ${Date.now()}`, redirect: `/t/${topicId}` },
+      });
+      const jsonBody = await jsonRes.text().catch(() => '');
+      const formRes = await req.post(`${BASE}/api/replies`, {
+        headers: { 'x-csrf-token': csrf },
+        form: { topicId: String(topicId), content: `probe-form ${Date.now()}`, redirect: `/t/${topicId}` },
+      });
+      const formBody = await formRes.text().catch(() => '');
+      const formLoc = formRes.headers()['location'] ?? null;
+      console.log(
+        `[attack-matrix] 探针 P1(JSON) status=${jsonRes.status()} body=${jsonBody.slice(0, 120)}`,
+      );
+      console.log(
+        `[attack-matrix] 探针 P2(表单) status=${formRes.status()} location=${formLoc} body=${formBody.slice(0, 120)}`,
+      );
+      if (formRes.status() !== 303) {
+        throw new Error(
+          `测试前提不成立：表单分支未返回 303（实际 ${formRes.status()}）` +
+            ` ⇒ 303 场景无法被真正测试，拒绝产出「假 SAFE」结论。` +
+            `\n  body: ${formBody.slice(0, 300)}`,
+        );
+      }
+    }
+
     for (const c of cases) {
       const r = await attackReply(req, csrf, topicId, c.headers, c.redirectParam);
       const judged = judgeLocation(r.location);
