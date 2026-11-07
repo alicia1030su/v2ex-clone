@@ -239,6 +239,7 @@ jobs:
       # not run > 0 ⇒ 判失败。不允许「静默跳过」把未执行的用例算成通过。
       # ---------------------------------------------------------------------
       - name: 汇总结果（passed/failed/skipped/not run）
+        id: summary
         if: always()
         run: |
           node -e "
@@ -305,6 +306,26 @@ jobs:
           "
           RC=$?
           echo "summary_exit=$RC" >> "$GITHUB_OUTPUT"
+
+      # ⚠️ v0.0.8 **关键修复**：汇总步骤的判定必须**真的让 job 失败**。
+      #
+      # 之前汇总步骤把退出码写进 GITHUB_OUTPUT 就结束了 —— 但**没有任何
+      # 后续步骤消费它** ⇒ 汇总判失败（exit 1）时 job 依然是绿的。
+      #
+      # 实测踩到：e2e/helpers.ts 有一个注释块语法错误（tsc 抓不到）
+      # ⇒ 15 个分片全部收集到 0 个用例 ⇒ 汇总算出 notRun=200
+      # ⇒ 汇总步骤 exit 1 ⇒ **但 job 显示 success** ⇒ 假绿。
+      #
+      # 现在用独立的判定步骤把退出码转成 job 失败。
+      - name: 判定分片结果（汇总退出码非 0 ⇒ job 失败）
+        if: always()
+        run: |
+          RC="${{ steps.summary.outputs.summary_exit }}"
+          echo "汇总步骤退出码：${RC}"
+          if [ "$RC" != "0" ]; then
+            echo "::error::分片判定未通过（汇总退出码 ${RC}）—— 详见上方汇总输出与上传的证据"
+            exit 1
+          fi
 
       - name: 上传失败证据（trace + 截图 + 日志）
         if: always()
