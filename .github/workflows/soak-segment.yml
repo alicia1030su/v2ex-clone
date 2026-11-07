@@ -40,6 +40,12 @@ on:
       prev_state_artifact:
         description: '上一段状态 artifact 名（第一段留空）'
         required: false
+        # ⚠️ v0.0.9：**`type` 是必填的**。
+        # 漏掉它 ⇒ GitHub 在**调度阶段**就拒绝整个工作流
+        # ⇒ 表现为「0 秒、0 个 job 的失败 run」，且错误信息只在
+        #    手动 dispatch 时才可见：
+        #    `: (Line: 41, Col: 9): Required property is missing: type`
+        type: string
         default: ''
     secrets:
       GH_TOKEN:
