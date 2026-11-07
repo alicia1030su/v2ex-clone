@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createCaptcha, verifyCaptcha, verifyCaptchaField, captchaFieldName } from '../src/server/captcha';
 import { sanitizeHtml } from '../src/lib/markdown';
 import { sanitizeRedirect } from '../src/lib/redirect';
@@ -113,13 +113,122 @@ describe('运行时开关限制（P0-2）', () => {
     process.env = saved;
   });
 
-  it('调试端点必须显式开启', () => {
-    const saved = { ...process.env };
-    delete process.env.ENABLE_DEBUG_ENDPOINTS;
+});
+
+/**
+ * v0.0.9 发布前安全审计 A-01 —— 调试端点开关收紧后的语义
+ *
+ * 预期实现（由工程师并行修复 src/lib/runtime-flags.ts）：
+ *
+ *   isDebugEndpointEnabled()
+ *     = ENABLE_DEBUG_ENDPOINTS === '1' && isIsolatedTestEnv()
+ *
+ * 其中 isIsolatedTestEnv() 要求 `APP_RUNTIME_ENV=test` 且 `TEST_ENV_ISOLATED=1`。
+ * 即：生产 / 预发 / 普通开发环境**即使把开关显式设为 1** 也一律 false；
+ * 只有隔离测试环境 + 开关=1 才 true（且仍须 DEBUG_ENDPOINT_TOKEN 鉴权）。
+ *
+ * ⚠️ 原用例（「开关=1 就 true」）依赖 vitest 默认 `NODE_ENV=test` 的隐式值，
+ *    一旦收紧实现，它会在生产语义下产生假绿/假红。这里每个用例都显式
+ *    stub 全部 4 个相关变量，并用 `vi.unstubAllEnvs()` 还原，互不污染。
+ */
+describe('调试端点开关（A-01 收紧后语义）', () => {
+  beforeEach(() => {
+    // 显式设定全部相关变量 —— 断言不依赖 vitest 的隐式 NODE_ENV
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('APP_RUNTIME_ENV', 'production');
+    vi.stubEnv('TEST_ENV_ISOLATED', '0');
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '0');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** 设为隔离测试环境（不动开关） */
+  function isolatedTestEnv() {
+    vi.stubEnv('APP_RUNTIME_ENV', 'test');
+    vi.stubEnv('TEST_ENV_ISOLATED', '1');
+  }
+
+  it('production：开关=1 且隔离标记=1 仍返回 false', () => {
+    vi.stubEnv('APP_RUNTIME_ENV', 'production');
+    vi.stubEnv('TEST_ENV_ISOLATED', '1');
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('production');
+    expect(isIsolatedTestEnv()).toBe(false);
     expect(isDebugEndpointEnabled()).toBe(false);
-    process.env.ENABLE_DEBUG_ENDPOINTS = '1';
+  });
+
+  it('staging：开关=1 且隔离标记=1 仍返回 false', () => {
+    vi.stubEnv('APP_RUNTIME_ENV', 'staging');
+    vi.stubEnv('TEST_ENV_ISOLATED', '1');
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('staging');
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('普通 development：开关=1 且隔离标记=1 仍返回 false', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('APP_RUNTIME_ENV', 'development');
+    vi.stubEnv('TEST_ENV_ISOLATED', '1');
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('development');
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('test 环境但隔离标记为 0：开关=1 仍返回 false', () => {
+    isolatedTestEnv();
+    vi.stubEnv('TEST_ENV_ISOLATED', '0');
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('test');
+    expect(isIsolatedTestEnv()).toBe(false);
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('test 环境且隔离变量完全未设置：开关=1 仍返回 false', () => {
+    vi.stubEnv('APP_RUNTIME_ENV', 'test');
+    vi.stubEnv('TEST_ENV_ISOLATED', undefined);
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(isIsolatedTestEnv()).toBe(false);
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('隔离测试环境但开关=0：返回 false', () => {
+    isolatedTestEnv();
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '0');
+    expect(isIsolatedTestEnv()).toBe(true);
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('隔离测试环境但开关未设置：返回 false', () => {
+    isolatedTestEnv();
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', undefined);
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('仅「隔离测试环境 + 开关=1」返回 true', () => {
+    isolatedTestEnv();
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('test');
+    expect(isIsolatedTestEnv()).toBe(true);
     expect(isDebugEndpointEnabled()).toBe(true);
-    process.env = saved;
+  });
+
+  it('不依赖 NODE_ENV 隐式值：NODE_ENV=test 但显式 production 仍为 false', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('APP_RUNTIME_ENV', 'production');
+    vi.stubEnv('TEST_ENV_ISOLATED', '1');
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('production');
+    expect(isDebugEndpointEnabled()).toBe(false);
+  });
+
+  it('NODE_ENV=production 不阻断显式隔离测试环境', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    isolatedTestEnv();
+    vi.stubEnv('ENABLE_DEBUG_ENDPOINTS', '1');
+    expect(getRuntimeEnv()).toBe('test');
+    expect(isDebugEndpointEnabled()).toBe(true);
   });
 });
 
