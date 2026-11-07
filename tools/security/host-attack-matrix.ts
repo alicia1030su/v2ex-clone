@@ -121,9 +121,16 @@ async function attackReply(
   redirectParam = '/t/' + topicId,
 ): Promise<{ status: number | null; location: string | null; body?: string; note?: string }> {
   try {
+    // ⚠️ v0.0.8 **关键**：`maxRedirects: 0` —— 否则 Playwright 会**跟随** 303
+    //   重定向，最终看到的是目标页面的 200 + HTML，
+    //   **Location 头也就消失了** ⇒ 看起来「没有 Location ⇒ SAFE」，
+    //   而实际上 303 早已发生、Location 早已发出。
+    //   （实测踩到：探针 P2 拿到的是 <!DOCTYPE html>… 的完整页面）
+    //   ⇒ 攻击矩阵必须看**未跟随**的原始响应。
     const r = await req.post(`${BASE}/api/replies`, {
       headers: { 'x-csrf-token': csrf, ...attackHeaders },
       form: { topicId: String(topicId), content: `attack-probe ${Date.now()}`, redirect: redirectParam },
+      maxRedirects: 0,
     });
     const loc = r.headers()['location'] ?? null;
     // ⚠️ v0.0.8：记录响应体 —— 没有它就无法区分「303（攻击场景真的被测了）」
@@ -300,6 +307,7 @@ async function main(): Promise<void> {
       const formRes = await req.post(`${BASE}/api/replies`, {
         headers: { 'x-csrf-token': csrf },
         form: { topicId: String(topicId), content: `probe-form ${Date.now()}`, redirect: `/t/${topicId}` },
+        maxRedirects: 0,   // 不跟随重定向 —— 否则看不到 303 与 Location
       });
       const formBody = await formRes.text().catch(() => '');
       const formLoc = formRes.headers()['location'] ?? null;
