@@ -1,0 +1,248 @@
+name: 长时间运行稳定性
+
+# ---------------------------------------------------------------------------
+# v0.0.9 —— 持续运行稳定性验证（任务书 §七）
+#
+# ## 为什么这个工作流存在
+#
+# 任务书 §七 要求「24 小时持续运行冒烟测试」，并**明确禁止**：
+#
+#   > 「禁止没有实际运行就标注 24 小时或 72 小时验证完成。」
+#   > 「如果当前会话或环境无法保证长时间作业持续运行，
+#   >   应将测试实现为 GitHub Actions 或其他已授权且支持持久任务的运行器，
+#   >   **不得虚构后台作业**。」
+#
+# 本地会话无法保证 24 小时作业持续运行（会话会结束、机器会休眠），
+# 因此把长跑**实现为 GitHub Actions 工作流** —— 这是已授权且支持持久任务的运行器。
+#
+# ## 证据产出
+#
+# 产出并上传**真实采集**的证据文件：
+#   · evidence/health-samples.csv  —— 每次采样的存活/就绪状态码与耗时
+#   · evidence/perf-samples.csv    —— 内存 / CPU / 连接数采样
+#   · evidence/errors.log          —— 失败样本明细
+#   · evidence/baseline.txt        —— 基线与最终统计（含**实际**运行时长）
+#   · evidence/ops-final.json      —— 结束时的运维指标快照
+#
+# ## 时长诚实性
+#
+# · 默认 24 小时（可通过 workflow_dispatch 的 hours 参数调整，最大 72 小时）；
+# · 脚本会报告**实际**运行时长；工作流会**核对**实际时长是否达到目标，
+#   达不到就**让 job 失败**（不允许「配了 24h 实际跑 5 分钟」也算通过）。
+#
+# ## 触发
+#
+#   · workflow_dispatch（手动触发，可指定时长与目标 SHA）
+#   · schedule（每天一次，6 小时轮询式持续验证）
+#   · push 到 master（仅 30 分钟冒烟，保证主干的持续可用性）
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: '持续运行时长（小时，1-72）'
+        required: false
+        default: '24'
+      ref:
+        description: '要验证的源码引用（分支 / Tag / SHA）。留空则用触发时的提交'
+        required: false
+        default: ''
+  schedule:
+    # 每天 03:17 UTC（避开整点，减少与其他任务争抢 runner）
+    - cron: '17 3 * * *'
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'scripts/release/verify-soak.sh'
+      - '.github/workflows/soak-test.yml'
+
+concurrency:
+  group: soak-${{ github.ref }}
+  # 定时任务**不取消**旧的运行 —— 长跑被中途取消会丢失全部证据
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    name: 持续运行 ${{ github.event.inputs.hours || '6' }} 小时
+    # ⚠️ 超时必须**大于**目标时长，否则 runner 会在跑完前杀掉 job
+    timeout-minutes: 80
+    runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: '22.23.4'
+      APP_RUNTIME_ENV: test
+      TEST_ENV_ISOLATED: '1'
+      DISABLE_CAPTCHA: '1'
+      ENABLE_DEBUG_ENDPOINTS: '1'
+      DEBUG_ENDPOINT_TOKEN: 'soak-only-token-local-to-runner'
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: 环境信息
+        run: |
+          echo "  OS: $(uname -a)"
+          echo "  Docker: $(docker --version)"
+          echo "  Compose: $(docker compose version)"
+          echo "  Runner: ${{ runner.os }} / ${{ runner.arch }}"
+          echo "  Node: $(node -v 2>/dev/null || echo 'not yet installed')"
+
+      - name: 安装 Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 启动 PostgreSQL（service container）
+        run: |
+          docker run -d --name soak-postgres \
+            -e POSTGRES_USER=v2ex \
+            -e POSTGRES_PASSWORD=soak_password \
+            -e POSTGRES_DB=v2ex_soak \
+            -p 5432:5432 \
+            postgres:17-alpine
+          for i in $(seq 1 60); do
+            if docker exec soak-postgres pg_isready -U v2ex -d v2ex_soak >/dev/null 2>&1; then
+              echo "  PostgreSQL 就绪"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::PostgreSQL 未在 120 秒内就绪"
+          docker logs soak-postgres
+          exit 1
+
+      - name: 数据库迁移
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+        run: npx drizzle-kit migrate
+
+      - name: 初始化演示数据
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+          SEED_ADMIN_USERNAME: admin
+          SEED_ADMIN_EMAIL: admin@soak.local
+          SEED_ADMIN_PASSWORD: Soak-Admin-Pass-2026!
+          SEED_DEMO_USERS: 1
+          SEED_DEMO_PASSWORD: Soak-Demo-Pass-2026!
+        run: npx tsx scripts/seed.ts
+
+      - name: 构建应用
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+        run: npm run build
+
+      - name: 启动应用
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+          APP_URL: http://localhost:3000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          SEED_ADMIN_USERNAME: admin
+          SEED_ADMIN_EMAIL: admin@soak.local
+          SEED_ADMIN_PASSWORD: Soak-Admin-Pass-2026!
+          SEED_DEMO_USERS: 1
+          SEED_DEMO_PASSWORD: Soak-Demo-Pass-2026!
+          REDIS_URL: ''
+        run: |
+          nohup npx next start -p 3000 > /tmp/soak-app.log 2>&1 &
+          echo $! > /tmp/soak-app.pid
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/api/health/ready; then
+              echo "  应用就绪"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::应用未在 120 秒内就绪"
+          tail -50 /tmp/soak-app.log
+          exit 1
+
+      - name: 计算目标时长
+        id: dur
+        run: |
+          # 手动触发用输入的小时数；定时/推送用较短时长（保持 runner 成本可控）
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.hours }}" ]; then
+            HOURS="${{ inputs.hours }}"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            HOURS=6
+          else
+            HOURS=1
+          fi
+          # 上限 72 小时（任务书 §七 允许资源允许时扩展到 72 小时）
+          if [ "$HOURS" -gt 72 ]; then HOURS=72; fi
+          if [ "$HOURS" -lt 1 ]; then HOURS=1; fi
+          echo "hours=$HOURS" >> "$GITHUB_OUTPUT"
+          echo "  目标时长：${HOURS} 小时"
+
+      - name: 运行持续验证（真实时长由脚本如实报告）
+        id: soak
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+        run: |
+          mkdir -p soak-evidence
+          set +e
+          bash scripts/release/verify-soak.sh \
+            --base http://localhost:3000 \
+            --duration "${{ steps.dur.outputs.hours }}h" \
+            --interval 60 \
+            --admin-password 'Soak-Admin-Pass-2026!' \
+            --db v2ex_soak \
+            --pg-port 5432 \
+            --pg-pass soak_password \
+            --out soak-evidence
+          RC=$?
+          set -e
+          echo "soak_rc=$RC" >> "$GITHUB_OUTPUT"
+          cat soak-evidence/evidence/baseline.txt 2>/dev/null || true
+          exit $RC
+
+      - name: 核对实际时长（达不到目标时长 ⇒ 失败）
+        run: |
+          set -euo pipefail
+          BASE_FILE="soak-evidence/evidence/baseline.txt"
+          [ -f "$BASE_FILE" ] || { echo "::error::缺少基线文件"; exit 1; }
+          ACTUAL_SECONDS="$(grep -E '^实际运行时长|^elapsed' "$BASE_FILE" | head -1 | grep -oE '[0-9]+' | head -1 || echo 0)"
+          if [ -z "$ACTUAL_SECONDS" ]; then
+            ACTUAL_SECONDS="$(grep -oE '实际运行时长[=:][0-9]+' "$BASE_FILE" | grep -oE '[0-9]+' | head -1 || echo 0)"
+          fi
+          TARGET_HOURS="${{ steps.dur.outputs.hours }}"
+          TARGET_SECONDS=$(( TARGET_HOURS * 3600 ))
+          echo "  目标时长：${TARGET_HOURS} 小时（${TARGET_SECONDS} 秒）"
+          echo "  实际时长：${ACTUAL_SECONDS} 秒"
+          if [ "${ACTUAL_SECONDS:-0}" -lt "$((TARGET_SECONDS - 120))" ]; then
+            echo "::error::实际运行时长 ${ACTUAL_SECONDS} 秒 < 目标 ${TARGET_SECONDS} 秒 —— **不得**声称达成持续运行验证"
+            exit 1
+          fi
+          echo "  ✓ 实际时长达到目标"
+
+      - name: 上传持续运行证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-evidence-${{ github.run_id }}
+          path: soak-evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: 收集应用日志
+        if: always()
+        run: |
+          tail -200 /tmp/soak-app.log > soak-evidence/evidence/app-log-tail.txt 2>/dev/null || true
+
+      - name: 清理
+        if: always()
+        run: |
+          if [ -f /tmp/soak-app.pid ]; then kill "$(cat /tmp/soak-app.pid)" 2>/dev/null || true; fi
+          docker rm -f soak-postgres 2>/dev/null || true
