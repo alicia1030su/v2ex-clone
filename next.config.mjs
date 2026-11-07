@@ -5,6 +5,21 @@ const nextConfig = {
   serverExternalPackages: ['postgres', 'ioredis'],
 
   // ---------------------------------------------------------------------
+  // v0.0.9：启用 instrumentation 钩子（任务书 §六）
+  //
+  // `src/instrumentation.ts` 在 **Node HTTP 层**观测真实响应状态码，
+  // 修复 v0.0.8「API 请求数恒为 0、byStatus 恒为 {200}」的缺陷。
+  //
+  // 为什么不用 middleware：middleware 拿不到下游路由的真实状态码
+  // （`NextResponse.next()` 返回的是它自己的响应，恒 200）。
+  // 详见 src/instrumentation.ts 顶部说明。
+  //
+  // 注：Next 15 已把 instrumentation 变成**默认开启**的稳定特性，
+  //     不再需要 `experimental.instrumentationHook`（该键在 15.5 已被移除，
+  //     保留会触发 "Unrecognized key(s)" 告警）⇒ 这里**不显式配置**。
+  // ---------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------
   // v0.0.6：构建目录可切换（Windows EPERM 的**隔离方案**）
   //
   // 背景：本机 Windows 上 `next build` 偶发
