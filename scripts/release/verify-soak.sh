@@ -61,6 +61,9 @@ bad()  { FAIL=$((FAIL+1)); printf '  %s✗%s %s\n' "$C_RED" "$C_RST" "$*"; }
 info() { printf '  %s\n' "$*"; }
 step() { printf '\n%s━━ %s ━━%s\n' "$C_BLD" "$*" "$C_RST"; }
 
+RESUME_FROM=""
+SEGMENT_NO="1"
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --base)           BASE="${2:-}"; shift 2 ;;
@@ -74,6 +77,8 @@ while [ $# -gt 0 ]; do
     --pg-host)        PG_HOST="${2:-}"; shift 2 ;;
     --pg-user)        PG_USER="${2:-}"; shift 2 ;;
     --pg-pass)        PG_PASS="${2:-}"; shift 2 ;;
+    --resume-from)    RESUME_FROM="${2:-}"; shift 2 ;;
+    --segment)        SEGMENT_NO="${2:-}"; shift 2 ;;
     -h|--help)        grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -40; exit 0 ;;
     *) echo "未知参数：$1" >&2; exit 1 ;;
   esac
@@ -94,6 +99,31 @@ parse_duration() {
 }
 TOTAL_SECONDS="$(parse_duration "$DURATION")"
 
+# ---------------------------------------------------------------------------
+# 分段续跑支持（v0.0.9）
+#
+# ## 为什么需要
+#
+# GitHub-hosted runner 的**单个 job 最长 6 小时** ⇒ 单 job 无法跑满 24 小时。
+# 因此长跑必须被拆成**多个串行 job**，每个 ≤ 5 小时，
+# 并把「已累计运行时长」与「采样证据」通过 artifact 传给下一个 job。
+#
+# 本脚本因此支持：
+#   --resume-from <stateDir>  —— 从上一段的状态继续（累加时长、追加证据）
+#   --segment <n>             —— 本段是第几段（仅用于日志标识）
+#
+# 状态目录里的 `state.env` 记录：
+#   CUMULATIVE_SECONDS —— 到目前为止**累计**的真实运行秒数
+#   SAMPLES_TOTAL     —— 到目前为止累计的采样次数
+#   HEALTH_FAILS      —— 累计失败次数
+#   READY_FAILS       —— 累计失败次数
+#
+# ## 关键纪律
+#
+# 「累计时长」= 各段**真实运行时长之和**，不是「配置时长」。
+# 每段结束时写入自己真实跑了多久 ⇒ 汇总时得到的是**真实累计值**。
+# ---------------------------------------------------------------------------
+
 # --- 输出目录 -------------------------------------------------------------
 if [ -z "$OUT_DIR" ]; then
   OUT_DIR="$(mktemp -d -t v2ex-soak.XXXXXX)"
@@ -105,16 +135,39 @@ mkdir -p "$EVIDENCE"
 HEALTH_LOG="${EVIDENCE}/health-samples.csv"
 PERF_LOG="${EVIDENCE}/perf-samples.csv"
 ERR_LOG="${EVIDENCE}/errors.log"
-: > "$HEALTH_LOG"
-: > "$PERF_LOG"
-: > "$ERR_LOG"
 
-printf '%s═══ 长时间运行稳定性验证 ═══%s\n' "$C_BLD" "$C_RST"
+# 续跑 ⇒ **追加**证据（不覆盖上一段的）；否则新建。
+CUMULATIVE_SECONDS=0
+SAMPLES_TOTAL=0
+HEALTH_FAILS=0
+READY_FAILS=0
+
+if [ -n "$RESUME_FROM" ] && [ -f "${RESUME_FROM}/state.env" ]; then
+  # shellcheck disable=SC1091
+  . "${RESUME_FROM}/state.env"
+  # 把上一段的证据**拷进**本段输出目录，再追加
+  for f in health-samples.csv perf-samples.csv errors.log; do
+    [ -f "${RESUME_FROM}/${f}" ] && cp "${RESUME_FROM}/${f}" "${EVIDENCE}/${f}"
+  done
+  RESUMED=1
+else
+  : > "$HEALTH_LOG"
+  : > "$PERF_LOG"
+  : > "$ERR_LOG"
+  RESUMED=0
+fi
+
+printf '%s═══ 长时间运行稳定性验证（第 %s 段）═══%s\n' "$C_BLD" "$SEGMENT_NO" "$C_RST"
 info "目标        ：${BASE}"
-info "配置时长    ：${DURATION}（${TOTAL_SECONDS} 秒）"
+info "本段时长    ：${DURATION}（${TOTAL_SECONDS} 秒）"
 info "采样间隔    ：${INTERVAL} 秒"
 info "证据目录    ：${EVIDENCE}"
-info "（本次实际运行时长会在结束时按**真实**秒数报告）"
+if [ "$RESUMED" -eq 1 ]; then
+  info "续跑自      ：${RESUME_FROM}（此前累计 ${CUMULATIVE_SECONDS} 秒 / ${SAMPLES_TOTAL} 次采样）"
+else
+  info "起始状态    ：全新运行"
+fi
+info "（本段实际运行时长会在结束时按**真实**秒数报告）"
 
 START_EPOCH="$(date +%s)"
 DEADLINE=$(( START_EPOCH + TOTAL_SECONDS ))
@@ -143,11 +196,13 @@ fi
 # ---------------------------------------------------------------------------
 step "1. 持续运行冒烟（周期性探测）"
 # ---------------------------------------------------------------------------
-printf 'ts,elapsed_s,health_code,ready_code,home_ms,ready_ms,db_ms\n' > "$HEALTH_LOG"
+# 续跑时表头已在上一段写过 ⇒ 只在首次运行时写。
+if [ "$RESUMED" -eq 0 ]; then
+  printf 'ts,elapsed_s,health_code,ready_code,home_ms,ready_ms,db_ms\n' > "$HEALTH_LOG"
+  printf 'ts,elapsed_s,mem_mb,cpu_pct,conn_used,conn_max,home_ms,db_ms\n' > "$PERF_LOG"
+fi
 
 SAMPLES=0
-HEALTH_FAILS=0
-READY_FAILS=0
 UNHEALTHY_FIRST_TS=""
 
 while :; do
@@ -206,27 +261,46 @@ END_EPOCH="$(date +%s)"
 ACTUAL_SECONDS=$(( END_EPOCH - START_EPOCH ))
 ACTUAL_H="$(printf '%d.%02d' $((ACTUAL_SECONDS/3600)) $(((ACTUAL_SECONDS%3600)/60)))"
 
+# --- 累计（跨分段）--------------------------------------------------------
+TOTAL_CUMULATIVE=$(( CUMULATIVE_SECONDS + ACTUAL_SECONDS ))
+TOTAL_SAMPLES=$(( SAMPLES_TOTAL + SAMPLES ))
+TOTAL_HEALTH_FAILS=$(( HEALTH_FAILS ))
+TOTAL_READY_FAILS=$(( READY_FAILS ))
+
+# --- 写本段状态（供下一段续跑）-------------------------------------------
+STATE_DIR="${OUT_DIR}/state"
+mkdir -p "$STATE_DIR"
+cat > "${STATE_DIR}/state.env" << EOF
+CUMULATIVE_SECONDS=${TOTAL_CUMULATIVE}
+SAMPLES_TOTAL=${TOTAL_SAMPLES}
+HEALTH_FAILS=${TOTAL_HEALTH_FAILS}
+READY_FAILS=${TOTAL_READY_FAILS}
+EOF
+# 把证据副本放进状态目录（下一段从这里取）
+cp "$HEALTH_LOG" "$PERF_LOG" "$ERR_LOG" "$STATE_DIR/" 2>/dev/null || true
+
 echo "实际运行时长：${ACTUAL_SECONDS} 秒（${ACTUAL_H} 小时）" >> "${EVIDENCE}/baseline.txt"
-echo "samples=${SAMPLES}" >> "${EVIDENCE}/baseline.txt"
-echo "health_fails=${HEALTH_FAILS}" >> "${EVIDENCE}/baseline.txt"
-echo "ready_fails=${READY_FAILS}" >> "${EVIDENCE}/baseline.txt"
+echo "累计运行时长：${TOTAL_CUMULATIVE} 秒" >> "${EVIDENCE}/baseline.txt"
+echo "samples=${TOTAL_SAMPLES}" >> "${EVIDENCE}/baseline.txt"
+echo "health_fails=${TOTAL_HEALTH_FAILS}" >> "${EVIDENCE}/baseline.txt"
+echo "ready_fails=${TOTAL_READY_FAILS}" >> "${EVIDENCE}/baseline.txt"
 
 if [ "$SAMPLES" -gt 0 ]; then
-  ok "持续运行采样 ${SAMPLES} 次，实际运行 ${ACTUAL_SECONDS} 秒"
+  ok "持续运行采样 ${SAMPLES} 次，实际运行 ${ACTUAL_SECONDS} 秒（累计 ${TOTAL_CUMULATIVE} 秒 / ${TOTAL_SAMPLES} 次）"
 else
   bad "持续运行未产生任何采样"
 fi
 
-if [ "$HEALTH_FAILS" -eq 0 ]; then
+if [ "$TOTAL_HEALTH_FAILS" -eq 0 ]; then
   ok "存活探针全程可用（0 次失败）"
 else
-  bad "存活探针失败 ${HEALTH_FAILS} 次"
+  bad "存活探针失败 ${TOTAL_HEALTH_FAILS} 次"
 fi
 
-if [ "$READY_FAILS" -eq 0 ]; then
+if [ "$TOTAL_READY_FAILS" -eq 0 ]; then
   ok "就绪探针全程可用（0 次失败）"
 else
-  bad "就绪探针失败 ${READY_FAILS} 次（首个失败时间：${UNHEALTHY_FIRST_TS:-未知}）"
+  bad "就绪探针失败 ${TOTAL_READY_FAILS} 次（首个失败时间：${UNHEALTHY_FIRST_TS:-未知}）"
 fi
 
 # ---------------------------------------------------------------------------
@@ -332,15 +406,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-printf '\n%s═══ 长时间运行验证结果 ═══%s\n' "$C_BLD" "$C_RST"
+printf '\n%s═══ 长时间运行验证结果（第 %s 段）═══%s\n' "$C_BLD" "$SEGMENT_NO" "$C_RST"
 printf '  通过：%s   失败：%s\n' "$PASS" "$FAIL"
-printf '  配置时长：%s\n' "$DURATION"
-printf '  实际时长：%s 秒（%s 小时）\n' "$ACTUAL_SECONDS" "$ACTUAL_H"
-printf '  采样次数：%s\n' "$SAMPLES"
+printf '  本段配置时长：%s\n' "$DURATION"
+printf '  本段实际时长：%s 秒（%s 小时）\n' "$ACTUAL_SECONDS" "$ACTUAL_H"
+printf '  累计实际时长：%s 秒（%s 小时）\n' "$TOTAL_CUMULATIVE" "$(printf '%d.%02d' $((TOTAL_CUMULATIVE/3600)) $(((TOTAL_CUMULATIVE%3600)/60)))"
+printf '  累计采样次数：%s\n' "$TOTAL_SAMPLES"
 printf '  证据目录：%s\n' "$EVIDENCE"
+printf '  状态目录：%s\n' "$STATE_DIR"
 printf '\n'
-printf '  ⚠️ 如需声明「24 小时验证完成」，必须以**本次实际时长**为准。\n'
-printf '     配置 %s 但实际只跑了 %s 秒时，不得声称达成 24 小时。\n' "$DURATION" "$ACTUAL_SECONDS"
+printf '  ⚠️ 如需声明「24 小时验证完成」，必须以**累计实际时长**为准。\n'
+printf '     配置 %s 但累计实际只跑了 %s 秒时，不得声称达成 24 小时。\n' "$DURATION" "$TOTAL_CUMULATIVE"
 printf '\n'
 
 if [ "$FAIL" -gt 0 ]; then

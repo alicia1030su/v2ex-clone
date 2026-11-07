@@ -135,6 +135,26 @@ type GlobalWithMetrics = typeof globalThis & {
 /** 保留的最大慢请求条数 */
 const MAX_SLOW = 200;
 
+/**
+ * 计数键的**最大条数**（v0.0.9 新增 —— 防无界增长）
+ *
+ * ## 为什么需要上限
+ *
+ * `counters` 是一个 `Map`。若调用方用**高基数**的键（例如把
+ * 资源 id 拼进键），键数会随请求量**无界增长** ⇒ 进程内存持续上涨
+ * ⇒ 长期运行的服务会**内存泄漏**。
+ *
+ * 慢请求列表早有 `MAX_SLOW = 200` 的上限，但**计数器没有** ——
+ * 这是 v0.0.9 审计时发现的缺口。
+ *
+ * ## 触发上限时的行为
+ *
+ * 达到上限后**不再新增键**，但**已有键继续累加** ——
+ * 即「统计维度封顶，数值不丢」。
+ * 这比「清空重来」更符合运维预期（不会因为一次突发流量把历史计数抹掉）。
+ */
+const MAX_COUNTER_KEYS = 2000;
+
 function store(): MetricsStore {
   const g = globalThis as GlobalWithMetrics;
   let s = g[METRICS_STORE_KEY];
@@ -145,10 +165,59 @@ function store(): MetricsStore {
   return s;
 }
 
-/** 递增计数 */
+/**
+ * 递增计数
+ *
+ * ⚠️ 调用方**必须**使用低基数的键（见 `normalizeApiPath`）。
+ * 本函数另加一道**兜底上限**：键数达到 `MAX_COUNTER_KEYS` 后
+ * 不再新增键（已有键继续累加），防止任何调用方失误造成无界增长。
+ */
 export function countMetric(name: string, by = 1): void {
   const c = store().counters;
+  if (!c.has(name) && c.size >= MAX_COUNTER_KEYS) {
+    // 键数封顶：不新增键，但已有键仍可累加。
+    // ⚠️ 这**不是**静默丢弃 —— 调用方若关心，可通过 `metricsSnapshot()`
+    //    看到 `counters` 的键数已达上限。
+    return;
+  }
   c.set(name, (c.get(name) ?? 0) + by);
+}
+
+/**
+ * 把请求路径**归一化**为低基数的路由模板（v0.0.9 新增）
+ *
+ * ## 为什么需要
+ *
+ * `/api/topics/123`、`/api/topics/124` … 是**不同的键**，
+ * 而它们的**路由**只有一个（`/api/topics/[id]`）。
+ * 若直接用原始路径做计数键，攻击者（或正常流量）访问 N 个不同 id
+ * 就会产生 N 个键 ⇒ 计数器无界增长 ⇒ 内存泄漏。
+ *
+ * ## 归一化规则
+ *
+ *   · 路径里的**数字段** → `:id`（`/api/topics/123` ⇒ `/api/topics/:id`）
+ *   · 路径里的 **UUID 段** → `:id`（36 位 hex）
+ *   · 其余段保持原样（`/api/nodes/python/feed` ⇒ 不变）
+ *
+ * ⇒ 键的基数被限制在「**真实路由数**」这个量级。
+ *
+ * @param path 已去掉 query string 的路径
+ */
+export function normalizeApiPath(path: string): string {
+  if (!path) return path;
+  return path
+    .split('/')
+    .map((seg) => {
+      if (!seg) return seg;
+      // 纯数字 id
+      if (/^\d+$/.test(seg)) return ':id';
+      // UUID（36 位 hex，带或不带连字符）
+      if (/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(seg)) {
+        return ':id';
+      }
+      return seg;
+    })
+    .join('/');
 }
 
 /** 记录一次慢请求 */

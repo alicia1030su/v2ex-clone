@@ -1,0 +1,233 @@
+name: 持续运行分段（可复用）
+
+# ---------------------------------------------------------------------------
+# v0.0.9 —— 持续运行的**单个分段**（可复用工作流）
+#
+# ## 为什么做成可复用工作流
+#
+# GitHub-hosted runner 的**单个 job 最长 6 小时** ⇒ 「单 job 跑 24 小时」
+# 在架构上不可能。必须拆成**串行分段**。
+#
+# 拆成独立 job（而不是 matrix）的理由：**matrix 的各个条目是并行执行的**，
+# 而分段必须**串行**（第 N 段依赖第 N-1 段的累计状态）。
+#
+# 因此由 `soak-test.yml` 用 `uses:` 调用本工作流 5 次，
+# 每次之间用 `needs:` 串起来。
+#
+# ## 分段间的状态传递
+#
+# 每段结束时把「累计真实运行时长 + 采样证据」写进 artifact，
+# 下一段用 `gh run download` 取回并 `--resume-from` 续跑。
+#
+# ## 时长诚实性
+#
+# 累计时长 = 各段**真实运行秒数之和**。
+# 段间排队 / runner 启动间隙**不计入** ⇒ 「24 小时」指的是
+# **应用实际持续运行** 24 小时，而不是「从派发到结束过了 24 小时」。
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_call:
+    inputs:
+      segment_index:
+        description: '本段序号（从 1 开始）'
+        required: true
+        type: string
+      segment_hours:
+        description: '本段目标时长（小时，≤ 5）'
+        required: true
+        type: string
+      prev_state_artifact:
+        description: '上一段状态 artifact 名（第一段留空）'
+        required: false
+        default: ''
+    secrets:
+      GH_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.23.4'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  DISABLE_CAPTCHA: '1'
+  ENABLE_DEBUG_ENDPOINTS: '1'
+  DEBUG_ENDPOINT_TOKEN: 'soak-only-token-local-to-runner'
+
+jobs:
+  segment:
+    name: 第 ${{ inputs.segment_index }} 段 · ${{ inputs.segment_hours }} 小时
+    runs-on: ubuntu-latest
+    # ⚠️ 必须**大于**本段目标时长 + 构建开销，
+    #    但**不得**超过平台 6 小时上限。
+    #    340 分钟 = 5h40m ⇒ 5 小时的段有 40 分钟余量。
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 环境信息
+        run: |
+          echo "  OS: $(uname -a)"
+          echo "  Docker: $(docker --version)"
+          echo "  本段序号：${{ inputs.segment_index }}"
+          echo "  本段目标：${{ inputs.segment_hours }} 小时"
+          echo "  job 超时：340 分钟（< 平台 6 小时上限）"
+
+      - name: 安装 Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 启动 PostgreSQL
+        run: |
+          set -euo pipefail
+          docker run -d --name soak-postgres \
+            -e POSTGRES_USER=v2ex \
+            -e POSTGRES_PASSWORD=soak_password \
+            -e POSTGRES_DB=v2ex_soak \
+            -p 5432:5432 \
+            postgres:17-alpine
+          for i in $(seq 1 60); do
+            if docker exec soak-postgres pg_isready -U v2ex -d v2ex_soak >/dev/null 2>&1; then
+              echo "  PostgreSQL 就绪"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::PostgreSQL 未在 120 秒内就绪"
+          docker logs soak-postgres
+          exit 1
+
+      - name: 数据库迁移
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+        run: npx drizzle-kit migrate
+
+      - name: 初始化演示数据
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+          SEED_ADMIN_USERNAME: admin
+          SEED_ADMIN_EMAIL: admin@soak.local
+          SEED_ADMIN_PASSWORD: Soak-Admin-Pass-2026!
+          SEED_DEMO_USERS: 1
+          SEED_DEMO_PASSWORD: Soak-Demo-Pass-2026!
+        run: npx tsx scripts/seed.ts
+
+      - name: 构建应用
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+        run: npm run build
+
+      - name: 启动应用
+        env:
+          DATABASE_URL: postgres://v2ex:soak_password@127.0.0.1:5432/v2ex_soak
+          SESSION_SECRET: soak-session-secret-not-for-production-use-000
+          APP_URL: http://localhost:3000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          SEED_ADMIN_USERNAME: admin
+          SEED_ADMIN_EMAIL: admin@soak.local
+          SEED_ADMIN_PASSWORD: Soak-Admin-Pass-2026!
+          SEED_DEMO_USERS: 1
+          SEED_DEMO_PASSWORD: Soak-Demo-Pass-2026!
+          REDIS_URL: ''
+        run: |
+          set -euo pipefail
+          nohup npx next start -p 3000 > /tmp/soak-app.log 2>&1 &
+          echo $! > /tmp/soak-app.pid
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/api/health/ready; then
+              echo "  应用就绪"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::应用未在 120 秒内就绪"
+          tail -50 /tmp/soak-app.log
+          exit 1
+
+      - name: 准备上一段状态
+        id: prev
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/prev-state
+          if [ -z "${{ inputs.prev_state_artifact }}" ]; then
+            echo "  第 ${{ inputs.segment_index }} 段 —— 无上一段状态（首段）"
+            echo "has_prev=false" >> "$GITHUB_OUTPUT"
+          else
+            gh run download "${{ github.run_id }}" \
+              --name "${{ inputs.prev_state_artifact }}" \
+              --dir /tmp/prev-state
+            if [ -f "/tmp/prev-state/state/state.env" ]; then
+              echo "  已取回上一段状态："
+              sed 's/^/    /' /tmp/prev-state/state/state.env
+              echo "has_prev=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error::未找到上一段的状态文件 —— 分段链断裂"
+              echo "has_prev=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: 运行持续验证（真实时长由脚本如实报告）
+        id: soak
+        run: |
+          set -euo pipefail
+          mkdir -p soak-evidence
+          RESUME_ARGS=()
+          if [ "${{ steps.prev.outputs.has_prev }}" = "true" ]; then
+            RESUME_ARGS=(--resume-from /tmp/prev-state/state)
+          fi
+          set +e
+          bash scripts/release/verify-soak.sh \
+            --base http://localhost:3000 \
+            --duration "${{ inputs.segment_hours }}h" \
+            --interval 60 \
+            --segment "${{ inputs.segment_index }}" \
+            --admin-password 'Soak-Admin-Pass-2026!' \
+            --db v2ex_soak \
+            --pg-port 5432 \
+            --pg-pass soak_password \
+            --out soak-evidence \
+            "${RESUME_ARGS[@]}"
+          RC=$?
+          set -e
+          echo "soak_rc=$RC" >> "$GITHUB_OUTPUT"
+          cat soak-evidence/evidence/baseline.txt 2>/dev/null || true
+          exit $RC
+
+      - name: 上传本段状态（供下一段续跑）
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-state-${{ inputs.segment_index }}
+          path: soak-evidence/state/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 上传本段证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-evidence-${{ inputs.segment_index }}
+          path: soak-evidence/evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: 收集应用日志
+        if: always()
+        run: |
+          tail -200 /tmp/soak-app.log > soak-evidence/evidence/app-log-tail.txt 2>/dev/null || true
+
+      - name: 清理
+        if: always()
+        run: |
+          if [ -f /tmp/soak-app.pid ]; then kill "$(cat /tmp/soak-app.pid)" 2>/dev/null || true; fi
+          docker rm -f soak-postgres 2>/dev/null || true

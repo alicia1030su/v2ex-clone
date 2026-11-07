@@ -55,6 +55,8 @@ on:
       - 'v0.0.2'
       - 'v0.0.3'
       - 'v0.0.4'
+      # ⚠️ v0.0.9：授权公开发布 Pre-release（一次性风险接受，R-01 维持 DEFERRED）
+      - 'v0.0.9'
   workflow_dispatch:
     inputs:
       version:
@@ -66,10 +68,19 @@ on:
         required: false
         default: true
       publish:
-        description: '是否将 Release 从 Draft 转为正式发布。默认 false（保持 Draft，待风险决策）'
+        description: '是否将 Release 从 Draft 转为公开状态。默认 false（保持 Draft，待风险决策）'
         required: false
         type: boolean
         default: false
+      prerelease:
+        description: |
+          公开后的 Release 类型。
+          · true  = Pre-release（公开可下载，但标记为「非稳定版」）—— v0.0.9 用这个
+          · false = 稳定版（**本项目 0.0.x 全部是早期开发预览版，不应发稳定版**）
+          仅在 publish=true 时生效。
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: release-${{ github.ref }}
@@ -1771,9 +1782,24 @@ jobs:
           #
           # 只有显式传 publish=true（workflow_dispatch 输入）才会转正式发布。
           PUBLISH="${{ inputs.publish || 'false' }}"
+          PRERELEASE="${{ inputs.prerelease || 'true' }}"
           if [ "$PUBLISH" = "true" ]; then
-            gh release edit "$VERSION" --repo "${{ github.repository }}" --draft=false
-            echo "Release 已正式发布（publish=true）"
+            # ⚠️ v0.0.9：**0.0.x 一律不得作为稳定版发布**。
+            #   本项目 README 明示「0.0.x 全部为早期开发预览版」，
+            #   发稳定版会让用户误以为可长期依赖。
+            #   ⇒ 强制 Pre-release；只有显式 prerelease=false 才允许稳定版，
+            #     且需要二次确认开关（见下方 guard）。
+            if [ "$PRERELEASE" != "true" ]; then
+              echo "::error::本项目 0.0.x 全部为早期开发预览版，不得发布为稳定版。"
+              echo "        请保持 prerelease=true（发布形态为公开 Pre-release）。"
+              exit 1
+            fi
+            gh release edit "$VERSION" \
+              --repo "${{ github.repository }}" \
+              --draft=false \
+              --prerelease=true \
+              --latest=false
+            echo "Release 已公开发布（Pre-release，publish=true + prerelease=true）"
           else
             echo "Release 保持 Draft 状态。"
             echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过，"
@@ -1811,9 +1837,10 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/releases?per_page=100"
 
-          python3 - "$VERSION" <<'PY'
+          python3 - "$VERSION" "$PUBLISH" <<'PY'
           import json, sys
           VERSION = sys.argv[1]
+          PUBLISH = sys.argv[2]
           lst = json.load(open('/tmp/rel-list.json', encoding='utf-8'))
           if not isinstance(lst, list):
               print('::error::无法读取 Release 列表：', lst.get('message', '未知错误'))
@@ -1824,9 +1851,20 @@ jobs:
               sys.exit(1)
           d = hit[0]
           is_draft = bool(d.get('draft'))
+          is_prerelease = bool(d.get('prerelease'))
           print('Release 状态：', 'draft' if is_draft else '已发布')
-          if not d.get('prerelease'):
+          if not is_prerelease:
               print('::error::Release 未标记 prerelease'); sys.exit(1)
+          # ⚠️ v0.0.9：公开发布时**必须**是「已发布 + Pre-release」，
+          #    且**不得**被设为 latest（本项目 0.0.x 全是开发预览版，
+          #    latest 指向它会误导用户）。
+          if PUBLISH == 'true':
+              if is_draft:
+                  print('::error::publish=true 但 Release 仍是 draft'); sys.exit(1)
+              if d.get('latest') is True:
+                  print('::error::Release 被标记为 latest —— 0.0.x 开发预览版不得占用 latest')
+                  sys.exit(1)
+              print('公开形态核验通过：已发布 + Pre-release + 非 latest ✓')
           names = [a['name'] for a in d.get('assets', [])]
           print('资产清单:', names)
           if not any('deploy.zip' in n for n in names):

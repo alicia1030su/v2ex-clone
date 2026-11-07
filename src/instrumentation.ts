@@ -47,7 +47,7 @@ export async function register(): Promise<void> {
 
   // 动态 import：避免 Edge 构建期把 node:http 打进包
   const http = await import('node:http');
-  const { countMetric, recordSlowRequest } = await import('@/lib/observability');
+  const { countMetric, recordSlowRequest, normalizeApiPath } = await import('@/lib/observability');
 
   type ServerResponseLike = import('node:http').ServerResponse;
 
@@ -57,8 +57,11 @@ export async function register(): Promise<void> {
   };
 
   // 防止重复打补丁（dev 模式热更新会多次执行 register）
-  if (proto.__v2exInstrumented) return;
-  proto.__v2exInstrumented = true;
+  // ⚠️ 用 **Symbol** 而不是字符串属性：避免与其它库的可能命名冲突，
+  //    且不会被误枚举到。
+  const INSTRUMENTED = Symbol.for('v2ex.instrumentation.writeHead');
+  if ((proto as Record<symbol, unknown>)[INSTRUMENTED]) return;
+  (proto as Record<symbol, unknown>)[INSTRUMENTED] = true;
 
   const originalWriteHead = proto.writeHead;
 
@@ -72,29 +75,46 @@ export async function register(): Promise<void> {
       return originalWriteHead.apply(res, args as never);
     }
 
+    // ⚠️ 归一化路径 —— 否则 `/api/topics/1`、`/api/topics/2` … 是**不同的键**，
+    //    计数器会被无界撑大（内存泄漏）。归一化后键基数 = 真实路由数。
+    const route = normalizeApiPath(path);
+
     const startedAt = Date.now();
 
     const finish = () => {
       const durationMs = Date.now() - startedAt;
       const status = res.statusCode;
 
-      countMetric('api.request');
-      countMetric(`api.status.${status}`);
-      if (status >= 500) {
-        countMetric('api.error.5xx');
-        countMetric(`api.error.5xx.${path}`);
-      } else if (status >= 400) {
-        countMetric('api.error.4xx');
-        countMetric(`api.error.4xx.${path}`);
-      }
-      if (durationMs >= 2000) {
-        recordSlowRequest(path, durationMs);
+      try {
+        countMetric('api.request');
+        countMetric(`api.status.${status}`);
+        if (status >= 500) {
+          countMetric('api.error.5xx');
+          countMetric(`api.error.5xx.${route}`);
+        } else if (status >= 400) {
+          countMetric('api.error.4xx');
+          countMetric(`api.error.4xx.${route}`);
+        }
+        if (durationMs >= 2000) {
+          recordSlowRequest(route, durationMs);
+        }
+      } catch {
+        // ⚠️ 埋点失败**绝不能**影响业务响应（任务书 §六）
       }
     };
 
-    // 'finish' 在响应完全写完后触发 —— 此时 statusCode 已确定
+    // 'finish' 在响应完全写完后触发 —— 此时 statusCode 已确定。
+    //
+    // ⚠️ 用 `once` ⇒ 只结算一次（不重复计数）。
+    // ⚠️ 埋点挂在 'finish' 上 ⇒ **不改变**响应内容、状态码、头，
+    //    也不影响流式响应（只是多一个事件监听器）。
     res.once('finish', finish);
 
-    return originalWriteHead.apply(res, args as never);
+    try {
+      return originalWriteHead.apply(res, args as never);
+    } catch (err) {
+      // 埋点的任何异常都不得改变原有行为
+      throw err;
+    }
   };
 }
