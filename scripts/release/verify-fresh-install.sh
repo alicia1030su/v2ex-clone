@@ -135,21 +135,38 @@ fi
 
 # 组装「无 docker」的 PATH
 #
-# ⚠️ v0.0.9 真实缺陷（post-release-verify run `42417832086` 暴露）：
-#    旧写法只把 `command -v docker` 命中的**那一个**目录摘掉。
-#    GitHub 的 ubuntu runner 上 docker 同时存在于多个 bin 目录，
-#    摘掉第一个之后 `command -v docker` 会命中**下一个** ⇒
-#    负向测试根本没生效：install.sh 拿到了 docker，**真的装了一遍**
-#    （实测负向测试退出码 0、并留下了 .env），把 postgres 数据卷
-#    用**旧口令**初始化；随后测试把 .env 删掉，正式安装生成**新口令**
-#    ⇒ 应用连库 `password authentication failed for user "v2ex"`，
-#    首页永远起不来（`✗ 应用首页不可访问（000000）`）。
-#    正解：把 PATH 里**所有**能解析出 docker 的目录都摘掉。
-PATH_NO_DOCKER="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r _d; do
-  [ -n "$_d" ] || continue
-  if [ -x "$_d/docker" ]; then continue; fi
-  printf '%s\n' "$_d"
-done | paste -sd ':' -)"
+# ⚠️ v0.0.9 真实缺陷（post-release-verify run `42417832086` / `42418259427` / `42418557391`）：
+#    前两版写法都有问题：
+#    ① 只摘掉 `command -v docker` 命中的**那一个**目录 —— GitHub 的
+#       ubuntu runner 上 docker 在多个 bin 目录里，摘掉第一个仍命中第二个
+#       ⇒ 负向测试**没生效**：install.sh 真的装了一遍（退出码 0）并用
+#       旧口令初始化了 postgres 数据卷，随后的正式安装必然鉴权失败，
+#       把干净的包伪装成「产品缺陷」。
+#    ② 改成「摘掉所有含 docker 的目录」后，Ubuntu 上 `/bin` 是
+#       `/usr/bin` 的符号链接 ⇒ 连 `bash` / `grep` / `curl` 一起没了，
+#       install.sh 还没走到 docker 检查就先崩，日志里自然没有
+#       「未检测到 docker」。
+#    正解：建一个**符号链接农场** —— 把 PATH 里每个目录的可执行文件
+#    逐个软链过来，**唯独跳过 docker**。这样只少一个 docker，
+#    其余命令一个不少，负向测试才真正测到它想测的那条分支。
+SAFE_BIN="${WORK_ROOT}/safebin"
+build_safe_path() {
+  local safe="$1" d f n
+  mkdir -p "$safe"
+  printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    [ -d "$d" ] || continue
+    for f in "$d"/*; do
+      [ -e "$f" ] || continue
+      n="$(basename "$f")"
+      [ "$n" = "docker" ] && continue
+      [ -e "$safe/$n" ] && continue
+      ln -s "$f" "$safe/$n" 2>/dev/null || true
+    done
+  done
+}
+build_safe_path "$SAFE_BIN"
+PATH_NO_DOCKER="$SAFE_BIN"
 
 # 组装「有 docker shim」的 PATH
 SHIM_BIN="${WORK_ROOT}/shimbin"
@@ -178,7 +195,20 @@ if PATH="$PATH_NO_DOCKER" command -v docker >/dev/null 2>&1; then
   NODOCKER_TESTABLE=0
   info "⚠️ 无法从 PATH 完全移除 docker ⇒ 「缺少 docker」负向测试**跳过**（如实标注，不冒充通过）"
 else
-  NODOCKER_TESTABLE=1
+  # 农场必须「只少一个 docker」—— 否则 install.sh 会因为缺别的命令而
+  # 在 docker 检查**之前**就崩掉，负向测试测到的就不是它想测的分支。
+  # 用一组金丝雀命令确认农场可用；任一缺失就跳过，绝不冒充通过。
+  _missing=""
+  for _c in bash grep sed awk curl sh mkdir rm cat printf tr head tail mktemp cmp od openssl; do
+    PATH="$PATH_NO_DOCKER" command -v "$_c" >/dev/null 2>&1 || _missing="$_missing $_c"
+  done
+  if [ -n "$_missing" ]; then
+    NODOCKER_TESTABLE=0
+    info "⚠️ 安全 PATH 农场缺少命令：${_missing# } ⇒ 「缺少 docker」负向测试**跳过**（不冒充通过）"
+  else
+    NODOCKER_TESTABLE=1
+    info "安全 PATH 农场就绪（$(ls "$SAFE_BIN" | wc -l | tr -d ' ') 个命令，仅缺 docker）"
+  fi
 fi
 
 if [ "$NODOCKER_TESTABLE" -eq 1 ]; then
@@ -456,13 +486,25 @@ else
   CKF="${WORK_ROOT}/ck.txt"
   CSRF="$(curl -s -c "$CKF" -o /dev/null "$APP_URL" >/dev/null 2>&1; awk '$6=="v2_csrf"{print $7}' "$CKF" | tail -1)"
   ADMIN_PW="$(read_env SEED_ADMIN_PASSWORD)"
-  LOGIN_CODE="$(curl -s -b "$CKF" -c "$CKF" -o /dev/null -w '%{http_code}' -X POST "${APP_URL}/api/auth/signin" \
+  LOGIN_BODY="${WORK_ROOT}/login-body.json"
+  LOGIN_CODE="$(curl -s -b "$CKF" -c "$CKF" -o "$LOGIN_BODY" -w '%{http_code}' -X POST "${APP_URL}/api/auth/signin" \
     -H 'Content-Type: application/json' -H "x-csrf-token: $CSRF" \
     -d "{\"username\":\"$(read_env SEED_ADMIN_USERNAME)\",\"password\":\"${ADMIN_PW}\"}")"
-  if [ "$LOGIN_CODE" = "200" ]; then
-    ok "管理员登录正常"
+  # ⚠️ v0.0.9：官方安装运行在 production 模式，而
+  #    src/app/api/auth/signin/route.ts 对**非隔离环境一律强制验证码**
+  #    （唯一例外是 APP_RUNTIME_ENV=test 且 TEST_ENV_ISOLATED=1）。
+  #    所以「脚本化直接登录成功」在这套设计下**不可能**成立 —— 那不是
+  #    缺陷。原先硬断言 200 会让一个健康的安装永远红（run 42418557391）。
+  #    改为两条如实的断言：
+  #      ① 未验证码的登录必须被**明确拒绝**，且错误信息指向验证码；
+  #      ② 认证与会话链路真的可用 —— 由紧随其后的「注册 → 发帖 → 回复」
+  #         用新会话证明（这批请求带的就是 signup 建立的会话 Cookie）。
+  if [ "$LOGIN_CODE" = "400" ] && grep -q '验证码' "$LOGIN_BODY"; then
+    ok "管理员登录受验证码保护（未带验证码被拒 400 —— 生产模式设计如此）"
+  elif [ "$LOGIN_CODE" = "200" ]; then
+    ok "管理员登录成功（200，本环境未强制验证码）"
   else
-    bad "管理员登录失败（${LOGIN_CODE}）"
+    bad "登录接口行为异常（HTTP ${LOGIN_CODE}，既非验证码拦截也非成功）"
   fi
 
   # 注册
