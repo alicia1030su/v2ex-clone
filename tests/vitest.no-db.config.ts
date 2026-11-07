@@ -23,8 +23,14 @@ import path from 'node:path';
  *
  * 用法（在仓库根目录）：
  *   npx vitest run --config tests/vitest.no-db.config.ts
- *   npx vitest run --config tests/vitest.no-db.config.ts -t "调试端点开关"
- *   npx vitest run --config tests/vitest.no-db.config.ts -t "instrumentation"
+ *
+ * ⚠️ include 里包含 `tests/captcha.spec.ts` 只是因为 T1（A-01 调试端点开关）
+ *    写在那个文件里。该文件另有 6 条「验证码逻辑」用例依赖 PostgreSQL，
+ *    在**无数据库**的本机环境会报 `DATABASE_URL is not set`。
+ *    ⇒ 本配置用 `testNamePattern` 只收集 A-01 / A-03 的定向回归，
+ *      使「无 DB 也能跑」这句承诺名副其实（本机实测 13/13 全绿）。
+ *    这些被排除的用例**不是被跳过**：常规 CI 仍由 `vitest.config.ts`
+ *    全量收集并在带 PG 的环境里真实执行。
  */
 // Vite 7 起 `configLoader: 'native'` 不支持 `__dirname`（会告警），
 // 用 `import.meta.dirname`（Node >= 20.11，本项目 engines 要求 >= 22.23.4）。
@@ -38,6 +44,9 @@ export default defineConfig({
     globals: false,
     testTimeout: 30_000,
     fileParallelism: false,
+    // 只跑 A-01 / A-03 定向回归。两个 describe 的标题都带这些关键词；
+    // 其余（依赖 PG 的验证码逻辑等）由常规 vitest.config.ts 全量收集。
+    testNamePattern: /调试端点开关|instrumentation/,
   },
   resolve: {
     alias: {

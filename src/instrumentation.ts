@@ -63,6 +63,15 @@ export async function register(): Promise<void> {
   if ((proto as Record<symbol, unknown>)[INSTRUMENTED]) return;
   (proto as Record<symbol, unknown>)[INSTRUMENTED] = true;
 
+  // ⚠️ v0.0.9（安全审计 A-03）：**每个响应**只挂载一次 `finish` 监听器。
+  //
+  // `once` 只保证「单个监听器触发一次」，并不保证「只注册了一个监听器」：
+  // 若把 `res.once('finish', ...)` 写在 `patchedWriteHead` 函数体内，
+  // 同一响应调用 N 次 `writeHead` 就会注册 N 个回调 ⇒ 重复计数 /
+  // 慢请求重复登记 / 监听器累积（>10 次触发 MaxListenersExceededWarning）。
+  // 用 res 上的 Symbol 标记「已挂载」，首次即返回，从根上消除重复。
+  const FINISH_HOOKED = Symbol.for('v2ex.instrumentation.finishHooked');
+
   const originalWriteHead = proto.writeHead;
 
   proto.writeHead = function patchedWriteHead(this: ServerResponseLike, ...args: unknown[]) {
@@ -78,6 +87,15 @@ export async function register(): Promise<void> {
     // ⚠️ 归一化路径 —— 否则 `/api/topics/1`、`/api/topics/2` … 是**不同的键**，
     //    计数器会被无界撑大（内存泄漏）。归一化后键基数 = 真实路由数。
     const route = normalizeApiPath(path);
+
+    // 已挂载 ⇒ 直接透传原始 writeHead，不再注册第二个监听器、不重置计时。
+    // 后续 writeHead 可能改变 statusCode，但 `finish` 里读的是**最终**值，
+    // 与客户端实际看到的状态码一致。
+    const hooks = res as unknown as Record<symbol, unknown>;
+    if (hooks[FINISH_HOOKED]) {
+      return originalWriteHead.apply(res, args as never);
+    }
+    hooks[FINISH_HOOKED] = true;
 
     const startedAt = Date.now();
 
@@ -105,7 +123,8 @@ export async function register(): Promise<void> {
 
     // 'finish' 在响应完全写完后触发 —— 此时 statusCode 已确定。
     //
-    // ⚠️ 用 `once` ⇒ 只结算一次（不重复计数）。
+    // ⚠️ `once` 保证「这个回调只执行一次」；**不**保证「只注册了一个回调」。
+    //    单次结算由上面的 `FINISH_HOOKED` 标记保证（每个响应仅注册一次）。
     // ⚠️ 埋点挂在 'finish' 上 ⇒ **不改变**响应内容、状态码、头，
     //    也不影响流式响应（只是多一个事件监听器）。
     res.once('finish', finish);
