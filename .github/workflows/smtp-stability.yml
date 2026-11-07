@@ -140,8 +140,10 @@ jobs:
           REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
         run: |
           set -o pipefail
+          # ⚠️ project 名是 **core**（playwright.config.ts 里的 projects 定义），
+          #    不是 'chromium' —— 实测踩到：Error: Project(s) "chromium" not found.
           npx playwright test e2e/v008-smtp-stability.spec.ts \
-            --project=chromium --reporter=list 2>&1 | tee /tmp/stab-run.log
+            --project=core --reporter=list 2>&1 | tee /tmp/stab-run.log
 
       - name: 汇总稳定性结果
         if: always()

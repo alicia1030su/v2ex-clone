@@ -119,13 +119,22 @@ async function attackReply(
   topicId: number,
   attackHeaders: Record<string, string>,
   redirectParam = '/t/' + topicId,
-): Promise<{ status: number | null; location: string | null; note?: string }> {
+): Promise<{ status: number | null; location: string | null; body?: string; note?: string }> {
   try {
     const r = await req.post(`${BASE}/api/replies`, {
       headers: { 'x-csrf-token': csrf, ...attackHeaders },
       form: { topicId: String(topicId), content: `attack-probe ${Date.now()}`, redirect: redirectParam },
     });
-    return { status: r.status(), location: r.headers()['location'] ?? null };
+    const loc = r.headers()['location'] ?? null;
+    // ⚠️ v0.0.8：记录响应体 —— 没有它就无法区分「303（攻击场景真的被测了）」
+    //    与「200（走了 JSON 分支 / 回复没创建）」。实测踩到：13 个场景全部
+    //    返回 200 且无 Location ⇒ 看起来「全部 SAFE」，实际**攻击根本没发生**。
+    const bodyText = await r.text().catch(() => '');
+    return {
+      status: r.status(),
+      location: loc,
+      body: bodyText.slice(0, 200),
+    };
   } catch (err) {
     return { status: null, location: null, note: `请求失败：${(err as Error).message}` };
   }
@@ -324,7 +333,15 @@ async function main(): Promise<void> {
       let verdict: Verdict = 'SAFE';
       let reason = '';
       try {
-        const mail = await smtp.waitForMail((m) => m.to.includes(victimEmail), 15_000);
+        // ⚠️ 大小写不敏感：应用会把邮箱**转小写**（用户名规范化为小写），
+        //    而 victimEmail 里含用例 ID（如 B1）⇒ 原样 includes 匹配不到
+        //    ⇒ 误报「未收到邮件」（实测踩到：日志显示已收到 victim_b1_…，
+        //    但谓词找的是 victim_B1_…）⇒ 得出「fail-closed」的假结论。
+        const needle = victimEmail.toLowerCase();
+        const mail = await smtp.waitForMail(
+          (m) => m.to.some((t) => t.toLowerCase() === needle),
+          15_000,
+        );
         mailBody = mail.body;
         const m = mailBody.match(/https?:\/\/[^\s"'<>]*\/reset-password\?token=([^\s"'<>&]+)/);
         if (!m) {
