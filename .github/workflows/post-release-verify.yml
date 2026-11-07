@@ -1,0 +1,414 @@
+name: 发布后独立验收
+
+# ---------------------------------------------------------------------------
+# v0.0.9 —— 正式公开发布**之后**的独立验收（任务书 §八）
+#
+# ## 为什么单独一个工作流、且只手动触发
+#
+# - `release.yml` 里的核验发生在**同一条发布流水线内部**：它拿着本次构建的
+#   artifact、本次 runner 上已存在的镜像，天然无法回答「一个**全新的、
+#   没有任何凭据的外部用户**能不能把版本装起来」这个问题。
+# - 本工作流跑在**全新隔离 runner** 上：源码不参与安装，安装包与镜像都从
+#   公开的 Release / GHCR 匿名取得，安装目录只来自下载并解压的官方包。
+# - 只挂 `workflow_dispatch`：发布前 Release 页面与资产还不存在（Draft 匿名
+#   一律 404），挂 push / pull_request 只会让每次提交都必然红灯、毫无信息量。
+#
+# ## 全程匿名（最硬的一条约束）
+#
+# - **不引入任何 docker 登录步骤**，不把 GITHUB_TOKEN 交给 docker；
+#   `docker pull` 必须靠匿名成功 —— 这正是「普通用户能直接安装」的证明。
+# - GitHub 侧的请求同样不带 Authorization（匿名 curl 网页 / 下载 / API）。
+# - 因此本工作流只申请 `contents: read`，连 `packages: read` 都不需要。
+#
+# ## 复用而非重写
+#
+# - 安装与 13 项断言复用 `scripts/release/verify-fresh-install.sh`
+#   （`--deploy-dir` 指向官方包解压出的 deploy/，`--keep` 保留实例供后续补验）；
+#   包内 `install.sh` **原样执行**，不 patch、不改写、不预置 .env。
+# - `verify-fresh-install.sh` 会显式清空 V2EX_IMAGE，install.sh 于是使用包内
+#   默认的 GHCR 镜像（匿名拉取），与本工作流要验的镜像完全一致。
+# - 通知 / 备份 / 恢复 / 重启持久化在保留的实例上补做（脚本未覆盖的部分），
+#   备份与恢复直接调用官方包内的 `backup.sh` / `restore.sh`。
+#   `restore.sh` 有一处交互确认，用 stdin 管道喂 `y` 实现非交互，**不改包**。
+#
+# ## 失败语义
+#
+# - 每一关键项失败都会先写入结果表（FAIL + 真实错误），再 `exit 1`。
+# - 任何地方都不用 `|| true` 吞掉下载、校验、安装、发布的失败；唯一例外是
+#   最后「清理容器」这种非验收项的 best-effort 操作，已就地注明。
+# - 末尾统一输出结构化 Step Summary（每项 PASS/FAIL 与真实值），有 FAIL 即红。
+#
+# ⚠️ YAML 1.1 静态校验提示：PyYAML 等 YAML 1.1 解析器会把顶层键 `on`
+#    解析成布尔 `True`（`on/off/yes/no` 是 YAML 1.1 的布尔字面量）。
+#    GitHub Actions 用的是自己的 YAML 方言，`on` 就是触发器键。
+#    用 `python3 -c "import yaml"` 校验时须按 `data.get('on', data.get(True))`
+#    读取，否则会误判「缺少触发器」。
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '已公开发布的版本号，例如 v0.0.9'
+        required: true
+        default: 'v0.0.9'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: post-release-verify-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  REPO: ${{ github.repository }}
+  VERSION: ${{ inputs.version }}
+  # 与 deploy/ 包内的镜像引用保持一致，用于三方版本一致性断言
+  IMAGE_REPO: alicia1030su/v2ex-clone
+  WORK: /tmp/post-release-verify
+  RESULTS: /tmp/post-release-results.tsv
+
+jobs:
+  verify:
+    name: 发布后独立验收（匿名视角 · 全新环境）
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 准备：版本格式、环境信息与结果表
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          : > "$RESULTS"
+          # 版本号会被拼进 URL / 文件名 / shell 命令，必须严格白名单化
+          if ! printf '%s' "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            fail "版本号格式" "非法：$VERSION（应形如 v0.0.9）"
+          fi
+          mkdir -p "$WORK"
+          echo "版本=$VERSION  仓库=$REPO  工作目录=$WORK"
+          docker --version
+          docker compose version
+          # 本工作流从未登录任何镜像仓库；这里再次确认 daemon 可用，
+          # 否则 verify-fresh-install.sh 会走「静态核验」分支 ⇒ 假绿。
+          docker info >/dev/null 2>&1 || fail "Docker 守护进程" "不可用，拒绝以静态核验冒充真实安装"
+          pass "运行环境" "$VERSION / $(docker --version) / $(docker compose version --short)"
+
+      - name: 检出发布 Tag（仅用于取验证脚本，不参与安装）
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.version }}
+          path: verify-tools
+          fetch-depth: 1
+
+      - name: ① 匿名访问 Release 页面（必须 200）
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          URL="https://github.com/$REPO/releases/tag/$VERSION"
+          # 把网络层失败折算成 000 交给下面的断言处理（不是吞失败，仍判 FAIL）
+          CODE="$(curl -sSL -o /dev/null -w '%{http_code}' --max-time 30 "$URL" || echo 000)"
+          [ "$CODE" = "200" ] || fail "Release 页面匿名可访问" "HTTP $CODE / $URL"
+          pass "Release 页面匿名可访问" "HTTP 200 / $URL"
+
+      - name: ② 匿名下载安装包与 SHA256SUMS，校验并落地
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          ZIP="v2ex-clone-${VERSION}-deploy.zip"
+          BASE="https://github.com/$REPO/releases/download/$VERSION"
+          curl -fsSL --retry 3 --max-time 300 -o "$WORK/$ZIP" "$BASE/$ZIP" \
+            || fail "匿名下载安装包" "curl 失败：$BASE/$ZIP"
+          curl -fsSL --retry 3 --max-time 60 -o "$WORK/SHA256SUMS" "$BASE/SHA256SUMS" \
+            || fail "匿名下载 SHA256SUMS" "curl 失败：$BASE/SHA256SUMS"
+          SIZE="$(stat -c%s "$WORK/$ZIP")"
+          SHA="$(sha256sum "$WORK/$ZIP" | awk '{print $1}')"
+          [ "$SIZE" -gt 1000 ] || fail "安装包大小" "$SIZE 字节（疑似 404 页面）"
+          ( cd "$WORK" && sha256sum -c SHA256SUMS ) \
+            || fail "SHA256 校验" "sha256sum -c 不通过（本地摘要 $SHA）"
+          printf '%s' "$ZIP" > "$WORK/zip-name.txt"
+          pass "安装包下载与 SHA256" "$ZIP / ${SIZE} 字节 / SHA256=${SHA}"
+
+      - name: ③ 解压并断言包内容齐全、无凭据、无明文 secret
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          ZIP="$(cat "$WORK/zip-name.txt")"
+          cd "$WORK"
+          rm -rf pkg && mkdir -p pkg
+          unzip -q "$ZIP" -d pkg || fail "解压安装包" "unzip 失败"
+          D="pkg/deploy"
+          [ -d "$D" ] || fail "包结构" "缺少 pkg/deploy/ 目录"
+          REQUIRED="docker-compose.yml .env.example install.sh install.ps1 start.sh stop.sh update.sh backup.sh restore.sh README.md INSTALL.md VERSION LICENSE health-check.sh"
+          MISSING=""
+          for f in $REQUIRED; do
+            [ -f "$D/$f" ] || MISSING="$MISSING $f"
+          done
+          [ -z "$MISSING" ] || fail "包内必需文件" "缺少：$MISSING"
+          # 真实 .env / 凭据文件 / 私钥 / 口令文件绝不能进发布包
+          FORBIDDEN="$(find pkg \( -name '.env' -o -name 'INSTALL_CREDENTIALS.txt' \
+                         -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa' \
+                         -o -iname '*password*.txt' -o -iname '*credential*' \) -print)"
+          [ -z "$FORBIDDEN" ] || fail "包内禁止文件" "检出：$FORBIDDEN"
+          # 明显 secret 扫描：私钥头 / 赋值式长口令。
+          # 值含占位符、变量引用或为空的模板行不算（.env.example 全是空值）。
+          # 单行 python（无 heredoc）——避免 YAML 块缩进被灌进 python 造成缩进错误。
+          # ⚠️ v0.0.9 实测修正（用已发布的 v0.0.4 官方包匿名下载验证过）：
+          #   原判据 `=[^#\s<]{16,}` 会把 deploy/install.sh 里**生成随机口令的代码**
+          #     POSTGRES_PASSWORD_NEW="$(gen_random_hex 16)"
+          #   当成明文密钥（" $ ( 都不在排除集里，"$(gen_random_hex 是 17 个
+          #   连续非空白字符）⇒ 干净的包被误判为 FAIL。
+          #   现在要求赋值值是一串连续的 base64/hex/字母数字（>=16），
+          #   两侧可带引号、行尾可带注释；命令替换 / 变量 / 空值模板一律不命中。
+          #   正则里用 \x22 / \x27 表示引号，避免与 shell 双引号嵌套冲突。
+          python3 -c "import os,re,sys; root=sys.argv[1]; paths=[os.path.join(d,f) for d,_,fs in os.walk(root) for f in fs]; texts=[(p,open(p,encoding='utf-8',errors='ignore').read()) for p in paths if os.path.getsize(p)<2000000]; pat=re.compile(r'BEGIN [A-Z ]*PRIVATE KEY|^[A-Z_]*(?:PASSWORD|SECRET|TOKEN|API_KEY)[A-Z_]*=[\x22\x27]?([A-Za-z0-9+/=_-]{16,})[\x22\x27]?\s*(?:#.*)?$'); hits=[(p,l.strip()) for p,t in texts for l in t.splitlines() if pat.search(l.strip())]; print('疑似明文凭据命中：',hits); sys.exit(1 if hits else 0)" "$D" \
+            || fail "包内 secret 扫描" "检出疑似明文凭据（见上方输出）"
+          pass "包内容与安全" "$(find "$D" -type f | wc -l | tr -d ' ') 个文件 / 必需文件齐全 / 无 .env 与凭据 / 无明文 secret"
+
+      - name: ④ 三方版本一致（包 VERSION / compose 镜像 / Release tag）
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          cd "$WORK"
+          PKG_VERSION="$(tr -d '\r\n ' < pkg/deploy/VERSION)"
+          EXPECT_VERSION="${VERSION#v}"
+          [ "$PKG_VERSION" = "$EXPECT_VERSION" ] \
+            || fail "包内 VERSION" "$PKG_VERSION（应为 $EXPECT_VERSION）"
+          COMPOSE_DEFAULT="$(sed -n 's/.*image: ${V2EX_IMAGE:-\([^}]*\)}.*/\1/p' pkg/deploy/docker-compose.yml | head -1)"
+          EXPECT_IMAGE="ghcr.io/${IMAGE_REPO}:${VERSION}"
+          [ "$COMPOSE_DEFAULT" = "$EXPECT_IMAGE" ] \
+            || fail "compose 默认镜像" "$COMPOSE_DEFAULT（应为 $EXPECT_IMAGE）"
+          # 匿名读取 Release：draft 会 404（curl -f 直接失败），
+          # 因此这一步同时证明「该版本确已公开发布」。
+          curl -fsSL --max-time 30 -H 'Accept: application/vnd.github+json' \
+            -o "$WORK/release.json" "https://api.github.com/repos/$REPO/releases/tags/$VERSION" \
+            || fail "匿名读取 Release" "releases/tags/$VERSION 不可读（仍是 Draft 或不存在？）"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); tag=d.get('tag_name'); draft=d.get('draft'); pre=d.get('prerelease'); print('tag=%s draft=%s prerelease=%s'%(tag,draft,pre)); sys.exit(0 if tag==sys.argv[2] and draft is False and pre is True else 1)" "$WORK/release.json" "$VERSION" \
+            || fail "Release tag 与形态" "tag / 已发布 / Pre-release 三项不一致（见上方输出）"
+          pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（已发布 · Pre-release）"
+
+      - name: ⑤ 匿名拉取 GHCR 镜像并用 Registry V2 交叉核对真实 digest
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          IMAGE="ghcr.io/${IMAGE_REPO}:${VERSION}"
+          # 本工作流没有任何 registry 登录步骤、也没有把 GITHUB_TOKEN 交给
+          # docker；下面的 pull 若成功，就是「公开可匿名拉取」的直接证据。
+          docker pull "$IMAGE" || fail "匿名 docker pull" "失败：$IMAGE"
+          LOCAL_DIGEST="$(docker image inspect "$IMAGE" --format '{{index .RepoDigests 0}}')"
+          LOCAL_DIGEST="${LOCAL_DIGEST#*@}"
+          case "$LOCAL_DIGEST" in
+            sha256:*) ;;
+            *) fail "本地镜像 digest" "取不到 RepoDigests（实际='$LOCAL_DIGEST'）" ;;
+          esac
+          ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
+          MANIFEST_URL="https://ghcr.io/v2/${IMAGE_REPO}/manifests/${VERSION}"
+          H1="$(mktemp)"
+          # 公开包第 1 步同样常返回 401 ⇒ 必须走完整 Bearer 匿名流程，
+          # 只看 401 就判「私有」是历史踩过的坑（见 release.yml 内注释）。
+          CODE1="$(curl -s -D "$H1" -o /dev/null -w '%{http_code}' -H "Accept: $ACCEPT" "$MANIFEST_URL")"
+          HDR="$H1"
+          if [ "$CODE1" = "401" ]; then
+            WW="$(grep -i '^www-authenticate:' "$H1" | head -1 | tr -d '\r')"
+            REALM="$(printf '%s' "$WW" | sed -n 's/.*realm="\([^"]*\)".*/\1/p')"
+            SERVICE="$(printf '%s' "$WW" | sed -n 's/.*service="\([^"]*\)".*/\1/p')"
+            SCOPE="$(printf '%s' "$WW" | sed -n 's/.*scope="\([^"]*\)".*/\1/p')"
+            [ -n "$SCOPE" ] || SCOPE="repository:${IMAGE_REPO}:pull"
+            [ -n "$REALM" ] || fail "匿名 Bearer realm" "WWW-Authenticate 中无 realm：$WW"
+            TOKEN="$(curl -fsS --max-time 30 "$REALM?service=$SERVICE&scope=$SCOPE" \
+                     | python3 -c 'import json,sys; print(json.load(sys.stdin).get("token",""))')"
+            [ -n "$TOKEN" ] || fail "匿名 Bearer token" "换 token 失败（$REALM）"
+            H2="$(mktemp)"
+            CODE2="$(curl -s -D "$H2" -o /dev/null -w '%{http_code}' \
+                      -H "Authorization: Bearer $TOKEN" -H "Accept: $ACCEPT" "$MANIFEST_URL")"
+            [ "$CODE2" = "200" ] || fail "匿名 manifest" "Bearer 后 HTTP $CODE2"
+            HDR="$H2"
+          elif [ "$CODE1" != "200" ]; then
+            fail "匿名 manifest" "首次请求 HTTP $CODE1（非 200/401）"
+          fi
+          REMOTE_DIGEST="$(grep -i '^docker-content-digest:' "$HDR" | tail -1 | tr -d '\r' | awk '{print $2}')"
+          [ -n "$REMOTE_DIGEST" ] || fail "Registry Docker-Content-Digest" "响应头中没有该字段"
+          [ "$REMOTE_DIGEST" = "$LOCAL_DIGEST" ] \
+            || fail "digest 交叉核对" "local=$LOCAL_DIGEST / registry=$REMOTE_DIGEST"
+          printf '%s' "$REMOTE_DIGEST" > "$WORK/image-digest.txt"
+          pass "匿名镜像与 digest" "anonymous pull OK / HTTP $CODE1 / digest=$REMOTE_DIGEST（本地与 Registry V2 一致）"
+
+      - name: ⑥ 用官方包 install.sh 完成全新安装（复用 verify-fresh-install.sh）
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          SCRIPT="verify-tools/scripts/release/verify-fresh-install.sh"
+          [ -f "$SCRIPT" ] || fail "验收脚本" "发布 Tag 中缺少 $SCRIPT"
+          docker info >/dev/null 2>&1 || fail "Docker 守护进程" "不可用（拒绝静态核验冒充通过）"
+          # --deploy-dir 指向**下载解压的官方包**，--keep 保留实例给下一步补验；
+          # 脚本内部原样执行包内 install.sh（V2EX_IMAGE 被清空 ⇒ 匿名拉官方镜像）。
+          set +e
+          bash "$SCRIPT" --deploy-dir "$WORK/pkg/deploy" --keep 2>&1 | tee "$WORK/fresh-install.log"
+          RC=${PIPESTATUS[0]}
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            tail -80 "$WORK/fresh-install.log"
+            fail "全新安装 13 项验收" "verify-fresh-install.sh 退出码 $RC"
+          fi
+          INST_DIR="$(sed -n 's/.*全新安装目录：//p' "$WORK/fresh-install.log" | head -1 | tr -d '\r')"
+          [ -n "$INST_DIR" ] && [ -d "$INST_DIR" ] \
+            || fail "保留安装实例" "无法从日志定位安装目录（--keep 未生效？）"
+          printf '%s' "$INST_DIR" > "$WORK/inst-dir.txt"
+          # 迁移 / 管理员 / 发帖 / 回复 / 重启持久化由脚本逐项断言，
+          # 这里把真实迁移条数取出来写进结果表。
+          MIGRATIONS="$(cd "$INST_DIR" && docker compose --env-file .env exec -T postgres \
+                        psql -U v2ex -d v2ex -t -A -c "select count(*) from drizzle.__drizzle_migrations;" \
+                        2>/dev/null | tr -d '\r\n ')"
+          [ -n "$MIGRATIONS" ] || fail "数据库迁移" "读不到迁移记录条数"
+          pass "官方包全新安装（13 项）" "install.sh 原样执行 / 迁移记录 $MIGRATIONS 条 / 实例 $INST_DIR"
+
+      - name: ⑦ 补验通知、备份与恢复、Docker 重启后数据保留
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\tFAIL\t%s\n' "$1" "$2" >> "$RESULTS"; echo "::error::$1：$2"; exit 1; }
+          pass() { printf '%s\tPASS\t%s\n' "$1" "$2" >> "$RESULTS"; echo "✓ $1：$2"; }
+          INST_DIR="$(cat "$WORK/inst-dir.txt")"
+          cd "$INST_DIR"
+          APP_URL="$(sed -n 's/^APP_URL=//p' .env | tail -1)"
+          APP_URL="${APP_URL:-http://localhost:3000}"
+          ADMIN_USER="$(sed -n 's/^SEED_ADMIN_USERNAME=//p' .env | tail -1)"
+          ADMIN_USER="${ADMIN_USER:-admin}"
+          ADMIN_PW="$(sed -n 's/^SEED_ADMIN_PASSWORD=//p' .env | tail -1)"
+          [ -n "$ADMIN_PW" ] || fail "管理员凭据" ".env 中没有 SEED_ADMIN_PASSWORD"
+          CK="$(mktemp)"
+          curl -fsS -c "$CK" -o /dev/null "$APP_URL/" || fail "应用首页" "不可访问 $APP_URL"
+          CSRF="$(awk '$6=="v2_csrf"{print $7}' "$CK" | tail -1)"
+          [ -n "$CSRF" ] || fail "CSRF Cookie" "未取到 v2_csrf"
+          LOGIN_CODE="$(curl -s -b "$CK" -c "$CK" -o /dev/null -w '%{http_code}' \
+                        -X POST "$APP_URL/api/auth/signin" \
+                        -H 'Content-Type: application/json' -H "x-csrf-token: $CSRF" \
+                        -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PW\"}")"
+          [ "$LOGIN_CODE" = "200" ] || fail "管理员登录" "HTTP $LOGIN_CODE"
+          NOTIF_CODE="$(curl -s -b "$CK" -o "$WORK/notif.json" -w '%{http_code}' "$APP_URL/api/notifications")"
+          [ "$NOTIF_CODE" = "200" ] || fail "通知端点" "HTTP $NOTIF_CODE"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); items=d.get('notifications'); print('ok=%s count=%s'%(d.get('ok'),len(items) if isinstance(items,list) else 'N/A')); sys.exit(0 if d.get('ok') is True and isinstance(items,list) else 1)" "$WORK/notif.json" \
+            || fail "通知端点响应" "不是合法的 { ok:true, notifications:[...] }"
+
+          # 触发一条真实通知：管理员回复 verify-fresh-install.sh 建的探针主题，
+          # 主题作者是另一个用户（freshprobe）⇒ 应用应写入 notifications。
+          PSQL() { docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex -t -A -c "$1" 2>/dev/null | tr -d '\r\n '; }
+          TOPIC_ID="$(PSQL "select id from topics where title='全新安装验收探针主题' limit 1;")"
+          [ -n "$TOPIC_ID" ] || fail "探针主题" "安装验收创建的主题不存在"
+          NOTIF_BEFORE="$(PSQL "select count(*) from notifications;")"
+          CSRF="$(awk '$6=="v2_csrf"{print $7}' "$CK" | tail -1)"
+          REPLY_CODE="$(curl -s -b "$CK" -c "$CK" -o /dev/null -w '%{http_code}' \
+                        -X POST "$APP_URL/api/replies" \
+                        -H 'Content-Type: application/json' -H "x-csrf-token: $CSRF" \
+                        -d "{\"topicId\":$TOPIC_ID,\"content\":\"发布后独立验收：管理员回复探针主题以触发通知。\"}")"
+          case "$REPLY_CODE" in
+            200|201) ;;
+            *) fail "回复以触发通知" "HTTP $REPLY_CODE" ;;
+          esac
+          NOTIF_AFTER="$(PSQL "select count(*) from notifications;")"
+          [ -n "$NOTIF_AFTER" ] && [ "$NOTIF_AFTER" -gt "$NOTIF_BEFORE" ] \
+            || fail "通知写入" "回复后通知数未增加（$NOTIF_BEFORE → ${NOTIF_AFTER:-空}）"
+          pass "通知" "端点 200 / 回复后通知数 $NOTIF_BEFORE → $NOTIF_AFTER"
+
+          # ── 备份 ── 官方包 backup.sh：pg_dump + gzip + SHA256 + 完整性校验
+          ./backup.sh > "$WORK/backup.log" 2>&1 || { cat "$WORK/backup.log"; fail "备份 backup.sh" "脚本执行失败"; }
+          BACKUP="$(ls -1t backups/v2ex-*.sql.gz | head -1)"
+          [ -n "$BACKUP" ] && [ -s "$BACKUP" ] || fail "备份文件" "未生成非空 v2ex-*.sql.gz"
+          gzip -t "$BACKUP" || fail "备份 gzip 结构" "gzip -t 失败"
+          ( cd backups && sha256sum -c "$(basename "$BACKUP").sha256" ) \
+            || fail "备份 SHA256" "与 .sha256 校验文件不一致"
+          BACKUP_SIZE="$(stat -c%s "$BACKUP")"
+
+          # ── 恢复闸门 ── 损坏的备份必须被 restore.sh 明确拒绝
+          BAD="$WORK/broken.sql.gz"
+          printf 'this-is-not-a-gzip-stream' > "$BAD"
+          set +e
+          printf 'y\n' | ./restore.sh "$BAD" > "$WORK/restore-bad.log" 2>&1
+          BAD_RC=$?
+          set -e
+          [ "$BAD_RC" -ne 0 ] || fail "损坏备份拦截" "restore.sh 竟然接受了损坏备份"
+          grep -q 'gzip 结构损坏' "$WORK/restore-bad.log" \
+            || fail "损坏备份拦截" "拒绝原因不是 gzip 结构损坏（见日志）"
+
+          # ── 真实恢复 ── restore.sh 有交互确认，用 stdin 喂 'y'，不 patch 包。
+          #    ⚠️ 如实说明：官方包 restore.sh 是 pg_dump 全量覆盖式恢复到**已有**库
+          #    （未带 --clean）。这里验证的是「备份可用 + 恢复脚本可执行 +
+          #    恢复后核心数据未被破坏」；不主动删库重放，以免破坏本验收实例。
+          #    若需验证「删库后完整还原」，应另起一次独立演练。
+          set +e
+          printf 'y\n' | ./restore.sh "$BACKUP" > "$WORK/restore.log" 2>&1
+          RESTORE_RC=$?
+          set -e
+          if [ "$RESTORE_RC" -ne 0 ]; then
+            cat "$WORK/restore.log"
+            fail "恢复 restore.sh" "退出码 $RESTORE_RC"
+          fi
+          TOPICS_AFTER_RESTORE="$(PSQL "select count(*) from topics where title='全新安装验收探针主题';")"
+          [ "$TOPICS_AFTER_RESTORE" = "1" ] \
+            || fail "恢复后数据完整" "探针主题数 = $TOPICS_AFTER_RESTORE（应为 1）"
+          pass "备份与恢复" "backup ${BACKUP_SIZE} 字节 / gzip+SHA256 OK / 损坏备份被拒 / restore 退出 0 / 探针主题仍在"
+
+          # ── Docker 重启后数据保留（部署级持久化，独立于脚本第 11 项再验一次）──
+          docker compose --env-file .env restart > "$WORK/restart.log" 2>&1 \
+            || fail "容器重启" "docker compose restart 失败（见日志）"
+          READY=0
+          for i in $(seq 1 40); do
+            sleep 3
+            if curl -fsS -o /dev/null --max-time 5 "$APP_URL/"; then READY=1; break; fi
+          done
+          [ "$READY" = "1" ] || fail "重启后应用恢复" "40 次轮询内首页未恢复"
+          TOPICS_AFTER_RESTART="$(PSQL "select count(*) from topics where title='全新安装验收探针主题';")"
+          ADMINS="$(PSQL "select count(*) from users where role='admin';")"
+          [ "$TOPICS_AFTER_RESTART" = "1" ] && [ "$ADMINS" = "1" ] \
+            || fail "重启后数据保留" "主题数=$TOPICS_AFTER_RESTART 管理员数=$ADMINS"
+          pass "Docker 重启后数据保留" "首页 200 / 探针主题 1 条 / 管理员 1 个"
+
+      - name: ⑧ 输出结构化 Step Summary（有 FAIL 即 exit 1）
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "## 发布后独立验收 · ${VERSION}"
+            echo ""
+            echo "全新隔离 runner · 全程匿名（无 GHCR 登录凭据）· 安装包与镜像均取自公开发布资产"
+            echo ""
+            echo "| 验收项 | 结果 | 真实值 |"
+            echo "|---|---|---|"
+            if [ -f "$RESULTS" ]; then
+              while IFS=$'\t' read -r item status value; do
+                [ -n "$item" ] || continue
+                echo "| $item | $status | $value |"
+              done < "$RESULTS"
+            fi
+            echo ""
+            if [ -f "$WORK/image-digest.txt" ]; then
+              echo "镜像真实 digest：\`$(cat "$WORK/image-digest.txt")\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          FAILS=0
+          if [ -f "$RESULTS" ]; then
+            FAILS="$(awk -F'\t' '$2 != "PASS" {n++} END {print n+0}' "$RESULTS")"
+          fi
+          if [ "$FAILS" -gt 0 ]; then
+            echo "::error::发布后独立验收有 $FAILS 项 FAIL（详见 Step Summary）"
+            exit 1
+          fi
+          echo "✓ 全部验收项 PASS（$(wc -l < "$RESULTS" | tr -d ' ') 项）"
+
+      - name: 清理验收实例（非验收项，失败不影响判定）
+        if: always()
+        run: |
+          # 仅清理本工作流自己拉起的容器与数据卷；这里的 `|| true` 只作用于
+          # 清理动作，绝不用于任何下载 / 校验 / 安装 / 发布步骤。
+          if [ -f "$WORK/inst-dir.txt" ]; then
+            INST_DIR="$(cat "$WORK/inst-dir.txt")"
+            if [ -d "$INST_DIR" ]; then
+              cd "$INST_DIR" || exit 0
+              docker compose --env-file .env down -v >/dev/null 2>&1 || true
+            fi
+          fi

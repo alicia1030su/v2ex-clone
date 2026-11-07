@@ -41,11 +41,26 @@ export function isCaptchaDisabled(): boolean {
   return isIsolatedTestEnv();
 }
 
-/** 调试端点是否可访问（还需额外通过令牌校验） */
+/**
+ * 调试端点是否可访问（还需额外通过令牌校验）
+ *
+ * ## v0.0.9 安全加固（审计 A-01）：生产环境**不可启用**
+ *
+ * 修复前这里只检查 `ENABLE_DEBUG_ENDPOINTS === '1'`，注释还写
+ * 「调试端点在任何环境都允许开启」—— 与同文件 `isCaptchaDisabled()` /
+ * `isRealSmtpAllowedInTest()` 的判定口径不一致。虽然默认部署把开关硬编码为
+ * `0` 且令牌为空（默认不可利用），但「生产不可启用」只靠配置默认、
+ * 没有机制保证：运维一旦误配开关并复用公开的测试令牌，
+ * `/api/debug/reset-rate-limits` 就能清空全站限流配额。
+ *
+ * 现在与另外两个安全开关统一：**只有隔离测试环境**
+ * （`APP_RUNTIME_ENV=test` 且 `TEST_ENV_ISOLATED=1`）才允许启用；
+ * 生产 / 预发 / 普通开发即使误配开关且拿到令牌也一律 fail-closed。
+ * 所有启用该开关的 CI 工作流都同时设置了这两个变量，语义不变。
+ */
 export function isDebugEndpointEnabled(): boolean {
   if (process.env.ENABLE_DEBUG_ENDPOINTS !== '1') return false;
-  // 调试端点在任何环境都允许开启，但必须配合令牌鉴权
-  return true;
+  return isIsolatedTestEnv();
 }
 
 /** 调试端点访问令牌（未配置时返回 null，即拒绝访问） */

@@ -21,8 +21,15 @@ import {
  * 2. **真实状态码**：middleware 的 `response.status` 恒为 200
  *    （`NextResponse.next()` 返回的是它自己的响应）⇒ `byStatus` 恒 `{200}`。
  *    修法：改由 `src/instrumentation.ts` 在 Node HTTP 层观测。
- *    —— 该部分需要真实 HTTP 服务，由 e2e 覆盖（见
- *    `e2e/v009-ops-metrics.spec.ts`）；此处只保证**存储层**行为正确。
+ *    —— 该部分需要真实 HTTP 服务，由**真实存在**的
+ *    `e2e/v009-ops-metrics.spec.ts` 覆盖（v0.0.9 发布前审计 A-04 已补齐：
+ *    此前这里指向的是一个不存在的文件）：它用真实请求产生
+ *    200 / 401 / 403 / 404，再用 `/api/admin/ops` 的前后快照断言
+ *    `byStatus` 被分别计入；5xx 因缺少稳定的真实端点，在该文件中以
+ *    `test.fixme` 如实标注「**真实 HTTP 5xx 未覆盖**」。5xx 的**分桶逻辑**
+ *    另由 `tests/v009-instrumentation-once.spec.ts` 的状态码分桶单测覆盖
+ *    （直接把 ServerResponse 的 statusCode 设为 500 后断言桶位）。
+ *    此处只保证**存储层**行为正确。
  *
  * ## 为什么用「动态 import + 二次求值」模拟 bundle 隔离
  *

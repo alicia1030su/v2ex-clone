@@ -15,6 +15,38 @@ name: Release
 #  - push tag v0.0.1（正式发布路径）
 #  - workflow_dispatch（手动重跑；dry_run=true 时只验证不发布）
 #
+# ## v0.0.9：发布形态的**三态**（由 preflight 的 meta step 统一判定，
+#    下游一律读 needs.preflight.outputs，不再各自去读 inputs）
+#
+#   | dry_run | publish | 结果 |
+#   |---|---|---|
+#   | true    | （任意） | 干跑：不推镜像、不建 Release、不发布 |
+#   | false   | false   | 只建 Draft（资产齐全，但匿名不可下载） |
+#   | false   | true    | 公开 Pre-release（强制 prerelease=true、--latest=false） |
+#
+# - **tag push ⇒ publish=true**：Tag 白名单（on.push.tags）是「人工确认
+#   该版本允许公开发布」的摩擦点 —— 每次发版都必须有人把版本号手动加进
+#   白名单，tag 一旦推上来就表示公开发布已获确认，不应再停在 Draft。
+#   修复前 publish-release 读 `inputs.publish`，而 tag push 没有 dispatch
+#   inputs ⇒ 恒为 false ⇒ **永远只建 Draft，没有可靠的公开发布入口**；
+#   而「先建 Draft、再 dispatch publish=true」又会被 preflight 的
+#   「Release 已存在（含 Draft）⇒ 中止」挡死，两条路都不通。
+# - workflow_dispatch ⇒ publish 取输入值；publish=false 时停在 Draft。
+#
+# ## B2：幂等「转公开」补救路径（任务书 §八「不移动 Tag 的合法修复流程」）
+#
+# 场景：Tag 已创建且不可移动，但发布流水线在「已建 Draft + 资产齐全、
+# 尚未转公开」时失败。此时既不能删/移动 Tag，也不能删 Release 重建。
+# 修法：用 **workflow_dispatch + publish=true** 重跑（不新增 input）——
+#   preflight 查到同版本 Release 仍是 Draft ⇒ 放行并打印 notice；
+#   publish-release 跳过「创建 Release / 上传资产」（避免同名资产冲突），
+#   只做资产清单核验 → 重新读状态确认仍是 Draft → 转公开。
+# 边界：
+#   · 不移动 Tag、不删 Release、不覆盖任何已公开资产；
+#   · Release 已公开 ⇒ fail-closed 中止；Release 查询失败 ⇒ fail-closed 中止；
+#   · 转公开前再次读状态，若已被别的 run 转成「已公开 + Pre-release」
+#     且资产齐全 ⇒ 直接「无需变更」成功结束（幂等，不重复 edit）。
+#
 # ---------------------------------------------------------------------------
 # Action 版本说明（重要，2026-11-03 实测）
 #
@@ -66,6 +98,10 @@ on:
       dry_run:
         description: '仅验证（不推送镜像、不创建 Release、不发布）'
         required: false
+        # ⚠️ N1：必须声明 boolean。之前没有 type ⇒ 输入按字符串处理，
+        #    只要填了 "True" / "TRUE" 之类，下游 == 'true' 就判成 false
+        #    ⇒ **fail-open 到正式发布**（干跑承诺失效）。
+        type: boolean
         default: true
       publish:
         description: '是否将 Release 从 Draft 转为公开状态。默认 false（保持 Draft，待风险决策）'
@@ -83,7 +119,15 @@ on:
         default: true
 
 concurrency:
-  group: release-${{ github.ref }}
+  # ⚠️ v0.0.9：**版本号必须进 group**。
+  #   原写法 release-${{ github.ref }} 下，所有 workflow_dispatch 都落在
+  #   master 这同一个 ref 上 ⇒ 不同版本的发布互相排队（v0.0.3 的重跑会
+  #   占用 v0.0.9 发布的并发槽），而 tag push 又各自成组 ⇒ 语义不一致。
+  #   纳入 version 后：同版本串行、不同版本互不阻塞。
+  #   group 只按版本号（不再拼 github.ref）：tag push 的 ref 是
+  #   refs/tags/<version>，dispatch 的 ref 是 master；若两者都进 group，
+  #   同一版本的正式发布与补救重跑会落进不同组 ⇒ 并发覆盖无法阻止。
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
   # 不允许取消进行中的发布：中途取消会留下「镜像已推、Release 未建」的半成品状态
   cancel-in-progress: false
 
@@ -212,6 +256,13 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       dry_run: ${{ steps.meta.outputs.dry_run }}
+      # ⚠️ v0.0.9：publish / prerelease 的**单一事实来源**。
+      #   修复前 publish-release 与 verify-release 各自直接读
+      #   `inputs.publish`：tag push 没有 dispatch inputs ⇒ 恒为空/false，
+      #   导致「只建 Draft + 跳过匿名核验」，且没有可用的公开发布入口。
+      #   现在由 meta step 按事件类型统一算好，下游只读这两个 output。
+      publish: ${{ steps.meta.outputs.publish }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
       # v0.0.4：Release 的 target commit。
       # tag 触发时 = tag 指向的 commit（= github.sha）；
       # 手动「补救路径」时 = 远端 tag 指向的 commit（github.sha 是触发分支的 commit，不对）。
@@ -256,14 +307,32 @@ jobs:
           # ⚠️ 若将来某次 master 与 tag 的 `deploy/` / `src/` 出现差异，
           #    本项会产出与 Tag 不一致的包 —— 那时应当**停下并请主人裁决**
           #    （移动 Tag 需要授权；不移动则应改走 workflow_dispatch）。
-          ref: master
+          #
+          # ## v0.0.9 修正：**tag push 不再取 master**
+          #
+          # 上面的 v0.0.4 论证只对「补救路径 / 干跑」成立：那时流水线自身
+          # 需要 master 上的修复，而 Tag 又不能移动，才必须解耦。
+          # 但**正式 tag push** 时 Tag 指向的就是本次构建 commit，
+          # 取 master 反而会在 master 前进时产出与 Tag 不符的 ZIP / 镜像
+          # （任务书要求发布资产精确对应 Tag）。
+          #
+          # ⇒ tag push 固定到 `github.sha`；workflow_dispatch 仍取 master
+          #   （保留补救 / 干跑路径的能力）。全部 8 个 job 必须用同一个表达式，
+          #   否则各 job 拿到的代码不一致。preflight 另加
+          #   「origin/master == github.sha」硬闸门，master 前进即中止。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - name: 确定版本号
         id: v
+        env:
+          # ⚠️ N1：inputs 一律经 env 传递，绝不直接插值进 shell 源码。
+          #    `version` 是 workflow_dispatch 的自由文本输入，直插会造成命令注入。
+          INPUT_VERSION: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF_NAME}"
           fi
@@ -274,15 +343,84 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "待发布版本：$VERSION"
 
-      - name: 记录 dry-run 标志
+      - name: 记录三态标志（dry-run / publish / prerelease）
         id: meta
+        env:
+          # ⚠️ N1：boolean inputs 也走 env，避免字符串插值与大小写歧义。
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+          # ⚠️ v0.0.9：本 step 是 publish / prerelease / dry_run 的
+          #    **单一事实来源**；publish-release 与 verify-release 一律通过
+          #    `needs.preflight.outputs.*` 读取，禁止再各自引用 inputs.publish。
+          #
+          #    tag push ⇒ publish=true：Tag 白名单是人工确认「该版本允许
+          #    公开发布」的摩擦点，tag 推上来即代表确认；若这里给 false，
+          #    正式发布路径将永远停在 Draft。
+          #    workflow_dispatch ⇒ 完全按输入执行，publish=false 时保持 Draft；
+          #    publish=true 时还承担 B2 的「幂等转公开」补救路径（见文件头）。
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "dry_run=${INPUT_DRY_RUN}" >> "$GITHUB_OUTPUT"
+            echo "publish=${INPUT_PUBLISH}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${INPUT_PRERELEASE}" >> "$GITHUB_OUTPUT"
           else
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: 读取远端 Release 状态（B3 fail-closed）
+        id: relstate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+          REPO: ${{ github.repository }}
+          PUBLISH: ${{ steps.meta.outputs.publish }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          gh --version
+          # ⚠️ B3：旧写法 `if gh release view ...; then exit 1; fi` 把
+          #    「查询失败」（网络 / 限流 / 权限 / gh 版本差异）当成「不存在」
+          #    放行 ⇒ **fail-open**，可能覆盖已发布 Release 的资产。
+          #    现在统一用列表接口 + 按 tag_name 精确匹配 + 区分 draft：
+          #    查询失败 / 解析失败 / 已公开 一律 exit 1。
+          #    列表接口还能读到 draft（按 tag 查询端点读不到）。
+          if ! gh api "repos/$REPO/releases?per_page=100" > /tmp/release-state.json; then
+            echo "::error::查询 Release 列表失败 —— 无法判定冲突，中止发布"
+            exit 1
+          fi
+          python3 - "$VERSION" "$PUBLISH" "$EVENT_NAME" <<'PY'
+          import json, os, sys
+          version, publish, event = sys.argv[1], sys.argv[2], sys.argv[3]
+          try:
+              lst = json.load(open('/tmp/release-state.json', encoding='utf-8'))
+          except Exception as e:
+              print('::error::Release 列表解析失败：', e); sys.exit(1)
+          if not isinstance(lst, list):
+              print('::error::Release 列表不是数组：', lst.get('message', '未知错误')); sys.exit(1)
+          hit = [r for r in lst if r.get('tag_name') == version]
+          if not hit:
+              print('Release 不存在 —— 允许继续')
+              state, rid = 'none', ''
+          else:
+              d = hit[0]
+              if not bool(d.get('draft')):
+                  print('::error::Release', version, '已公开发布 —— 资产不可覆盖，中止'); sys.exit(1)
+              if not (event == 'workflow_dispatch' and publish == 'true'):
+                  print('::error::Release', version, '已存在（Draft），本轮不是 publish=true 的转公开补救路径'); sys.exit(1)
+              rid = str(d.get('id', ''))
+              if not rid:
+                  print('::error::Draft Release 缺少 id'); sys.exit(1)
+              state = 'draft_resume'
+              print('::notice::检测到已有 Draft Release —— 进入「幂等转公开」补救路径（不移动 Tag / 不删 Release / 不重复上传资产）')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
+              f.write('release_state=%s\n' % state)
+              f.write('release_id=%s\n' % rid)
+          PY
 
       - name: 校验远端 Tag 状态
         env:
@@ -294,10 +432,16 @@ jobs:
           #   （同文件内「检查远端 Release 是否已存在」步骤本来就正确写了 env:，
           #   只有这里漏了。）
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          TAG_EXISTS: ${{ needs.resolve-tag.outputs.exists }}
+          TAG_SHA: ${{ needs.resolve-tag.outputs.sha }}
+          BUILD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.v.outputs.version }}"
-          if [ "${{ github.event_name }}" = "push" ]; then
+          gh --version
+          if [ "$EVENT_NAME" = "push" ]; then
             # tag 触发：tag 必然已存在于远端（它就是触发器）。
             # 此时要校验的是 —— **tag 指向的 commit 必须就是当前这次构建的 commit**，
             # 防止 tag 被移动到别处、或 Release 已发布后 tag 又被改动。
@@ -313,6 +457,29 @@ jobs:
               exit 1
             fi
             echo "✓ tag $VERSION 指向当前 commit ${{ github.sha }}"
+
+            # ── v0.0.9：构建上下文与 Tag 一致的**硬闸门** ──
+            #
+            # 修复前 8 个 job 的 checkout 一律 `ref: master`：tag push 时
+            # 若 master 在发布期间又前进了，打出的 ZIP / 镜像就不是 Tag
+            # 指向的那份代码，而「补救路径」与人工复核还拿 master 当参照。
+            # 现在 tag push 全部固定到 github.sha（见下面的 checkout 注释），
+            # 这里再确认远端 master 仍等于本次构建 commit；不等就当场中止，
+            # 避免「Tag 已被 master 甩在后面」时继续发布一个含糊的版本。
+            #
+            # ⚠️ 绝不吞掉 git 失败：本 step 是 `set -euo pipefail`，
+            #    fetch / rev-parse 失败会直接中止（不能 `|| true`）。
+            # ⚠️ 显式写 refspec 更新 origin/master：只 `git fetch origin master`
+            #    通常只写 FETCH_HEAD，`git rev-parse origin/master` 可能仍是
+            #    旧值 ⇒ 闸门假通过。
+            git fetch origin master:refs/remotes/origin/master
+            MASTER_SHA="$(git rev-parse origin/master)"
+            if [ "$MASTER_SHA" != "${{ github.sha }}" ]; then
+              echo "::error::发布期间 master 已前进：origin/master=$MASTER_SHA，本次构建=${{ github.sha }}。"
+              echo "::error::为避免发布产物与 Tag / 远端 master 的关系含糊不清，中止发布；请在新 commit 上重新打 Tag。"
+              exit 1
+            fi
+            echo "✓ origin/master 仍等于本次构建 commit $MASTER_SHA"
           else
             # 手动触发：分两种情况。
             #
@@ -338,68 +505,92 @@ jobs:
             #   否则打出来的包与 Tag 不一致 —— 那就不是同一个版本了。
             #   这条校验在下面执行，**不通过就中止**。
             #
-            # 「Release 是否已存在」由**下一个步骤**独立检查 ——
-            # 已发布的 Release 绝不允许被覆盖。
-            if [ "${{ needs.resolve-tag.outputs.exists }}" = "true" ]; then
+            # 「Release 是否已存在」由**上一个步骤**统一读取（B3 fail-closed）
+            # —— 已公开 / 查询失败一律在那一步就中止，绝不允许被覆盖。
+            #
+            # ## B1 纠正：为什么两条路径用**不同**的判据
+            #
+            # · 正式 tag push：Tag 就是本次构建的 commit，产物必须逐字节等于
+            #   Tag 指向的树 ⇒ 上面的「REMOTE_SHA == github.sha」+
+            #   「origin/master == github.sha」双硬闸门，8 个 checkout 固定
+            #   到 github.sha。这条路径最严格。
+            # · dispatch 补救路径：Tag 已存在且不可移动，而流水线自身的修复
+            #   合入 master 后，master 与 Tag 在 `.github/` / `docs/` 上
+            #   **必然有差异**（那正是修复内容）。若用「全路径零差异」会把
+            #   这条唯一合法的修复路径直接拦死 ⇒ 改为**构建相关路径显式
+            #   白名单零差异**：`.github/`、`docs/` 允许不同，但凡影响镜像 /
+            #   安装包的路径一律不许差一个字节（镜像构建 `context: .`）。
+            if [ "$TAG_EXISTS" = "true" ]; then
               echo "Tag $VERSION 已存在于远端 —— 进入「补救路径」判定。"
 
-              # ① Release 已存在 ⇒ 已发布，绝不允许覆盖
-              if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-                echo "::error::Release $VERSION 已存在。已发布版本的资产不可覆盖，请手动处理。"
-                exit 1
+              # ① Release 状态已由「读取远端 Release 状态」step 判定完毕：
+              #    none          ⇒ 正常补救建 Release；
+              #    draft_resume  ⇒ B2 幂等转公开，下面只复用已有资产。
+              if [ "${release_state:-none}" = "draft_resume" ]; then
+                echo "::notice::幂等转公开路径：复用已有 Draft 的资产，跳过创建与上传"
               fi
 
-              # ② Tag 指向的 commit
-              TAG_SHA="${{ needs.resolve-tag.outputs.sha }}"
+              # ② 显式取回 Tag 对象，保证 $TAG_SHA 在本地对象库中。
+              #    否则 `git diff` 会 fatal: bad revision ⇒ 必须 exit 1，
+              #    绝不 `|| true` 吞掉（历史踩坑见下方注释）。
               if [ -z "$TAG_SHA" ]; then
                 echo "::error::无法读取远端 tag $VERSION 的目标 commit"
                 exit 1
               fi
               echo "Tag $VERSION 指向 $TAG_SHA"
+              git fetch origin "+refs/tags/$VERSION:refs/tags/$VERSION"
 
-              # ③ 发布内容必须零差异（deploy/ src/ package.json drizzle/）
+              # ③ 构建相关路径必须零差异（B1 显式白名单）
               #
-              # ⚠️ v0.0.4：两道加固（静态审查发现原写法会 **fail-open**）：
-              #   1. **不要用 `--depth=1`** —— 它把仓库变成 shallow（写 `.git/shallow`），
-              #      shallow 边界外对象的 `git diff` 行为不可靠。
-              #   2. **不要吞掉 `git diff` 的失败**（原来的 `|| true`）——
-              #      当 `$TAG_SHA` 不在本地对象库时，`git diff` 报
-              #      `fatal: bad revision`（exit 128），但因为被 `|| true` 吞掉，
-              #      `CONTENT_DIFF` 变成空字符串 ⇒ `[ -n ... ]` 为假 ⇒
-              #      **校验通过** —— 即「无法比较」被当成了「零差异」。
+              # ⚠️ 白名单按**仓库实际存在**的文件列全；不存在的路径不写进
+              #    pathspec（避免 git 报错）。原版只覆盖
+              #    deploy/ src/ package.json drizzle/，漏了 lockfile、
+              #    Dockerfile、.dockerignore、next.config.*、public/、
+              #    tsconfig.json —— 而镜像构建 `context: .`，漏一个都会让
+              #    「包与 Tag 一致」的结论失真。
               #
-              # 现在：**比较失败即中止**，绝不 fail-open。
-              git fetch origin master >/dev/null 2>&1
-              if ! CONTENT_DIFF="$(git diff --name-only "$TAG_SHA" "origin/master" -- \
-                              deploy/ src/ package.json drizzle/)"; then
-                echo "::error::无法比较 Tag $VERSION 的发布内容与 master（对象缺失或 git 失败）。"
+              # ⚠️ v0.0.4 的两道加固继续有效：不要用 `--depth=1`（shallow
+              #    对象不可靠）；不要吞掉 `git diff` 的失败（原 `|| true`
+              #    会把「无法比较」误判成「零差异」）—— 现在失败即中止。
+              git fetch origin master:refs/remotes/origin/master
+              BUILD_PATHS=(deploy/ src/ package.json package-lock.json drizzle/ \
+                           Dockerfile .dockerignore next.config.mjs public/ tsconfig.json)
+              if ! CONTENT_DIFF="$(git diff --name-only "$TAG_SHA" origin/master -- "${BUILD_PATHS[@]}")"; then
+                echo "::error::无法比较 Tag $VERSION 的构建内容与 master（对象缺失或 git 失败）。"
                 echo "::error::**不能据此认定零差异** —— 中止发布。"
                 exit 1
               fi
               if [ -n "$CONTENT_DIFF" ]; then
-                echo "::error::Tag $VERSION 的发布内容与 master 不一致，禁止产出与 Tag 不匹配的包："
+                echo "::error::Tag $VERSION 的构建相关路径与 master 不一致，禁止产出与 Tag 不匹配的包："
                 echo "$CONTENT_DIFF"
                 echo "::error::请先请主人裁决（移动 Tag 需单独授权；或改走其他发布路径）。"
                 exit 1
               fi
-              echo "✓ Tag $VERSION 的发布内容（deploy/ src/ package.json drizzle/）与 master 零差异"
-              echo "✓ Release $VERSION 尚未创建 —— 允许补救路径继续"
+              echo "✓ 构建相关路径（${BUILD_PATHS[*]}）与 master 零差异"
+              echo "✓ 补救路径校验通过（.github/ 与 docs/ 的差异是流水线修复，允许）"
             else
               echo "✓ Tag $VERSION 未被占用"
             fi
           fi
 
-      - name: 检查远端 Release 是否已存在
+      - name: 复核远端 Release 状态（B3 fail-closed）
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.v.outputs.version }}"
-          if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "::error::Release $VERSION 已存在。禁止覆盖已发布版本的资产。"
+          gh --version
+          # 第二次独立查询（列表接口）：查询失败 / 解析失败 / 已公开
+          # 一律 exit 1，绝不把「查询失败」当成「不存在」放行。
+          # 与上一 step 分开查，是为了让「Release 已存在」这道闸门
+          # 不依赖任何一次查询的缓存结果。
+          if ! gh api "repos/$REPO/releases?per_page=100" > /tmp/release-state-2.json; then
+            echo "::error::复核 Release 列表失败 —— 中止发布"
             exit 1
           fi
-          echo "Release $VERSION 未被占用 ✓"
+          python3 -c "import json,sys; v=sys.argv[1]; d=json.load(open('/tmp/release-state-2.json',encoding='utf-8')); assert isinstance(d,list), '列表接口未返回数组'; hit=[r for r in d if r.get('tag_name')==v]; print('复核：Release', v, '=', ('draft' if hit and hit[0].get('draft') else '已发布') if hit else '不存在'); sys.exit(1 if hit and not hit[0].get('draft') else 0)" "$VERSION"
+          echo "✓ Release 状态复核通过（已公开 / 查询失败均在上面中止）"
 
       - name: 确定 Release 的 target commit
         id: tag
@@ -445,6 +636,9 @@ jobs:
           echo "版本锚点 SHA: ${{ steps.tag.outputs.sha }}"
           echo "镜像    : ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.v.outputs.version }}"
           echo "dry_run : ${{ steps.meta.outputs.dry_run }}"
+          echo "publish : ${{ steps.meta.outputs.publish }}"
+          echo "prerelease: ${{ steps.meta.outputs.prerelease }}"
+          echo "三态    : dry_run=true → 干跑 / publish=false → Draft / publish=true → 公开 Pre-release"
 
   # ===========================================================================
   # 2. code-checks —— 类型检查 + 生产构建
@@ -456,10 +650,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -487,10 +683,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -785,10 +983,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -857,10 +1057,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -974,15 +1176,20 @@ jobs:
       contents: read
       packages: write
     outputs:
-      digest: ${{ steps.push.outputs.digest }}
+      # ⚠️ N3：digest 有了真实消费点（verify-release 交叉核对）。
+      #    B4 幂等重跑时推送被跳过 ⇒ steps.push 没有 digest，
+      #    改用幂等检查 step 从已存在镜像读到的 RepoDigest。
+      digest: ${{ steps.imgtag.outputs.digest || steps.push.outputs.digest }}
       image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.preflight.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       # ------------------------------------------------------------------
       # dry_run 闸门（2026-11-04 补）
@@ -1011,13 +1218,81 @@ jobs:
             echo "::notice::dry_run=false —— 本次将推送镜像并发布 Release"
           fi
 
+      - name: 记录实际构建 commit（B1 溯源不失真）
+        id: buildsha
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # 镜像的 sha-* 标签与 org.opencontainers.image.revision 必须写
+          # **真正被检出 / 构建**的 commit，而不是一律写 tag_sha：
+          #   tag push ⇒ 检出 github.sha（就是 Tag 指向的 commit）；
+          #   dispatch 补救 / 干跑 ⇒ 检出 master，必须如实写 master HEAD。
+          # 否则「实际从 master 构建」却声称来自 Tag，是溯源失真。
+          if [ "$EVENT_NAME" = "push" ]; then
+            SHA="$BUILD_SHA"
+          else
+            SHA="$(git rev-parse HEAD)"
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "实际构建 commit = $SHA（事件：$EVENT_NAME）"
+
       - name: 登录 GHCR
-        if: needs.preflight.outputs.dry_run != 'true'
+        # ⚠️ B5：Draft / 干跑模式不推送镜像 ⇒ 也不登录 registry。
+        #    旧逻辑 `dry_run=false + publish=false` 仍会把镜像推到 GHCR，
+        #    而 Release 还停在 Draft 待风险决策 —— 已对外分发且不可回收。
+        if: ${{ needs.preflight.outputs.dry_run != 'true' && needs.preflight.outputs.publish == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 目标镜像标签幂等检查（B4）
+        id: imgtag
+        if: ${{ needs.preflight.outputs.dry_run != 'true' && needs.preflight.outputs.publish == 'true' }}
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+          TAG_SHA: ${{ needs.preflight.outputs.tag_sha }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          IMAGE="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+          SKIP=false
+          DIGEST=""
+          if PULL_OUT="$(docker pull "$IMAGE" 2>&1)"; then
+            printf '%s\n' "$PULL_OUT"
+            REV="$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || echo '')"
+            DIGEST="$(docker image inspect "$IMAGE" --format '{{index .RepoDigests 0}}' 2>/dev/null | sed 's/.*@//' || echo '')"
+            if [ -z "$REV" ] || [ "$REV" = "<no value>" ]; then
+              echo "::error::目标标签 $IMAGE 已存在但读不到 image.revision —— 拒绝覆盖"
+              exit 1
+            fi
+            if [ "$REV" != "$TAG_SHA" ]; then
+              echo "::error::目标标签 revision=$REV 与版本锚点 $TAG_SHA 不一致 —— 拒绝用不同源码覆盖同一标签"
+              exit 1
+            fi
+            if [ -z "$DIGEST" ]; then
+              echo "::error::目标标签已存在但读不到 RepoDigest —— 拒绝继续"
+              exit 1
+            fi
+            echo "::notice::目标标签已存在且 revision 与版本锚点一致 ⇒ 幂等重跑，跳过推送（不覆盖先 run 的镜像）"
+            SKIP=true
+          else
+            printf '%s\n' "$PULL_OUT"
+            # 只有明确的「标签不存在」才允许继续推送；其它失败一律中止，
+            # 避免把网络 / 权限问题误判成「标签没人用过」。
+            if printf '%s' "$PULL_OUT" | grep -qiE 'manifest unknown|not found|name unknown'; then
+              echo "目标标签尚不存在 ⇒ 正常推送"
+            else
+              echo "::error::无法判定目标标签 $IMAGE 状态（docker pull 失败且不是「不存在」）—— 中止"
+              exit 1
+            fi
+          fi
+          echo "skip_push=$SKIP" >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: 生成镜像标签
         id: meta
@@ -1026,7 +1301,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.preflight.outputs.version }}
-            type=raw,value=sha-${{ needs.preflight.outputs.tag_sha }}
+            # ⚠️ B1：sha-* 标签必须指向**实际构建**的 commit（不是 tag_sha 的快照）
+            type=raw,value=sha-${{ steps.buildsha.outputs.sha }}
           # 刻意不生成 latest —— 预览版的 latest 会误导用户。
           # flavor 设为 latest=false，避免 metadata-action 自动补 latest 标签。
 
@@ -1038,16 +1314,22 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          # dry_run=true 时只构建到本地（load: true），**不推送到 registry**。
-          # 修复前这里恒为 push: true，导致「仅验证」也会污染 GHCR。
-          push: ${{ needs.preflight.outputs.dry_run != 'true' }}
-          load: ${{ needs.preflight.outputs.dry_run == 'true' }}
+          # ⚠️ B5：**只有「非干跑 + publish=true」才允许推送**。
+          #    dry_run=false & publish=false（Draft 待决策）时镜像只构建到
+          #    本地并走 artifact 传给 deploy-verify，绝不对外分发。
+          #    修复前 push 只看 dry_run ⇒ Draft 阶段镜像已公开且不可回收。
+          # ⚠️ B4：目标标签已存在且 revision 与版本锚点一致 ⇒ 幂等重跑，
+          #    跳过推送，防止后 run 覆盖先 run 的镜像。
+          push: ${{ needs.preflight.outputs.dry_run != 'true' && needs.preflight.outputs.publish == 'true' && steps.imgtag.outputs.skip_push != 'true' }}
+          load: ${{ needs.preflight.outputs.dry_run == 'true' || needs.preflight.outputs.publish != 'true' || steps.imgtag.outputs.skip_push == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             org.opencontainers.image.title=V2EX Clone
             org.opencontainers.image.description=独立的 V2EX 界面还原研究项目（非官方）
             org.opencontainers.image.version=${{ needs.preflight.outputs.version }}
-            org.opencontainers.image.revision=${{ needs.preflight.outputs.tag_sha }}
+            # ⚠️ B1：revision 写**实际构建**的 commit（见 buildsha step），
+            #    B4 的幂等判定会读取这个 label 与版本锚点比对。
+            org.opencontainers.image.revision=${{ steps.buildsha.outputs.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.licenses=MIT
           cache-from: type=gha
@@ -1057,10 +1339,10 @@ jobs:
           # **不需要** id-token / attestations 权限
           # （那两个权限是 GitHub 原生 Artifact Attestations 才需要的）。
           #
-          # dry_run 模式下镜像走 docker load（本地归档），docker exporter
-          # 不承载 attestation，故此时关闭 —— 否则会出现导出告警。
-          provenance: ${{ needs.preflight.outputs.dry_run != 'true' }}
-          sbom: ${{ needs.preflight.outputs.dry_run != 'true' }}
+          # dry_run / Draft / 幂等跳过推送时镜像走 docker load（本地归档），
+          # docker exporter 不承载 attestation，故此时关闭 —— 否则会出现导出告警。
+          provenance: ${{ needs.preflight.outputs.dry_run != 'true' && needs.preflight.outputs.publish == 'true' && steps.imgtag.outputs.skip_push != 'true' }}
+          sbom: ${{ needs.preflight.outputs.dry_run != 'true' && needs.preflight.outputs.publish == 'true' && steps.imgtag.outputs.skip_push != 'true' }}
 
       # ------------------------------------------------------------------
       # dry_run：把镜像存成归档上传，供下游 deploy-verify 在**同一个
@@ -1070,16 +1352,20 @@ jobs:
       # 两台 runner。dry_run 时镜像不推 registry，deploy-verify 就
       # 拉不到它 —— 只能靠 artifact 把镜像搬过去。
       # ------------------------------------------------------------------
-      - name: 导出镜像归档（dry_run）
-        if: needs.preflight.outputs.dry_run == 'true'
+      - name: 导出镜像归档（干跑 / Draft）
+        # ⚠️ B5：Draft 模式（publish=false）同样不推 registry，
+        #    必须复用干跑的 artifact 传递方案，deploy-verify 才能真实安装。
+        if: ${{ needs.preflight.outputs.dry_run == 'true' || needs.preflight.outputs.publish != 'true' }}
         run: |
           set -euo pipefail
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.preflight.outputs.version }}"
           docker save "$IMAGE" -o /tmp/dry-run-image.tar
           ls -lh /tmp/dry-run-image.tar
 
-      - name: 上传镜像归档（dry_run）
-        if: needs.preflight.outputs.dry_run == 'true'
+      - name: 上传镜像归档（干跑 / Draft）
+        # ⚠️ B5：Draft 模式（publish=false）同样不推 registry，
+        #    必须复用干跑的 artifact 传递方案，deploy-verify 才能真实安装。
+        if: ${{ needs.preflight.outputs.dry_run == 'true' || needs.preflight.outputs.publish != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: dry-run-image
@@ -1118,21 +1404,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       # dry_run 时镜像没有推到 GHCR，需要从 build-image 的 artifact 取回。
-      - name: 取回镜像归档（dry_run）
-        if: needs.preflight.outputs.dry_run == 'true'
+      - name: 取回镜像归档（干跑 / Draft）
+        # ⚠️ B5：Draft 模式（publish=false）同样不推 registry，
+        #    必须复用干跑的 artifact 传递方案，deploy-verify 才能真实安装。
+        if: ${{ needs.preflight.outputs.dry_run == 'true' || needs.preflight.outputs.publish != 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: dry-run-image
           path: /tmp
 
-      - name: 载入镜像（dry_run）
-        if: needs.preflight.outputs.dry_run == 'true'
+      - name: 载入镜像（干跑 / Draft）
+        # ⚠️ B5：Draft 模式（publish=false）同样不推 registry，
+        #    必须复用干跑的 artifact 传递方案，deploy-verify 才能真实安装。
+        if: ${{ needs.preflight.outputs.dry_run == 'true' || needs.preflight.outputs.publish != 'true' }}
         run: |
           set -euo pipefail
           docker load -i /tmp/dry-run-image.tar
@@ -1403,10 +1695,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - name: 打包 deploy/ 目录
         id: pkg
@@ -1415,9 +1709,18 @@ jobs:
           VERSION="${{ needs.preflight.outputs.version }}"
           ZIP="v2ex-clone-${VERSION}-deploy.zip"
           # 明确排除生成的配置与备份目录（.gitignore 已排除，这里显式再挡一次）
+          #
+          # ⚠️ N5：补上 .env.* 变体、私钥 / 证书 / 测试凭据文件。
+          #    ⚠️ 刻意**不用** 'deploy/.env.*' 通配 —— 那会误伤必须随包
+          #    分发的 .env.example 模板（下面的完整性校验要求它在包内）。
+          #    因此逐项列出危险的变体名，把模板保留下来。
           zip -r "$ZIP" deploy/ \
             -x 'deploy/.env' \
+               'deploy/.env.local' 'deploy/.env.test' 'deploy/.env.production' \
+               'deploy/.env.development' 'deploy/.env.*.local' 'deploy/.env.backup*' \
                'deploy/INSTALL_CREDENTIALS.txt' \
+               'deploy/*credentials*' 'deploy/*password*.txt' \
+               'deploy/*.pem' 'deploy/*.key' 'deploy/*.p12' 'deploy/*.pfx' \
                'deploy/backups/*' \
                'deploy/*.log'
           echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
@@ -1463,6 +1766,40 @@ jobs:
           fi
           exit $missing
 
+      - name: 包内版本一致性校验（N2）
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          D=/tmp/verify-zip/deploy
+          [ -d "$D" ] || { echo "::error::未找到解压后的 deploy/（上一步应已解压）"; exit 1; }
+          EXPECTED_VERSION="${VERSION#v}"
+          EXPECTED_IMAGE="ghcr.io/alicia1030su/v2ex-clone:${VERSION}"
+
+          PKG_VERSION="$(tr -d '\r\n ' < "$D/VERSION")"
+          [ "$PKG_VERSION" = "$EXPECTED_VERSION" ] || {
+            echo "::error::deploy/VERSION = $PKG_VERSION（应为 $EXPECTED_VERSION）"; exit 1; }
+
+          ENV_IMAGE="$(sed -n 's/^V2EX_IMAGE=//p' "$D/.env.example" | tail -1 | tr -d '\r\n ')"
+          [ "$ENV_IMAGE" = "$EXPECTED_IMAGE" ] || {
+            echo "::error::deploy/.env.example 的 V2EX_IMAGE = $ENV_IMAGE（应为 $EXPECTED_IMAGE）"; exit 1; }
+
+          COMPOSE_IMAGE="$(sed -n 's/.*image: ${V2EX_IMAGE:-\([^}]*\)}.*/\1/p' "$D/docker-compose.yml" | head -1 | tr -d '\r\n ')"
+          [ "$COMPOSE_IMAGE" = "$EXPECTED_IMAGE" ] || {
+            echo "::error::deploy/docker-compose.yml 默认镜像 = $COMPOSE_IMAGE（应为 $EXPECTED_IMAGE）"; exit 1; }
+
+          # ⚠️ N2 提醒：**只检查标题首行**。INSTALL.md 正文里有 3 处历史
+          #    语境的 v0.0.4（R-18 修复说明：「已知限制，v0.0.4 标注」等），
+          #    全文匹配会把它们误判成版本不一致；标题首行才表示「本包版本」。
+          for doc in README.md INSTALL.md; do
+            FIRST="$(head -1 "$D/$doc")"
+            case "$FIRST" in
+              *"$VERSION"*) ;;
+              *) echo "::error::$doc 标题首行版本标注不是 $VERSION：'$FIRST'"; exit 1 ;;
+            esac
+          done
+          echo "✓ 包内版本一致：VERSION=$PKG_VERSION / V2EX_IMAGE=$ENV_IMAGE / compose=$COMPOSE_IMAGE / 文档标题=$VERSION"
+
       - name: 上传安装包与校验和
         uses: actions/upload-artifact@v7
         with:
@@ -1478,7 +1815,9 @@ jobs:
   # ===========================================================================
   publish-release:
     name: 创建并发布 Release
-    needs: [resolve-tag, preflight, package]
+    # ⚠️ v0.0.9（N3）：显式依赖 build-image，Release Notes 才能写入
+    #    **真实**镜像 digest（GitHub 只允许读直接依赖 job 的 outputs）。
+    needs: [resolve-tag, preflight, build-image, package]
     runs-on: ubuntu-latest
     # dry_run=true 时**完全跳过**本 job ——
     # 修复前本 job 没有任何条件判断，勾选「仅验证」也会真的发 Release。
@@ -1527,13 +1866,50 @@ jobs:
       - name: 再次检查冲突（防止竞态）
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          REPO: ${{ github.repository }}
+          PUBLISH: ${{ needs.preflight.outputs.publish }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          VERSION="${{ needs.preflight.outputs.version }}"
-          if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "::error::Release $VERSION 已存在（竞态），中止发布"
+          gh --version
+          # ⚠️ B3：竞态检查也必须 fail-closed —— 查询失败 / 已公开一律
+          #    exit 1，不能把「查不到」当成「不存在」。
+          #    B2：Draft + publish=true + dispatch ⇒ 允许继续，并把
+          #    resume_draft / release_id 写入 GITHUB_ENV 供后续步骤复用。
+          if ! gh api "repos/$REPO/releases?per_page=100" > /tmp/release-race.json; then
+            echo "::error::竞态检查查询 Release 列表失败 —— 中止发布"
             exit 1
           fi
+          python3 - "$VERSION" "$PUBLISH" "$EVENT_NAME" <<'PY'
+          import json, os, sys
+          version, publish, event = sys.argv[1], sys.argv[2], sys.argv[3]
+          try:
+              lst = json.load(open('/tmp/release-race.json', encoding='utf-8'))
+          except Exception as e:
+              print('::error::竞态检查解析 Release 列表失败：', e); sys.exit(1)
+          if not isinstance(lst, list):
+              print('::error::Release 列表不是数组：', lst.get('message', '未知错误')); sys.exit(1)
+          hit = [r for r in lst if r.get('tag_name') == version]
+          if not hit:
+              print('竞态检查：Release 仍不存在 —— 正常创建路径'); sys.exit(0)
+          d = hit[0]
+          if not bool(d.get('draft')):
+              print('::error::Release', version, '在竞态窗口内已公开发布 —— 中止'); sys.exit(1)
+          if not (event == 'workflow_dispatch' and publish == 'true'):
+              print('::error::Release', version, '已存在（Draft），本轮不是 publish=true 的转公开补救路径'); sys.exit(1)
+          rid = str(d.get('id', ''))
+          if not rid:
+              print('::error::Draft Release 缺少 id'); sys.exit(1)
+          names = [a.get('name', '') for a in d.get('assets', [])]
+          print('已有 Draft 资产清单：', names)
+          if not any('deploy.zip' in n for n in names) or 'SHA256SUMS' not in names:
+              print('::error::已有 Draft 资产不齐全 —— 不进入转公开路径'); sys.exit(1)
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
+              f.write('resume_draft=true\n')
+              f.write('release_id=%s\n' % rid)
+          print('::notice::幂等转公开：复用已有 Draft（id=%s），跳过创建与上传资产' % rid)
+          PY
           # tag 也不能在竞态窗口内被别人**移动**。
           #
           # ⚠️ v0.0.4：不能简单地「tag 存在就中止」——
@@ -1587,13 +1963,22 @@ jobs:
           echo "✓ Tag $VERSION 指向未变（$TAG_SHA_NOW）"
 
       - name: 生成中文 Release Notes
+        env:
+          # ⚠️ N3：把 build-image 实测 digest 注入 Notes，取代原先
+          #    「镜像 Digest 见本 Release 页面」这句无法兑现的声明。
+          IMAGE_DIGEST: ${{ needs.build-image.outputs.digest }}
         run: |
           VERSION="${{ needs.preflight.outputs.version }}"
+          if [ -z "$IMAGE_DIGEST" ]; then
+            echo "::error::build-image 未产出镜像 digest，拒绝写出无法核验的 Release Notes"
+            exit 1
+          fi
           cat > release-notes.md <<'NOTES'
           ## __VERSION__ — 开发预览版（Pre-release）
 
           > ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**
           > 功能尚未完备，**不保证与 V2EX 完全一致**，**不建议直接用于生产环境**。
+          > 本项目 `0.0.x` 全部为早期开发预览版，不承诺 API 稳定性。
 
           ### 关于本项目
 
@@ -1601,32 +1986,63 @@ jobs:
           与 V2EX 官方**无任何关联**、**未获官方授权**、**不是** V2EX 官方产品。
           MIT 许可证**不授予** V2EX 商标使用许可。
 
-          ### 本版本已实现
+          ### v0.0.9 更新内容
 
-          - **账号**：注册、登录、退出、会话保持、修改密码
-          - **用户**：个人主页
-          - **节点**：列表、详情、子节点树、创建（管理员直生效 / 版主待审）
-          - **主题**：发布、列表、详情、浏览计数、Markdown 渲染
-          - **回复**：发布、楼层号分配、分页
-          - **收藏 / 通知 / 搜索**
-          - **后台管理**：概览、待审、日志
+          - **候选离线安装链路**：固定 SHA 构建 → 导出镜像 tar → 候选安装包 +
+            SHA256SUMS → 独立环境 `docker load` 全链路验证（迁移 / Redis /
+            健康检查 / 登录 / 发帖 / 回复 / 重启不丢数据 / 端口未暴露）。
+            候选包内镜像引用由脚本统一改写，不再指向不存在的远端标签。
+          - **可观测性修复（P0）**：修复 API 错误率统计失效——原埋点在
+            middleware 独立 bundle 里拿不到真实状态码（`byStatus` 恒为
+            `{200: N}`）。现由 `src/instrumentation.ts` 在 Node HTTP 层
+            拦截 `writeHead` 取**真实**状态码与耗时；计数状态挂
+            `globalThis`（跨 bundle 可见），键基数有界（≤2000）。
+          - **全新安装验收**：`verify-fresh-install.sh` 22 项断言（显式清空
+            开发机环境变量，防止误连开发库）。
+          - **真实升级验证**：以**已发布的 v0.0.4** 为基线，60 项数据指纹
+            逐字节一致；迁移幂等；旧口令哈希仍可登录。
+          - **运维可靠性**：故障注入验证 21 项（0 跳过）。
+          - **长时间运行稳定性**：分段化工作流 + 时长诚实性闸门（见下文
+            「稳定性验证的真实状态」）。
+
+          ### 功能清单
+
+          - **账号**：注册、登录、退出、会话保持（HttpOnly / SameSite=Lax /
+            Secure 条件启用）、修改密码、邮箱找回密码（链接仅取可信配置 Origin）
+          - **用户**：个人主页、头像上传（magic number 校验 / 服务端生成路径 /
+            2MB 上限 / sharp 像素上限）、关注、收藏
+          - **节点**：列表、详情、子节点树、创建（管理员直生效 / 版主待审）、审核
+          - **主题**：发布、列表、详情、浏览计数、Markdown 渲染、标签、
+            投票（顶/踩）、软删除、锁定、置顶
+          - **回复**：发布、楼层号分配（唯一索引保证连续）、分页
+          - **互动**：感谢（thank）、收藏、通知、关注
+          - **积分**：签到、积分流水账本、排行榜
+          - **搜索**：主题搜索
+          - **RSS**：节点 / 首页 Feed
+          - **后台管理**：概览、待审、日志、节点审批、举报处理、封禁、角色变更
           - **权限**：user / moderator / admin 三级角色
-          - **安全**：CSRF 防护、XSS 清洗、限流、开放重定向防护、安全响应头、
+          - **安全**：CSRF 防护、XSS 清洗、限流（登录 / 发帖 / 回复 / 创建节点 /
+            上传）、开放重定向防护、安全响应头、Host Header 不可信
+            （`fail-closed`，邮件链接只信 `PUBLIC_BASE_URL` / `APP_URL`）、
             服务端 SVG 验证码（哈希存储、一次性）
-          - **存储**：PostgreSQL 17 持久化（Drizzle 迁移），Redis 可选（缺失自动降级）
-          - **部署**：Docker 多阶段镜像 + Compose 三阶段启动（迁移 → 首次初始化 → 启动）
+          - **可观测性**：结构化 JSON 日志（stdout，敏感字段脱敏）、
+            进程内指标窗口（真实状态码分布 / 5xx、4xx 按路由聚合 / 慢请求）、
+            `/api/admin/ops` 运维端点
+          - **存储**：PostgreSQL 17 持久化（Drizzle 迁移），Redis 可选
+            （缺失自动降级为 PgKV）
+          - **部署**：Docker 多阶段镜像 + Compose 三阶段启动
+            （迁移 → 首次初始化 → 启动），含备份 / 恢复 / 更新脚本
 
-          ### 本版本未实现
+          ### 已知限制（如实标注，不阻塞预览版使用）
 
-          以下功能**本版本未实现**，界面中不会出现对应入口：
-
-          - 主题编辑与删除
-          - 感谢（thank）功能
-          - 关注用户
-          - 积分排行榜
-          - RSS 输出
-          - 邮件找回密码
-          - 主题标签 / 附件上传 / 私信 / 头像上传
+          - **主题编辑与删除**：未实现（作者侧）
+          - **私信**：未实现
+          - **真实 SMTP 邮件投递**：未在发布流程中实测（需运维配置 SMTP）
+          - **多浏览器视觉回归**：CI 覆盖 Chromium；Firefox / Safari 未覆盖
+          - **原站需登录页面对照**：无权访问他人账号，未拿游客态冒充登录态
+          - **指标窗口为进程内聚合**：多实例部署各进程一份，需集中式日志系统
+            才能跨实例聚合
+          - **版主 / 管理员的部分操作为 API 层验证**，UI 点击流覆盖不完整
 
           ### 安装
 
@@ -1649,6 +2065,21 @@ jobs:
           安装脚本会生成随机的数据库口令、Redis 口令与会话密钥，
           并把管理员凭据写入 `INSTALL_CREDENTIALS.txt`（权限 600）。
 
+          **从 v0.0.4 升级**（唯一已公开发布的可升级基线）：
+          ```bash
+          cd v2ex-clone-__VERSION__-deploy/deploy
+          ./update.sh        # 保留数据卷，仅更新镜像与迁移
+          ```
+          升级路径已经真实验证：v0.0.4（3 个迁移）→ v0.0.9，60 项数据指纹
+          逐字节一致，迁移幂等（连跑 3 次仍为预期条数），旧口令哈希可正常登录。
+
+          **回滚**：
+          ```bash
+          ./restore.sh <备份文件>   # 先恢复数据
+          ```
+          回滚到更早版本需配合对应版本的部署包；数据卷不随 `stop` / `update.sh`
+          删除，但 `docker compose down -v` 会**永久删除**数据，操作前必须备份。
+
           ### 系统要求
 
           - Docker 20.10 或更高
@@ -1661,60 +2092,80 @@ jobs:
           ```
           ghcr.io/alicia1030su/v2ex-clone:__VERSION__
           ```
+          匿名可直接拉取（Public 包）。本次发布流水线实测的镜像 Digest：
+
+          ```
+          __DIGEST__
+          ```
+
+          可用 `docker image inspect ghcr.io/alicia1030su/v2ex-clone:__VERSION__`
+          或匿名 Registry V2 的 `Docker-Content-Digest` 响应头独立复核。
+
+          ### 稳定性验证的真实状态（不冒充、不夸大）
+
+          | 项目 | 状态 | 说明 |
+          |---|---|---|
+          | 单元测试 | ✅ 通过 | 394/394 |
+          | E2E 跨浏览器矩阵 | ✅ 通过 | 见 CI run |
+          | 安全审计（Host Header / 依赖 / 秘密扫描） | ✅ 通过 | high/critical 阻断门禁 |
+          | 候选安装链路（Docker 真实安装） | ✅ 通过 | ubuntu runner 实跑 |
+          | v0.0.4 → v0.0.9 升级 | ✅ 通过 | 数据指纹逐字节一致 |
+          | **1 小时持续运行** | ✅ **通过** | 真实运行 3600 秒 = 目标 |
+          | **24 小时持续运行** | ⬜ **未完成** | 见下方说明 |
+
+          **关于 24 小时持续运行的如实说明**：
+
+          GitHub-hosted runner 的**单个 job 最长只能运行 6 小时**，
+          「单 job 跑 24 小时」在架构上不可能完成。v0.0.9 已将长跑改为
+          **串行分段**（每段 ≤ 5 小时，累计真实运行时长由 artifact 传递），
+          并为每段与汇总设置**时长诚实性闸门**（实际秒数达不到目标即判红）。
+
+          本版本发布时，24 小时分段验证**尚未完成** —— 它被明确列为
+          **后续稳定性验证项**，不构成本次发布的技术阻断（已如实记录为
+          一次性发布门禁例外）。任何「24 小时验证通过」的声称都必须引用
+          **累计实际运行秒数**，配置时长不等于实际时长。
+          已真实完成的是上表所列的 **1 小时持续运行**验证。
+
+          ### ⚠️ R-01 授权遗留项披露（历史合规风险，尚未根治）
+
+          | 项 | 说明 | 状态 |
+          |----|------|------|
+          | **原站第三方素材曾进入历史提交** | 早期开发阶段为做界面还原，从 `v2ex.com` 抓取的 HTML / CSS / JS / 截图进入了 **Git 历史** | 已核实 |
+          | **当前主分支已不再包含相应素材** | 实测当前 `master` 树中 `ref-*.png` / `diff-*.png` / `combo.css` / `combo.js` **零命中** | 已核实 |
+          | **旧 Tag 和部分历史引用仍可能使它们可访问** | 4 个已发布 Tag（v0.0.1~v0.0.4）与若干历史分支仍可达这些对象；克隆仓库即可取得 | **仍然存在** |
+          | **历史风险尚未根治** | 清理需改写远端历史（`filter-repo` + force push），属高风险不可逆操作；且改写**无法消除**第三方已下载 / 已缓存的内容 | **DEFERRED** |
+          | **本轮没有执行历史改写或 force push** | 未执行任何远端历史改写、force push、Tag 删除或重建、Release 修改、仓库可见性变更 | 已核实 |
+          | **本版本的新代码、安装包及镜像经过独立扫描** | gitleaks 秘密扫描 + npm audit（high/critical 阻断）+ 镜像内容审查：安装包只含 `deploy/`（15 个文件），镜像不含 `docs/`，均不含受影响素材 | 已核实 |
+          | **风险接受仅针对 v0.0.9 的发行决定** | 主人已对 v0.0.9 发布门禁作**一次性风险接受**（完整披露 R-01 的前提下） | 仅限本轮 |
+          | **后续仍需单独处置历史问题** | 历史清理需单独授权与单独演练，本声明**不构成**素材版权证明，也**不视为** R-01 已修复 | 待办 |
+
+          > 详细审计报告见仓库 `docs/R01_COMPLIANCE_REVIEW_v0.0.9.md`。
+          > 本声明**不试图**通过文字取得素材版权或实现清除。
 
           ### 安全提示
 
           - **安装后请立即登录并修改管理员密码。**
           - 不要在公网环境使用默认端口 3000，建议通过反向代理并启用 HTTPS。
+          - 调试端点（`/api/debug/*`）在生产部署中默认关闭
+            （`ENABLE_DEBUG_ENDPOINTS=0`），且需要独立令牌才能访问。
           - `docker compose stop` 与 `update.sh` **不会**删除数据卷；
             `docker compose down -v` 会**永久删除**数据，请务必先备份。
-
-          ### 许可证
-
-          MIT（附商标声明与第三方内容声明），详见安装包内的 `LICENSE`。
-
-          ---
-
-          ### ⚠️ 授权遗留项（须主人裁决）
-
-          | 项 | 说明 | 状态 |
-          |----|------|------|
-          | **R-01 原站素材经 Git 历史持续暴露** | 早期开发阶段为做界面还原，从 `v2ex.com` 抓取的 HTML / CSS / JS 进入了 **Git 历史**。这些对象**仍可通过历史访问**（克隆仓库即可取得），仅改当前文件**不能**消除。清理需改写远端 refs 历史（`git filter-branch` + `git push --force --mirror`），属**高风险不可逆操作** | **DEFERRED**，须主人单独授权；E-02 到期日 **2026-12-04** |
-
-          > **关于仓库可见性与历史改写的声明**：本仓库保持 **Public**；
-          > 本次发布**未执行**任何远端历史改写、`force push`、Tag 删除或重建、
-          > Release 修改。历史清理仅做过**本地隔离演练**（未触碰远端），
-          > 产物见 `docs/HISTORY_CLEANUP_DRILL_v0.0.4.md`。
-
-          ### 已知限制（不阻塞预览版使用，但请知悉）
-
-          **身份覆盖缺口**（`docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §7.1）：
-
-          - **版主 moderator**：节点 / 主题管理（锁定 / 置顶 / 恢复 / 软删除 / 审批 / 举报）
-            **无 UI 层用例**，仅 API 断言
-          - **管理员 admin**：封禁 / 角色变更 / 系统配置 / 节点审批均为 **API 层**；
-            `/admin` 页面只有文本存在性断言，**零后台 UI 点击流**
-          - **游客**：写操作拒绝主要靠 API `401/403`，UI 层缺「提交表单后的拒绝反馈」验证
-          - **普通用户**：后台入口隐藏与操作按钮不可见**未验证**
-          - **楼层连续性**：缺「1..n 连续」断言（B-05 漏检根因未消除）
-          - **视口**：交互 E2E 仅 `1280×900` 单 project；4 视口仅截图对比，无移动端 / 平板交互
-
-          **无法实跑项**：
-
-          - **真实 SMTP 邮件投递** —— 未配置 SMTP
-          - **多浏览器**（Firefox / Safari）视觉回归 —— 本机仅 Chromium / Edge
-          - **原站需登录页面对照** —— 原站 7 页 × 4 视口 = **28 条无对照**
-            （无权访问他人账号，**不拿游客态冒充登录态**；这是合规的如实标注，不计为缺陷）
 
           ### 灰度期观测与回滚判定
 
           > 适用条件：本版本对外分发 / 部署后启用。观测基线与回滚触发条件见
-          > `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §8（端点 5xx 率、搜索 / 节点列表 API
-          > 延迟 p95、写路径错误率、楼层号连续性、积分账本自洽、鉴权边界、会话与封禁、
-          > 镜像可拉取性、远端状态共 9 项）。
+          > `docs/ACCEPTANCE_CHECKLIST_v0.0.4.md` §8（端点 5xx 率、搜索 / 节点
+          > 列表 API 延迟 p95、写路径错误率、楼层号连续性、积分账本自洽、
+          > 鉴权边界、会话与封禁、镜像可拉取性、远端状态共 9 项）。
+
+          ### 许可证
+
+          MIT（附商标声明与第三方内容声明），详见安装包内的 `LICENSE`。
           NOTES
           sed -i "s|__VERSION__|${VERSION}|g" release-notes.md
-          echo "Release Notes 已按版本 ${VERSION} 生成"
+          sed -i "s|__DIGEST__|${IMAGE_DIGEST}|g" release-notes.md
+          echo "Release Notes 已按版本 ${VERSION} 生成（镜像 digest=${IMAGE_DIGEST}）"
+          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 创建 Release（先 draft）
         env:
@@ -1833,15 +2284,19 @@ jobs:
           echo "$ASSETS"
           echo "$ASSETS" | grep -q "v2ex-clone-${VERSION}-deploy.zip" || { echo "::error::缺少安装包"; exit 1; }
           echo "$ASSETS" | grep -q "SHA256SUMS" || { echo "::error::缺少 SHA256SUMS"; exit 1; }
-          # 资产齐全 → **默认保持 Draft**。
+          # 资产齐全后按**三态**决定形态。
           #
-          # v0.0.3 起，发布流程不再自动把 Draft 转为正式发布。
-          # 原因：发布门槛可能存在阻断项（如 Git 历史合规风险），
-          #       此时候选版本必须停在 Draft，等待主人决策后才能公开。
+          # ⚠️ v0.0.9：PUBLISH / PRERELEASE 一律读 preflight 的 output，
+          #    不再读 inputs.*：tag push 没有 dispatch inputs，旧写法恒为
+          #    false ⇒ 正式发布路径永远停在 Draft，且匿名核验两步被跳过。
+          #    现在 tag push 由 meta step 判定 publish=true（Tag 白名单即
+          #    人工确认），因此「推 tag」就是可靠的公开发布入口。
           #
-          # 只有显式传 publish=true（workflow_dispatch 输入）才会转正式发布。
-          PUBLISH="${{ inputs.publish || 'false' }}"
-          PRERELEASE="${{ inputs.prerelease || 'true' }}"
+          # 保留 v0.0.3 的历史约束：某些版本可能因发布门槛阻断项
+          # （如 Git 历史合规风险）需要停在 Draft —— 那只适用于
+          # workflow_dispatch 且显式 publish=false 的情形。
+          PUBLISH="${{ needs.preflight.outputs.publish }}"
+          PRERELEASE="${{ needs.preflight.outputs.prerelease }}"
           if [ "$PUBLISH" = "true" ]; then
             # ⚠️ v0.0.9：**0.0.x 一律不得作为稳定版发布**。
             #   本项目 README 明示「0.0.x 全部为早期开发预览版」，
@@ -1860,9 +2315,12 @@ jobs:
               --latest=false
             echo "Release 已公开发布（Pre-release，publish=true + prerelease=true）"
           else
-            echo "Release 保持 Draft 状态。"
-            echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过，"
-            echo "然后以 workflow_dispatch 传 publish=true 触发，或手动在 GitHub 上发布。"
+            echo "Release 保持 Draft 状态（publish=false）。"
+            echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过。"
+            # ⚠️ 不要建议「再 dispatch publish=true 重跑」：preflight 的
+            #    「Release 已存在（含 Draft）⇒ 中止」会把它挡死（实测
+            #    `gh release view` 对 Draft 也会返回），这条路走不通。
+            echo "如需公开，请在 GitHub 网页上手动发布该 Draft（或重新推 Tag 走正式发布路径）。"
           fi
 
   # ===========================================================================
@@ -1870,7 +2328,9 @@ jobs:
   # ===========================================================================
   verify-release:
     name: 远端核验（Release 与资产）
-    needs: [preflight, publish-release]
+    # ⚠️ v0.0.9（N3）：加 build-image 才能拿到构建时记录的 digest，
+    #    与 Registry / 本地拉取结果做三方交叉核对（不靠声明文字冒充可核验）。
+    needs: [preflight, build-image, publish-release]
     runs-on: ubuntu-latest
     # 读取 draft Release 需要 contents: write（顶层默认只有 read）
     permissions:
@@ -1885,7 +2345,10 @@ jobs:
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
           REPO="${{ github.repository }}"
-          PUBLISH="${{ inputs.publish || 'false' }}"
+          # ⚠️ v0.0.9：与 publish-release 用**同一个事实来源**。
+          #    tag push 时 inputs.publish 为空 ⇒ 旧写法让本核验误判为
+          #    「Draft 路径」，从而不去校验「已发布 + 非 latest」。
+          PUBLISH="${{ needs.preflight.outputs.publish }}"
 
           # 用**列表**接口读取 Release，而不是 /releases/tags/{tag}。
           # 原因：GitHub 的按 tag 查询端点**不返回 draft 状态**的 Release
@@ -1940,14 +2403,20 @@ jobs:
       # draft 状态下 GitHub 不允许匿名下载 Release 资产，
       # 此时下载会得到 404 页面而非文件，校验必然失败 —— 不是资产有问题。
       - name: 实际下载安装包并校验 SHA256（仅已发布的 Release）
-        if: ${{ inputs.publish == true }}
+        # ⚠️ outputs 一律是**字符串**，必须用 == 'true'；
+        #    旧写法 `inputs.publish == true` 在 tag push 时恒为 false，
+        #    导致匿名下载 / SHA256 校验 / Release 页面核验全被跳过。
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
           REPO="${{ github.repository }}"
           URL="https://github.com/$REPO/releases/download/$VERSION/v2ex-clone-${VERSION}-deploy.zip"
           # 文件名必须与 SHA256SUMS 中记录的一致，直接用最终名字下载
-          curl -sL -o "/tmp/v2ex-clone-${VERSION}-deploy.zip" "$URL"
+          # ⚠️ N10：必须 --fail。否则 Release 仍是 Draft / 资产缺失时，
+          #    `curl -sL` 会把 GitHub 的 404 HTML 页面当成 ZIP / SHA256SUMS
+          #    下载成功，后面的校验报错会指向错误的对象，甚至可能静默通过。
+          curl -fsSL --retry 3 --max-time 300 -o "/tmp/v2ex-clone-${VERSION}-deploy.zip" "$URL"
           SIZE=$(stat -c%s "/tmp/v2ex-clone-${VERSION}-deploy.zip")
           if [ "$SIZE" -lt 1000 ]; then
             echo "::error::下载到的安装包过小（$SIZE 字节）"
@@ -1955,7 +2424,7 @@ jobs:
           fi
           echo "下载大小：$SIZE 字节"
           # 用远端 SHA256SUMS 校验
-          curl -sL -o /tmp/SHA256SUMS \
+          curl -fsSL --retry 3 --max-time 60 -o /tmp/SHA256SUMS \
             "https://github.com/$REPO/releases/download/$VERSION/SHA256SUMS"
           cd /tmp
           sha256sum -c SHA256SUMS
@@ -2054,10 +2523,60 @@ jobs:
           fi
           rm -f "$ANON_HEADERS"
 
+      - name: 交叉核对真实镜像 Digest（N3）
+        # 任务书 §七「镜像 Digest 必须记录真实值」：不能只在 Notes 里声明
+        # 「可复核」，必须由三个独立来源互证 —— 构建输出 / 本地 pull /
+        # 匿名 Registry V2 响应头。任一不一致都判红。
+        env:
+          BUILD_DIGEST: ${{ needs.build-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.preflight.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION"
+          ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
+          [ -n "$BUILD_DIGEST" ] || { echo "::error::build-image 未产出 digest"; exit 1; }
+
+          # ① 本地拉取结果（上一步已 docker pull 成功）
+          LOCAL_DIGEST="$(docker image inspect "$IMAGE" --format '{{index .RepoDigests 0}}' | sed 's/.*@//' | tr -d '\r')"
+          [ -n "$LOCAL_DIGEST" ] || { echo "::error::读不到本地 RepoDigest"; exit 1; }
+
+          # ② 匿名 Registry V2 的 Docker-Content-Digest（完整 Bearer 流程）
+          SCOPE="repository:${{ env.IMAGE_NAME }}:pull"
+          TOKEN="$(curl -fsS --max-time 30 "https://${{ env.REGISTRY }}/token?service=${{ env.REGISTRY }}&scope=${SCOPE}" \
+                   | python3 -c 'import json,sys;print(json.load(sys.stdin).get("token",""))')"
+          [ -n "$TOKEN" ] || { echo "::error::无法取得匿名 registry token"; exit 1; }
+          HDR="$(mktemp)"
+          CODE="$(curl -sS -o /dev/null -D "$HDR" -w '%{http_code}' \
+                 -H "Authorization: Bearer $TOKEN" -H "Accept: $ACCEPT" \
+                 "https://${{ env.REGISTRY }}/v2/${{ env.IMAGE_NAME }}/manifests/$VERSION")"
+          [ "$CODE" = "200" ] || { echo "::error::匿名 manifest 请求返回 HTTP $CODE"; exit 1; }
+          REMOTE_DIGEST="$(grep -i '^docker-content-digest:' "$HDR" | tail -1 | tr -d '\r' | awk '{print $2}')"
+          rm -f "$HDR"
+          [ -n "$REMOTE_DIGEST" ] || { echo "::error::Registry 响应缺少 Docker-Content-Digest"; exit 1; }
+
+          echo "  构建输出 digest : $BUILD_DIGEST"
+          echo "  本地 RepoDigest : $LOCAL_DIGEST"
+          echo "  Registry 响应头 : $REMOTE_DIGEST"
+          [ "$LOCAL_DIGEST" = "$BUILD_DIGEST" ] || { echo "::error::本地 RepoDigest 与构建输出不一致"; exit 1; }
+          [ "$REMOTE_DIGEST" = "$BUILD_DIGEST" ] || { echo "::error::Registry 响应头与构建输出不一致"; exit 1; }
+          echo "✓ 三方可核验一致：$BUILD_DIGEST"
+          {
+            echo "### 镜像 Digest（三方可核验）"
+            echo ""
+            echo "| 来源 | 值 |"
+            echo "|---|---|"
+            echo "| build-image 输出 | \`$BUILD_DIGEST\` |"
+            echo "| 本地 RepoDigest | \`$LOCAL_DIGEST\` |"
+            echo "| 匿名 Registry V2 | \`$REMOTE_DIGEST\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: 核验 Release 网页可打开（仅已发布的 Release）
         # draft 状态的 Release 页面对匿名访问返回 404（GitHub 的正常行为），
         # 只有正式发布后才可公开访问。
-        if: ${{ inputs.publish == true }}
+        # ⚠️ outputs 一律是**字符串**，必须用 == 'true'；
+        #    旧写法 `inputs.publish == true` 在 tag push 时恒为 false，
+        #    导致匿名下载 / SHA256 校验 / Release 页面核验全被跳过。
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         run: |
             set -euo pipefail
             VERSION="${{ needs.preflight.outputs.version }}"

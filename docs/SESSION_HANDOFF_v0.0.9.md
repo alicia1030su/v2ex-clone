@@ -255,7 +255,80 @@ v0.0.4 源码 worktree：`C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v004-src`
 6. **Go/No-Go 判定**：R-01 若仍阻断，则按既有约定停在候选状态，
    提交准确的风险决策报告，**不擅自绕过**。
 
-### 授权边界（本轮未执行、需单独授权）
+### 授权边界（上一轮未执行、需单独授权）
 
 force push · 删除或移动现有 Tag · 修改已有 Release · 改写远端历史 ·
 删除仓库 · 更改 Public 状态 · 推送 GHCR 镜像 · 创建正式 Tag 或 Release。
+
+> ⚠️ 上面这段是**上一轮**的状态。下面第十一节是本轮（2026-11-08）最新接管信息，
+> 以第十一节为准。
+
+---
+
+## 十一、本轮接管信息（2026-11-08 00:xx GMT+8，正式发布进行中）
+
+### 11.1 最新事实基线（只读核实过，勿用旧线索）
+
+| 项 | 真实值 |
+|---|---|
+| `origin/master` | `af616356004877005153ad39bc187c3aed06e082` |
+| PR #31 | 已合并（2026-11-07 10:07Z） |
+| PR #32 | `fix/v0.0.9-soak-design-and-release-notes`，head `8d6df8a`，**全绿 / CLEAN**（firefox 1280x900 重跑已 success） |
+| 24h Run 42362649887 | **cancelled**；证据最大 `elapsed_s=4687`（≈1h18m），79 次采样全 200、0 错误；**24h 未完成** |
+| 1h 冒烟 | run `42384566949` / job `128439124955`，**1h1m5s，success**（PR #32 上真实跑满） |
+| 已有 Tag | `v0.0.1` ~ `v0.0.4`；**无 v0.0.9** |
+| 已有 Release | 4 个（v0.0.4 为最新公开 Pre-release；v0.0.3 为 Draft） |
+| GHCR | 包为 Public，`v0.0.1/2/4` 匿名 manifest HTTP 200；**`v0.0.9` 返回 404（尚不存在）** |
+| self-hosted runners | **0**（无授权长期运行环境）；本机 Docker daemon 不可用 |
+| 版本载体 | 7 个全部 0.0.9，`sync-version.mjs 0.0.9 --verify` 通过 |
+| R-01 | **DEFERRED**；git 树零命中；本机工作树 113 个被 `.gitignore` 忽略的遗留素材不进入任何产物 |
+
+### 11.2 本轮授权（主人《v0.0.9 一站式正式发布总指令》）
+
+✅ 已授权：常规代码修复、GitHub Actions 修复、自动化测试与安全审计、创建开发/发布修复分支、
+提交/推送/创建 PR、检查通过后正常合并、从最终固定 SHA 构建并推送 v0.0.9 GHCR 镜像、
+创建一次新的 v0.0.9 Tag、创建并**公开发布 Pre-release**、上传 ZIP 与 SHA256SUMS、更新 Release Notes。
+✅ 主人已知悉 R-01 未解决，在完整披露前提下作**一次性、仅针对 v0.0.9 发行决定**的风险接受。
+详见 `docs/RISK_DECISION_v0.0.9.md`。
+
+⛔ 仍禁止：远端历史改写 / force push / 移动或删除已有 Tag / 删除覆盖已有 Release /
+删除真实数据库或用户数据 / 更改仓库 Public 状态 / 绕过分支保护 / 额外付费服务。
+
+### 11.3 已完成的专业产出（不要重复做）
+
+| 产出 | 文件 / 结论 |
+|---|---|
+| 24h 设计缺陷核查 | `docs/SOAK_24H_FINDING_v0.0.9.md`；`.github/workflows/soak-test.yml` 头部注释 |
+| 风险决策登记 | `docs/RISK_DECISION_v0.0.9.md` |
+| 安全与发行审计 | `docs/AUDIT_v0.0.9_SECURITY_FINAL.md` —— **P0 = NO**；A-01/A-03 已派修复，A-02 如实披露 |
+| 发布流水线评审 | `docs/AUDIT_v0.0.9_RELEASE_PIPELINE.md` —— **5 个阻断项 B1~B5**，判定「PR #32 合并后仍不具备可靠公开发布入口」 |
+| Firefox E2E 不稳定性修复 | commit `840a78a`（隔离 worktree）/ 主仓 cherry-pick 为 `16805f2`：只调时间预算，不动断言 |
+| 部署包版本标注统一 | `deploy/` 下 10 个文件头 + README/INSTALL 的版本标注改为 v0.0.9；**保留 3 处 R-18 历史语境的 v0.0.4** |
+| 主仓 README 当前版本段 | 已改为 v0.0.9，并如实写入「24h 未完成」「升级基线只有 v0.0.4」 |
+
+### 11.4 正在进行（三个隔离 worktree，勿互相合并）
+
+| worktree | 分支 | 任务 |
+|---|---|---|
+| `_worktrees/v009-release-pipeline` | `fix/v0.0.9-release-pipeline` | 工程师：release.yml 六组修复（A/B1/B2/B3/B4/B5/N1/N2/N3/N5/N10）+ 新增 `post-release-verify.yml` + 两处源码（A-01/A-03） |
+| `_worktrees/v009-tests` | `test/v0.0.9-http-status-regression` | QA：补 `e2e/v009-ops-metrics.spec.ts`、更新 `tests/captcha.spec.ts`、A-03 单测、消除悬空引用 |
+| 主仓工作树 | `fix/v0.0.9-soak-design-and-release-notes` | 主理人：24h 记录、风险登记、部署文档、README（**尚未 push**） |
+
+### 11.5 接管后的固定顺序（不要跳步）
+
+1. **收敛**：把两个隔离 worktree 的 commit cherry-pick 到主仓发布分支，与主仓未提交改动合成**一次提交**；复验 `sync-version.mjs 0.0.9 --verify`、shell/YAML 语法、版本一致。
+2. **一次 push**（不要反复推送）：等待 PR #32 全套 CI 全绿，含 1 小时冒烟（因改了 `src/` 与 `soak-test.yml`，会真实重跑）。
+3. **合并**：PR #32 正常合并到 master → **固定最终完整 SHA**。所有后续产物必须来自该 SHA。
+4. **干跑验证**（正式 Tag 之前）：`gh workflow run release.yml --ref master -f version=v0.0.9 -f dry_run=true`；确认**没有**推镜像、没有建 Tag/Release/资产。
+5. **建一次 Tag**：`git tag v0.0.9 <最终 SHA>` + `git push origin v0.0.9`（轻量 tag，勿移动）。tag 白名单已含 v0.0.9，会触发正式发布流水线；修复后该路径应**直接产出公开 Pre-release**。
+6. **发布后独立验收**：`gh workflow run post-release-verify.yml --ref master -f version=v0.0.9`（全新 runner、匿名下载、匿名 docker pull、官方包全新安装、迁移/登录/发帖/回复/通知/重启持久化/备份恢复）。
+7. **如实报告**：15 项交付报告；24h 标「未完成」、R-01 标 DEFERRED，不得标 PASSED/FIXED。
+
+### 11.6 关键纪律
+
+- 若发布流水线在「Tag 已建但发布失败」时中断：**不移动/删除 Tag**。把流水线修复合入 master，
+  用 `gh workflow run release.yml --ref master -f version=v0.0.9 -f dry_run=false -f publish=true -f prerelease=true`
+  走 B2 幂等转公开补救路径。该路径**无法在正式发布前实跑**，只能静态审查，须如实披露。
+- 不得把「1 小时冒烟通过」写成「24 小时验证通过」；不得把旧版候选 ZIP 改名冒充 v0.0.9。
+- 镜像 Digest 必须记录真实值；安装包 VERSION / compose 镜像引用 / Release tag 三者必须一致。
+

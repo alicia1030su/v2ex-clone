@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page, expect, type APIResponse } from '@playwright/test';
 import * as nodeFs from 'node:fs';
 import * as nodePath from 'node:path';
 
