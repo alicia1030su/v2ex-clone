@@ -15,6 +15,26 @@ name: Release
 #  - push tag v0.0.1（正式发布路径）
 #  - workflow_dispatch（手动重跑；dry_run=true 时只验证不发布）
 #
+# ## v0.0.9：发布形态的**三态**（由 preflight 的 meta step 统一判定，
+#    下游一律读 needs.preflight.outputs，不再各自去读 inputs）
+#
+#   | dry_run | publish | 结果 |
+#   |---|---|---|
+#   | true    | （任意） | 干跑：不推镜像、不建 Release、不发布 |
+#   | false   | false   | 只建 Draft（资产齐全，但匿名不可下载） |
+#   | false   | true    | 公开 Pre-release（强制 prerelease=true、--latest=false） |
+#
+# - **tag push ⇒ publish=true**：Tag 白名单（on.push.tags）是「人工确认
+#   该版本允许公开发布」的摩擦点 —— 每次发版都必须有人把版本号手动加进
+#   白名单，tag 一旦推上来就表示公开发布已获确认，不应再停在 Draft。
+#   修复前 publish-release 读 `inputs.publish`，而 tag push 没有 dispatch
+#   inputs ⇒ 恒为 false ⇒ **永远只建 Draft，没有可靠的公开发布入口**；
+#   而「先建 Draft、再 dispatch publish=true」又会被 preflight 的
+#   「Release 已存在（含 Draft）⇒ 中止」挡死，两条路都不通。
+# - workflow_dispatch ⇒ publish 取输入值；publish=false 时停在 Draft，
+#   如需公开请在 GitHub 网页上手动发布（不要用 dispatch publish=true 重跑，
+#   会因 Release 已存在被 preflight 拦下）。
+#
 # ---------------------------------------------------------------------------
 # Action 版本说明（重要，2026-11-03 实测）
 #
@@ -83,7 +103,12 @@ on:
         default: true
 
 concurrency:
-  group: release-${{ github.ref }}
+  # ⚠️ v0.0.9：**版本号必须进 group**。
+  #   原写法 release-${{ github.ref }} 下，所有 workflow_dispatch 都落在
+  #   master 这同一个 ref 上 ⇒ 不同版本的发布互相排队（v0.0.3 的重跑会
+  #   占用 v0.0.9 发布的并发槽），而 tag push 又各自成组 ⇒ 语义不一致。
+  #   纳入 version 后：同版本串行、不同版本互不阻塞。
+  group: release-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
   # 不允许取消进行中的发布：中途取消会留下「镜像已推、Release 未建」的半成品状态
   cancel-in-progress: false
 
@@ -212,6 +237,13 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       dry_run: ${{ steps.meta.outputs.dry_run }}
+      # ⚠️ v0.0.9：publish / prerelease 的**单一事实来源**。
+      #   修复前 publish-release 与 verify-release 各自直接读
+      #   `inputs.publish`：tag push 没有 dispatch inputs ⇒ 恒为空/false，
+      #   导致「只建 Draft + 跳过匿名核验」，且没有可用的公开发布入口。
+      #   现在由 meta step 按事件类型统一算好，下游只读这两个 output。
+      publish: ${{ steps.meta.outputs.publish }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
       # v0.0.4：Release 的 target commit。
       # tag 触发时 = tag 指向的 commit（= github.sha）；
       # 手动「补救路径」时 = 远端 tag 指向的 commit（github.sha 是触发分支的 commit，不对）。
@@ -256,7 +288,20 @@ jobs:
           # ⚠️ 若将来某次 master 与 tag 的 `deploy/` / `src/` 出现差异，
           #    本项会产出与 Tag 不一致的包 —— 那时应当**停下并请主人裁决**
           #    （移动 Tag 需要授权；不移动则应改走 workflow_dispatch）。
-          ref: master
+          #
+          # ## v0.0.9 修正：**tag push 不再取 master**
+          #
+          # 上面的 v0.0.4 论证只对「补救路径 / 干跑」成立：那时流水线自身
+          # 需要 master 上的修复，而 Tag 又不能移动，才必须解耦。
+          # 但**正式 tag push** 时 Tag 指向的就是本次构建 commit，
+          # 取 master 反而会在 master 前进时产出与 Tag 不符的 ZIP / 镜像
+          # （任务书要求发布资产精确对应 Tag）。
+          #
+          # ⇒ tag push 固定到 `github.sha`；workflow_dispatch 仍取 master
+          #   （保留补救 / 干跑路径的能力）。全部 8 个 job 必须用同一个表达式，
+          #   否则各 job 拿到的代码不一致。preflight 另加
+          #   「origin/master == github.sha」硬闸门，master 前进即中止。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - name: 确定版本号
         id: v
@@ -274,14 +319,26 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "待发布版本：$VERSION"
 
-      - name: 记录 dry-run 标志
+      - name: 记录三态标志（dry-run / publish / prerelease）
         id: meta
         run: |
           set -euo pipefail
+          # ⚠️ v0.0.9：本 step 是 publish / prerelease / dry_run 的
+          #    **单一事实来源**；publish-release 与 verify-release 一律通过
+          #    `needs.preflight.outputs.*` 读取，禁止再各自引用 inputs.publish。
+          #
+          #    tag push ⇒ publish=true：Tag 白名单是人工确认「该版本允许
+          #    公开发布」的摩擦点，tag 推上来即代表确认；若这里给 false，
+          #    正式发布路径将永远停在 Draft（且无法用 dispatch 补救，见文件头）。
+          #    workflow_dispatch ⇒ 完全按输入执行，publish=false 时保持 Draft。
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+            echo "publish=${{ inputs.publish }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${{ inputs.prerelease }}" >> "$GITHUB_OUTPUT"
           else
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 校验远端 Tag 状态
@@ -313,6 +370,29 @@ jobs:
               exit 1
             fi
             echo "✓ tag $VERSION 指向当前 commit ${{ github.sha }}"
+
+            # ── v0.0.9：构建上下文与 Tag 一致的**硬闸门** ──
+            #
+            # 修复前 8 个 job 的 checkout 一律 `ref: master`：tag push 时
+            # 若 master 在发布期间又前进了，打出的 ZIP / 镜像就不是 Tag
+            # 指向的那份代码，而「补救路径」与人工复核还拿 master 当参照。
+            # 现在 tag push 全部固定到 github.sha（见下面的 checkout 注释），
+            # 这里再确认远端 master 仍等于本次构建 commit；不等就当场中止，
+            # 避免「Tag 已被 master 甩在后面」时继续发布一个含糊的版本。
+            #
+            # ⚠️ 绝不吞掉 git 失败：本 step 是 `set -euo pipefail`，
+            #    fetch / rev-parse 失败会直接中止（不能 `|| true`）。
+            # ⚠️ 显式写 refspec 更新 origin/master：只 `git fetch origin master`
+            #    通常只写 FETCH_HEAD，`git rev-parse origin/master` 可能仍是
+            #    旧值 ⇒ 闸门假通过。
+            git fetch origin master:refs/remotes/origin/master
+            MASTER_SHA="$(git rev-parse origin/master)"
+            if [ "$MASTER_SHA" != "${{ github.sha }}" ]; then
+              echo "::error::发布期间 master 已前进：origin/master=$MASTER_SHA，本次构建=${{ github.sha }}。"
+              echo "::error::为避免发布产物与 Tag / 远端 master 的关系含糊不清，中止发布；请在新 commit 上重新打 Tag。"
+              exit 1
+            fi
+            echo "✓ origin/master 仍等于本次构建 commit $MASTER_SHA"
           else
             # 手动触发：分两种情况。
             #
@@ -445,6 +525,9 @@ jobs:
           echo "版本锚点 SHA: ${{ steps.tag.outputs.sha }}"
           echo "镜像    : ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.v.outputs.version }}"
           echo "dry_run : ${{ steps.meta.outputs.dry_run }}"
+          echo "publish : ${{ steps.meta.outputs.publish }}"
+          echo "prerelease: ${{ steps.meta.outputs.prerelease }}"
+          echo "三态    : dry_run=true → 干跑 / publish=false → Draft / publish=true → 公开 Pre-release"
 
   # ===========================================================================
   # 2. code-checks —— 类型检查 + 生产构建
@@ -456,10 +539,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -487,10 +572,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -785,10 +872,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -857,10 +946,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - uses: actions/setup-node@v7
         with:
@@ -979,10 +1070,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       # ------------------------------------------------------------------
       # dry_run 闸门（2026-11-04 补）
@@ -1118,10 +1211,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       # dry_run 时镜像没有推到 GHCR，需要从 build-image 的 artifact 取回。
       - name: 取回镜像归档（dry_run）
@@ -1403,10 +1498,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # ⚠️ v0.0.4：与 preflight 一致 —— 从 master 检出（版本锚点 Tag 不动）。
-          # 全部 8 个 job 必须统一，否则各 job 拿到的代码不一致。
-          # 完整论证见 preflight job「检出代码」步骤的说明。
-          ref: master
+          # ⚠️ v0.0.9：构建上下文必须与版本锚点一致（全部 8 个 job 统一）。
+          #   tag push ⇒ 固定到 github.sha（Tag 指向的准确提交），
+          #     保证打出的 ZIP / 镜像就是该 Tag 的代码；
+          #   workflow_dispatch ⇒ 仍取 master（干跑 / 补救路径需要 master 上的修复）。
+          #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
       - name: 打包 deploy/ 目录
         id: pkg
@@ -1892,15 +1989,19 @@ jobs:
           echo "$ASSETS"
           echo "$ASSETS" | grep -q "v2ex-clone-${VERSION}-deploy.zip" || { echo "::error::缺少安装包"; exit 1; }
           echo "$ASSETS" | grep -q "SHA256SUMS" || { echo "::error::缺少 SHA256SUMS"; exit 1; }
-          # 资产齐全 → **默认保持 Draft**。
+          # 资产齐全后按**三态**决定形态。
           #
-          # v0.0.3 起，发布流程不再自动把 Draft 转为正式发布。
-          # 原因：发布门槛可能存在阻断项（如 Git 历史合规风险），
-          #       此时候选版本必须停在 Draft，等待主人决策后才能公开。
+          # ⚠️ v0.0.9：PUBLISH / PRERELEASE 一律读 preflight 的 output，
+          #    不再读 inputs.*：tag push 没有 dispatch inputs，旧写法恒为
+          #    false ⇒ 正式发布路径永远停在 Draft，且匿名核验两步被跳过。
+          #    现在 tag push 由 meta step 判定 publish=true（Tag 白名单即
+          #    人工确认），因此「推 tag」就是可靠的公开发布入口。
           #
-          # 只有显式传 publish=true（workflow_dispatch 输入）才会转正式发布。
-          PUBLISH="${{ inputs.publish || 'false' }}"
-          PRERELEASE="${{ inputs.prerelease || 'true' }}"
+          # 保留 v0.0.3 的历史约束：某些版本可能因发布门槛阻断项
+          # （如 Git 历史合规风险）需要停在 Draft —— 那只适用于
+          # workflow_dispatch 且显式 publish=false 的情形。
+          PUBLISH="${{ needs.preflight.outputs.publish }}"
+          PRERELEASE="${{ needs.preflight.outputs.prerelease }}"
           if [ "$PUBLISH" = "true" ]; then
             # ⚠️ v0.0.9：**0.0.x 一律不得作为稳定版发布**。
             #   本项目 README 明示「0.0.x 全部为早期开发预览版」，
@@ -1919,9 +2020,12 @@ jobs:
               --latest=false
             echo "Release 已公开发布（Pre-release，publish=true + prerelease=true）"
           else
-            echo "Release 保持 Draft 状态。"
-            echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过，"
-            echo "然后以 workflow_dispatch 传 publish=true 触发，或手动在 GitHub 上发布。"
+            echo "Release 保持 Draft 状态（publish=false）。"
+            echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过。"
+            # ⚠️ 不要建议「再 dispatch publish=true 重跑」：preflight 的
+            #    「Release 已存在（含 Draft）⇒ 中止」会把它挡死（实测
+            #    `gh release view` 对 Draft 也会返回），这条路走不通。
+            echo "如需公开，请在 GitHub 网页上手动发布该 Draft（或重新推 Tag 走正式发布路径）。"
           fi
 
   # ===========================================================================
@@ -1944,7 +2048,10 @@ jobs:
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
           REPO="${{ github.repository }}"
-          PUBLISH="${{ inputs.publish || 'false' }}"
+          # ⚠️ v0.0.9：与 publish-release 用**同一个事实来源**。
+          #    tag push 时 inputs.publish 为空 ⇒ 旧写法让本核验误判为
+          #    「Draft 路径」，从而不去校验「已发布 + 非 latest」。
+          PUBLISH="${{ needs.preflight.outputs.publish }}"
 
           # 用**列表**接口读取 Release，而不是 /releases/tags/{tag}。
           # 原因：GitHub 的按 tag 查询端点**不返回 draft 状态**的 Release
@@ -1999,7 +2106,10 @@ jobs:
       # draft 状态下 GitHub 不允许匿名下载 Release 资产，
       # 此时下载会得到 404 页面而非文件，校验必然失败 —— 不是资产有问题。
       - name: 实际下载安装包并校验 SHA256（仅已发布的 Release）
-        if: ${{ inputs.publish == true }}
+        # ⚠️ outputs 一律是**字符串**，必须用 == 'true'；
+        #    旧写法 `inputs.publish == true` 在 tag push 时恒为 false，
+        #    导致匿名下载 / SHA256 校验 / Release 页面核验全被跳过。
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
@@ -2116,7 +2226,10 @@ jobs:
       - name: 核验 Release 网页可打开（仅已发布的 Release）
         # draft 状态的 Release 页面对匿名访问返回 404（GitHub 的正常行为），
         # 只有正式发布后才可公开访问。
-        if: ${{ inputs.publish == true }}
+        # ⚠️ outputs 一律是**字符串**，必须用 == 'true'；
+        #    旧写法 `inputs.publish == true` 在 tag push 时恒为 false，
+        #    导致匿名下载 / SHA256 校验 / Release 页面核验全被跳过。
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         run: |
             set -euo pipefail
             VERSION="${{ needs.preflight.outputs.version }}"
