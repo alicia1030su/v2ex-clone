@@ -609,12 +609,21 @@ jobs:
           # --no-git：把上一步的目录当普通目录扫描
           # --exit-code=1：发现泄露即失败
           # --redact：报告里不打印明文
+          #
+          # ⚠️ v0.0.9：使用仓库内的 `.gitleaks.toml`（**只含 allowlist，
+          #    不改任何检测规则**）。该配置按**精确字符串值**放行 3 个
+          #    E2E 测试固件口令（详见该文件内的说明）——
+          #    **不按路径放行**，因此 e2e 目录里的其它高熵字符串仍会被检出。
+          #
+          #    干跑实测证据（run 42373086097）：未放行时命中 3 处，
+          #    全部是 `generic-api-key` 规则对「Password = <高熵测试值>」的误报。
           set +e
           /tmp/gitleaks detect \
             --no-git \
             --redact \
             --no-banner \
             --exit-code=1 \
+            --config "$GITHUB_WORKSPACE/.gitleaks.toml" \
             --report-format=json \
             --report-path=gitleaks-report.json \
             --source /tmp/gitleaks-scan 2>&1 | tee gitleaks-output.txt
