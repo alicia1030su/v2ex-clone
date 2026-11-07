@@ -145,11 +145,29 @@ fi
 ok "候选 ZIP 不含 .env / 凭据文件"
 
 # 候选包引用的镜像标签（必须与镜像 tar 里的一致）
-# ⚠️ 正则里的 `-` 必须放在**字符类末尾**（或转义为 `\-`）——
-#    `[A-Za-z0-9._\-/]` 里的 `\-/` 会被 grep 解析成「从 \ 到 / 的范围」，
-#    报 `grep: Invalid range end` 并以退出码 2 中断整个脚本。
-#    这正是 CI 首次实跑暴露的缺陷（本地未跑过 grep 提取路径）。
-CAND_TAG="$(grep -oE '[A-Za-z0-9._/-]+:v?[0-9]+\.[0-9]+\.[0-9]+' "${DEPLOY_DIR}/docker-compose.yml" | head -1)"
+# 从 compose 的 `${V2EX_IMAGE:-<默认镜像>}` 里取默认镜像标签。
+#
+# ⚠️ 两个实测踩过的坑：
+#
+#   1. 字符类里的 `-` 必须放在**末尾**（或转义为 `\-`）——
+#      `[A-Za-z0-9._\-/]` 里的 `\-/` 会被 grep 解析成「从 \ 到 / 的范围」，
+#      报 `grep: Invalid range end` 并以退出码 2 中断整个脚本。
+#
+#   2. **不能**用宽松的 `[A-Za-z0-9._/-]+:v?...` 去全文件匹配 ——
+#      compose 里写的是 `${V2EX_IMAGE:-v2ex-clone-candidate:v0.0.9}`，
+#      宽松匹配会把 `:-` 里的那个 `-` 也吃进去 ⇒ 提取出
+#      `-v2ex-clone-candidate:v0.0.9`（**多了前导连字符**）⇒
+#      后面 `docker image inspect` 找不到该镜像。
+#      ⇒ 必须**锚定** `V2EX_IMAGE:-` 这个语法，再截到 `}` 为止。
+CAND_TAG="$(grep -oE 'V2EX_IMAGE:-[^}]+' "${DEPLOY_DIR}/docker-compose.yml" \
+  | head -1 | sed 's/^V2EX_IMAGE:-//')"
+
+# 兜底：若 compose 里没有该语法（不同版本的载体格式），回退到宽松匹配
+# 并**去掉可能的前导连字符**。
+if [ -z "$CAND_TAG" ]; then
+  CAND_TAG="$(grep -oE '[A-Za-z0-9._/-]+:v?[0-9]+\.[0-9]+\.[0-9]+' "${DEPLOY_DIR}/docker-compose.yml" \
+    | head -1 | sed 's/^-//')"
+fi
 if [ -z "$CAND_TAG" ]; then
   die "无法从候选 compose 中解析出镜像标签。"
 fi

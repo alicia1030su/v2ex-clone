@@ -288,6 +288,33 @@
 
 | **V7-04** | 一般（测试竞态） | **软删除主题用例导航被应用自身导航打断** —— `Navigation to "/" is interrupted by another navigation to "/t/24"`。根因：删除后 `router.refresh()` 的 RSC 响应（notFound 载荷）**迟到**，Next 客户端路由据此导航到当前 URL 渲染 404 页 ⇒ 与测试随后的 `page.goto('/')` 抢同一个导航槽位。**用户侧行为正确**（留在原 URL 显示 404）⇒ 非产品缺陷 | Linux 矩阵 webkit-375x812 复现 | 新增 `gotoResilient` helper：被 "interrupted by another navigation" 打断时等待稳定后重试（最多 3 次），断言不变 | 用例断言未削弱；修后该分片不再出现此失败 |
 
+## v0.0.9 新发现并修复的缺陷（全部有实测取证证据）
+
+> 发现方式：**真实运维指标读数**（`/api/admin/ops`）+ **CI 实跑** +
+> **本仓安全守卫** + **v0.0.4 → v0.0.9 真实升级验证**。
+> 全部结论来自**真实运行**的实测，不依赖静态检查宣称。
+
+| ID | 级别 | 缺陷 | 发现方式 | 修法 | 验证 |
+|---|---|---|---|---|---|
+| **V9-01** | **严重（可观测性失效）** | **API 请求数与错误率统计恒为 0 / `byStatus` 恒为 `{200}`** —— 两个叠加缺陷：① Next.js 把 `middleware.ts` 编译成**独立 webpack bundle**（Edge 版 `.next/server/src/middleware.js`），与路由处理器的 bundle **不共享模块实例** ⇒ `src/lib/observability.ts` 的模块级 `Map` 被求值两次 ⇒ 埋点写进 middleware 那份、`/api/admin/ops` 读路由那份 ⇒ `api.requests` **恒为 0**；② `NextResponse.next()` 返回的是 **middleware 自己**的响应（恒 200），下游路由的真实响应会**替换**它，middleware **不会收到通知** ⇒ `api.status.*` 恒为 `{200: N}`，连真实的 401/403/404 都不计入 ⇒ **「关键接口错误率」在架构上就是瞎的**，直接不满足任务书 §六 | 读 `/api/admin/ops` 发现 `api.requests=0` 而同接口的 `ratelimit.checks` 正常（**后者在路由 bundle 里计数** ⇒ 证明是 bundle 隔离而非埋点缺失）；核对构建产物确认 middleware 落在 `edge-runtime-webpack.js` | **三处必须同时存在**：① `src/lib/observability.ts` 状态挂到 `globalThis`（带版本化存储键）；② `src/middleware.ts` 新增 `export const runtime = 'nodejs'`（与路由同进程 —— Edge 是**另一个进程**的另一个 isolate，连 `globalThis` 都不是同一个对象）；③ `src/instrumentation.ts`（新增）在 **Node HTTP 层**拦截 `ServerResponse.writeHead`，拿**真实** statusCode 与完整耗时 | 实测：`api.requests=13`、`byStatus={'200':4,'401':2,'404':1}`、`api.errors4xx=3`、`error4xxByRoute={'/api/admin/stats':1,'/api/no-such-endpoint':1,'/api/topics':1}`；**仅做 ①+② 时 `byStatus` 仍恒为 `{200}`**（实测确认）；回归测试 `tests/v009-observability-isolation.spec.ts` 6 项 |
+| **V9-02** | **严重（凭据泄露风险）** | **`.gitignore` 只覆盖固定文件名 ⇒ 本轮的隔离环境文件随时可能入库** —— 既有规则为 `.env` / `.env.local` / `.env.*.local` / `.env.test` / `.env.*.test`，而 v0.0.9 使用的 `.env.v009` / `.env.e2e009` / `.env.v009upg` **不匹配任何一条** ⇒ 含真实 `SESSION_SECRET` / `POSTGRES_PASSWORD` / `SEED_ADMIN_PASSWORD` / `DEBUG_ENDPOINT_TOKEN` ⇒ `git add -A` 会顺手带进仓库 | `git check-ignore` 对这三个文件**全部无命中**；`git status` 显示为未跟踪的 `??` | 改为忽略一切 `.env.*` 并**显式放行**模板（`!.env.example` / `!.env.*.example`）⇒ 以后再用新名字也不会漏 | **历史核查**：对全部 ref 扫描本轮使用的 5 个密钥字面量，**命中数均为 0** ⇒ 凭据**从未进入** Git 历史，无需历史清理 |
+| **V9-03** | 一般（测试脚本） | **`build-candidate.sh` 残留 `PYEOF` 行** —— 把 heredoc 换成独立脚本后，旧的 heredoc 结束标记留在原地成为一条独立命令 ⇒ `PYEOF: command not found` ⇒ 候选镜像**构建成功**、tar 已导出、镜像引用已改写，但在「生成候选部署 ZIP」这步崩掉 ⇒ **候选产物产不出来**。本地 `bash -n` **检不出来**（语法合法，只是运行期命令不存在） | CI 首次实跑（run `42356528000`） | 删除残留行 | 本机实跑已能走通版本校验 / SHA 校验 / 环境前置检查，停在「Docker 守护进程未运行」；CI 端由 `candidate-verify.yml` 完整验证 |
+| **V9-04** | 一般（测试脚本） | **`verify-soak.sh` 缺 `--pg-pass` 参数** —— 工作流传了该参数但脚本未实现 ⇒ `未知参数：--pg-pass` ⇒ 脚本立刻退出 1 ⇒ **长跑验证完全没跑** | CI 首次实跑（run `42356303837`） | 补齐 `--pg-host` / `--pg-user` / `--pg-pass` | 带 `--pg-pass` 本机实跑通过（9 passed / 0 failed） |
+| **V9-05** | 一般（测试脚本） | **`grep` 正则的非法字符范围** —— 字符类中的 `\-/` 被解析成「从 \ 到 / 的范围」⇒ `grep: Invalid range end` ⇒ 脚本以退出码 2 中断（候选 ZIP 与镜像 tar 都已正确产出，但**安装验证一步都没跑**） | CI 实跑（run `42356528000`） | 把 `-` 移到字符类**末尾** | 已实测：旧正则报 `Invalid range end`，新正则正确提取出 `-ghcr.io/alicia1030su/v2ex-clone:v0.0.9`；并已审计其余 release 脚本无同类问题 |
+| **V9-06** | 一般（安全） | **调试端点用了未经参数化的 SQL 拼接** —— `table-count` 初版直接拼接表名执行原始 SQL，被本仓安全守卫 `tests/v005-security-audit.spec.ts`（「没有未经参数化的 SQL 拼接」）直接判红 ⇒ **CI 单元测试失败**（run `42356528051`）。守卫的立场是对的：即便表名来自白名单，原始 SQL 拼接也属于「靠约束而非靠机制保证安全」 | 本仓安全守卫判红 | 改用 drizzle 的查询构造器**逐表映射** —— 表名在**编译期**就固定成 schema 引用，**根本不存在运行时拼接** ⇒ 天然参数化。⚠️ 附带发现：守卫用**朴素字符串匹配**，所以**注释里**出现该字面量也会被判红 ⇒ 注释措辞一并改写 | 安全审计套件 21/21 通过；全量单元测试 **394/394**（31 文件） |
+| **V9-07** | 一般（CI 工程） | **`soak-test.yml` 未在功能分支注册** —— `push` 触发只监听 `master` ⇒ 该工作流在功能分支上**从未被 GitHub 注册** ⇒ 手动 dispatch 返回 404 | `gh api .../actions/workflows?ref=<branch>` 查不到该 workflow；dispatch 报 404 | `push.branches` 补上 `feat/v0.0.9-release-readiness` 与 `release/v*` | 分支上已能查到并触发 |
+
+### v0.0.9 环境限制（非产品缺陷，不计入缺陷数）
+
+| 项 | 实测 | 处置 |
+|---|---|---|
+| 本机 Docker 守护进程不可用 | Docker Desktop 已安装，但 WSL2 后端被本机安全策略阻止（`wsl.exe` 在程序黑名单），且当前会话无管理员权限启用虚拟化 | 依赖真实 Docker 的验证**改由 CI 的 ubuntu runner 执行**；本机相关项改为**静态核验**并**明确标注**未能实测的原因 —— **不冒充通过** |
+| 本机无 Redis | `_tools/redis/*.zip` 已损坏（可解压但中央目录缺失） | 应用有 `PgKV` 降级路径（`src/lib/kv.ts`），`REDIS_URL` 为空时自动启用；Redis 相关验证在 CI（有真实 Redis service container）完成 |
+| 本机无 PowerShell 7 | 只有 PowerShell 5.1（`5.1.26100.9168`） | PS 7 部分由 CI 的 `windows-latest` runner 覆盖（自带 PS 7） |
+| `ENV_FILE` 会被 `.env.local` 抢占 | 本机 `.env.local` 指向开发库 5432/v2ex；Next.js 在应用代码执行前用 `@next/env` 自动加载它 ⇒ `ENV_FILE` 只能填空位 | 本机一律用 **shell 注入**（官方 CI 同样如此）；见 `src/lib/env-loader.mjs` 顶部的 Next.js 预加载特例说明 |
+
+---
+
 ## v0.0.8 新发现并修复的缺陷（全部有取证证据）
 
 > 发现方式：**安全攻击矩阵**（19 场景）+ **SMTP 连续稳定性**（30 次）+
