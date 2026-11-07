@@ -175,6 +175,19 @@ jobs:
         # 防止「前端调了但后端没这个端点」的偏差静默存在。
         run: node scripts/ui-verify.cjs
 
+      - name: 静态测试（语法护栏，不依赖数据库）
+        # ⚠️ v0.0.8 新增：E2E/工具脚本的**语法**与结构护栏。
+        #
+        # 为什么单独一个 job（且不依赖 PG）：
+        #   v0.0.8 提交了一个 e2e/helpers.ts 的**注释块语法错误**，
+        #   `npx tsc --noEmit` **抓不到**（TS 对注释块比 Playwright 宽松）
+        #   ⇒ 错误进了 CI ⇒ 15 个分片全部「0 个用例被收集」
+        #   ⇒ 矩阵看起来「跑完了」，实际**一条都没跑**。
+        #
+        # 这一步能在**类型检查之后、E2E 之前**快速失败，
+        # 且不因本机 PG 不稳定而误报（纯静态检查）。
+        run: npx vitest run --config vitest.static.config.ts
+
       - name: 单元测试
         env:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
