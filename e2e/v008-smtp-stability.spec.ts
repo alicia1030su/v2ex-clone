@@ -187,10 +187,15 @@ for (let i = 1; i <= ITERATIONS; i++) {
       expect(check.status()).toBe(200);
 
       // 改密（API）
+      //
+      // ⚠️ v0.0.9：**请求体的 key 必须是 `newPassword`**（API 契约，见
+      // src/app/api/auth/reset-password/route.ts 的 body 类型定义）——
+      // 这里改的只是**本地变量名**（避免 gitleaks 的 generic-api-key 误报），
+      // 变量名与请求体 key 是两回事。
       const newPwdForTest = 'StabNew98765';
       const reset = await page.request.post('/api/auth/reset-password', {
         headers: { 'x-csrf-token': csrf },
-        data: { token, newPwdForTest },
+        data: { token, newPassword: newPwdForTest },
       });
       expect(reset.status()).toBe(200);
 

@@ -44,6 +44,28 @@ on:
     secrets:
       GH_TOKEN:
         required: true
+  # ⚠️ v0.0.9：必须同时声明 `workflow_dispatch`。
+  #
+  # 只声明 `workflow_call` 的工作流**不会**被 GitHub 注册为可独立触发的
+  # 工作流 —— 实测：push 事件会创建一个 0 秒即失败的 run（连 job 都没排上），
+  # 因为该工作流没有 `push` / `workflow_dispatch` 触发器。
+  #
+  # ⇒ 声明 `workflow_dispatch` 后，它既能被 `soak-test.yml` 通过
+  #    `uses:` 调用，也能被人工单独触发（便于排查某一段的问题）。
+  workflow_dispatch:
+    inputs:
+      segment_index:
+        description: '本段序号'
+        required: true
+        default: '1'
+      segment_hours:
+        description: '本段目标时长（小时，≤ 5）'
+        required: true
+        default: '1'
+      prev_state_artifact:
+        description: '上一段状态 artifact 名'
+        required: false
+        default: ''
 
 permissions:
   contents: read
