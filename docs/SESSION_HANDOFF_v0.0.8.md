@@ -73,7 +73,7 @@
 | 1 | CI 全绿 | ⏳ 进行中 | 等 PR #29 全部检查通过后合并 |
 | 2 | 跨浏览器矩阵（3000 条） | ⏳ 进行中 | 新提交触发 15 分片重跑 |
 | 3 | 视觉基线重建 | ⏳ 待人工审查 | 冻结时钟后旧基线失效 ⇒ 需 `workflow_dispatch` + `update_baseline=true` **经人工审查**重建（不得自动更新） |
-| 4 | SMTP 稳定性 30 次 | ⏳ 进行中 | 专用工作流首次完整运行 |
+| 4 | SMTP 稳定性 30 次 | ✅ **完成** | 30/30 通过（run 见上）；报告已随 artifact 上传 |
 | 5 | 真实 Docker 安装 / 升级 / 备份恢复 / 回滚验证 | ⏳ 待候选包 | 版本同步到 0.0.8 后由最终提交构建候选包再验证 |
 | 6 | 版本同步到 0.0.8 + 候选包 + 证明链 | ⏳ 待 PR 合并 | 按 G-VER-01：最终 SHA 固定后一次性同步，再由该提交构建候选包 |
 | 7 | 交付报告 / CHANGELOG / 交接定稿 | ⏳ 待收尾 | 全部验证完成后写 |
@@ -85,8 +85,8 @@
 
 | 证据 | 位置 | 状态 |
 |---|---|---|
-| 攻击矩阵（19 个场景） | PR #29 的「安全审计 Host Header」artifact | ⏳ 待最新提交结果 |
-| SMTP 稳定性报告 | PR #29 的「SMTP 稳定性」artifact（`test-results/smtp-stability.json`） | ⏳ |
+| 攻击矩阵（19 个场景） | run `42336954558` 的 artifact | ✅ **19/19 SAFE，0 VULNERABLE**（13 个 303 场景 Location 恒为相对路径；4 个重置链接恒指向配置基址） |
+| SMTP 稳定性报告 | PR #29 的「SMTP 稳定性」artifact（`test-results/smtp-stability.json`） | ✅ **30/30 全通过**，邮件延迟 p50=131ms / p95=174ms / max=182ms，server received=30 / openSockets=0 / exit=0 |
 | 跨浏览器矩阵 | PR #29 的「E2E 跨浏览器矩阵」artifact（每分片 `e2e-results.json`） | ⏳ |
 | 视觉回归 | PR #29 的「视觉回归验收」artifact | ⏳ |
 | 单元测试 | PR #29 的「CI」job | ⏳ |
@@ -118,7 +118,10 @@
 | 4 | 六个工作流全红（构建失败） | `import from './app-now.js'` —— **Next/webpack 不做 .js→.ts 映射** | 改无扩展名（仓库既有约定） |
 | 5 | 视觉护栏两条断言失败 | 护栏用精确字符串匹配，被我的重构打破 | 改 `lastIndexOf` + 正则容忍换行；**语义未变** |
 | 6 | 视觉回归在 master 上也失败 | 相对时间文案用墙上时钟 ⇒ 基线是时间炸弹 | 注入 `APP_NOW` 确定性时钟 + 基线自带 `clockAnchor` |
-| 7 | 本地 PG 反复 crash recovery | **PG 恢复时每文件 fsync 10 秒**（普通文件实测仅 6~26ms）；磁盘健康、空间 770G 空闲、无杀软 ⇒ 环境层问题 | 登记为环境问题；重型测试迁到 Linux CI 容器；不删 data 目录、不改现有库 |
+| 7 | SMTP 稳定性首轮「第 1 次迭代就收不到邮件」 | v008 自己拼了 `@stability.local`，而 `register()` 里写死 `@e2e.local` ⇒ 申请的邮箱**未注册** ⇒ 一封都不发（接口仍返回 200，日志无错） | 修法：`register()` **返回实际注册的邮箱**，v008 用返回值 + 域名导出为常量（结构上杜绝再拼错） |
+| 8 | 攻击矩阵「19/19 SAFE」但 303 从未发生 | Playwright `APIRequestContext` 默认 `maxRedirects: 20` **自动跟随**重定向 ⇒ Location 头消失 | `maxRedirects: 0` + 前置探针（P1/P2）证明被测路径确实执行 |
+| 9 | 15 个分片「0 个用例被收集」却显示 success | ① helpers.ts 注释块语法错误（**tsc 抓不到**）② 汇总步骤的 exit 1 **无人消费** | ① 新增 `tests/static/` 语法护栏（TS parseDiagnostics，不依赖 DB）② 汇总退出码由独立判定步骤落地为 job 失败 |
+| 10 | 本地 PG 反复 crash recovery | **PG 恢复时每文件 fsync 10 秒**（普通文件实测仅 6~26ms）；磁盘健康、空间 770G 空闲、无杀软 ⇒ 环境层问题 | 登记为环境问题；重型测试迁到 Linux CI 容器；不删 data 目录、不改现有库 |
 
 ---
 
