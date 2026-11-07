@@ -13,7 +13,7 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    include: ['tests/static/**/*.spec.ts'],
+    include: ['tests/static/**/*.spec.ts', 'tests/v008-observability.spec.ts'],
     environment: 'node',
     globals: false,
     // ⚠️ 刻意**不设** globalSetup / setupFiles ⇒ 不碰数据库

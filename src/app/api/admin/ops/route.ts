@@ -122,6 +122,15 @@ export async function GET(request: Request) {
     },
     events: byPrefix('event.'),
     errors: byPrefix('log.error'),
+    // ⚠️ v0.0.8：API 请求统计（middleware 埋点 ⇒ 覆盖全部 API）
+    api: {
+      requests: c['api.request'] ?? 0,
+      byStatus: byPrefix('api.status.'),
+      errors5xx: c['api.error.5xx'] ?? 0,
+      errors4xx: c['api.error.4xx'] ?? 0,
+      error5xxByRoute: byPrefix('api.error.5xx.'),
+      error4xxByRoute: byPrefix('api.error.4xx.'),
+    },
     slowRequests: snap.slowRequests.slice(-20),
   });
 }
