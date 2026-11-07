@@ -30,9 +30,18 @@ import { login, clearRateLimits, ADMIN } from './helpers';
  *   · 唯一会产生 5xx 的 `/api/health/ready`（DB/Redis 不可达时 503）
  *     需要**制造故障**才能触发 —— 任务明确禁止「注入故障到共享环境」；
  *   · 靠畸形参数碰运气触发异常既不稳定，也会污染共享库。
- * ⇒ 该条以 `test.fixme` 明确标注为**未覆盖**，并保留可启用的验证模板。
- *   解除条件见下方 fixme 用例注释。
+ * ⇒ 该条以 `test.fixme` 明确标注「**真实 HTTP 5xx 未覆盖**」，
+ *   并保留可启用的验证模板；解除条件见下方 fixme 用例注释。
  *
+ * ⚠️ 注意区分两层覆盖，不要混淆：
+ *   · **真实 HTTP 链路触发 5xx** —— 本文件未覆盖（原因如上）；
+ *   · **5xx 的分桶逻辑**（`status >= 500` ⇒ `api.error.5xx` 与
+ *     `api.error.5xx.${route}` 各 +1，且不落入 4xx） —— **已覆盖**，
+ *     由 `tests/v009-instrumentation-once.spec.ts` 的「状态码分桶」单测
+ *     直接把真实 `ServerResponse` 的 statusCode 设为 500 后断言。
+ *   两层互补：本文件证明真实链路能取到状态码，单测证明分桶规则正确。
+ *
+ * @see tests/v009-instrumentation-once.spec.ts
  * @see src/instrumentation.ts
  * @see src/app/api/admin/ops/route.ts
  * @see tests/v009-observability-isolation.spec.ts
@@ -145,6 +154,10 @@ test('真实 HTTP 200/401/403/404 分别计入 byStatus 与 4xx 统计', async (
  * 稳定复现 5xx 的真实 `/api/` 端点，且任务禁止为造 5xx 而修改产品代码
  * 或注入故障。这里**不写恒真断言、不用 stub 冒充真实 HTTP**，而是以
  * `test.fixme` 如实标注为未完成。
+ *
+ * ⚠️ 本条只表示「真实 HTTP 侧未能触发 5xx」。5xx 的**分桶逻辑**
+ *    （`api.error.5xx` / `error5xxByRoute` 是否正确 +1）已由
+ *    `tests/v009-instrumentation-once.spec.ts` 的状态码分桶单测覆盖。
  *
  * 解除 fixme 的条件（满足其一即可，均需工程师在 src/ 侧提供）：
  *  1. 提供一个仅在隔离测试环境启用、能稳定返回 500 的 `/api/` 端点
