@@ -1,4 +1,5 @@
 import 'server-only';
+import { countMetric, logWarn, logError } from '@/lib/observability';
 import { connect as netConnect, type Socket } from 'node:net';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 import { randomBytes } from 'node:crypto';
@@ -441,6 +442,14 @@ export async function sendMail(message: MailMessage): Promise<MailSendResult> {
       skipReason: 'smtp_not_configured',
       userId: message.userId ?? null,
     });
+    // v0.0.8：SMTP 投递失败统计（任务书 §六）
+    countMetric('mail.delivery.failed');
+    countMetric(`mail.delivery.failed.${message.purpose}`);
+    logWarn('mail_delivery_failed', {
+      reason: 'smtp_not_configured',
+      purpose: message.purpose,
+      recipient: maskedRecipient,
+    });
     return { sent: false, reason: 'smtp_not_configured', maskedRecipient };
   }
 
@@ -454,6 +463,8 @@ export async function sendMail(message: MailMessage): Promise<MailSendResult> {
       skipReason: null,
       userId: message.userId ?? null,
     });
+    countMetric('mail.delivery.ok');
+    countMetric(`mail.delivery.ok.${message.purpose}`);
     return { sent: true, reason: null, maskedRecipient };
   } catch (error) {
     const reason = `smtp_error:${error instanceof Error ? error.message : 'unknown'}`;
@@ -464,6 +475,14 @@ export async function sendMail(message: MailMessage): Promise<MailSendResult> {
       skipReason: reason.slice(0, 128),
       userId: message.userId ?? null,
     });
+    // v0.0.8：SMTP 投递失败统计（任务书 §六）
+    countMetric('mail.delivery.failed');
+    countMetric(`mail.delivery.failed.${message.purpose}`);
+    logError(
+      'mail_delivery_failed',
+      { reason: 'smtp_error', purpose: message.purpose, recipient: maskedRecipient },
+      reason.slice(0, 200),
+    );
     return { sent: false, reason, maskedRecipient };
   }
 }

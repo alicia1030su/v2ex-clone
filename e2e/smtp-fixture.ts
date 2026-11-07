@@ -91,7 +91,15 @@ function resolveTsxBin(): string {
  * @param port 0 = 自动选端口（默认 0，彻底避免端口冲突）
  */
 export async function startSmtpFixture(port = 0): Promise<SmtpFixture> {
-  const script = path.join(__dirname, 'fake-smtp-standalone.ts');
+  // ⚠️ 路径：standalone 脚本在 **tests/helpers/**（不在 e2e/）——
+  //    之前写成 path.join(__dirname, 'fake-smtp-standalone.ts') ⇒
+  //    指向 e2e/fake-smtp-standalone.ts（不存在）⇒ 子进程 ERR_MODULE_NOT_FOUND
+  //    ⇒ exit 1 ⇒ CI 上「fake SMTP server 进程已退出（code=1）」。
+  //    （本地冒烟时是手动指定正确路径跑的，所以没暴露。）
+  const script = path.join(__dirname, '..', 'tests', 'helpers', 'fake-smtp-standalone.ts');
+  if (!fs.existsSync(script)) {
+    throw new Error(`fake SMTP standalone 脚本不存在：${script}`);
+  }
   const child: ChildProcess = spawn(process.execPath, [resolveTsxBin(), script], {
     env: { ...process.env, SMTP_PORT: String(port) },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -207,17 +215,27 @@ export async function startSmtpFixture(port = 0): Promise<SmtpFixture> {
     exited = true;
     exitInfo = { code, signal };
     if (!stopInfo) {
-      // 没收到 stopped 事件就退出 ⇒ 非优雅退出
+      // 没收到 stopped 事件就退出 ⇒ 非优雅退出。
+      //
+      // ⚠️ v0.0.8：**无条件附带 stderr** —— 实测踩到：standalone 脚本
+      // 启动失败（exit 1）时，ready 承诺已被 reject 抢先，
+      // 这里的错误信息就丢了 ⇒ CI 只看到「进程已退出（code=1）」
+      // 而看不到真正原因（脚本里的报错文本）。
       stopReject?.(
         new Error(
           `fake SMTP server 非优雅退出（code=${code} signal=${signal}）` +
-            (stderrBuf ? `\nstderr:\n${stderrBuf.slice(0, 500)}` : ''),
+            (stderrBuf ? `\nstderr:\n${stderrBuf.slice(0, 800)}` : '\n（无 stderr 输出）'),
         ),
       );
     }
-    // 还在等待邮件的承诺不能静默挂起 —— 由 waitForMail 的超时兜底，
-    // 这里再把 ready 承诺失败掉（进程没了不可能就绪）。
-    readyReject(new Error(`fake SMTP server 进程已退出（code=${code} signal=${signal}）`));
+    // 进程没了不可能就绪 ⇒ ready 承诺立即失败（**附带 stderr**），
+    // 否则调用方只看到「进程已退出（code=1）」而看不到真正原因。
+    readyReject(
+      new Error(
+        `fake SMTP server 进程已退出（code=${code} signal=${signal}）` +
+          (stderrBuf ? `\nstderr:\n${stderrBuf.slice(0, 800)}` : ''),
+      ),
+    );
   });
 
   // ── 等待就绪（带明确超时与 stderr 上下文）──

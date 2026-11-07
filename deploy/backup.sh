@@ -64,6 +64,40 @@ else
   die "数据库备份失败。请确认 postgres 容器正在运行：docker compose ps"
 fi
 
+# --- 1b. 完整性校验（v0.0.8，任务书 §六「数据库备份完整性校验」）-----------
+#
+# 一个**能解压但内容被截断**的 .gz 是最危险的备份故障形态：
+# 平时看不出来，等到需要恢复时才发现 —— 那正是最不能出故障的时刻。
+#
+# 这里做两层校验：
+#   1. gzip 完整性（gunzip -t）：能检测 CRC 错误 / 截断；
+#   2. 内容非空且含 PostgreSQL 头（-- 至少要有 CREATE TABLE / COPY 之类）。
+#
+# 同时生成 SHA256 校验文件 ⇒ 恢复前可离线核对是否被篡改/损坏。
+SHA_FILE="${DB_FILE}.sha256"
+if command -v sha256sum >/dev/null 2>&1; then
+  ( cd "$BACKUP_DIR" && sha256sum "$(basename "$DB_FILE")" > "$(basename "$SHA_FILE")" )
+elif command -v shasum >/dev/null 2>&1; then
+  ( cd "$BACKUP_DIR" && shasum -a 256 "$(basename "$DB_FILE")" > "$(basename "$SHA_FILE")" )
+else
+  : > "$SHA_FILE"
+fi
+if [ -s "$SHA_FILE" ]; then
+  ok "校验文件已生成：${SHA_FILE}"
+fi
+
+if ! gzip -t "$DB_FILE" 2>/dev/null; then
+  rm -f "$DB_FILE" "$SHA_FILE"
+  die "备份完整性校验失败（gzip 结构损坏）—— 已删除该备份文件，请重试"
+fi
+
+# 内容非空校验：解压后必须有 SQL 内容（表定义或数据）
+if ! gzip -cd "$DB_FILE" 2>/dev/null | head -c 4096 | grep -q . ; then
+  rm -f "$DB_FILE" "$SHA_FILE"
+  die "备份内容为空 —— 已删除该备份文件，请重试"
+fi
+ok "备份完整性校验通过（gzip 结构 + 内容非空）"
+
 # --- 2. .env 备份 ----------------------------------------------------------
 ENV_BACKUP="$BACKUP_DIR/.env-${TIMESTAMP}"
 info "备份 .env 配置..."

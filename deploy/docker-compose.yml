@@ -134,14 +134,21 @@ services:
       - v2ex-net
     healthcheck:
       # 镜像内没有 curl / wget，用镜像自带的 node 做 HTTP 探活。
-      # 探的是根路径：它是 force-dynamic 的 Server Component，
-      # 能同时验证「Next.js 已就绪」与「数据库可查询」，比静态资源更有意义。
+      #
+      # v0.0.8：改探 **/api/health/ready**（就绪探针）而不是根路径。
+      #   · 根路径是 force-dynamic 的 Server Component，能验证「Next.js 已就绪
+      #     与数据库可查询」，但**数据库瞬时抖动**时也会 500 ⇒ 容器被标记
+      #     unhealthy ⇒ 可能触发不必要的重启（放大故障）；
+      #   · /api/health/ready 专门表达「能否承接真实流量」：DB 必查、
+      #     Redis 配置了才查，返回 200/503 + 结构化状态，
+      #     且**不泄露**连接串/错误栈（任务书 §六）。
+      #   · HTTP 200 ⇒ healthy；503 ⇒ not ready（可观测，但不泄露细节）。
       test:
         [
           'CMD',
           'node',
           '-e',
-          "const http=require('http');const r=http.get({host:'127.0.0.1',port:3000,path:'/',timeout:8000},res=>{res.resume();process.exit(res.statusCode&&res.statusCode<500?0:1)});r.on('error',()=>process.exit(1));r.on('timeout',()=>{r.destroy();process.exit(1)});",
+          "const http=require('http');const r=http.get({host:'127.0.0.1',port:3000,path:'/api/health/ready',timeout:8000},res=>{res.resume();process.exit(res.statusCode===200?0:1)});r.on('error',()=>process.exit(1));r.on('timeout',()=>{r.destroy();process.exit(1)});",
         ]
       interval: 30s
       timeout: 10s
