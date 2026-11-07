@@ -222,7 +222,21 @@ export async function login(page: Page, username: string, password: string) {
  * 原实现只填了用户名/密码/确认密码 —— email 留空导致注册失败，
  * 页面不跳转，后续断言全部超时。
  */
-export async function register(page: Page, username: string, password = 'password123') {
+ *
+ * ⚠️ v0.0.8：**返回实际注册的邮箱** —— 调用方应直接用这个返回值，
+ *    不要自己拼邮箱域名。v0.0.8 实测踩到：稳定性 spec 自己拼了
+ *    `@stability.local`，而这里写死 `@e2e.local` ⇒ 申请的邮箱**未注册**
+ *    ⇒ 找回密码**一封邮件都不发** ⇒ 表现为「等待邮件超时」，
+ *    而接口返回 200（枚举防护）、日志无任何错误 —— 极难定位。
+ */
+/** 注册时使用的邮箱域名（对外暴露，供测试拼出**真实**注册邮箱） */
+export const REGISTER_EMAIL_DOMAIN = 'e2e.local';
+
+export async function register(
+  page: Page,
+  username: string,
+  password = 'password123',
+): Promise<{ username: string; email: string }> {
   await page.goto('/signup');
   // ⚠️ SignUpForm 是客户端组件 —— 服务端渲染的 HTML 里**没有**这些输入框，
   // 必须等 React hydration 完成才能 fill，否则 page.fill 一直等到超时。
@@ -231,13 +245,15 @@ export async function register(page: Page, username: string, password = 'passwor
   await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
 
   await page.fill('#username', username);
-  await page.fill('#email', `${username}@e2e.local`);
+  await page.fill('#email', `${username}@${REGISTER_EMAIL_DOMAIN}`);
   await page.fill('#password', password);
   await page.fill('#confirm', password);
   await Promise.all([
     page.waitForURL((url) => !url.pathname.startsWith('/signup'), { timeout: 30_000 }),
     page.click('button[type="submit"]'),
   ]);
+  // 显式返回实际注册的凭据（见上方说明：调用方不要自己拼邮箱）
+  return { username, email: `${username}@${REGISTER_EMAIL_DOMAIN}` };
 }
 
 export async function logout(page: Page) {

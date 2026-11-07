@@ -39,7 +39,8 @@ import { startSmtpFixture, type SmtpFixture } from './smtp-fixture';
  */
 
 const ITERATIONS = Number(process.env.SMTP_STABILITY_ITERATIONS ?? 30);
-const MAIL_DOMAIN = 'stability.local';
+/** 邮件收件域（仅用于阅读；实际邮箱由 register() 返回） */
+const MAIL_DOMAIN = 'e2e.local';
 /** 本 spec 的 fake server 端口（与 v005 的 E2E_SMTP_PORT 默认值错开，防误撞） */
 const SMTP_PORT_LOCAL = Number(process.env.E2E_SMTP_PORT_STABILITY ?? 3026);
 
@@ -133,9 +134,17 @@ for (let i = 1; i <= ITERATIONS; i++) {
       await clearRateLimits(page);
 
       const username = uniqueName(`stab${i}`);
-      const email = `${username}@${MAIL_DOMAIN}`;
       const oldPassword = 'StabOld12345';
-      await register(page, username, oldPassword);
+      // ⚠️ v0.0.8 **关键修正**：用 register() **返回的**邮箱，不要自己拼。
+      //
+      // 之前本 spec 自己拼了 `@stability.local`，而 register() 里写死
+      // `@e2e.local` ⇒ 申请的邮箱**根本没注册** ⇒ forgot-password
+      // 查不到用户 ⇒ **一封邮件都不发** ⇒ 表现为「20000ms 内未收到邮件
+      // （已收到 0 封）」。接口返回 200（枚举防护）、日志无任何错误 ——
+      // 这类「前置条件不一致」极难定位，只能把两侧邮箱放一起看。
+      const { email } = await register(page, username, oldPassword);
+      // 注册后断言页面确实跳走（未跳走 = 注册失败 ⇒ 后续必然收不到邮件）
+      await expect(page).not.toHaveURL(/\/signup/, { timeout: 10_000 });
       await logout(page);
       await clearRateLimits(page);
 
