@@ -26,7 +26,9 @@ import {
  *    此前这里指向的是一个不存在的文件）：它用真实请求产生
  *    200 / 401 / 403 / 404，再用 `/api/admin/ops` 的前后快照断言
  *    `byStatus` 被分别计入；5xx 因缺少稳定的真实端点，在该文件中以
- *    `test.fixme` 如实标注为**未覆盖**。
+ *    `test.fixme` 如实标注「**真实 HTTP 5xx 未覆盖**」。5xx 的**分桶逻辑**
+ *    另由 `tests/v009-instrumentation-once.spec.ts` 的状态码分桶单测覆盖
+ *    （直接把 ServerResponse 的 statusCode 设为 500 后断言桶位）。
  *    此处只保证**存储层**行为正确。
  *
  * ## 为什么用「动态 import + 二次求值」模拟 bundle 隔离

@@ -33,6 +33,17 @@ import { metricsSnapshot, resetMetrics } from '../src/lib/observability';
  * 在尚未合入 A-03 修复的基线上，主用例应当**失败** —— 这正是
  * 回归护栏的意义，不是测试写错。断言不含任何恒真条件。
  *
+ * ## 与 T2 的分工（两层互补）
+ *
+ * · `e2e/v009-ops-metrics.spec.ts`（T2）：**真实 HTTP 链路**，覆盖能稳定
+ *   真实产生的 200 / 401 / 403 / 404；5xx 因全仓无稳定真实端点，在该文件
+ *   以 `test.fixme` 如实标注「真实 HTTP 5xx 未覆盖」；
+ * · 本文件（T3）：**单测层**，直接把 `ServerResponse` 的 `statusCode`
+ *   设成 200 / 401 / 403 / 404 / **500** 各跑一遍，验证 5xx 落到
+ *   `api.error.5xx`、4xx 落到 `api.error.4xx`、`api.status.${code}` 逐码计数
+ *   ⇒ **5xx 的分桶逻辑有验证**，只是「真实 HTTP 侧触发 5xx」未覆盖。
+ * · 本文件同时承担 A-03（同一响应多次 `writeHead` 只结算一次）。
+ *
  * 本文件不依赖 PostgreSQL / Redis / Docker，可在无服务环境独立运行。
  */
 
@@ -71,12 +82,14 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1500): Promise<void
 function startProbeServer(
   writeHeadCalls: number,
   path = '/api/v009-instrumentation-once',
+  statusCode = 200,
 ): Promise<ProbeServer> {
   const server = http.createServer((_req, res) => {
     const writeHeadErrors: string[] = [];
     for (let i = 0; i < writeHeadCalls; i++) {
       try {
-        res.writeHead(200, { 'content-type': 'application/json' });
+        // statusCode 由调用方指定 —— 用于逐码验证 4xx / 5xx 分桶
+        res.writeHead(statusCode, { 'content-type': 'application/json' });
       } catch (err) {
         const code = (err as NodeJS.ErrnoException)?.code;
         writeHeadErrors.push(code ?? (err instanceof Error ? err.message : String(err)));
@@ -220,5 +233,52 @@ describe('v0.0.9 instrumentation · 同一响应只结算一次（A-03）', () =
     expect(res.status).toBe(200);
     expect(metricsSnapshot().counters['api.request'] ?? 0).toBe(0);
     expect(metricsSnapshot().counters['api.status.200'] ?? 0).toBe(0);
+  });
+
+  /**
+   * 状态码分桶（T3 层）：直接把真实 ServerResponse 的 statusCode 设成
+   * 200 / 401 / 403 / 404 / 500 各跑一遍。
+   *
+   * 这是 T2 的互补层：T2 保证真实 HTTP 链路能取到并上报状态码，本用例
+   * 保证 instrumentation 的**分桶逻辑**对 5xx / 4xx / 2xx 都正确 ——
+   * 尤其是 500（T2 无稳定真实端点，无法在真实 HTTP 层覆盖）。
+   *
+   * 断言的是 `src/instrumentation.ts` 的公开计数契约，不依赖 A-03 是否修复，
+   * 因此在基线源码上就应当通过；它同时也锁死了 v0.0.8
+   * 「byStatus 恒 {200}」这一类回归。
+   */
+  it('状态码分桶：200/401/403/404/500 逐码计数，4xx 与 5xx 各归其位', async () => {
+    const route = '/api/v009-status-bucket';
+
+    for (const code of [200, 401, 403, 404, 500]) {
+      // 每个码独立计数窗口，避免相互累加干扰断言
+      resetMetrics();
+
+      const server = await startProbeServer(1, route, code);
+      const res = await getJson(server.url);
+      await server.close();
+      await waitFor(() => (metricsSnapshot().counters['api.request'] ?? 0) >= 1);
+
+      expect(res.status, `客户端应收到 HTTP ${code}`).toBe(code);
+      const c = metricsSnapshot().counters;
+
+      // ① 每个请求只计一次，且落到**自己的**状态码桶
+      expect(c['api.request'], `HTTP ${code}: api.request`).toBe(1);
+      expect(c[`api.status.${code}`], `HTTP ${code}: api.status.${code}`).toBe(1);
+
+      // ② 2xx / 4xx / 5xx 分桶互斥
+      if (code >= 500) {
+        expect(c['api.error.5xx'], `HTTP ${code}: 应计入 5xx`).toBe(1);
+        expect(c[`api.error.5xx.${route}`], `HTTP ${code}: 5xx 按路由聚合`).toBe(1);
+        expect(c['api.error.4xx'] ?? 0, `HTTP ${code}: 不得计入 4xx`).toBe(0);
+      } else if (code >= 400) {
+        expect(c['api.error.4xx'], `HTTP ${code}: 应计入 4xx`).toBe(1);
+        expect(c[`api.error.4xx.${route}`], `HTTP ${code}: 4xx 按路由聚合`).toBe(1);
+        expect(c['api.error.5xx'] ?? 0, `HTTP ${code}: 不得计入 5xx`).toBe(0);
+      } else {
+        expect(c['api.error.4xx'] ?? 0, `HTTP ${code}: 不得计入 4xx`).toBe(0);
+        expect(c['api.error.5xx'] ?? 0, `HTTP ${code}: 不得计入 5xx`).toBe(0);
+      }
+    }
   });
 });
