@@ -15,10 +15,26 @@ export default function SignInForm({
   next,
   error,
   initialCaptcha,
+  captchaRequired = true,
 }: {
   next: string;
   error?: string;
   initialCaptcha?: Captcha;
+  /**
+   * 是否需要验证码（v0.0.13，V10-25）
+   *
+   * ⚠️ 修复前本组件**无条件**在 useEffect 里 fetch('/api/captcha')，
+   * 于是隔离测试环境（服务端 `isCaptchaDisabled()` 为真、SSR 不渲染验证码）
+   * 下，水合后客户端又插入一行验证码 ⇒ 两个后果：
+   *   1. **布局跳动**：表单高度在点击前后变化，Playwright 的可操作性检查与
+   *      实际派发鼠标事件之间若发生插入，点击会落到别的元素上（实测 CI
+   *      run 42499586462 的 firefox/375x812 就是这样挂的：点击没生效，
+   *      按钮未进 pending、URL 不变、waitForURL 挂满 30s）；
+   *   2. **UI 与行为不一致**：用户看到验证码框，而服务端根本不校验。
+   *
+   * 由服务端页面传入 `!isCaptchaDisabled()`，两端口径一致。
+   */
+  captchaRequired?: boolean;
 }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -47,8 +63,10 @@ export default function SignInForm({
   }, []);
 
   useEffect(() => {
+    // 服务端已判定不需要验证码时**不得**再拉取（否则水合后插行造成布局跳动）
+    if (!captchaRequired) return;
     void loadCaptcha();
-  }, [loadCaptcha]);
+  }, [loadCaptcha, captchaRequired]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,8 +91,8 @@ export default function SignInForm({
         return;
       }
       setMsg(data.error ?? '登录失败');
-      // 验证码一次性，失败后需刷新
-      void loadCaptcha();
+      // 验证码一次性，失败后需刷新（仅在确实需要验证码时）
+      if (captchaRequired) void loadCaptcha();
     } catch {
       setMsg('网络错误，请重试');
     } finally {
@@ -140,7 +158,7 @@ export default function SignInForm({
                     height={80}
                     src={captcha.image}
                     alt="CAPTCHA"
-                    onClick={() => void loadCaptcha()}
+                    onClick={() => { if (captchaRequired) void loadCaptcha(); }}
                     style={{ display: 'block', borderRadius: 3 }}
                   />
                   <div className="sep10" />

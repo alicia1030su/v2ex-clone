@@ -114,6 +114,8 @@ export default async function SignInPage({
               <SignInForm
                 next={params.next ?? '/'}
                 error={params.error}
+                // v0.0.13（V10-25）：两端口径一致 —— 服务端禁用了就不许客户端再拉
+                captchaRequired={!captchaDisabled}
                 initialCaptcha={
                   captcha
                     ? {

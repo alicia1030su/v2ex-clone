@@ -215,11 +215,23 @@ export async function login(page: Page, username: string, password: string) {
   await page.waitForLoadState('domcontentloaded');
   await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
 
+  // ⚠️ v0.0.13（V10-21 家族）：必须等 React 水合完成再点。
+  //    未水合时点击走**原生表单提交**（form 没有 action）⇒ 页面重载 ⇒ URL 仍是
+  //    /signin ⇒ waitForURL 挂满 30s。实测 CI run 42499586462 的
+  //    firefox/375x812 就是这样挂的：截图里表单已填好、按钮未进 pending 态、
+  //    页面也没有任何错误提示 —— 特征与「提交根本没发生」一致。
+  await waitForHydration(page, '#username');
+
   await page.fill('#username', username);
   await page.fill('#password', password);
   await Promise.all([
     page.waitForURL((url) => !url.pathname.startsWith('/signin'), { timeout: 30_000 }),
-    page.click('button[type="submit"]'),
+    // 用 clickUntilRequest 确认**请求真的发出**（Firefox 偶发点击丢失，见 V10-21）
+    clickUntilRequest(
+      page,
+      page.getByRole('button', { name: /登录|登 录/ }),
+      (r) => r.url().includes('/api/auth/signin') && r.method() === 'POST',
+    ),
   ]);
 }
 
@@ -252,13 +264,20 @@ export async function register(
   await page.waitForLoadState('domcontentloaded');
   await page.locator('#username').waitFor({ state: 'visible', timeout: 20_000 });
 
+  // 同 login：先等水合，再用 clickUntilRequest 确认注册请求真的发出
+  await waitForHydration(page, '#username');
+
   await page.fill('#username', username);
   await page.fill('#email', `${username}@${REGISTER_EMAIL_DOMAIN}`);
   await page.fill('#password', password);
   await page.fill('#confirm', password);
   await Promise.all([
     page.waitForURL((url) => !url.pathname.startsWith('/signup'), { timeout: 30_000 }),
-    page.click('button[type="submit"]'),
+    clickUntilRequest(
+      page,
+      page.getByRole('button', { name: /注册|注 册/ }),
+      (r) => r.url().includes('/api/auth/signup') && r.method() === 'POST',
+    ),
   ]);
   // 显式返回实际注册的凭据（见上方说明：调用方不要自己拼邮箱）
   return { username, email: `${username}@${REGISTER_EMAIL_DOMAIN}` };
