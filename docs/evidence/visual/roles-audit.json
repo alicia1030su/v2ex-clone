@@ -1,0 +1,173 @@
+{
+  "base": "http://127.0.0.1:3210",
+  "results": [
+    {
+      "role": "游客",
+      "step": "浏览首页",
+      "ok": true,
+      "detail": "主题行 14 条"
+    },
+    {
+      "role": "游客",
+      "step": "切换到节点 /go/claude",
+      "ok": true,
+      "detail": "主题行 2 条"
+    },
+    {
+      "role": "游客",
+      "step": "搜索「deepseek」",
+      "ok": true,
+      "detail": "结果页含关键词"
+    },
+    {
+      "role": "游客",
+      "step": "未登录访问受保护页",
+      "ok": true,
+      "detail": "重定向到 /signin"
+    },
+    {
+      "role": "游客",
+      "step": "未登录发帖被拒绝",
+      "ok": true,
+      "detail": "HTTP 401"
+    },
+    {
+      "role": "普通用户",
+      "step": "注册",
+      "ok": true,
+      "detail": "新账号 v10_mw7dshpo"
+    },
+    {
+      "role": "普通用户",
+      "step": "发帖",
+      "ok": true,
+      "detail": "/t/15（可选节点 24 个）"
+    },
+    {
+      "role": "普通用户",
+      "step": "回复",
+      "ok": true,
+      "detail": "回复已渲染在楼层中"
+    },
+    {
+      "role": "普通用户",
+      "step": "感谢按钮状态正确",
+      "ok": true,
+      "detail": "作者本人不可感谢自己（设计如此）"
+    },
+    {
+      "role": "普通用户",
+      "step": "收藏主题",
+      "ok": true,
+      "detail": "按钮变为「已收藏」"
+    },
+    {
+      "role": "普通用户",
+      "step": "编辑回复",
+      "ok": true,
+      "detail": "正文已更新且出现「已编辑」标记"
+    },
+    {
+      "role": "普通用户",
+      "step": "通知页可达",
+      "ok": true,
+      "detail": "页面渲染 29 字符"
+    },
+    {
+      "role": "普通用户",
+      "step": "修改简介并持久化",
+      "ok": true,
+      "detail": "回读=\"v0.0.10 验收写入的简介\""
+    },
+    {
+      "role": "版主",
+      "step": "登录",
+      "ok": true,
+      "detail": "以 moderator 登录"
+    },
+    {
+      "role": "版主",
+      "step": "进入后台",
+      "ok": true,
+      "detail": "后台页面可访问"
+    },
+    {
+      "role": "版主",
+      "step": "主题页出现管理按钮",
+      "ok": true,
+      "detail": "锁定=1 置顶=1"
+    },
+    {
+      "role": "版主",
+      "step": "锁定主题",
+      "ok": true,
+      "detail": "状态已切换"
+    },
+    {
+      "role": "管理员",
+      "step": "登录",
+      "ok": true,
+      "detail": "以 admin 登录"
+    },
+    {
+      "role": "管理员",
+      "step": "后台 tab「概览」",
+      "ok": true,
+      "detail": "命中 1 处"
+    },
+    {
+      "role": "管理员",
+      "step": "后台 tab「用户」",
+      "ok": true,
+      "detail": "命中 2 处"
+    },
+    {
+      "role": "管理员",
+      "step": "后台 tab「举报」",
+      "ok": true,
+      "detail": "命中 1 处"
+    },
+    {
+      "role": "管理员",
+      "step": "后台 tab「节点申请」",
+      "ok": true,
+      "detail": "命中 1 处"
+    },
+    {
+      "role": "管理员",
+      "step": "后台 tab「操作日志」",
+      "ok": true,
+      "detail": "命中 1 处"
+    },
+    {
+      "role": "管理员",
+      "step": "用户管理列表",
+      "ok": true,
+      "detail": "用户列表已渲染"
+    },
+    {
+      "role": "管理员",
+      "step": "举报处理入口",
+      "ok": true,
+      "detail": "举报面板可打开"
+    },
+    {
+      "role": "管理员",
+      "step": "操作日志",
+      "ok": true,
+      "detail": "审计日志面板可打开"
+    },
+    {
+      "role": "管理员",
+      "step": "运维指标接口",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "role": "管理员",
+      "step": "运维指标含真实状态码分布",
+      "ok": true,
+      "detail": "byStatus={\"200\":28,\"201\":2,\"303\":1,\"401\":1}"
+    }
+  ]
+}
