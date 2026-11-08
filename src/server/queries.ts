@@ -343,3 +343,51 @@ export async function getOnlineCount(): Promise<number> {
     .where(sql`${schema.users.lastActiveAt} > ${since.toISOString()}`);
   return Number(rows[0]?.n ?? 0);
 }
+
+/**
+ * 历史最高在线记录
+ *
+ * v0.0.10 修复：页脚原先写 `{online} + 3835` —— 那个 **3835 是硬编码常数**，
+ * 直接把原站的「最高记录」搬了过来。后果：
+ *   ① 显示的是**原站的数据**，与本实例无关；
+ *   ② 它是「当前在线 + 常数」，于是「最高记录」会跟着在线人数上涨而虚增，
+ *      永远大于当前在线，看起来像真的，但其实没有任何记录语义。
+ *
+ * 改为**真的记录**：每次调用把当前在线数写入 KV（只在新高时覆盖），
+ * 返回 `max(当前, 历史高点)`。存储走既有 KV 抽象（Redis / PG 降级两套后端
+ * 语义一致），因此在没有 Redis 的部署上同样有效。
+ *
+ * 注意 read-then-write 不是原子操作：并发下偶尔会少记一个峰值，但**不会虚增**，
+ * 且「最高记录」本身是展示型指标 —— 用 KV 的 get/set 已足够，不值得为它引入锁。
+ */
+const PEAK_ONLINE_KEY = 'stats:peak_online';
+
+export async function getOnlinePeak(current: number): Promise<number> {
+  /*
+   * ⚠️ 必须**整体** try/catch —— 页脚不能因为缓存不可用而把整页打成 5xx。
+   *
+   * 这是 CI 实测抓到的真实回归（R-17a「Redis 中断与恢复」）：
+   * 第一版直接 `await kv.get(...)`，Redis 被 stop 之后 ioredis 抛
+   *   Error: Connection is closed.
+   * 而这个函数在 **Footer（每个页面都渲染）** 里被调用 ⇒ 任何页面都 500。
+   *
+   * 项目的既有契约是「Redis 缺失/不可用时降级到 PostgreSQL，语义等价」
+   * （见 `src/lib/kv.ts` 头注释）；本函数属于**展示型**统计，连降级都不必，
+   * 直接回退到「当前在线数」即可 —— 显示上仍然正确，只是峰值不增长。
+   */
+  try {
+    const { getKV } = await import('@/lib/kv');
+    const kv = await getKV();
+    const raw = await kv.get(PEAK_ONLINE_KEY);
+    const stored = Number(raw ?? 0);
+    const peak = Math.max(current, Number.isFinite(stored) ? stored : 0);
+    if (peak > stored) {
+      // 峰值没有过期时间 —— 它是累计记录，不该因为一段时间没人访问就被清掉
+      await kv.set(PEAK_ONLINE_KEY, String(peak));
+    }
+    return peak;
+  } catch {
+    // 缓存不可用 ⇒ 如实回退到当前在线数（不虚增、不崩溃、不记假值）
+    return current;
+  }
+}

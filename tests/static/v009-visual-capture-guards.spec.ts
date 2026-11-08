@@ -88,9 +88,14 @@ describe('截图工具：必须走页面健康门禁', () => {
 
   it('截图落盘受门禁结果约束（ok 才写正式路径）', () => {
     const multi = read('tools/visual/capture-multi.mjs');
-    // 必须存在「门禁通过才截图到正式路径」的分支
-    // 变量名可能是 `locPage` / `page` —— 统一用 [A-Za-z]* 前缀匹配
-    expect(multi).toMatch(/if\s*\(\s*result\.ok\s*\)\s*\{[\s\S]*?[A-Za-z]*[Pp]age\.screenshot/);
+    // 必须存在「门禁通过才截图到正式路径」的分支。
+    //
+    // ⚠️ 不要写死变量名。v0.0.9 时是 `locPage` / `page`；v0.0.10 为了给
+    //    登录/注册页用**未登录**上下文，引入了 `target`（按页面切换 context）。
+    //    写死 `*[Pp]age` 会让这条护栏在**代码仍然正确**的情况下变红 ——
+    //    护栏要守的是「screenshot 必须发生在 result.ok 分支内」，
+    //    而不是变量叫什么名字。因此匹配任意标识符的 .screenshot 调用。
+    expect(multi).toMatch(/if\s*\(\s*result\.ok\s*\)\s*\{[\s\S]*?[A-Za-z_$][\w$]*\.screenshot/);
     // 且失败分支必须写诊断图而不是正式图
     expect(multi).toMatch(/else\s*\{[\s\S]*?INVALID\.png/);
   });

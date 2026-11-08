@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN, USER_A, login, logout, register, uniqueName, clearRateLimits, apiPost } from './helpers';
+import {
+  ADMIN,
+  USER_A,
+  login,
+  logout,
+  register,
+  uniqueName,
+  clearRateLimits,
+  apiPost,
+  waitForHydration,
+} from './helpers';
 
 test.describe('账号体系', () => {
   test.beforeEach(async ({ page }) => {
@@ -26,6 +36,8 @@ test.describe('账号体系', () => {
     const ctx = await browser.newContext();
     const second = await ctx.newPage();
     await second.goto('/signup');
+    // 同「错误密码」用例：必须等水合，否则原生表单提交会重载页面
+    await waitForHydration(second, 'button[type="submit"]');
     await second.fill('#username', username);
     await second.fill('#password', 'password123');
     await second.fill('#confirm', 'password123');
@@ -37,6 +49,8 @@ test.describe('账号体系', () => {
 
   test('短密码注册被拒绝', async ({ page }) => {
     await page.goto('/signup');
+    // 同「错误密码」用例：必须等水合
+    await waitForHydration(page, 'button[type="submit"]');
     await page.fill('#username', uniqueName('short'));
     await page.fill('#password', '123');
     await page.fill('#confirm', '123');
@@ -47,6 +61,20 @@ test.describe('账号体系', () => {
 
   test('错误密码登录失败并给出提示', async ({ page }) => {
     await page.goto('/signin');
+    /*
+     * ⚠️ v0.0.10：**必须**先等水合（CI 实测 firefox/1280x900 分片偶发失败）。
+     *
+     * 失败现象：`#problem` 元素 10 秒内始终不存在（`element(s) not found`）。
+     * 根因：`SignInForm` 是客户端组件，`onSubmit` 由 React 绑定。若在
+     * `hydrateRoot` 完成**之前**点击提交，浏览器会走**原生表单提交** ——
+     * 该 `<form>` 没有 `action`，于是重新加载 `/signin` 自身，
+     * 服务端永远收不到错误密码，`#problem` 自然不出现。
+     *
+     * 这不是产品缺陷（水合完成后一切正常），而是**测试与水合的竞态**：
+     * 本机的 chromium 够快，CI 上 firefox + 多分片并行时就可能慢过临界点。
+     * 断言本身**没有放宽**：仍然要求出现「用户名或密码不正确」。
+     */
+    await waitForHydration(page, 'button[type="submit"]');
     await page.fill('#username', USER_A.username);
     await page.fill('#password', 'definitely-wrong-password');
     await page.click('button[type="submit"]');

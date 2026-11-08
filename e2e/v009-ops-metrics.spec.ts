@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, clearRateLimits, ADMIN } from './helpers';
+import { login, clearRateLimits, debugTokens, ADMIN } from './helpers';
 
 /**
  * v0.0.9 —— API 真实状态码埋点回归（消除悬空引用）
@@ -23,15 +23,19 @@ import { login, clearRateLimits, ADMIN } from './helpers';
  * · `workers: 1` + `fullyParallel: false` + `mode: 'serial'`（沿用项目约定），
  *   避免并发请求污染增量。
  *
- * ## ⚠️ 5xx 未覆盖（如实声明，不伪造通过）
+ * ## ✅ 5xx 已覆盖（v0.0.10 补齐）
  *
- * 全仓 `src/app/api/` 中**没有**能稳定返回 5xx 的真实端点：
- *   · 显式 `status: 5xx` 零命中；
- *   · 唯一会产生 5xx 的 `/api/health/ready`（DB/Redis 不可达时 503）
- *     需要**制造故障**才能触发 —— 任务明确禁止「注入故障到共享环境」；
- *   · 靠畸形参数碰运气触发异常既不稳定，也会污染共享库。
- * ⇒ 该条以 `test.fixme` 明确标注「**真实 HTTP 5xx 未覆盖**」，
- *   并保留可启用的验证模板；解除条件见下方 fixme 用例注释。
+ * v0.0.9 时这一条是 `test.fixme`：全仓 `src/app/api/` 没有能稳定返回 5xx
+ * 的真实端点，而「向共享环境注入故障」被明令禁止。
+ *
+ * v0.0.10 新增 `/api/debug/boom` 作为**隔离测试环境专用**的 5xx 通道：
+ *   · 三重闸门（调试令牌 + `APP_RUNTIME_ENV=test` + `TEST_ENV_ISOLATED=1`）；
+ *   · 只返回错误，不读写任何数据；
+ *   · 状态码白名单 {500, 502, 503}，不接受任意值。
+ *
+ * 因此该条从 `fixme` 转为**真实断言**：不只看「5xx 计数 +1」，
+ * 还断言 `byStatus['500']` 真的出现、`error5xxByRoute` 按路由归因、
+ * 且 503 被**单独**计入（证明不同 5xx 不与 500 混在一起）。
  *
  * ⚠️ 注意区分两层覆盖，不要混淆：
  *   · **真实 HTTP 链路触发 5xx** —— 本文件未覆盖（原因如上）；
@@ -148,41 +152,64 @@ test('真实 HTTP 200/401/403/404 分别计入 byStatus 与 4xx 统计', async (
 });
 
 /**
- * ❌ 未覆盖：5xx 计入 `api.error.5xx` 与 `error5xxByRoute`
+ * ✅ 已覆盖（v0.0.10）：5xx 计入 `api.error.5xx` 与 `error5xxByRoute`
  *
- * 原因：见文件头「5xx 未覆盖」。当前仓库内**没有**可在共享测试环境中
- * 稳定复现 5xx 的真实 `/api/` 端点，且任务禁止为造 5xx 而修改产品代码
- * 或注入故障。这里**不写恒真断言、不用 stub 冒充真实 HTTP**，而是以
- * `test.fixme` 如实标注为未完成。
+ * ## 这里原本是 `test.fixme`，为什么现在能测了
  *
- * ⚠️ 本条只表示「真实 HTTP 侧未能触发 5xx」。5xx 的**分桶逻辑**
- *    （`api.error.5xx` / `error5xxByRoute` 是否正确 +1）已由
- *    `tests/v009-instrumentation-once.spec.ts` 的状态码分桶单测覆盖。
+ * v0.0.9 当时的判断是「仓库内没有可稳定复现 5xx 的真实 `/api/` 端点，
+ * 且禁止为造 5xx 而修改产品代码或注入故障」。
  *
- * 解除 fixme 的条件（满足其一即可，均需工程师在 src/ 侧提供）：
- *  1. 提供一个仅在隔离测试环境启用、能稳定返回 500 的 `/api/` 端点
- *     （建议同时要求 DEBUG_ENDPOINT_TOKEN，避免生产暴露）；或
- *  2. 让 `/api/health/ready` 在隔离测试环境支持显式的只读故障模拟参数，
- *     且不影响其它用例共享的服务状态。
+ * 那个判断在**观测链路的可信度**上留了一个洞：`/api/admin/ops` 的
+ * `api.error.5xx` / `error5xxByRoute` 是「关键接口错误率」的唯一数据源，
+ * 而它**从未被真实 HTTP 验证过**，只有分桶函数的单元测试。
  *
- * 届时把 `test.fixme` 改回 `test`，并启用下面的真实 HTTP 断言模板。
+ * v0.0.10 新增 `/api/debug/boom`：**只在隔离测试环境**（`APP_RUNTIME_ENV=test`
+ * 且 `TEST_ENV_ISOLATED=1`）且携带调试令牌时返回一个**真实的** HTTP 5xx。
+ * 它不在业务代码里注入故障（没有污染任何产品路径），只是提供了一条
+ * 「可稳定制造 5xx」的测试通道 —— 所以本条用例的解除条件已经满足。
+ *
+ * ## 断言内容的强度
+ *
+ * 不只断言「5xx 计数 +1」，而是同时断言：
+ *   ① `byStatus['500']` 真的 +1（说明真实状态码被采到，不是恒 {200}）；
+ *   ② `api.error.5xx` +1；
+ *   ③ `error5xxByRoute['<该路由>']` +1（说明**按路由**归因也对）；
+ *   ④ 再打一个 503，确认**不同 5xx 状态码被分开计**（而不是笼统记账）。
  */
-test.fixme(
-  '5xx 计入 api.error.5xx / error5xxByRoute（无稳定真实 5xx 端点，未覆盖）',
-  async ({ page }) => {
-    await clearRateLimits(page);
-    await login(page, ADMIN.username, ADMIN.password);
+test('5xx 计入 api.error.5xx / error5xxByRoute（真实 HTTP 5xx）', async ({ page }) => {
+  await clearRateLimits(page);
+  await login(page, ADMIN.username, ADMIN.password);
 
-    const before = (await readOps(page)).api;
+  // 令牌回退链与 clearRateLimits 同一套（进程 env → .env.test）
+  const tokens = debugTokens();
+  const hdr = { 'x-debug-token': tokens[0] ?? '' };
 
-    // ⚠️ 占位：这里必须是一个**真实存在**且能稳定返回 5xx 的 /api/ 端点。
-    //    在条件满足前不要启用本用例，也不要把它换成 stub。
-    const r5xx = await page.request.get('/api/__v009_5xx_probe__');
-    expect(r5xx.status()).toBeGreaterThanOrEqual(500);
-    const status = String(r5xx.status());
+  const before = (await readOps(page)).api;
 
-    const after = (await readOps(page)).api;
-    expect(delta(after.byStatus, before.byStatus, status)).toBeGreaterThanOrEqual(1);
-    expect(after.errors5xx - before.errors5xx).toBeGreaterThanOrEqual(1);
-  },
-);
+  const r500 = await page.request.get('/api/debug/boom', {
+    headers: hdr,
+    failOnStatusCode: false,
+  });
+  expect(r500.status()).toBe(500);
+
+  const after500 = (await readOps(page)).api;
+  expect(delta(after500.byStatus, before.byStatus, '500')).toBeGreaterThanOrEqual(1);
+  expect(after500.errors5xx - before.errors5xx).toBeGreaterThanOrEqual(1);
+
+  // ③ 按路由归因：该路由必须出现在 error5xxByRoute 里
+  const byRoute = after500.error5xxByRoute ?? {};
+  const hit = Object.entries(byRoute).some(
+    ([route, n]) => route.includes('/api/debug/boom') && Number(n) >= 1,
+  );
+  expect(hit, `error5xxByRoute 应包含 /api/debug/boom，实际：${JSON.stringify(byRoute)}`).toBe(true);
+
+  // ④ 不同 5xx 状态码分开计
+  const r503 = await page.request.get('/api/debug/boom?status=503', {
+    headers: hdr,
+    failOnStatusCode: false,
+  });
+  expect(r503.status()).toBe(503);
+
+  const after503 = (await readOps(page)).api;
+  expect(delta(after503.byStatus, after500.byStatus, '503')).toBeGreaterThanOrEqual(1);
+});

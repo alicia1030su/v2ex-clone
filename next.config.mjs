@@ -1,3 +1,15 @@
+import { createRequire } from 'node:module';
+
+/**
+ * 读 package.json 的版本号。
+ *
+ * ⚠️ 用 `createRequire` 而不是 `import ... with { type: 'json' }`：
+ *    Next 的配置加载器（jiti/esbuild）对 **import attributes** 语法支持
+ *    并不一致，在旧版加载器上会直接 SyntaxError ⇒ 整个构建起不来。
+ *    `createRequire` 是 Node 原生路径，与加载器无关，最稳。
+ */
+const pkg = createRequire(import.meta.url)('./package.json');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -40,6 +52,21 @@ const nextConfig = {
   //    隔离只在**检测到 EPERM** 时启用，不改变正常路径。
   // ---------------------------------------------------------------------
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+
+  // ---------------------------------------------------------------------
+  // v0.0.10：把**真实版本号**注入前端（页脚 VERSION 行）
+  //
+  // 修复前页脚硬编码 `VERSION: 3.9.8.5` —— 那是**原站的版本号**，
+  // 与本项目毫无关系。后果有两个：
+  //   ① 用户看到的版本与你实际安装的包不一致，排障时误导；
+  //   ② 「发行版真实性门禁」无法把「页面显示的版本」纳入核对，
+  //      因为页面根本没有任何本项目版本信息。
+  // 现在由构建期的 package.json 注入，页面渲染值与源码版本**同源**，
+  // 因此可以被 `scripts/release/verify-release-consistency.sh` 断言。
+  // ---------------------------------------------------------------------
+  env: {
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
+  },
 
   async headers() {
     return [

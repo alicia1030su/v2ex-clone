@@ -80,8 +80,12 @@ const PAGES = [
   { name: 'topic_detail', origin: '/t/1253638', local: '/t/1', rightbar: true },
   { name: 'reply_list', origin: '/t/1253638#reply1', local: '/t/1#reply1', rightbar: true },
   { name: 'member', origin: '/member/reoah2', local: '/member/admin', rightbar: true },
-  { name: 'signin', origin: '/signin', local: '/signin' },
-  { name: 'signup', origin: '/signup', local: '/signup' },
+  // ⚠️ v0.0.10：登录 / 注册页必须用**未登录**的 browser context 拍。
+  //    一旦先登录（VISUAL_LOGIN_PASSWORD 提供时），再访问 /signin 会被应用
+  //    重定向到 /（这是正确行为），于是 navigation.url 断言失败、门禁拒绝出图。
+  //    实测：8 个组合全红，全是这个原因。标记 `anon: true` 后改用独立 context。
+  { name: 'signin', origin: '/signin', local: '/signin', anon: true },
+  { name: 'signup', origin: '/signup', local: '/signup', anon: true },
   { name: 'search', origin: '/go/search?q=claude', local: '/go/search?q=claude' },
   { name: 'about', origin: '/about', local: '/about' },
   { name: 'faq', origin: '/faq', local: '/faq' },
@@ -180,6 +184,23 @@ async function main() {
     const locPage = locCtx ? await locCtx.newPage() : null;
 
     /*
+     * 未登录上下文（v0.0.10）
+     *
+     * 登录页 / 注册页在**已登录**状态下会被重定向到首页，因此它们必须用
+     * 一个干净的 context 拍 —— 否则「URL 与预期不一致」会把一张本来正常
+     * 的页面判成无效截图（实测 8 个组合全红）。
+     */
+    const anonCtx = locBrowser
+      ? await locBrowser.newContext({
+          viewport,
+          deviceScaleFactor: 1,
+          colorScheme: 'light',
+          locale: 'zh-CN',
+        })
+      : null;
+    const anonPage = anonCtx ? await anonCtx.newPage() : null;
+
+    /*
      * 登录状态要**显式记住**。
      *
      * 原先只判断 `locPage` 是否存在 ⇒ 没登录也照样去抓 /notifications，
@@ -240,20 +261,22 @@ async function main() {
           entry.localStatus = 'skipped: auth-required';
         } else {
           const locFile = path.join(vpDir, `local-${p.name}.png`);
-          const result = await loadAndVerify(locPage, entry.localUrl, {
+          // 登录 / 注册页用未登录上下文；其余页面用已登录（或游客）上下文
+          const target = p.anon && anonPage ? anonPage : locPage;
+          const result = await loadAndVerify(target, entry.localUrl, {
             expectUrl: p.local.split('?')[0].split('#')[0],
             requireRightbar: Boolean(p.rightbar) && isDesktop,
           });
 
           if (result.ok) {
-            await locPage.screenshot({ path: locFile, fullPage: false });
+            await target.screenshot({ path: locFile, fullPage: false });
             entry.local = path.relative(ROOT, locFile);
             entry.localStatus = 'ok';
             entry.health = { ok: true, checks: result.checks.length };
           } else {
             // 门禁不通过：**不写正式截图**，现场图只留在诊断目录
             const diag = path.join(HEALTH_DIR, `${vpName}-${p.name}-INVALID.png`);
-            await locPage.screenshot({ path: diag }).catch(() => {});
+            await target.screenshot({ path: diag }).catch(() => {});
             entry.localStatus = 'failed: 页面健康门禁未通过';
             entry.diagnostic = path.relative(ROOT, diag);
             entry.health = {
@@ -277,6 +300,7 @@ async function main() {
 
     if (refCtx) await refCtx.close().catch(() => {});
     if (refBrowser) await refBrowser.close().catch(() => {});
+    if (anonCtx) await anonCtx.close().catch(() => {});
     if (locCtx) await locCtx.close().catch(() => {});
     if (locBrowser) await locBrowser.close().catch(() => {});
   }

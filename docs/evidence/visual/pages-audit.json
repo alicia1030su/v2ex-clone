@@ -1,0 +1,106 @@
+{
+  "base": "http://127.0.0.1:3210",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "user": "admin",
+  "results": [
+    {
+      "label": "home",
+      "path": "/",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\home.png",
+      "checks": 29,
+      "failed": []
+    },
+    {
+      "label": "nodes_all",
+      "path": "/nodes",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\nodes_all.png",
+      "checks": 23,
+      "failed": []
+    },
+    {
+      "label": "node_detail",
+      "path": "/go/claude",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\node_detail.png",
+      "checks": 29,
+      "failed": []
+    },
+    {
+      "label": "topic_detail",
+      "path": "/t/1",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\topic_detail.png",
+      "checks": 25,
+      "failed": []
+    },
+    {
+      "label": "reply_list",
+      "path": "/t/1#reply1",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\reply_list.png",
+      "checks": 25,
+      "failed": []
+    },
+    {
+      "label": "member",
+      "path": "/member/admin",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\member.png",
+      "checks": 24,
+      "failed": []
+    },
+    {
+      "label": "signin",
+      "path": "/signin",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\signin.png",
+      "checks": 23,
+      "failed": []
+    },
+    {
+      "label": "signup",
+      "path": "/signup",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\signup.png",
+      "checks": 23,
+      "failed": []
+    },
+    {
+      "label": "notifications",
+      "path": "/notifications",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\notifications.png",
+      "checks": 23,
+      "failed": []
+    },
+    {
+      "label": "settings",
+      "path": "/settings",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\settings.png",
+      "checks": 23,
+      "failed": []
+    },
+    {
+      "label": "admin",
+      "path": "/admin",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\admin.png",
+      "checks": 23,
+      "failed": []
+    },
+    {
+      "label": "bookmarks",
+      "path": "/bookmarks",
+      "status": "ok",
+      "screenshot": "docs\\evidence\\visual\\pages\\bookmarks.png",
+      "checks": 23,
+      "failed": []
+    }
+  ]
+}

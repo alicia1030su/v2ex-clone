@@ -120,14 +120,34 @@ export default function ReplyItem({
     });
     if (res) {
       setEditing(false);
+      /*
+       * v0.0.10 修复（真实缺陷）：编辑成功后页面**不更新**。
+       *
+       * 原实现只调 `onChanged?.()` —— 而 `onChanged` 是**可选**回调，
+       * 主题页（`src/app/t/[id]/page.tsx`）**从来没有传它**。
+       * 于是：PUT 返回 200、`setEditing(false)` 收起编辑框，但
+       *   · 回复正文仍是编辑前的旧内容
+       *   · 「（已编辑 N 次）」标记不出现
+       * 用户必须手动刷新网页才能看到自己的修改 —— 实测确认。
+       *
+       * 修法：与同组件 `restore()` 一致，直接用 `router.refresh()`
+       * （只重拉服务端组件数据，不换 URL、不重置客户端状态）。
+       * `onChanged` 保留给将来需要额外副作用的调用方。
+       */
       onChanged?.();
+      router.refresh();
     }
   }
 
   async function remove() {
     if (!window.confirm('确定要删除这条回复吗？')) return;
     const res = await act('remove', `/api/replies/${reply.id}`, 'DELETE', {});
-    if (res) onChanged?.();
+    // v0.0.10：同 saveEdit —— 删除后也必须刷新，否则软删除的回复
+    // 仍以原文显示在原位（服务端已变、页面没变）。
+    if (res) {
+      onChanged?.();
+      router.refresh();
+    }
   }
 
   async function restore() {
