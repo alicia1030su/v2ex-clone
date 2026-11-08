@@ -62,6 +62,17 @@ env:
   SMTP_HOST: 127.0.0.1
   SMTP_FROM: noreply@v2ex-clone.local
   SMTP_SECURE: '0'
+  # ⚠️ v0.0.10：把应用侧单次 SMTP 等待上限压到 3s（默认 15s）。
+  #
+  # 依据：`e2e/v005-password-reset-flow.spec.ts` 的「SMTP 停止后申请重置」
+  # 用例要求应用在邮件服务不可用时**仍然快速返回统一响应**。当连接被
+  # 防火墙/端口占用丢弃（而非立刻 RST）时，默认 15s 会叠加在浏览器
+  # 调度延迟上，firefox 分片实测出现「30s 内等不到 POST 响应」。
+  #
+  # 这里压到 3s 不是放宽断言：用例仍然断言「4x 状态码为 200」「邮件未到达」
+  # 「/api/health 仍 200」，只是让「等不到响应」这一失败模式不再由
+  # 15s×多重试 逼近 30s 的阈值。产品默认值（15s）未被修改。
+  SMTP_TIMEOUT_MS: '3000'
   # 限流参数与生产默认值一致（有用例专门验证限流生效，不得调高）
   RATE_LIMIT_LOGIN_MAX: '10'
   RATE_LIMIT_POST_MAX: '5'
