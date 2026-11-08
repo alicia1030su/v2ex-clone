@@ -1731,8 +1731,17 @@ jobs:
           #   · 固定时间戳（同一输入 ⇒ 同一字节）
           #   · 排除规则内置（.env / 凭据 / 私钥 / backups / *.log）
           #   · 打包后回读中央目录断言 Unix mode、断言无 CRLF、断言版本载体
+          # ⚠️ 传的是**不带 v** 的语义版本。
+          #
+          # 打包器要拿版本号跟 `deploy/VERSION`（内容形如 `0.0.10`）比对，
+          # 而 `$VERSION` 来自 Tag，形如 `v0.0.10` —— 直接传会得到
+          #   ✗ 包内 VERSION=0.0.10，期望 v0.0.10
+          # （发布流水线首次运行就栽在这里）。这里就地剥掉前缀，
+          # **不改打包器**：`scripts/` 会被 COPY 进镜像，
+          # 改它会让镜像字节与 Tag 的构建内容产生差异；而 `.github/`
+          # 既不进镜像、补救路径也明确允许它与 Tag 不同 —— 修在这一层最干净。
           node scripts/release/package-deploy-zip.mjs \
-            --version "$VERSION" \
+            --version "${VERSION#v}" \
             --out .
           echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
           echo "zip_name=$ZIP" >> "$GITHUB_OUTPUT"
