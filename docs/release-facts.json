@@ -15,9 +15,9 @@
   "version": "0.0.10",
   "measuredAt": "2026-11-08",
   "unit": {
-    "files": 35,
-    "tests": 440,
-    "passed": 440,
+    "files": 36,
+    "tests": 444,
+    "passed": 444,
     "failed": 0,
     "skipped": 0,
     "evidence": "npx vitest run（本机隔离实例 v2ex_test_base）"
@@ -38,12 +38,25 @@
     "evidence": "npx playwright test（本机 next start + 独立库 v2ex_e2e_v0010，8.1m）"
   },
   "upgrade": {
-    "baselines": ["v0.0.4", "v0.0.9"],
+    "baselines": [
+      "v0.0.4",
+      "v0.0.9"
+    ],
     "businessFingerprintItems": 46,
     "assertions": 20,
     "failed": 0,
-    "v004": { "migrationsBefore": 3, "migrationsAfter": 4, "indexesBefore": 76, "indexesAfter": 78 },
-    "v009": { "migrationsBefore": 4, "migrationsAfter": 4, "indexesBefore": 78, "indexesAfter": 78 },
+    "v004": {
+      "migrationsBefore": 3,
+      "migrationsAfter": 4,
+      "indexesBefore": 76,
+      "indexesAfter": 78
+    },
+    "v009": {
+      "migrationsBefore": 4,
+      "migrationsAfter": 4,
+      "indexesBefore": 78,
+      "indexesAfter": 78
+    },
     "evidence": "docs/UPGRADE_VERIFICATION_v0.0.10.md"
   },
   "visual": {

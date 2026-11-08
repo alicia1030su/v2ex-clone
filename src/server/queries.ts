@@ -363,14 +363,31 @@ export async function getOnlineCount(): Promise<number> {
 const PEAK_ONLINE_KEY = 'stats:peak_online';
 
 export async function getOnlinePeak(current: number): Promise<number> {
-  const { getKV } = await import('@/lib/kv');
-  const kv = await getKV();
-  const raw = await kv.get(PEAK_ONLINE_KEY);
-  const stored = Number(raw ?? 0);
-  const peak = Math.max(current, Number.isFinite(stored) ? stored : 0);
-  if (peak > stored) {
-    // 峰值没有过期时间 —— 它是累计记录，不该因为一段时间没人访问就被清掉
-    await kv.set(PEAK_ONLINE_KEY, String(peak));
+  /*
+   * ⚠️ 必须**整体** try/catch —— 页脚不能因为缓存不可用而把整页打成 5xx。
+   *
+   * 这是 CI 实测抓到的真实回归（R-17a「Redis 中断与恢复」）：
+   * 第一版直接 `await kv.get(...)`，Redis 被 stop 之后 ioredis 抛
+   *   Error: Connection is closed.
+   * 而这个函数在 **Footer（每个页面都渲染）** 里被调用 ⇒ 任何页面都 500。
+   *
+   * 项目的既有契约是「Redis 缺失/不可用时降级到 PostgreSQL，语义等价」
+   * （见 `src/lib/kv.ts` 头注释）；本函数属于**展示型**统计，连降级都不必，
+   * 直接回退到「当前在线数」即可 —— 显示上仍然正确，只是峰值不增长。
+   */
+  try {
+    const { getKV } = await import('@/lib/kv');
+    const kv = await getKV();
+    const raw = await kv.get(PEAK_ONLINE_KEY);
+    const stored = Number(raw ?? 0);
+    const peak = Math.max(current, Number.isFinite(stored) ? stored : 0);
+    if (peak > stored) {
+      // 峰值没有过期时间 —— 它是累计记录，不该因为一段时间没人访问就被清掉
+      await kv.set(PEAK_ONLINE_KEY, String(peak));
+    }
+    return peak;
+  } catch {
+    // 缓存不可用 ⇒ 如实回退到当前在线数（不虚增、不崩溃、不记假值）
+    return current;
   }
-  return peak;
 }
