@@ -132,7 +132,8 @@ SKIP 的两项如实记录：Windows 的 `rm` 被工作区安全 shim 拦截绝�
 | 项 | 结果 |
 |---|---|
 | `npx tsc --noEmit` | 0 错误 |
-| 单元测试 | **440 passed / 0 failed / 0 skipped（35 文件，182.21s）** |
+| 单元测试 | **440 passed / 0 failed / 0 skipped（35 文件）** |
+| E2E | **220 passed / 0 failed / 0 skipped（20 文件，8.1m）** |
 | 静态测试（`vitest.static.config.ts`） | **40 passed**（含 SIGPIPE 行为级 5 项） |
 | 页面真实性审计 | **12/12 页面通过**（23~29 项/页） |
 | 四身份验收 | **28/28 通过** |
@@ -145,7 +146,7 @@ SKIP 的两项如实记录：Windows 的 `rm` 被工作区安全 shim 拦截绝�
 
 | 项 | 状态 |
 |---|---|
-| E2E 全量（219 用例） | 进行中（本机 port 3010 + 独立库 `v2ex_e2e_v0010`） |
+| E2E 全量 | ✅ **220 passed / 0 failed / 0 skipped（8.1m）**; 上一轮 skip 的 5xx 用例已转真实断言 |
 | CI（PR）| 未推送 |
 | 真实 Docker 安装（Linux） | 本机不可用 ⇒ 由 CI ubuntu runner 覆盖 |
 | GHCR 镜像推送 | 未推送（需 Tag + 发布流水线） |

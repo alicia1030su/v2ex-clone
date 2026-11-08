@@ -359,8 +359,8 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 
 | 套件 | 用例数 | 命令 | v0.0.10 实测 |
 |---|---|---|---|
-| 单元测试（vitest） | **440**（35 个 spec 文件） | `npm run test:unit` | **440 passed / 0 failed / 0 skipped**，**35/35 文件全绿**，184.78s（2026-11-08，本机隔离实例 `v2ex_test_base`） |
-| E2E（Playwright） | **见下方实测行** | `npm run test:e2e` | 见本节末尾「E2E 实测」 |
+| 单元测试（vitest） | **440**（35 个 spec 文件） | `npm run test:unit` | **440 passed / 0 failed / 0 skipped**，**35/35 文件全绿**（2026-11-08，本机隔离实例） |
+| E2E（Playwright） | **220**（20 个 spec 文件） | `npm run test:e2e` | **220 passed / 0 failed / 0 skipped**（8.1m，本机 `next start` + 独立库） |
 | 视觉健康门禁 | **6 个页面 × 18 项判据** | `node tools/visual/diagnose.mjs --all` | **6/6 页面通过**（含 CSS/JS 加载、双栏几何、计算样式、无溢出） |
 | 门禁负向测试 | **5 个坏页面场景** | `node tools/visual/negative-tests.mjs` | **5/5 被正确拒绝**（无 CSS / 静态资源全挂 / 错误路由 / 站点 502 / 单栏塌陷） |
 
