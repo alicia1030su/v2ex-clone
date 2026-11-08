@@ -1708,27 +1708,32 @@ jobs:
           #   历史论证（Tag 不可移动、构建代码与版本锚点解耦）见 preflight 的说明。
           ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
 
-      - name: 打包 deploy/ 目录
+      - name: 打包 deploy/ 目录（可复现打包器）
         id: pkg
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
           ZIP="v2ex-clone-${VERSION}-deploy.zip"
-          # 明确排除生成的配置与备份目录（.gitignore 已排除，这里显式再挡一次）
+
+          # ⚠️ v0.0.10：**不再用 `zip -r`**。
           #
-          # ⚠️ N5：补上 .env.* 变体、私钥 / 证书 / 测试凭据文件。
-          #    ⚠️ 刻意**不用** 'deploy/.env.*' 通配 —— 那会误伤必须随包
-          #    分发的 .env.example 模板（下面的完整性校验要求它在包内）。
-          #    因此逐项列出危险的变体名，把模板保留下来。
-          zip -r "$ZIP" deploy/ \
-            -x 'deploy/.env' \
-               'deploy/.env.local' 'deploy/.env.test' 'deploy/.env.production' \
-               'deploy/.env.development' 'deploy/.env.*.local' 'deploy/.env.backup*' \
-               'deploy/INSTALL_CREDENTIALS.txt' \
-               'deploy/*credentials*' 'deploy/*password*.txt' \
-               'deploy/*.pem' 'deploy/*.key' 'deploy/*.p12' 'deploy/*.pfx' \
-               'deploy/backups/*' \
-               'deploy/*.log'
+          # `zip -r` 有三个问题，每一个都真实发生过：
+          #   ① 它把文件在**磁盘上的模式**写进 ZIP 外部属性。Git 里若是 100644，
+          #      解压后就是 0644 ⇒ `./install.sh` Permission denied（V9-09）；
+          #   ② 它把**构建机的换行**原样打进去。Windows 上 core.autocrlf=true 时
+          #      全部文件是 CRLF ⇒ Linux 上 `/usr/bin/env: 'bash\r': not found`（V10-11）；
+          #   ③ 它写入当前时间戳 ⇒ 同一份源码在不同时刻产出**不同字节**的 ZIP，
+          #      SHA256 不可复现，等于「发布后无法再证明这个包来自这个提交」。
+          #
+          # 改用仓库内的 `scripts/release/package-deploy-zip.mjs`：
+          #   · 显式写 0755 外部属性 + host=Unix（不依赖 Git 模式）
+          #   · CRLF→LF 归一化 + 回读断言（不依赖构建平台）
+          #   · 固定时间戳（同一输入 ⇒ 同一字节）
+          #   · 排除规则内置（.env / 凭据 / 私钥 / backups / *.log）
+          #   · 打包后回读中央目录断言 Unix mode、断言无 CRLF、断言版本载体
+          node scripts/release/package-deploy-zip.mjs \
+            --version "$VERSION" \
+            --out .
           echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
           echo "zip_name=$ZIP" >> "$GITHUB_OUTPUT"
 
