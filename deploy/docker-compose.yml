@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.11 — 发行版 Docker Compose 配置
+# V2EX Clone v0.0.12 — 发行版 Docker Compose 配置
 #
 # 与仓库根目录的 docker-compose.yml 的差异：
 #   1. app 服务使用**预构建镜像**（ghcr.io），不在用户机器上本地构建。
@@ -73,7 +73,7 @@ services:
     #   build:
     #     context: ..
     #     dockerfile: Dockerfile
-    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.11}
+    image: ${V2EX_IMAGE:-ghcr.io/alicia1030su/v2ex-clone:v0.0.12}
     container_name: v2ex-app
     restart: unless-stopped
     depends_on:
