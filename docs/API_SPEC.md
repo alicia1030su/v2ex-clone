@@ -352,3 +352,88 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
 Referrer-Policy: strict-origin-when-cross-origin
 ```
+
+## 14. 旧版 V2EX JSON API 兼容端点
+
+### 14.1 `GET /api/topics/show.json`
+
+为**第三方 V2EX 客户端 / 脚本**提供与原站旧版 API 同形状的只读端点。
+原站该端点是「旧版 API 中唯一仍返回 200 的 JSON 端点」（`/api/topics.json`、
+`/api/nodes.json` 均已下线 404），见 `docs/PAGE_INVENTORY.md` §2.4。
+
+#### 查询参数与优先级
+
+| 优先级 | 参数 | 行为 |
+|---|---|---|
+| 1 | `id` | 返回**长度 1** 的数组；合法但不存在的 id ⇒ `200 []`；`id=abc` / `id=0`（非正整数）⇒ `404` |
+| 2 | `username` | 返回该用户**最新 10 条**主题（`created` 降序）；用户不存在 ⇒ `404` |
+| 3 | `node_name` | 返回该节点**最新 10 条**主题；节点不存在 ⇒ `404` |
+| — | 无任何参数 | `404` |
+
+- 同名参数取**最后一个**：`?id=1&id=2&id=3` ⇒ 只返回 id=3
+- `limit` / `offset` **被忽略**（与原站一致，固定 10 条）
+- 用户名与节点名大小写不敏感（站内口径）
+
+#### 响应
+
+`200` —— **数组**（不是 `{ok:true,...}` 包裹），元素形状与原站逐字段一致：
+
+```json
+[{
+  "id": 1,
+  "title": "…",
+  "url": "http://<base>/t/1",
+  "content": "Markdown 源文本",
+  "content_rendered": "<p>HTML</p>",
+  "replies": 3,
+  "member": { "id": 1, "username": "lisi", "url": "…", "pro": 0, "avatar_mini": "…", … },
+  "node": { "id": 3, "name": "programmer", "url": "…", "topics": 42, "stars": 5, … },
+  "created": 1767225600,
+  "last_modified": 1767225600,
+  "last_touched": 1767312000,
+  "last_reply_by": "wangwu",
+  "deleted": 0
+}]
+```
+
+要点：
+
+- 三个时间字段都是 **Unix 秒整数**
+- `deleted` 是 **整数 0/1**（不是布尔）
+- 零回复时 `last_reply_by` 是 **空字符串**（原站实测），不是 `null`
+- `content_rendered` 经 `renderMarkdown`（marked + sanitize-html），与站内正文同源
+
+`404` —— 对象不存在（原站形状）：
+
+```json
+{ "status": "error", "message": "Object Not Found",
+  "rate_limit": { "used": 5, "quota": 600, "reset_at": 1794154067 } }
+```
+
+`429` —— 超限（600 次 / 小时 / IP，与原站同口径），带 `Retry-After`。
+
+#### 响应头
+
+```
+Content-Type: application/json;charset=UTF-8
+Cache-Control: public, max-age=120
+x-rate-limit-limit: 600
+x-rate-limit-remaining: <剩余>
+x-rate-limit-reset: <unix 秒>
+X-Content-Type-Options: nosniff
+```
+
+#### 与原站的三处差异（已在代码注释中逐条写明）
+
+| 字段 | 本项目 | 原因 |
+|---|---|---|
+| `member.pro` | 恒 `0` | 无 Pro 会员体系（原站非 Pro 亦为 0，形状一致） |
+| `member.twitter/github/psn/btc` | 恒 `null` | 未采集社交账号（原站未填时同样 `null`） |
+| `node.header/footer/aliases` | `''` / `''` / `[]` | 未建模，给空值而非编造文案 |
+| 头像各尺寸 | 确定性占位 SVG 的 `data:` URI | 不复制原站受保护图像资源 |
+| 软删除主题 | **对公众不可见**（`?id=` 命中 ⇒ `200 []`） | 本项目安全策略；原站行为未实测，取更保守一侧 |
+
+契约的完整实测记录（10 种请求组合的逐条结果）见
+`src/lib/legacy-topic-api.ts` 文件头；形状护栏见
+`tests/static/v010-legacy-api-shape.spec.ts`（13 条）与
+`e2e/v010-legacy-api.spec.ts`（7 条真实 HTTP）。
