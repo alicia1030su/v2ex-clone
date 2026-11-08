@@ -408,11 +408,13 @@ CI 实跑暴露 5 个缺陷全部修复、无一被绕过。
 | **G 截图门禁** | 72 张截图全部通过 18 项判据 | ✅ | `capture-multi-index.json` |
 | **H 四身份验收** | 游客 / 用户 / 版主 / 管理员真实浏览器 | ✅ | **28/28**，`roles-audit.json` |
 | **I 升级** | v0.0.4 → v0.0.10、v0.0.9 → v0.0.10 双基线 | ✅ | **20/20**，`UPGRADE_VERIFICATION_v0.0.10.md` |
-| **J 安装/备份行为** | 脚本语法 / SIGPIPE / 损坏备份 / 幂等 | ✅ 10 PASS / 2 SKIP | SKIP 原因已披露，由 CI 覆盖 |
-| **K 真实 Docker 安装** | Linux runner 上 ZIP → 解压 → `./install.sh` → 健康检查 | ⏳ 待 CI | 本机 Docker 不可用 |
-| **L 发行一致性** | 源码/Tag/镜像/ZIP/README/Release 六项 | ✅ 21/21（Tag/镜像/Release 三项待产物存在后复核） | `verify-release-consistency.sh` |
-| **M 安全** | Host Header / CSRF / 重定向 / 依赖扫描 | ⏳ 待 CI | 既有安全套件 |
+| **J 安装/备份行为** | 脚本语法 / SIGPIPE / 损坏备份 / 幂等 | ✅ 10 PASS / 2 SKIP | SKIP 原因已披露，**对应项已由 CI 覆盖并通过** |
+| **K 真实 Docker 安装** | Linux runner 上 ZIP → 解压 → `./install.sh` → 健康检查 | ✅ CI **pass**（`Linux + 真实 Docker 安装`） | PR #34 的 install-verify job |
+| **L 发行一致性** | 源码/Tag/镜像/ZIP/README/Release + 发布事实 | ✅ **30/30**（Tag/镜像/Release 三组在产物存在后自动复核） | `verify-release-consistency.sh` |
+| **M 安全** | Host Header / CSRF / 重定向 / 依赖扫描 | ✅ CI **pass** | `Host Header 攻击矩阵` / 安全套件 |
 | **N 合规（R-01）** | Git 历史中原站素材仍可取回 | ⛔ **阻断（需主人单独授权）** | `RISK_REGISTER.md` / `RISK_DECISION_v0.0.10.md` |
+
+| **O 产物字节** | ZIP 内 7 个 .sh 的 Unix mode / 无 CRLF / 15 项必需文件 / 无凭据 / 无原站素材 | ✅ 全部通过 | `docs/RELEASE_ARTIFACT_v0.0.10.md` |
 
 ## 二、唯一阻断项：N（R-01）
 
@@ -472,3 +474,18 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 ```
 
 **Tag 创建后不移动、不删除、不重建。**
+
+
+## 六、最终状态（2026-11-08）
+
+| 项 | 值 |
+|---|---|
+| 候选 SHA | `23a88cf54abda28b0e677079707c71de52ce269b` |
+| 合并 PR | #34（本体）、#35（CRLF 产物修复） |
+| CI | PR #34：25 pass / 0 fail；PR #35：31 pass / 0 fail（各 1 项 skipping 为本分支不触发的可选诊断） |
+| 候选 ZIP | `v2ex-clone-v0.0.10-deploy.zip`，SHA256 `2d10957fa2bffacccb443ad6a6e879184764a236557865d4025355bec5dbb2cf` |
+| 门禁 | A~O 除 N 外**全部通过**；N（R-01）为唯一阻断 |
+| 未执行 | 创建 Tag、推镜像、建 Release、匿名复验（**均需授权**） |
+
+> 本文件不构成发布批准的替代物。N 组的判定权限在主人，见
+> `docs/RISK_DECISION_v0.0.10.md`。

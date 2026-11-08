@@ -7,10 +7,10 @@
 
 | 项 | 值 |
 |---|---|
-| 工作分支 | `release/v0.0.10` |
+| 工作分支 | `release/v0.0.10` → 已合并为 master |
 | 起点 | `master @ 2b54371`（PR #33 squash 合并后的 master） |
-| 当前 HEAD | 见 `git log --oneline -1`（本文件随每次提交更新说明） |
-| 远端 | 未推送（PR 待创建） |
+| **当前 HEAD（发行候选 SHA）** | **`23a88cf54abda28b0e677079707c71de52ce269b`** |
+| 合并记录 | PR **#34**（本体）+ PR **#35**（CRLF 产物修复），均已 squash 合并 |
 | 旧 Tag | `v0.0.1`~`v0.0.9` **未移动、未删除、未覆盖**（规约：不可逆操作需单独授权） |
 
 ## 二、已完成的模块
@@ -146,12 +146,16 @@ SKIP 的两项如实记录：Windows 的 `rm` 被工作区安全 shim 拦截绝�
 
 | 项 | 状态 |
 |---|---|
-| E2E 全量 | ✅ **220 passed / 0 failed / 0 skipped（8.1m）**; 上一轮 skip 的 5xx 用例已转真实断言 |
-| CI（PR）| 未推送 |
-| 真实 Docker 安装（Linux） | 本机不可用 ⇒ 由 CI ubuntu runner 覆盖 |
-| GHCR 镜像推送 | 未推送（需 Tag + 发布流水线） |
-| 正式 Tag / Release | **未创建**（需先通过全部门禁 + R-01 风险裁决） |
-| 匿名下载复验 | 待 Release 后 |
+| E2E 全量 | ✅ **220 passed / 0 failed / 0 skipped（8.1m）**；上一轮 skip 的 5xx 用例已转真实断言 |
+| CI（PR #34） | ✅ **25 pass / 0 fail**（1 项 skipping = 本分支不触发的可选诊断步骤） |
+| CI（PR #35） | ✅ **31 pass / 0 fail**（同上 1 项 skipping） |
+| 真实 Docker 安装（Linux） | ✅ CI `Linux + 真实 Docker 安装` **pass**（ubuntu runner） |
+| R-16/R-17 九项（含 Redis 中断） | ✅ CI **pass**（该项抓到并验证了 V10-13 的修复） |
+| 三浏览器 E2E 矩阵 | ✅ chromium / firefox / webkit 三引擎全 **pass** |
+| 候选产物 | ✅ `dist/v2ex-clone-v0.0.10-deploy.zip`，SHA256 `2d10957f…`，门禁 30/30 |
+| GHCR 镜像推送 | ⛔ 未推送（需 Tag + 授权） |
+| 正式 Tag / Release | ⛔ **未创建**（R-01 待裁决） |
+| 匿名下载复验 | ⛔ 待 Release 后 |
 
 ## 五、风险与授权边界
 
@@ -166,11 +170,30 @@ SKIP 的两项如实记录：Windows 的 `rm` 被工作区安全 shim 拦截绝�
 **因此本轮停在发布门禁处**：所有普通工程工作、PR、CI、候选包完成；
 正式 Tag / Release 需一次性的授权决策（见 `docs/RISK_DECISION_v0.0.10.md`）。
 
-## 六、下一步（按顺序）
+## 六、下一步（**已停在发布门禁**）
 
-1. 等 E2E 全量结果，修失败项
-2. `git push` → 创建 PR → 等 CI 全绿
-3. 维护 `BUG_REGISTER.md` / `RISK_REGISTER.md` / `RELEASE_GATE.md` 的 v0.0.10 段落
-4. 写 `docs/UPGRADE_VERIFICATION_v0.0.10.md`（升级实测报告）
-5. 写 `docs/RISK_DECISION_v0.0.10.md`（集中提交一次授权决策）
-6. 门禁全绿 + 授权到位 ⇒ 打 Tag → 推镜像 → 建 Pre-release → 匿名复验
+普通工程工作**全部完成**。剩余动作都需要**一次授权**：
+
+1. ~~等 E2E 全量结果~~ ✅
+2. ~~PR + CI 全绿~~ ✅（PR #34 / #35 均已合并）
+3. ~~维护三份登记文档~~ ✅
+4. ~~写升级实测报告~~ ✅ `docs/UPGRADE_VERIFICATION_v0.0.10.md`
+5. ~~写授权请求~~ ✅ `docs/RISK_DECISION_v0.0.10.md`
+6. ⛔ **待授权**：打 annotated Tag `v0.0.10` → 推镜像 → 建 Pre-release → 匿名复验
+
+**为什么停在这里**：`RISK_DECISION_v0.0.9.md` §二第 4 条明确「仅针对 v0.0.9，
+不构成后续版本先例」；任务书 §九 同样重申。R-01 仍为 DEFERRED。
+**未获授权前不创建 Tag、不推镜像、不建 Release。**
+
+## 七、本版本最终产物清单
+
+| 产物 | 位置 / 值 |
+|---|---|
+| 源码 SHA | `23a88cf54abda28b0e677079707c71de52ce269b` |
+| 安装包 | `dist/v2ex-clone-v0.0.10-deploy.zip`（143,345 B） |
+| SHA256 | `2d10957fa2bffacccb443ad6a6e879184764a236557865d4025355bec5dbb2cf` |
+| 产物报告 | `docs/RELEASE_ARTIFACT_v0.0.10.md` |
+| 发布事实（单一事实来源） | `docs/release-facts.json` |
+| 页面审计证据 | `docs/evidence/visual/pages-audit.json` |
+| 四身份证据 | `docs/evidence/visual/roles-audit.json` |
+| 截图索引 | `docs/evidence/screenshots/capture-multi-index.json` |
