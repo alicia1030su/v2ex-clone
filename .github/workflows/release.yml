@@ -786,13 +786,63 @@ jobs:
           GITLEAKS_VERSION=8.18.4
           # 资产名是 linux_x64（不是 linux_amd64 —— 官方用 Go 的 GOARCH 命名）。
           # 写错会得到 404，curl -f 会直接以退出码 22 中止流水线。
-          curl -sSfL --retry 3 --max-time 120 \
-            -o /tmp/gitleaks.tar.gz \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          ASSET="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          SUMS="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          CDN_BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+
+          # ⚠️ v0.0.11：**双通道下载**。
+          #
+          # 实测（2026-11-08）：GitHub Release 的资产 CDN
+          # （`objects.githubusercontent.com`）持续返回 **504**，而
+          # `raw.githubusercontent.com` 与 `api.github.com` 都正常 ——
+          # 是**外部基础设施故障**，不是本仓的问题。
+          #
+          # 但门禁不能因此降级（「下载不到就不扫了」等于取消秘密扫描）。
+          # 因此保留两条通道：
+          #   ① 首选 CDN（快）——网络恢复后自动走这条；
+          #   ② 备选 **API 资产端点**（`api.github.com/.../releases/assets/<id>`
+          #      + `Accept: application/octet-stream`），它走的是不同的后端。
+          #
+          # 两条都失败 ⇒ 仍然 exit 1（fail-closed），绝不跳过扫描。
+          fetch_asset() {
+            local name="$1" out="$2"
+            if curl -sSfL --retry 3 --retry-delay 2 --max-time 120 \
+                 -o "$out" "${CDN_BASE}/${name}" 2>/dev/null; then
+              echo "  ✓ CDN 通道成功：${name}"
+              return 0
+            fi
+            echo "  ⚠ CDN 通道失败（可能是外部 504），改走 API 资产端点：${name}"
+            local id
+            id="$(curl -sSfL --retry 2 --max-time 60 \
+                   "https://api.github.com/repos/gitleaks/gitleaks/releases/tags/v${GITLEAKS_VERSION}" \
+                 | node -e '
+                     let s = "";
+                     process.stdin.on("data", d => (s += d)).on("end", () => {
+                       try {
+                         const r = JSON.parse(s);
+                         const a = (r.assets || []).find(x => x.name === process.argv[1]);
+                         process.stdout.write(a ? String(a.id) : "");
+                       } catch { process.stdout.write(""); }
+                     });
+                   ' "$name")"
+            if [ -z "$id" ]; then
+              echo "::error::API 里找不到资产 ${name} —— 无法校验二进制完整性，中止"
+              return 1
+            fi
+            # API 通道较慢（实测 2.9 MB 在 60s 内只下了约 1 MB）⇒ 给足 300s
+            if curl -sSfL --retry 3 --retry-delay 2 --max-time 300 \
+                 -H 'Accept: application/octet-stream' \
+                 -o "$out" "https://api.github.com/repos/gitleaks/gitleaks/releases/assets/${id}"; then
+              echo "  ✓ API 通道成功：${name}（asset id=${id}）"
+              return 0
+            fi
+            echo "::error::两条下载通道均失败：${name}"
+            return 1
+          }
+
+          fetch_asset "$ASSET" /tmp/gitleaks.tar.gz
           # 校验官方 checksum，防止下载到被篡改的二进制
-          curl -sSfL --retry 3 --max-time 120 \
-            -o /tmp/gitleaks-checksums.txt \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          fetch_asset "$SUMS" /tmp/gitleaks-checksums.txt
           cd /tmp
           # 只校验 linux_x64 那一条（checksums 文件里的路径名与 tar.gz 内一致）
           EXPECTED="$(grep "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks-checksums.txt | awk '{print $1}')"
