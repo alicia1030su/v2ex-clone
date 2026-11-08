@@ -90,6 +90,25 @@ const CARRIERS = [
     verify: (s) => s.includes(`v2ex-clone:${MAJOR}`),
   },
   {
+    /*
+     * ⚠️ v0.0.10：**必须覆盖 `deploy/README.md`**。
+     *
+     * 这个文件的标题行是 `# V2EX Clone vX.Y.Z — 一键部署包`，属于**发布物内**
+     * 的版本载体（打包时随 ZIP 一起发给用户）。此前它从未被本脚本覆盖，
+     * 于是一直停在 `v0.0.9`，直到发布流水线的「包内版本一致性校验（N2）」
+     * 把它抓出来：
+     *   ##[error]README.md 标题首行版本标注不是 v0.0.10：'# V2EX Clone v0.0.9 — 一键部署包'
+     *
+     * 这也说明 N2 检查是有价值的 —— 它比 sync-version 的载体清单更宽，
+     * 能捞到「清单漏项」。但**清单漏项本身也要修**，否则每次发版都靠
+     * 流水线兜底，等于把「同步」这件事交给运气。
+     */
+    file: 'deploy/README.md',
+    label: '部署包 README 标题',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
     file: 'README.md',
     label: 'README 当前版本',
     apply: (s) =>
