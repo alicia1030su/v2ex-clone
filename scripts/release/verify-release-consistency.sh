@@ -249,6 +249,12 @@ if [ -n "$ZIP" ]; then
       #      （这一条 N2 没有，但正是它让 .dockerignore / start.sh / stop.sh
       #       等文件的旧版本号长期无人发现）。
       N2_FAIL=0
+      # ③ 包内 .env.example 的 V2EX_IMAGE（release.yml 的 N2 也查这一项）
+      ENV_IMG="$(sed -n 's/^V2EX_IMAGE=//p' "$D/.env.example" 2>/dev/null | tail -1 | tr -d '\r\n ')"
+      if [ "$ENV_IMG" != "ghcr.io/alicia1030su/v2ex-clone:v${EXPECT}" ]; then
+        echo "  ✗ 包内 .env.example 的 V2EX_IMAGE = '${ENV_IMG}'，应为 :v${EXPECT}"
+        N2_FAIL=1
+      fi
       for doc in README.md INSTALL.md; do
         FIRST="$(head -1 "$D/$doc" 2>/dev/null || true)"
         case "$FIRST" in
@@ -262,7 +268,7 @@ if [ -n "$ZIP" ]; then
         N2_FAIL=1
       fi
       if [ "$N2_FAIL" -eq 0 ]; then
-        ok "N2 等价判据通过（文档首行 + 全部头部注释 = v${EXPECT}）"
+        ok "N2 等价判据通过（V2EX_IMAGE + 文档首行 + 全部头部注释 = v${EXPECT}）"
       else
         bad "N2 等价判据未通过 —— 若发布，会被流水线的 N2 当场拦下"
       fi
