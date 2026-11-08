@@ -95,6 +95,9 @@ on:
       #    而不是等到发布当天再改一次代码（那会改变已固定的发行 SHA）。
       #    R-01 仍需本版本的单独裁决 —— 见 docs/RISK_DECISION_v0.0.10.md。
       - 'v0.0.10'
+      # ⚠️ v0.0.11：v0.0.10 的 Tag 内容有版本载体遗漏（deploy/README.md 写着 v0.0.9），
+      #    被 N2 正确拦截；Tag 不可移动 ⇒ 以 v0.0.11 承载同一份代码。
+      - 'v0.0.11'
   workflow_dispatch:
     inputs:
       version:
