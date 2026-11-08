@@ -22,25 +22,26 @@
 
 ---
 
-## 当前版本：v0.0.10（开发预览版 / Pre-release）
+## 当前版本：v0.0.11（开发预览版 / Pre-release）
 
-> ⚠️ **v0.0.10 尚未公开发布。** 版本载体已同步到 `0.0.10`（7 个载体，
-> `node scripts/release/sync-version.mjs 0.0.10 --verify` 复验通过），
-> 但 **Tag / Release / 镜像尚未创建** —— 公开发布需先通过
-> `scripts/release/verify-release-consistency.sh` 与
-> `RELEASE_GATE.md` 的全部门禁（含 R-01 风险裁决）。
-> 在门禁通过之前，本节的下载链接**不指向 v0.0.10**。
+> **为什么是 v0.0.11 而不是 v0.0.10**：v0.0.10 的 Tag 已创建，但其内容里
+> `deploy/README.md` 的标题仍写着 `v0.0.9`（该文件从未纳入版本同步），
+> 被发布流水线的「包内版本一致性（N2）」正确拦截。而补救路径要求
+> `deploy/` 与 Tag 零差异 ⇒ 修改该文件必然破坏补救前提 ⇒ **二者互斥**。
+> 由于 Tag 不可移动，改以 v0.0.11 承载同一份代码。v0.0.10 的 Tag
+> **从未发布**（无 Release、无安装包），保留但不再使用。
+> 详见 [`docs/RELEASE_BLOCKER_v0.0.10.md`](docs/RELEASE_BLOCKER_v0.0.10.md)。
 
 | 项 | 值 |
 |---|---|
-| 版本号 | `v0.0.10`（**开发预览版 / Pre-release**） |
+| 版本号 | `v0.0.11`（**开发预览版 / Pre-release**） |
 | 发布形态 | **开发预览版（Pre-release）**，不是稳定版 |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.10`（**待发布**） |
+| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.11` |
 | 数据库迁移 | `drizzle/` 下 4 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports`），容器启动时幂等执行 |
 
-> **v0.0.10 是开发预览版。**
+> **v0.0.11 是开发预览版。**
 >
 > - **不保证与 V2EX 完全一致** —— 页面内容、交互细节与原站存在差异
 > - **不具备生产就绪条件** —— 1 小时持续运行已真实通过；**24 小时持续运行尚未完成**
@@ -48,21 +49,22 @@
 > - **不建议用于生产环境** —— 若要使用，请自行评估风险并完成 `deploy/INSTALL.md` 的安全清单
 > - 版本号遵循语义化版本：`0.0.x` 表示接口与行为**仍可能破坏性变更**
 >
-> ### 从旧版本升级到 v0.0.10
+> ### 从旧版本升级到 v0.0.11
 >
 > 两条已实测的升级路径（业务数据指纹逐字节一致，见
-> `docs/UPGRADE_VERIFICATION_v0.0.10.md`）：
+> `docs/UPGRADE_VERIFICATION_v0.0.10.md`，两条路径对 v0.0.11 同样适用）：
 >
-> - **v0.0.4 → v0.0.10**：迁移 3 → 4、索引 76 → 78
-> - **v0.0.9 → v0.0.10**：结构不变（无新增迁移），仅应用二进制更新
+> - **v0.0.4 → v0.0.11**：迁移 3 → 4、索引 76 → 78
+> - **v0.0.9 → v0.0.11**：结构不变（无新增迁移），仅应用二进制更新
 >
-> `./update.sh --version v0.0.10` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
+> `./update.sh --version v0.0.11` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
 > **升级前务必先 `./backup.sh`**。详见 [`deploy/INSTALL.md`](deploy/INSTALL.md) §8。
 
 ### 版本历史
 
 | 版本 | 主要内容 |
 |---|---|
+| **v0.0.11** | **v0.0.10 的正式发行载体**：内容与 v0.0.10 完全一致，仅修复一处**版本载体遗漏** —— `deploy/README.md` 的标题行从未纳入 `sync-version.mjs`，导致 v0.0.10 的 Tag 内容里写着 `v0.0.9`，被发布流水线的 N2「包内版本一致性」正确拦截。v0.0.10 的 Tag 因此**从未发布**（无 Release、无安装包），保留但不再使用 |
 | **v0.0.10** | **安装与备份可靠性 + 页面真实性**：Linux 发布包脚本可执行位（V9-09）与 `backup.sh`/`restore.sh` 的 SIGPIPE 假失败（V9-13）已在**产物层**修复并加门禁；新增双基线真实升级验证（v0.0.4 / v0.0.9 → v0.0.10）；新增发行版真实性门禁（源码/Tag/镜像/ZIP/README/Release 六项一致才允许发布）；新增带登录态的全站页面审计（12 类页面 × 23~29 项断言）；页脚版本号改为构建期注入、最高在线改为真实记录；顶栏阴影带由 118px 修正为原站实测的 30px |
 | **v0.0.9** | **视觉真实性整改**：修复「README 截图无样式」事故的根因（截图工具假成功机制）；新增页面健康门禁 + 5 个负向测试；修复 7 项真实版式/资源缺陷（回复操作按钮被裁切、主题页缺右栏、`/xna` 空档、5 个 RSS 死链、回复数徽章白字从未生效、tab 无选中态、整页被渐变压暗）；「最热」tab 长期 500 修复；候选离线安装链路与可观测性修复 |
 | **v0.0.4** | 修复 11 项真实缺陷（含 3 项本轮新发现：`docker-verify.yml` 定义级失败 / 迁移物路径断言错误 / 运行时上传数据误入仓）；3 项性能优化；真实社区规模压测；升级脚本自动同步镜像 tag；发布前只读门禁 |
@@ -148,7 +150,7 @@
 
 ### 仍未实现（本版本**完全未实现**）
 
-> 以下能力在 v0.0.10 中**没有实现**。
+> 以下能力在 v0.0.11 中**没有实现**。
 > 项目**不提供**任何形式的假实现 —— 没有占位按钮、没有假接口、没有静态演示数据冒充。
 > 若你在页面上看到一个不工作的按钮，那是因为**功能没做**，而不是「点了没反应」。
 
@@ -216,18 +218,18 @@
 
 ### 方式 A：一键安装包（推荐）
 
-> ⚠️ **v0.0.10 的安装包尚未发布。** 下面的命令描述的是**发布后**的用法；
+> ⚠️ **v0.0.11 的安装包尚未发布。** 下面的命令描述的是**发布后**的用法；
 > 在 Release 出现之前，请用「方式 B」或从源码构建。
 > 已发布的 **v0.0.9** 安装包存在两处已确认缺陷（V9-09 脚本缺可执行位、
 > V9-13 `backup.sh` 的 SIGPIPE 假失败会删掉正常备份），修复只存在于源码，
-> 已发布资产按「不得覆盖已有 Release」的规约保持原样。**建议直接用 v0.0.10。**
+> 已发布资产按「不得覆盖已有 Release」的规约保持原样。**建议直接用 v0.0.11。**
 
-下载 `v2ex-clone-v0.0.10-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.11-deploy.zip` 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.10-deploy.zip -d v2ex-clone-v0.0.10-deploy && cd v2ex-clone-v0.0.10-deploy/deploy`
+> `unzip v2ex-clone-v0.0.11-deploy.zip -d v2ex-clone-v0.0.11-deploy && cd v2ex-clone-v0.0.11-deploy/deploy`
 >
-> ✅ v0.0.10 的安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
+> ✅ v0.0.11 的安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
 > **不需要**先 `chmod +x`。若你下载到的包需要 chmod，说明产物不对，请报告。
 
@@ -286,10 +288,10 @@ docker compose up -d
 
 | 内容 | 位置 |
 |---|---|
-| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases>（v0.0.10 **待发布**） |
-| 一键部署安装包（v0.0.10） | `v2ex-clone-v0.0.10-deploy.zip`（**待发布**） |
+| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases>（v0.0.11 **待发布**） |
+| 一键部署安装包（v0.0.11） | `v2ex-clone-v0.0.11-deploy.zip`（**待发布**） |
 | 最近已发布版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9> |
-| 容器镜像（v0.0.10） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.10`（**待发布**） |
+| 容器镜像（v0.0.11） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.11` |
 | 容器镜像（v0.0.9） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.9` |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
@@ -357,7 +359,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > **口径原则**：只写**能复现的实测数字**。取数命令写在旁边，任何人都能一条命令复核；
 > 静态 grep 不算口径（部分 spec 用嵌套 for 生成用例），**必须取 Vitest 运行时的 `numTotalTests`**。
 
-| 套件 | 用例数 | 命令 | v0.0.10 实测 |
+| 套件 | 用例数 | 命令 | v0.0.11 实测 |
 |---|---|---|---|
 | 单元测试（vitest） | **444**（36 个 spec 文件） | `npm run test:unit` | **444 passed / 0 failed / 0 skipped**，**36/36 文件全绿**（2026-11-08，本机隔离实例） |
 | E2E（Playwright） | **220**（20 个 spec 文件） | `npm run test:e2e` | **220 passed / 0 failed / 0 skipped**（8.1m，本机 `next start` + 独立库） |
@@ -369,7 +371,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **历史数字会过期，因此本文不再罗列历史轮次**。曾出现过的「单元 103 / E2E 67」
-> （v0.0.1~v0.0.3）、「190 / 194」（v0.0.4）都是当时口径；v0.0.10 的基线见上表。
+> （v0.0.1~v0.0.3）、「190 / 194」（v0.0.4）都是当时口径；v0.0.11 的基线见上表。
 > 需要追溯时看 `docs/evidence/ci/test-baseline-*.md`，不要从本表推。
 
 > `scripts/verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），
