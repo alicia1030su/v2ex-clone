@@ -1,5 +1,5 @@
 ﻿# ---------------------------------------------------------------------------
-# V2EX Clone v0.0.11 — 一键安装脚本（Windows PowerShell）
+# V2EX Clone v0.0.12 — 一键安装脚本（Windows PowerShell）
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -21,8 +21,8 @@ Set-StrictMode -Version Latest
 
 # --- 常量 ------------------------------------------------------------------
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
-$AppVersion     = '0.0.11'
-$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.11'
+$AppVersion     = '0.0.12'
+$DefaultImage   = 'ghcr.io/alicia1030su/v2ex-clone:v0.0.12'
 # 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
 # 之前硬编码写回 DefaultImage，会**静默忽略**调用方的取值。
 $ImageOverride  = $env:V2EX_IMAGE
