@@ -171,9 +171,19 @@ const COMPONENTS = [
   { group: '排版', key: 'body_color', label: '正文颜色', selector: 'body', prop: 'color' },
   { group: '排版', key: 'body_bg', label: '页面背景', selector: 'body', prop: 'backgroundColor' },
   { group: '排版', key: 'link_color', label: '链接颜色', selector: 'a', prop: 'color' },
-  { group: '排版', key: 'gray', label: '次要信息颜色', selector: '.gray, .fade', prop: 'color' },
+  /*
+   * ⚠️ v0.0.9：**必须优先在 `#Main` 里取**。
+   *
+   * `querySelector` 取文档序第一个。主题页原先**没有右栏**（那是 bug），
+   * 于是 `img.avatar` / `.gray` 命中的都是主栏元素；补上右栏之后，
+   * 右栏的热议主题头像（24px）与 `.fade` 排在更前面 ⇒ 测到的目标
+   * 从「主题作者头像 73px」变成「右栏头像 24px」，报出 73→24 的假回归。
+   * 这里用 `scope: '#Main'` 显式限定在主栏里取（找不到再回退全文，
+   * 保证单栏页仍有值）。
+   */
+  { group: '排版', key: 'gray', label: '次要信息颜色', scope: '#Main', selector: '.gray, .fade', prop: 'color' },
 
-  { group: '组件', key: 'avatar', label: '头像', selector: 'img.avatar' },
+  { group: '组件', key: 'avatar', label: '头像', scope: '#Main', selector: 'img.avatar' },
   { group: '组件', key: 'box_border', label: '盒子边框', selector: '.box', prop: 'border' },
   { group: '组件', key: 'box_bg', label: '盒子背景', selector: '.box', prop: 'backgroundColor' },
   { group: '组件', key: 'cell_pad', label: '单元格内边距', selector: '.cell', prop: 'padding' },
@@ -198,7 +208,24 @@ async function measure(page, comps) {
     const bodyW = document.body ? document.body.clientWidth : cw;
     const scrollbarW = Math.max(0, cw - bodyW);
     for (const c of list) {
-      const el = document.querySelector(c.selector);
+      /*
+       * v0.0.9：`scope` 表示「**优先**在这个容器**内部**找」。
+       *
+       * ⚠️ 两种直觉写法都是错的，实测都踩过：
+       *   ① `querySelector('#Main img.avatar, img.avatar')` —— 选择器**列表**
+       *      按文档序返回第一个匹配，右栏在 DOM 里排在主栏之前 ⇒ 照样命中
+       *      右栏的 24px 头像（实测 `inMain=false`）。
+       *   ② `querySelector(`${scope} ${selector}`)` —— 当 selector 本身是
+       *      列表（`.gray, .fade`）时拼成 `#Main .gray, .fade`，scope **只
+       *      约束了第一项**，第二项仍然是全文档匹配（实测又命中右栏的 .fade）。
+       * 正确写法：**先在 scope 元素内部 querySelector，再全局回退**。
+       */
+      let el = null;
+      if (c.scope) {
+        const root = document.querySelector(c.scope);
+        if (root) el = root.querySelector(c.selector);
+      }
+      if (!el) el = document.querySelector(c.selector);
       if (c.prop === '__scrollWidth') {
         out[c.key] = { scrollWidth: sw, clientWidth: cw, overflow: sw - cw };
         continue;
