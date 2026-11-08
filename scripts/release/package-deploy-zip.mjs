@@ -54,31 +54,12 @@ const get = (n, d = null) => {
 };
 
 const ROOT = path.resolve(get('root', process.cwd()));
-const RAW_VERSION = get('version');
+const VERSION = get('version');
 const OUT_DIR = path.resolve(get('out', path.join(ROOT, 'dist')));
 const SRC_DIR = get('src', 'deploy');
 
-if (!RAW_VERSION) {
+if (!VERSION) {
   console.error('✗ 缺少 --version');
-  process.exit(2);
-}
-
-/*
- * ⚠️ v0.0.10：`--version` 必须同时接受 `0.0.10` 与 `v0.0.10`。
- *
- * 真实事故（发布流水线首次运行即失败）：
- *   `release.yml` 传的是 `v0.0.10`（GitHub Tag 的写法），
- *   而本脚本原来直接拿它跟 `deploy/VERSION` 的内容（`0.0.10`，不带 v）比较
- *   ⇒ `✗ 包内 VERSION=0.0.10，期望 v0.0.10` ⇒ 打包失败。
- *
- * 本地我用的是 `--version 0.0.10`，所以本地一直是绿的 —— 典型的
- * 「参数契约没在两端对齐」。现在统一：`VER` 是不带 v 的语义版本，
- * `TAG` 是带 v 的形式，两者都由同一处派生，不再各算各的。
- */
-const VERSION = RAW_VERSION.replace(/^v/, '');
-const TAG = `v${VERSION}`;
-if (!/^\d+\.\d+\.\d+$/.test(VERSION)) {
-  console.error(`✗ 版本号格式非法：${RAW_VERSION}（应形如 0.0.10 或 v0.0.10）`);
   process.exit(2);
 }
 
@@ -274,7 +255,7 @@ function main() {
     process.exit(1);
   }
 
-  const zipName = `v2ex-clone-${TAG}-deploy.zip`;
+  const zipName = `v2ex-clone-v${VERSION}-deploy.zip`;
   const zipPath = path.join(OUT_DIR, zipName);
 
   writeFileSync(zipPath, buildZip(entries));
