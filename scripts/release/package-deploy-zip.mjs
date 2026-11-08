@@ -203,15 +203,49 @@ function main() {
 
   mkdirSync(OUT_DIR, { recursive: true });
   const files = walk(srcAbs, SRC_DIR);
+
+  /*
+   * ⚠️ v0.0.10：**必须归一化换行为 LF**。
+   *
+   * 本机 Windows 的 `core.autocrlf=true` 会把工作区的 `.sh` / `.yml` / `.md`
+   * 检出成 CRLF。`zip` 原样打进去 ⇒ Linux 上执行 `./install.sh` 报
+   *   /usr/bin/env: 'bash\r': No such file or directory
+   * 这是**本机构建**才会有的问题：CI 的 ubuntu runner 检出即 LF，
+   * 所以「本地包坏、CI 包好」，最容易被忽略。
+   *
+   * 归一化是安全的：这些文件的**权威内容在 Git 里就是 LF**
+   * （`git ls-files` 的 blob 不含 CR），CRLF 纯属本地检出产物。
+   * 因此这里把 CRLF→LF 不改变任何语义，只是恢复权威字节。
+   *
+   * 二进制文件（png/jpg 等）不动 —— 用扩展名白名单限定范围。
+   */
+  /*
+   * 用**二进制黑名单**而不是文本白名单。
+   *
+   * 白名单会漏掉没有扩展名的文本文件（实测：`deploy/LICENSE` 就是这种情况，
+   * 它没被归一化，包里仍带 CRLF）。黑名单更安全 —— 只有明确是二进制的
+   * 才跳过，其余一律当文本处理。
+   */
+  const BINARY_EXT = /\.(png|jpe?g|gif|webp|ico|bmp|woff2?|ttf|otf|eot|zip|gz|tar|pdf|mp4|webm)$/i;
+  let normalized = 0;
+
   const entries = files.map((f) => {
     const isShell = f.rel.endsWith('.sh');
+    let data = readFileSync(f.abs);
+    if (!BINARY_EXT.test(f.rel) && data.includes(Buffer.from('\r\n'))) {
+      data = Buffer.from(data.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+      normalized += 1;
+    }
     return {
       name: f.rel,
-      data: readFileSync(f.abs),
+      data,
       // 目录不加条目（解压器会自动创建）；文件模式：脚本 0755，其余 0644
       mode: isShell ? 0o100755 : 0o100644,
     };
   });
+  if (normalized > 0) {
+    console.log(`  [info] 已把 ${normalized} 个文件的 CRLF 归一化为 LF（本机 core.autocrlf=true 的产物，非源缺陷）`);
+  }
 
   // ── 前置断言：必需文件齐全 ──
   const present = new Set(entries.map((e) => path.posix.basename(e.name)));
@@ -314,6 +348,25 @@ function main() {
       process.exit(1);
     }
     console.log(`✓ 包内版本载体一致（VERSION / docker-compose.yml / install.sh = ${VERSION})`);
+
+    /*
+     * ⚠️ 包内**不得**含 CRLF。
+     *
+     * 不只是 `.sh`：`.yml` 里的 `command: sh -c "...` 若带 CR，容器启动会
+     * 报 `\r: not found`；`.md` 带 CR 会让 `grep` 的锚点匹配失效。
+     * 因此对**全部文本文件**断言，二进制按黑名单跳过。
+     */
+    const crlf = [];
+    for (const name of readdirSync(exDir)) {
+      const full = path.join(exDir, name);
+      if (BINARY_EXT.test(name)) continue;
+      if (readFileSync(full).includes(Buffer.from('\r\n'))) crlf.push(name);
+    }
+    if (crlf.length) {
+      console.error(`✗ 包内含 CRLF（Linux 上脚本/容器会失败）：${crlf.join(', ')}`);
+      process.exit(1);
+    }
+    console.log('✓ 包内全部文本文件均为 LF 换行');
 
     const leaked = walk(tmp2, '').filter(
       (f) =>
