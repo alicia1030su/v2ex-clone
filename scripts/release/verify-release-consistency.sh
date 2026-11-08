@@ -319,6 +319,70 @@ else
   info "README 存在历史版本链接（可能是有意的版本历史）：${STALE_TAG}"
 fi
 
+# ── ⑦ 发布事实一致性（docs/release-facts.json 是单一事实来源）────────
+printf '\n%s⑦ 发布事实与文档口径%s\n' "$C_BLD" "$C_RST"
+FACTS="docs/release-facts.json"
+if [ ! -f "$FACTS" ]; then
+  bad "缺少 ${FACTS}（发布事实的单一事实来源）"
+else
+  # 用 node 读 JSON，避免 shell 解析 JSON 的脆弱性
+  read -r F_VER F_UNIT F_E2E F_UPG F_PAGES F_ROLES <<EOF
+$(node -e "
+  const f=require('./${FACTS}');
+  console.log([f.version, f.unit.tests, f.e2e.tests, f.upgrade.businessFingerprintItems, f.visual.pages, f.roles.steps].join(' '));
+")
+EOF
+
+  [ "$F_VER" = "$EXPECT" ] && ok "release-facts.json 的 version = ${F_VER}" \
+    || bad "release-facts.json 的 version = ${F_VER}，期望 ${EXPECT}"
+
+  # README 的测试表必须与事实一致（防止「文档写 194、实际 440」这类过期）
+  if grep -q "\*\*${F_UNIT}\*\*（" README.md; then
+    ok "README 单元测试数与本版本事实一致（${F_UNIT}）"
+  else
+    bad "README 未出现单元测试数 ${F_UNIT}（与 release-facts.json 不一致）"
+  fi
+  if grep -q "\*\*${F_E2E}\*\*（" README.md; then
+    ok "README E2E 数与本版本事实一致（${F_E2E}）"
+  else
+    bad "README 未出现 E2E 数 ${F_E2E}（与 release-facts.json 不一致）"
+  fi
+
+  # Release Notes 模板里的数字必须与事实一致
+  if [ -f .github/workflows/release.yml ]; then
+    NOTES_UNIT="$(grep -oE '\| 单元测试 \| ✅ 通过 \| [0-9]+/[0-9]+' .github/workflows/release.yml | grep -oE '[0-9]+/[0-9]+' | head -1)"
+    NOTES_E2E="$(grep -oE '\| E2E \| ✅ 通过 \| [0-9]+/[0-9]+' .github/workflows/release.yml | grep -oE '[0-9]+/[0-9]+' | head -1)"
+    [ "$NOTES_UNIT" = "${F_UNIT}/${F_UNIT}" ] \
+      && ok "Release Notes 的单元测试数 = ${NOTES_UNIT}" \
+      || bad "Release Notes 的单元测试数 = '${NOTES_UNIT}'，期望 ${F_UNIT}/${F_UNIT}"
+    [ "$NOTES_E2E" = "${F_E2E}/${F_E2E}" ] \
+      && ok "Release Notes 的 E2E 数 = ${NOTES_E2E}" \
+      || bad "Release Notes 的 E2E 数 = '${NOTES_E2E}'，期望 ${F_E2E}/${F_E2E}"
+
+    # 反向断言：不得残留历史事故里的「60 项数据指纹」（V9-11）
+    if grep -q '60 项数据指纹' .github/workflows/release.yml; then
+      bad "Release Notes 仍残留 V9-11 的错误口径「60 项数据指纹」"
+    else
+      ok "Release Notes 无 V9-11 的错误口径（60 项）"
+    fi
+  fi
+
+  # 升级报告里的业务指纹项数必须与事实一致
+  if [ -f docs/UPGRADE_VERIFICATION_v0.0.10.md ]; then
+    grep -q "${F_UPG} 项" docs/UPGRADE_VERIFICATION_v0.0.10.md \
+      && ok "升级报告的业务指纹项数 = ${F_UPG}" \
+      || bad "升级报告未出现「${F_UPG} 项」"
+  fi
+
+  # 视觉/四身份报告同样核对
+  [ -f docs/evidence/visual/pages-audit.json ] \
+    && ok "页面审计证据存在（${F_PAGES} 类页面）" \
+    || bad "缺少页面审计证据"
+  [ -f docs/evidence/visual/roles-audit.json ] \
+    && ok "四身份证据存在（${F_ROLES} 步）" \
+    || bad "缺少四身份证据"
+fi
+
 # ── ⑥ Release 说明 ────────────────────────────────────────────────────
 if [ "$CHECK_RELEASE" = "1" ]; then
   printf '\n%s⑥ Release 说明%s\n' "$C_BLD" "$C_RST"

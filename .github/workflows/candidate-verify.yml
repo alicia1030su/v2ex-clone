@@ -66,7 +66,21 @@ jobs:
     timeout-minutes: 40
     env:
       NODE_VERSION: '22.23.4'
-      CANDIDATE_VERSION: 'v0.0.9'
+      # ⚠️ v0.0.10：**不要**在这里写死版本号。
+      #
+      # 写死 `v0.0.9` 的后果：版本载体同步到 0.0.10 之后，这条工作流会在
+      # 「校验源码锚点」当场失败 ——
+      #   [错误] deploy/VERSION 为 0.0.10，与目标版本 0.0.9 不一致
+      # 而失败信息给的建议（`sync-version.mjs 0.0.9`）是**反向**的，
+      # 跟上来会把人往错的方向带（把当前版本改回旧版本）。
+      #
+      # 正确做法：从**源码载体**读版本（`deploy/VERSION` 是发布物的单一事实来源），
+      # 并断言它与 `package.json` 一致 —— 若两者不一致，这条工作流本来就应该红，
+      # 但红的原因应当是「版本载体不同步」，而不是「工作流里写死了一个旧版本号」。
+      # 使用方（本文件后续的断言）按 `${CANDIDATE_VERSION}` 拼文件名，
+      # 因此版本在「读取版本载体」步骤里通过 `GITHUB_ENV` 注入，
+      # 后续所有步骤自动可见。
+      # ⚠️ 不能写在 job 级 `env:` 里 —— 那里引用 `steps.*` 求值时尚无 steps。
 
     steps:
       - uses: actions/checkout@v7
@@ -74,6 +88,21 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           # ⚠️ 必须带上**完整历史** —— 构建脚本要核对 HEAD == --sha
           fetch-depth: 0
+
+      - name: 读取版本载体（唯一事实来源）
+        run: |
+          set -euo pipefail
+          V="$(tr -d ' \r\n' < deploy/VERSION)"
+          P="$(node -e "process.stdout.write(require('./package.json').version)")"
+          echo "  deploy/VERSION = $V"
+          echo "  package.json   = $P"
+          if [ "$V" != "$P" ]; then
+            echo "::error::版本载体不同步：deploy/VERSION=$V 但 package.json=$P"
+            echo "  修复：node scripts/release/sync-version.mjs $P"
+            exit 1
+          fi
+          echo "CANDIDATE_VERSION=v$V" >> "$GITHUB_ENV"
+          echo "✓ 版本载体一致：v$V"
 
       - name: 环境信息
         run: |
