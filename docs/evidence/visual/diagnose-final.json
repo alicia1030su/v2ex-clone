@@ -1,0 +1,3217 @@
+{
+  "base": "http://127.0.0.1:3210",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "proxy": null,
+  "results": [
+    {
+      "label": "home",
+      "path": "/",
+      "url": "http://127.0.0.1:3210/",
+      "ok": true,
+      "screenshot": "docs\\evidence\\visual\\health\\home.png",
+      "navigationError": null,
+      "checks": [
+        {
+          "id": "document.status",
+          "label": "HTML 页面响应 2xx/3xx",
+          "ok": true,
+          "detail": "HTTP 200",
+          "severity": "blocker"
+        },
+        {
+          "id": "navigation.url",
+          "label": "最终 URL 与预期路由一致",
+          "ok": true,
+          "detail": "期望 /，实际 /（完整 http://127.0.0.1:3210/）",
+          "severity": "blocker"
+        },
+        {
+          "id": "css.requests",
+          "label": "样式表请求全部成功",
+          "ok": true,
+          "detail": "共 1 个，成功 1 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.requests",
+          "label": "脚本请求全部成功",
+          "ok": true,
+          "detail": "共 6 个，成功 6 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "static.noFailures",
+          "label": "/_next/static/ 无失败请求",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "blocker"
+        },
+        {
+          "id": "resources.noFailures",
+          "label": "其他资源无失败/4xx/5xx",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "major"
+        },
+        {
+          "id": "css.parsed",
+          "label": "样式表已解析出规则",
+          "ok": true,
+          "detail": "styleSheets 1 个，含规则 1 个，link 未挂载 0 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.noPageErrors",
+          "label": "无未捕获脚本异常",
+          "ok": true,
+          "detail": "无",
+          "severity": "blocker"
+        },
+        {
+          "id": "console.noErrors",
+          "label": "控制台无 error 级日志",
+          "ok": true,
+          "detail": "无",
+          "severity": "major"
+        },
+        {
+          "id": "browser.alive",
+          "label": "浏览器未崩溃",
+          "ok": true,
+          "detail": "ok",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.wrapperBg",
+          "label": "#Wrapper 灰色背景",
+          "ok": true,
+          "detail": "期望 rgb(226, 226, 226)，实际 rgb(226, 226, 226)",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.bodyFont",
+          "label": "body 使用站点字体与字号",
+          "ok": true,
+          "detail": "font-family=\"\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\"，font-size=14px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.boxCard",
+          "label": ".box 为白卡（白底 + 阴影 + 圆角）",
+          "ok": true,
+          "detail": "bg=rgb(255, 255, 255), shadow=rgba(0, 0, 0, 0.1) 0px 2px 3px 0px, radius=3px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.noUaLinks",
+          "label": "无浏览器默认蓝色链接（CSS 生效的直接证据）",
+          "ok": true,
+          "detail": "默认蓝链接 0/131 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.centered",
+          "label": "内容区居中且宽度受约束",
+          "ok": true,
+          "detail": "x=90, width=1100, 右侧留白=90",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.twoColumn",
+          "label": "主栏与右栏形成桌面双栏",
+          "ok": true,
+          "detail": "#Main x=110 w=770 right=880；#Rightbar x=900 w=270（要求 #Main.right ≤ #Rightbar.x，右栏宽 270px）",
+          "severity": "blocker"
+        },
+        {
+          "id": "layout.noHorizontalOverflow",
+          "label": "无横向溢出",
+          "ok": true,
+          "detail": "scrollWidth - innerWidth = 0px",
+          "severity": "blocker"
+        },
+        {
+          "id": "images.allLoaded",
+          "label": "页面图片全部加载成功",
+          "ok": true,
+          "detail": "共 20 张，全部成功",
+          "severity": "blocker"
+        },
+        {
+          "id": "stability.networkIdle",
+          "label": "网络已静默",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.fontsReady",
+          "label": "字体已就绪",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.layoutStable",
+          "label": "布局连续采样一致",
+          "ok": true,
+          "detail": "第 2 次采样稳定",
+          "severity": "blocker"
+        }
+      ],
+      "evidence": {
+        "url": "http://127.0.0.1:3210/",
+        "title": "V2EX",
+        "counts": {
+          "links": 131,
+          "uaLinks": 0,
+          "underlinedLinks": 0,
+          "styleSheets": 1,
+          "images": 20,
+          "topicLinks": 10
+        },
+        "bodyFont": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+        "wrappers": {
+          "top": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 45,
+            "right": 1280,
+            "bottom": 45,
+            "visible": true
+          },
+          "wrapper": {
+            "x": 0,
+            "y": 45,
+            "width": 1280,
+            "height": 838,
+            "right": 1280,
+            "bottom": 883,
+            "visible": true
+          },
+          "content": {
+            "x": 90,
+            "y": 45,
+            "width": 1100,
+            "height": 838,
+            "right": 1190,
+            "bottom": 883,
+            "visible": true
+          },
+          "main": {
+            "x": 110,
+            "y": 45,
+            "width": 770,
+            "height": 818,
+            "right": 880,
+            "bottom": 863,
+            "visible": true
+          },
+          "rightbar": {
+            "x": 900,
+            "y": 45,
+            "width": 270,
+            "height": 1188,
+            "right": 1170,
+            "bottom": 1233,
+            "visible": true
+          },
+          "firstBox": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "right": 0,
+            "bottom": 0,
+            "visible": false
+          }
+        },
+        "styles": {
+          "wrapper": {
+            "background-color": "rgb(226, 226, 226)",
+            "background-image": "linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0))"
+          },
+          "main": {
+            "margin-left": "20px",
+            "margin-right": "310px",
+            "width": "770px",
+            "float": "none"
+          },
+          "rightbar": {
+            "width": "270px",
+            "float": "right",
+            "margin-right": "20px"
+          },
+          "box": {
+            "background-color": "rgb(255, 255, 255)",
+            "box-shadow": "rgba(0, 0, 0, 0.1) 0px 2px 3px 0px",
+            "border-radius": "3px",
+            "border-bottom-width": "1px"
+          },
+          "body": {
+            "font-family": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+            "font-size": "14px",
+            "background-color": "rgb(255, 255, 255)",
+            "color": "rgb(0, 0, 0)"
+          },
+          "top": {
+            "background-color": "rgb(255, 255, 255)",
+            "min-height": "45px",
+            "border-bottom-width": "1px"
+          }
+        },
+        "firstTopic": {
+          "text": "有没有 claude 至今没跳 kyc 没封的 V 友，来讲讲做法？",
+          "color": "rgb(0, 0, 0)",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "textDecoration": "none"
+        },
+        "horizontalOverflow": 0,
+        "styleSheets": [
+          {
+            "href": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css",
+            "ownerTag": "LINK",
+            "media": "",
+            "disabled": false,
+            "ruleCount": 190,
+            "error": null
+          }
+        ],
+        "brokenImages": []
+      },
+      "network": {
+        "responses": 53,
+        "failures": [
+          {
+            "url": "http://127.0.0.1:3210/signin?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/signup?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/ginger?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/10?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/7?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/2?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/sparrow?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/5?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/8?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/1?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/create?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/programmer?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/ev?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/hardware?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/games?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/energy?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/city?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/qna?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/deals?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/play?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/xna?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/idev?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/localllm?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/cloud?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/python?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/bb?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=1p-R_iEY6bj0jY31",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/bb?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/cloud?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/energy?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/ev?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/gaming?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/hardware?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/idev?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/localllm?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/programmer?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/python?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/tech?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/create?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/games?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/play?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/design?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/deals?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/city?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/qna?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/jobs?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/10?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/ginger?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/7?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/2?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/sparrow?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/8?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/5?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/signin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          }
+        ],
+        "css": [
+          {
+            "status": 200,
+            "url": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css"
+          }
+        ],
+        "jsCount": 6,
+        "jsFailed": 0,
+        "staticFailed": 0,
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "stability": {
+        "networkIdle": true,
+        "fontsReady": true,
+        "layoutStable": true,
+        "samples": 2
+      }
+    },
+    {
+      "label": "nodes_all",
+      "path": "/nodes",
+      "url": "http://127.0.0.1:3210/nodes",
+      "ok": true,
+      "screenshot": "docs\\evidence\\visual\\health\\nodes_all.png",
+      "navigationError": null,
+      "checks": [
+        {
+          "id": "document.status",
+          "label": "HTML 页面响应 2xx/3xx",
+          "ok": true,
+          "detail": "HTTP 200",
+          "severity": "blocker"
+        },
+        {
+          "id": "navigation.url",
+          "label": "最终 URL 与预期路由一致",
+          "ok": true,
+          "detail": "期望 /nodes，实际 /nodes（完整 http://127.0.0.1:3210/nodes）",
+          "severity": "blocker"
+        },
+        {
+          "id": "css.requests",
+          "label": "样式表请求全部成功",
+          "ok": true,
+          "detail": "共 1 个，成功 1 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.requests",
+          "label": "脚本请求全部成功",
+          "ok": true,
+          "detail": "共 6 个，成功 6 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "static.noFailures",
+          "label": "/_next/static/ 无失败请求",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "blocker"
+        },
+        {
+          "id": "resources.noFailures",
+          "label": "其他资源无失败/4xx/5xx",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "major"
+        },
+        {
+          "id": "css.parsed",
+          "label": "样式表已解析出规则",
+          "ok": true,
+          "detail": "styleSheets 1 个，含规则 1 个，link 未挂载 0 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.noPageErrors",
+          "label": "无未捕获脚本异常",
+          "ok": true,
+          "detail": "无",
+          "severity": "blocker"
+        },
+        {
+          "id": "console.noErrors",
+          "label": "控制台无 error 级日志",
+          "ok": true,
+          "detail": "无",
+          "severity": "major"
+        },
+        {
+          "id": "browser.alive",
+          "label": "浏览器未崩溃",
+          "ok": true,
+          "detail": "ok",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.wrapperBg",
+          "label": "#Wrapper 灰色背景",
+          "ok": true,
+          "detail": "期望 rgb(226, 226, 226)，实际 rgb(226, 226, 226)",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.bodyFont",
+          "label": "body 使用站点字体与字号",
+          "ok": true,
+          "detail": "font-family=\"\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\"，font-size=14px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.boxCard",
+          "label": ".box 为白卡（白底 + 阴影 + 圆角）",
+          "ok": true,
+          "detail": "bg=rgb(255, 255, 255), shadow=rgba(0, 0, 0, 0.1) 0px 2px 3px 0px, radius=3px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.noUaLinks",
+          "label": "无浏览器默认蓝色链接（CSS 生效的直接证据）",
+          "ok": true,
+          "detail": "默认蓝链接 0/34 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.centered",
+          "label": "内容区居中且宽度受约束",
+          "ok": true,
+          "detail": "x=90, width=1100, 右侧留白=90",
+          "severity": "blocker"
+        },
+        {
+          "id": "layout.noHorizontalOverflow",
+          "label": "无横向溢出",
+          "ok": true,
+          "detail": "scrollWidth - innerWidth = 0px",
+          "severity": "blocker"
+        },
+        {
+          "id": "images.allLoaded",
+          "label": "页面图片全部加载成功",
+          "ok": true,
+          "detail": "共 0 张，全部成功",
+          "severity": "blocker"
+        },
+        {
+          "id": "stability.networkIdle",
+          "label": "网络已静默",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.fontsReady",
+          "label": "字体已就绪",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.layoutStable",
+          "label": "布局连续采样一致",
+          "ok": true,
+          "detail": "第 2 次采样稳定",
+          "severity": "blocker"
+        }
+      ],
+      "evidence": {
+        "url": "http://127.0.0.1:3210/nodes",
+        "title": "V2EX",
+        "counts": {
+          "links": 34,
+          "uaLinks": 0,
+          "underlinedLinks": 0,
+          "styleSheets": 1,
+          "images": 0,
+          "topicLinks": 0
+        },
+        "bodyFont": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+        "wrappers": {
+          "top": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 45,
+            "right": 1280,
+            "bottom": 45,
+            "visible": true
+          },
+          "wrapper": {
+            "x": 0,
+            "y": 45,
+            "width": 1280,
+            "height": 1003,
+            "right": 1280,
+            "bottom": 1048,
+            "visible": true
+          },
+          "content": {
+            "x": 90,
+            "y": 45,
+            "width": 1100,
+            "height": 1003,
+            "right": 1190,
+            "bottom": 1048,
+            "visible": true
+          },
+          "main": {
+            "x": 110,
+            "y": 45,
+            "width": 770,
+            "height": 983,
+            "right": 880,
+            "bottom": 1028,
+            "visible": true
+          },
+          "rightbar": {
+            "x": 900,
+            "y": 45,
+            "width": 270,
+            "height": 88,
+            "right": 1170,
+            "bottom": 133,
+            "visible": true
+          },
+          "firstBox": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "right": 0,
+            "bottom": 0,
+            "visible": false
+          }
+        },
+        "styles": {
+          "wrapper": {
+            "background-color": "rgb(226, 226, 226)",
+            "background-image": "linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0))"
+          },
+          "main": {
+            "margin-left": "20px",
+            "margin-right": "310px",
+            "width": "770px",
+            "float": "none"
+          },
+          "rightbar": {
+            "width": "270px",
+            "float": "right",
+            "margin-right": "20px"
+          },
+          "box": {
+            "background-color": "rgb(255, 255, 255)",
+            "box-shadow": "rgba(0, 0, 0, 0.1) 0px 2px 3px 0px",
+            "border-radius": "3px",
+            "border-bottom-width": "1px"
+          },
+          "body": {
+            "font-family": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+            "font-size": "14px",
+            "background-color": "rgb(255, 255, 255)",
+            "color": "rgb(0, 0, 0)"
+          },
+          "top": {
+            "background-color": "rgb(255, 255, 255)",
+            "min-height": "45px",
+            "border-bottom-width": "1px"
+          }
+        },
+        "firstTopic": null,
+        "horizontalOverflow": 0,
+        "styleSheets": [
+          {
+            "href": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css",
+            "ownerTag": "LINK",
+            "media": "",
+            "disabled": false,
+            "ruleCount": 190,
+            "error": null
+          }
+        ],
+        "brokenImages": []
+      },
+      "network": {
+        "responses": 35,
+        "failures": [
+          {
+            "url": "http://127.0.0.1:3210/go/bb?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/cloud?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/energy?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/ev?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/gaming?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/hardware?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/idev?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/localllm?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/programmer?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/python?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/tech?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/create?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/games?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/play?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/design?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/deals?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/city?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/qna?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/jobs?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=CLn1tIdBizP-vLHk",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/10?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/ginger?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/7?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/2?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/sparrow?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/8?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/5?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/signin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          }
+        ],
+        "css": [
+          {
+            "status": 200,
+            "url": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css"
+          }
+        ],
+        "jsCount": 6,
+        "jsFailed": 0,
+        "staticFailed": 0,
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "stability": {
+        "networkIdle": true,
+        "fontsReady": true,
+        "layoutStable": true,
+        "samples": 2
+      }
+    },
+    {
+      "label": "node_detail",
+      "path": "/go/claude",
+      "url": "http://127.0.0.1:3210/go/claude",
+      "ok": true,
+      "screenshot": "docs\\evidence\\visual\\health\\node_detail.png",
+      "navigationError": null,
+      "checks": [
+        {
+          "id": "document.status",
+          "label": "HTML 页面响应 2xx/3xx",
+          "ok": true,
+          "detail": "HTTP 200",
+          "severity": "blocker"
+        },
+        {
+          "id": "navigation.url",
+          "label": "最终 URL 与预期路由一致",
+          "ok": true,
+          "detail": "期望 /go/claude，实际 /go/claude（完整 http://127.0.0.1:3210/go/claude）",
+          "severity": "blocker"
+        },
+        {
+          "id": "css.requests",
+          "label": "样式表请求全部成功",
+          "ok": true,
+          "detail": "共 1 个，成功 1 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.requests",
+          "label": "脚本请求全部成功",
+          "ok": true,
+          "detail": "共 6 个，成功 6 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "static.noFailures",
+          "label": "/_next/static/ 无失败请求",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "blocker"
+        },
+        {
+          "id": "resources.noFailures",
+          "label": "其他资源无失败/4xx/5xx",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "major"
+        },
+        {
+          "id": "css.parsed",
+          "label": "样式表已解析出规则",
+          "ok": true,
+          "detail": "styleSheets 1 个，含规则 1 个，link 未挂载 0 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.noPageErrors",
+          "label": "无未捕获脚本异常",
+          "ok": true,
+          "detail": "无",
+          "severity": "blocker"
+        },
+        {
+          "id": "console.noErrors",
+          "label": "控制台无 error 级日志",
+          "ok": true,
+          "detail": "无",
+          "severity": "major"
+        },
+        {
+          "id": "browser.alive",
+          "label": "浏览器未崩溃",
+          "ok": true,
+          "detail": "ok",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.wrapperBg",
+          "label": "#Wrapper 灰色背景",
+          "ok": true,
+          "detail": "期望 rgb(226, 226, 226)，实际 rgb(226, 226, 226)",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.bodyFont",
+          "label": "body 使用站点字体与字号",
+          "ok": true,
+          "detail": "font-family=\"\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\"，font-size=14px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.boxCard",
+          "label": ".box 为白卡（白底 + 阴影 + 圆角）",
+          "ok": true,
+          "detail": "bg=rgb(255, 255, 255), shadow=rgba(0, 0, 0, 0.1) 0px 2px 3px 0px, radius=3px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.noUaLinks",
+          "label": "无浏览器默认蓝色链接（CSS 生效的直接证据）",
+          "ok": true,
+          "detail": "默认蓝链接 0/28 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.centered",
+          "label": "内容区居中且宽度受约束",
+          "ok": true,
+          "detail": "x=90, width=1100, 右侧留白=90",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.twoColumn",
+          "label": "主栏与右栏形成桌面双栏",
+          "ok": true,
+          "detail": "#Main x=110 w=770 right=880；#Rightbar x=900 w=270（要求 #Main.right ≤ #Rightbar.x，右栏宽 270px）",
+          "severity": "blocker"
+        },
+        {
+          "id": "layout.noHorizontalOverflow",
+          "label": "无横向溢出",
+          "ok": true,
+          "detail": "scrollWidth - innerWidth = 0px",
+          "severity": "blocker"
+        },
+        {
+          "id": "images.allLoaded",
+          "label": "页面图片全部加载成功",
+          "ok": true,
+          "detail": "共 3 张，全部成功",
+          "severity": "blocker"
+        },
+        {
+          "id": "stability.networkIdle",
+          "label": "网络已静默",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.fontsReady",
+          "label": "字体已就绪",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.layoutStable",
+          "label": "布局连续采样一致",
+          "ok": true,
+          "detail": "第 2 次采样稳定",
+          "severity": "blocker"
+        }
+      ],
+      "evidence": {
+        "url": "http://127.0.0.1:3210/go/claude",
+        "title": "V2EX",
+        "counts": {
+          "links": 28,
+          "uaLinks": 0,
+          "underlinedLinks": 0,
+          "styleSheets": 1,
+          "images": 3,
+          "topicLinks": 2
+        },
+        "bodyFont": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+        "wrappers": {
+          "top": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 45,
+            "right": 1280,
+            "bottom": 45,
+            "visible": true
+          },
+          "wrapper": {
+            "x": 0,
+            "y": 45,
+            "width": 1280,
+            "height": 339,
+            "right": 1280,
+            "bottom": 384,
+            "visible": true
+          },
+          "content": {
+            "x": 90,
+            "y": 45,
+            "width": 1100,
+            "height": 339,
+            "right": 1190,
+            "bottom": 384,
+            "visible": true
+          },
+          "main": {
+            "x": 110,
+            "y": 45,
+            "width": 770,
+            "height": 319,
+            "right": 880,
+            "bottom": 364,
+            "visible": true
+          },
+          "rightbar": {
+            "x": 900,
+            "y": 45,
+            "width": 270,
+            "height": 148,
+            "right": 1170,
+            "bottom": 193,
+            "visible": true
+          },
+          "firstBox": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "right": 0,
+            "bottom": 0,
+            "visible": false
+          }
+        },
+        "styles": {
+          "wrapper": {
+            "background-color": "rgb(226, 226, 226)",
+            "background-image": "linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0))"
+          },
+          "main": {
+            "margin-left": "20px",
+            "margin-right": "310px",
+            "width": "770px",
+            "float": "none"
+          },
+          "rightbar": {
+            "width": "270px",
+            "float": "right",
+            "margin-right": "20px"
+          },
+          "box": {
+            "background-color": "rgb(255, 255, 255)",
+            "box-shadow": "rgba(0, 0, 0, 0.1) 0px 2px 3px 0px",
+            "border-radius": "3px",
+            "border-bottom-width": "1px"
+          },
+          "body": {
+            "font-family": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+            "font-size": "14px",
+            "background-color": "rgb(255, 255, 255)",
+            "color": "rgb(0, 0, 0)"
+          },
+          "top": {
+            "background-color": "rgb(255, 255, 255)",
+            "min-height": "45px",
+            "border-bottom-width": "1px"
+          }
+        },
+        "firstTopic": {
+          "text": "有没有 claude 至今没跳 kyc 没封的 V 友，来讲讲做法？",
+          "color": "rgb(0, 0, 0)",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "textDecoration": "none"
+        },
+        "horizontalOverflow": 0,
+        "styleSheets": [
+          {
+            "href": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css",
+            "ownerTag": "LINK",
+            "media": "",
+            "disabled": false,
+            "ruleCount": 190,
+            "error": null
+          }
+        ],
+        "brokenImages": []
+      },
+      "network": {
+        "responses": 19,
+        "failures": [
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=kH7bzgHysL3tgxty",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/10?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/ginger?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/7?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/2?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/sparrow?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/8?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/5?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/signin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          }
+        ],
+        "css": [
+          {
+            "status": 200,
+            "url": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css"
+          }
+        ],
+        "jsCount": 6,
+        "jsFailed": 0,
+        "staticFailed": 0,
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "stability": {
+        "networkIdle": true,
+        "fontsReady": true,
+        "layoutStable": true,
+        "samples": 2
+      }
+    },
+    {
+      "label": "topic_detail",
+      "path": "/t/1",
+      "url": "http://127.0.0.1:3210/t/1",
+      "ok": true,
+      "screenshot": "docs\\evidence\\visual\\health\\topic_detail.png",
+      "navigationError": null,
+      "checks": [
+        {
+          "id": "document.status",
+          "label": "HTML 页面响应 2xx/3xx",
+          "ok": true,
+          "detail": "HTTP 200",
+          "severity": "blocker"
+        },
+        {
+          "id": "navigation.url",
+          "label": "最终 URL 与预期路由一致",
+          "ok": true,
+          "detail": "期望 /t/1，实际 /t/1（完整 http://127.0.0.1:3210/t/1）",
+          "severity": "blocker"
+        },
+        {
+          "id": "css.requests",
+          "label": "样式表请求全部成功",
+          "ok": true,
+          "detail": "共 1 个，成功 1 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.requests",
+          "label": "脚本请求全部成功",
+          "ok": true,
+          "detail": "共 6 个，成功 6 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "static.noFailures",
+          "label": "/_next/static/ 无失败请求",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "blocker"
+        },
+        {
+          "id": "resources.noFailures",
+          "label": "其他资源无失败/4xx/5xx",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "major"
+        },
+        {
+          "id": "css.parsed",
+          "label": "样式表已解析出规则",
+          "ok": true,
+          "detail": "styleSheets 1 个，含规则 1 个，link 未挂载 0 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.noPageErrors",
+          "label": "无未捕获脚本异常",
+          "ok": true,
+          "detail": "无",
+          "severity": "blocker"
+        },
+        {
+          "id": "console.noErrors",
+          "label": "控制台无 error 级日志",
+          "ok": true,
+          "detail": "无",
+          "severity": "major"
+        },
+        {
+          "id": "browser.alive",
+          "label": "浏览器未崩溃",
+          "ok": true,
+          "detail": "ok",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.wrapperBg",
+          "label": "#Wrapper 灰色背景",
+          "ok": true,
+          "detail": "期望 rgb(226, 226, 226)，实际 rgb(226, 226, 226)",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.bodyFont",
+          "label": "body 使用站点字体与字号",
+          "ok": true,
+          "detail": "font-family=\"\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\"，font-size=14px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.boxCard",
+          "label": ".box 为白卡（白底 + 阴影 + 圆角）",
+          "ok": true,
+          "detail": "bg=rgb(255, 255, 255), shadow=rgba(0, 0, 0, 0.1) 0px 2px 3px 0px, radius=3px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.noUaLinks",
+          "label": "无浏览器默认蓝色链接（CSS 生效的直接证据）",
+          "ok": true,
+          "detail": "默认蓝链接 0/38 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.centered",
+          "label": "内容区居中且宽度受约束",
+          "ok": true,
+          "detail": "x=90, width=1100, 右侧留白=90",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.twoColumn",
+          "label": "主栏与右栏形成桌面双栏",
+          "ok": true,
+          "detail": "#Main x=110 w=770 right=880；#Rightbar x=900 w=270（要求 #Main.right ≤ #Rightbar.x，右栏宽 270px）",
+          "severity": "blocker"
+        },
+        {
+          "id": "layout.noHorizontalOverflow",
+          "label": "无横向溢出",
+          "ok": true,
+          "detail": "scrollWidth - innerWidth = 0px",
+          "severity": "blocker"
+        },
+        {
+          "id": "images.allLoaded",
+          "label": "页面图片全部加载成功",
+          "ok": true,
+          "detail": "共 12 张，全部成功",
+          "severity": "blocker"
+        },
+        {
+          "id": "stability.networkIdle",
+          "label": "网络已静默",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.fontsReady",
+          "label": "字体已就绪",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.layoutStable",
+          "label": "布局连续采样一致",
+          "ok": true,
+          "detail": "第 2 次采样稳定",
+          "severity": "blocker"
+        }
+      ],
+      "evidence": {
+        "url": "http://127.0.0.1:3210/t/1",
+        "title": "V2EX",
+        "counts": {
+          "links": 38,
+          "uaLinks": 0,
+          "underlinedLinks": 0,
+          "styleSheets": 1,
+          "images": 12,
+          "topicLinks": 0
+        },
+        "bodyFont": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+        "wrappers": {
+          "top": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 45,
+            "right": 1280,
+            "bottom": 45,
+            "visible": true
+          },
+          "wrapper": {
+            "x": 0,
+            "y": 45,
+            "width": 1280,
+            "height": 679,
+            "right": 1280,
+            "bottom": 724,
+            "visible": true
+          },
+          "content": {
+            "x": 90,
+            "y": 45,
+            "width": 1100,
+            "height": 679,
+            "right": 1190,
+            "bottom": 724,
+            "visible": true
+          },
+          "main": {
+            "x": 110,
+            "y": 45,
+            "width": 770,
+            "height": 659,
+            "right": 880,
+            "bottom": 704,
+            "visible": true
+          },
+          "rightbar": {
+            "x": 900,
+            "y": 45,
+            "width": 270,
+            "height": 682,
+            "right": 1170,
+            "bottom": 727,
+            "visible": true
+          },
+          "firstBox": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "right": 0,
+            "bottom": 0,
+            "visible": false
+          }
+        },
+        "styles": {
+          "wrapper": {
+            "background-color": "rgb(226, 226, 226)",
+            "background-image": "linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0))"
+          },
+          "main": {
+            "margin-left": "20px",
+            "margin-right": "310px",
+            "width": "770px",
+            "float": "none"
+          },
+          "rightbar": {
+            "width": "270px",
+            "float": "right",
+            "margin-right": "20px"
+          },
+          "box": {
+            "background-color": "rgb(255, 255, 255)",
+            "box-shadow": "rgba(0, 0, 0, 0.1) 0px 2px 3px 0px",
+            "border-radius": "3px",
+            "border-bottom-width": "1px"
+          },
+          "body": {
+            "font-family": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+            "font-size": "14px",
+            "background-color": "rgb(255, 255, 255)",
+            "color": "rgb(0, 0, 0)"
+          },
+          "top": {
+            "background-color": "rgb(255, 255, 255)",
+            "min-height": "45px",
+            "border-bottom-width": "1px"
+          }
+        },
+        "firstTopic": null,
+        "horizontalOverflow": 0,
+        "styleSheets": [
+          {
+            "href": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css",
+            "ownerTag": "LINK",
+            "media": "",
+            "disabled": false,
+            "ruleCount": 190,
+            "error": null
+          }
+        ],
+        "brokenImages": []
+      },
+      "network": {
+        "responses": 31,
+        "failures": [
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/admin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/10?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/ginger?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/7?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/2?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/sparrow?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/8?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/5?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/3?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/signin?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=lBidXnVKxF-ZvQI2",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          }
+        ],
+        "css": [
+          {
+            "status": 200,
+            "url": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css"
+          }
+        ],
+        "jsCount": 6,
+        "jsFailed": 0,
+        "staticFailed": 0,
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "stability": {
+        "networkIdle": true,
+        "fontsReady": true,
+        "layoutStable": true,
+        "samples": 2
+      }
+    },
+    {
+      "label": "member",
+      "path": "/member/admin",
+      "url": "http://127.0.0.1:3210/member/admin",
+      "ok": true,
+      "screenshot": "docs\\evidence\\visual\\health\\member.png",
+      "navigationError": null,
+      "checks": [
+        {
+          "id": "document.status",
+          "label": "HTML 页面响应 2xx/3xx",
+          "ok": true,
+          "detail": "HTTP 200",
+          "severity": "blocker"
+        },
+        {
+          "id": "navigation.url",
+          "label": "最终 URL 与预期路由一致",
+          "ok": true,
+          "detail": "期望 /member/admin，实际 /member/admin（完整 http://127.0.0.1:3210/member/admin）",
+          "severity": "blocker"
+        },
+        {
+          "id": "css.requests",
+          "label": "样式表请求全部成功",
+          "ok": true,
+          "detail": "共 1 个，成功 1 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.requests",
+          "label": "脚本请求全部成功",
+          "ok": true,
+          "detail": "共 6 个，成功 6 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "static.noFailures",
+          "label": "/_next/static/ 无失败请求",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "blocker"
+        },
+        {
+          "id": "resources.noFailures",
+          "label": "其他资源无失败/4xx/5xx",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "major"
+        },
+        {
+          "id": "css.parsed",
+          "label": "样式表已解析出规则",
+          "ok": true,
+          "detail": "styleSheets 1 个，含规则 1 个，link 未挂载 0 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.noPageErrors",
+          "label": "无未捕获脚本异常",
+          "ok": true,
+          "detail": "无",
+          "severity": "blocker"
+        },
+        {
+          "id": "console.noErrors",
+          "label": "控制台无 error 级日志",
+          "ok": true,
+          "detail": "无",
+          "severity": "major"
+        },
+        {
+          "id": "browser.alive",
+          "label": "浏览器未崩溃",
+          "ok": true,
+          "detail": "ok",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.wrapperBg",
+          "label": "#Wrapper 灰色背景",
+          "ok": true,
+          "detail": "期望 rgb(226, 226, 226)，实际 rgb(226, 226, 226)",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.bodyFont",
+          "label": "body 使用站点字体与字号",
+          "ok": true,
+          "detail": "font-family=\"\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\"，font-size=14px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.boxCard",
+          "label": ".box 为白卡（白底 + 阴影 + 圆角）",
+          "ok": true,
+          "detail": "bg=rgb(255, 255, 255), shadow=rgba(0, 0, 0, 0.1) 0px 2px 3px 0px, radius=3px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.noUaLinks",
+          "label": "无浏览器默认蓝色链接（CSS 生效的直接证据）",
+          "ok": true,
+          "detail": "默认蓝链接 0/40 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.centered",
+          "label": "内容区居中且宽度受约束",
+          "ok": true,
+          "detail": "x=90, width=1100, 右侧留白=90",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.twoColumn",
+          "label": "主栏与右栏形成桌面双栏",
+          "ok": true,
+          "detail": "#Main x=110 w=770 right=880；#Rightbar x=900 w=270（要求 #Main.right ≤ #Rightbar.x，右栏宽 270px）",
+          "severity": "blocker"
+        },
+        {
+          "id": "layout.noHorizontalOverflow",
+          "label": "无横向溢出",
+          "ok": true,
+          "detail": "scrollWidth - innerWidth = 0px",
+          "severity": "blocker"
+        },
+        {
+          "id": "images.allLoaded",
+          "label": "页面图片全部加载成功",
+          "ok": true,
+          "detail": "共 5 张，全部成功",
+          "severity": "blocker"
+        },
+        {
+          "id": "stability.networkIdle",
+          "label": "网络已静默",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.fontsReady",
+          "label": "字体已就绪",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.layoutStable",
+          "label": "布局连续采样一致",
+          "ok": true,
+          "detail": "第 2 次采样稳定",
+          "severity": "blocker"
+        }
+      ],
+      "evidence": {
+        "url": "http://127.0.0.1:3210/member/admin",
+        "title": "V2EX",
+        "counts": {
+          "links": 40,
+          "uaLinks": 0,
+          "underlinedLinks": 0,
+          "styleSheets": 1,
+          "images": 5,
+          "topicLinks": 4
+        },
+        "bodyFont": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+        "wrappers": {
+          "top": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 45,
+            "right": 1280,
+            "bottom": 45,
+            "visible": true
+          },
+          "wrapper": {
+            "x": 0,
+            "y": 45,
+            "width": 1280,
+            "height": 849,
+            "right": 1280,
+            "bottom": 894,
+            "visible": true
+          },
+          "content": {
+            "x": 90,
+            "y": 45,
+            "width": 1100,
+            "height": 849,
+            "right": 1190,
+            "bottom": 894,
+            "visible": true
+          },
+          "main": {
+            "x": 110,
+            "y": 45,
+            "width": 770,
+            "height": 829,
+            "right": 880,
+            "bottom": 874,
+            "visible": true
+          },
+          "rightbar": {
+            "x": 900,
+            "y": 45,
+            "width": 270,
+            "height": 191,
+            "right": 1170,
+            "bottom": 236,
+            "visible": true
+          },
+          "firstBox": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "right": 0,
+            "bottom": 0,
+            "visible": false
+          }
+        },
+        "styles": {
+          "wrapper": {
+            "background-color": "rgb(226, 226, 226)",
+            "background-image": "linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0))"
+          },
+          "main": {
+            "margin-left": "20px",
+            "margin-right": "310px",
+            "width": "770px",
+            "float": "none"
+          },
+          "rightbar": {
+            "width": "270px",
+            "float": "right",
+            "margin-right": "20px"
+          },
+          "box": {
+            "background-color": "rgb(255, 255, 255)",
+            "box-shadow": "rgba(0, 0, 0, 0.1) 0px 2px 3px 0px",
+            "border-radius": "3px",
+            "border-bottom-width": "1px"
+          },
+          "body": {
+            "font-family": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+            "font-size": "14px",
+            "background-color": "rgb(255, 255, 255)",
+            "color": "rgb(0, 0, 0)"
+          },
+          "top": {
+            "background-color": "rgb(255, 255, 255)",
+            "min-height": "45px",
+            "border-bottom-width": "1px"
+          }
+        },
+        "firstTopic": {
+          "text": "看到最近群晖被黑，想给 NAS 里的数据做个备份，大家用的什么方案？",
+          "color": "rgb(0, 0, 0)",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "20.8px",
+          "textDecoration": "none"
+        },
+        "horizontalOverflow": 0,
+        "styleSheets": [
+          {
+            "href": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css",
+            "ownerTag": "LINK",
+            "media": "",
+            "disabled": false,
+            "ruleCount": 190,
+            "error": null
+          }
+        ],
+        "brokenImages": []
+      },
+      "network": {
+        "responses": 24,
+        "failures": [
+          {
+            "url": "http://127.0.0.1:3210/?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/4?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/life?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/mochi?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/octo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/6?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/openai?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/member/halo?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/claude?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/t/9?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/go/apple?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=lJ4TDbkONaZNd9iQ",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          }
+        ],
+        "css": [
+          {
+            "status": 200,
+            "url": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css"
+          }
+        ],
+        "jsCount": 6,
+        "jsFailed": 0,
+        "staticFailed": 0,
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "stability": {
+        "networkIdle": true,
+        "fontsReady": true,
+        "layoutStable": true,
+        "samples": 2
+      }
+    },
+    {
+      "label": "signin",
+      "path": "/signin",
+      "url": "http://127.0.0.1:3210/signin",
+      "ok": true,
+      "screenshot": "docs\\evidence\\visual\\health\\signin.png",
+      "navigationError": null,
+      "checks": [
+        {
+          "id": "document.status",
+          "label": "HTML 页面响应 2xx/3xx",
+          "ok": true,
+          "detail": "HTTP 200",
+          "severity": "blocker"
+        },
+        {
+          "id": "navigation.url",
+          "label": "最终 URL 与预期路由一致",
+          "ok": true,
+          "detail": "期望 /signin，实际 /signin（完整 http://127.0.0.1:3210/signin）",
+          "severity": "blocker"
+        },
+        {
+          "id": "css.requests",
+          "label": "样式表请求全部成功",
+          "ok": true,
+          "detail": "共 1 个，成功 1 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.requests",
+          "label": "脚本请求全部成功",
+          "ok": true,
+          "detail": "共 6 个，成功 6 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "static.noFailures",
+          "label": "/_next/static/ 无失败请求",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "blocker"
+        },
+        {
+          "id": "resources.noFailures",
+          "label": "其他资源无失败/4xx/5xx",
+          "ok": true,
+          "detail": "无失败",
+          "severity": "major"
+        },
+        {
+          "id": "css.parsed",
+          "label": "样式表已解析出规则",
+          "ok": true,
+          "detail": "styleSheets 1 个，含规则 1 个，link 未挂载 0 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "js.noPageErrors",
+          "label": "无未捕获脚本异常",
+          "ok": true,
+          "detail": "无",
+          "severity": "blocker"
+        },
+        {
+          "id": "console.noErrors",
+          "label": "控制台无 error 级日志",
+          "ok": true,
+          "detail": "无",
+          "severity": "major"
+        },
+        {
+          "id": "browser.alive",
+          "label": "浏览器未崩溃",
+          "ok": true,
+          "detail": "ok",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.wrapperBg",
+          "label": "#Wrapper 灰色背景",
+          "ok": true,
+          "detail": "期望 rgb(226, 226, 226)，实际 rgb(226, 226, 226)",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.bodyFont",
+          "label": "body 使用站点字体与字号",
+          "ok": true,
+          "detail": "font-family=\"\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\"，font-size=14px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.boxCard",
+          "label": ".box 为白卡（白底 + 阴影 + 圆角）",
+          "ok": true,
+          "detail": "bg=rgb(255, 255, 255), shadow=rgba(0, 0, 0, 0.1) 0px 2px 3px 0px, radius=3px",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.noUaLinks",
+          "label": "无浏览器默认蓝色链接（CSS 生效的直接证据）",
+          "ok": true,
+          "detail": "默认蓝链接 0/13 个",
+          "severity": "blocker"
+        },
+        {
+          "id": "design.centered",
+          "label": "内容区居中且宽度受约束",
+          "ok": true,
+          "detail": "x=90, width=1100, 右侧留白=90",
+          "severity": "blocker"
+        },
+        {
+          "id": "layout.noHorizontalOverflow",
+          "label": "无横向溢出",
+          "ok": true,
+          "detail": "scrollWidth - innerWidth = 0px",
+          "severity": "blocker"
+        },
+        {
+          "id": "images.allLoaded",
+          "label": "页面图片全部加载成功",
+          "ok": true,
+          "detail": "共 1 张，全部成功",
+          "severity": "blocker"
+        },
+        {
+          "id": "stability.networkIdle",
+          "label": "网络已静默",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.fontsReady",
+          "label": "字体已就绪",
+          "ok": true,
+          "detail": "ok",
+          "severity": "major"
+        },
+        {
+          "id": "stability.layoutStable",
+          "label": "布局连续采样一致",
+          "ok": true,
+          "detail": "第 2 次采样稳定",
+          "severity": "blocker"
+        }
+      ],
+      "evidence": {
+        "url": "http://127.0.0.1:3210/signin",
+        "title": "V2EX",
+        "counts": {
+          "links": 13,
+          "uaLinks": 0,
+          "underlinedLinks": 0,
+          "styleSheets": 1,
+          "images": 1,
+          "topicLinks": 0
+        },
+        "bodyFont": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+        "wrappers": {
+          "top": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 45,
+            "right": 1280,
+            "bottom": 45,
+            "visible": true
+          },
+          "wrapper": {
+            "x": 0,
+            "y": 45,
+            "width": 1280,
+            "height": 370,
+            "right": 1280,
+            "bottom": 415,
+            "visible": true
+          },
+          "content": {
+            "x": 90,
+            "y": 45,
+            "width": 1100,
+            "height": 370,
+            "right": 1190,
+            "bottom": 415,
+            "visible": true
+          },
+          "main": {
+            "x": 110,
+            "y": 45,
+            "width": 770,
+            "height": 370,
+            "right": 880,
+            "bottom": 415,
+            "visible": true
+          },
+          "rightbar": {
+            "x": 900,
+            "y": 45,
+            "width": 270,
+            "height": 265,
+            "right": 1170,
+            "bottom": 310,
+            "visible": true
+          },
+          "firstBox": {
+            "x": 900,
+            "y": 65,
+            "width": 270,
+            "height": 245,
+            "right": 1170,
+            "bottom": 310,
+            "visible": true
+          }
+        },
+        "styles": {
+          "wrapper": {
+            "background-color": "rgb(226, 226, 226)",
+            "background-image": "linear-gradient(rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0))"
+          },
+          "main": {
+            "margin-left": "20px",
+            "margin-right": "310px",
+            "width": "770px",
+            "float": "none"
+          },
+          "rightbar": {
+            "width": "270px",
+            "float": "right",
+            "margin-right": "20px"
+          },
+          "box": {
+            "background-color": "rgb(255, 255, 255)",
+            "box-shadow": "rgba(0, 0, 0, 0.1) 0px 2px 3px 0px",
+            "border-radius": "3px",
+            "border-bottom-width": "1px"
+          },
+          "body": {
+            "font-family": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+            "font-size": "14px",
+            "background-color": "rgb(255, 255, 255)",
+            "color": "rgb(0, 0, 0)"
+          },
+          "top": {
+            "background-color": "rgb(255, 255, 255)",
+            "min-height": "45px",
+            "border-bottom-width": "1px"
+          }
+        },
+        "firstTopic": null,
+        "horizontalOverflow": 0,
+        "styleSheets": [
+          {
+            "href": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css",
+            "ownerTag": "LINK",
+            "media": "",
+            "disabled": false,
+            "ruleCount": 190,
+            "error": null
+          }
+        ],
+        "brokenImages": []
+      },
+      "network": {
+        "responses": 13,
+        "failures": [
+          {
+            "url": "http://127.0.0.1:3210/faq?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/about?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/privacy?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          },
+          {
+            "url": "http://127.0.0.1:3210/worldclock?_rsc=FksYzda8NDdXq6j4",
+            "resourceType": "fetch",
+            "error": "net::ERR_ABORTED"
+          }
+        ],
+        "css": [
+          {
+            "status": 200,
+            "url": "http://127.0.0.1:3210/_next/static/css/2b59ebcf5a384d36.css"
+          }
+        ],
+        "jsCount": 6,
+        "jsFailed": 0,
+        "staticFailed": 0,
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "stability": {
+        "networkIdle": true,
+        "fontsReady": true,
+        "layoutStable": true,
+        "samples": 2
+      }
+    }
+  ]
+}

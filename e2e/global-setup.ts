@@ -14,17 +14,30 @@ async function syncSeedCredentials(): Promise<void> {
   //    `ReferenceError: __dirname is not defined` 让整个 E2E 11 秒就退出）。
   //    用 `import.meta.url` 反推目录。
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const script = path.join(here, '..', 'scripts', 'reset-test-credentials.ts');
+  const root = path.join(here, '..');
+  const script = path.join(root, 'scripts', 'reset-test-credentials.ts');
 
-  // ⚠️ Windows 上 `npx` 是 `npx.cmd` —— 直接 spawn `npx` 会报
-  //    `spawnSync npx ENOENT`（实测踩到，报错完全不指向「PATH 没 .cmd 后缀」）。
-  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  /*
+   * ⚠️ v0.0.9：**不要**用 `npx` / `npx.cmd` 起子进程。
+   *
+   * Node 20.12+ 收紧了 Windows 上 `.cmd` 的执行（CVE-2024-27980 的缓解），
+   * `execFileSync('npx.cmd', ...)` 在 Node 22 上直接抛
+   *   spawnSync npx.cmd EINVAL
+   * —— 而这里的 catch 是「不阻断」，于是**静默跳过口令同步**，
+   * 后果是所有依赖 seed 账号（lisi / wangwu / moderator / admin）的用例
+   * 全部登录失败并卡到 30s 超时。实测：35 号用例直接 30.8s 超时，
+   * 报错只写「等待导航超时」，完全指不到真正原因（连续踩了两次）。
+   *
+   * 正确做法：用**当前 node 可执行文件**直接跑 tsx 的 CLI 入口（.mjs，不是 .cmd），
+   * 这样跨平台、无 shell、无 PATH 依赖。
+   */
+  const tsxCli = path.join(root, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 
   try {
-    execFileSync(npxCmd, ['tsx', script], {
+    execFileSync(process.execPath, [tsxCli, script], {
       stdio: 'inherit',
       env: process.env,
-      cwd: path.join(here, '..'),
+      cwd: root,
       timeout: 60_000,
     });
   } catch (err) {

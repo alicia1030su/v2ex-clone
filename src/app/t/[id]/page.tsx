@@ -8,6 +8,7 @@ import { renderMarkdown } from '@/lib/markdown';
 import { relativeTime, fullTimestamp, formatDate } from '@/lib/time';
 import { getTopicById, listReplies, REPLIES_PER_PAGE } from '@/server/queries';
 import Wrapper from '@/components/Wrapper';
+import HotTopics from '@/components/HotTopics';
 import PageNav from '@/components/PageNav';
 import CollectButton from '@/components/CollectButton';
 import ReportButton from '@/components/ReportButton';
@@ -106,7 +107,18 @@ export default async function TopicPage({
     .where(eq(schema.topics.id, topicId));
 
   return (
-    <Wrapper>
+    <Wrapper
+      /*
+       * 主题详情右栏。
+       *
+       * 真实 V2EX 主题页右侧有一个 270px 宽栏位，内容为**广告**。
+       * 本项目无广告系统，也不复制第三方广告素材，因此改用本站「今日热议主题」
+       * 填充同一栏位 —— 目的是保持与首页/节点页一致的 770 + 270 双栏几何，
+       * 而不是留一条 310px 的灰色空档（见 Wrapper.tsx 的 no-rightbar 注释）。
+       * 这一处属于**有意的设计替换**，会在视觉差异文档里如实标注。
+       */
+      rightbar={<HotTopics />}
+    >
       <div className="box" style={{ borderBottom: '0px' }}>
         <div className="header">
           <div className="fr">
@@ -247,8 +259,12 @@ export default async function TopicPage({
                     ) : null}
                     <div className="sep5" />
                     <div className="reply_content markdown_body" dangerouslySetInnerHTML={{ __html: r.html }} />
-                    {/* v0.0.3：回复操作（感谢 / 编辑 / 删除） */}
-                    <div className="sep5">
+                    {/* v0.0.3：回复操作（感谢 / 编辑 / 删除）
+                        v0.0.9 修复：容器原为 .sep5 —— 那是 5px 高的空白分隔块，
+                        装内容后高度仍被钉在 5px，按钮溢出到卡片高度之外，
+                        被 .box{overflow:hidden} 裁掉（实测按钮 bottom 621 > 卡片 606）。
+                        改用 .reply_row（padding-top:5px，高度随内容）。 */}
+                    <div className="reply_row">
                       <ReplyItem
                         reply={{
                           id: r.id,

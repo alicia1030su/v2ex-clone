@@ -161,7 +161,7 @@ export default function ReplyItem({
         )}
 
         {quoted && (
-          <div className="sep5">
+          <div className="reply_row">
             <a href={`#reply${quoted.floor}`} className="gray">
               ↪ 引用 {quoted.floor} 楼（{quoted.authorName}）：{quoted.excerpt}
             </a>
@@ -169,9 +169,9 @@ export default function ReplyItem({
         )}
 
         {reply.deleted ? (
-          <div className="sep5 fade">此回复已被删除</div>
+          <div className="reply_row fade">此回复已被删除</div>
         ) : editing ? (
-          <div className="sep5">
+          <div className="reply_row">
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -179,7 +179,7 @@ export default function ReplyItem({
               style={{ width: '100%' }}
               aria-label="编辑回复内容"
             />
-            <div className="sep5">
+            <div className="reply_row">
               <button
                 type="button"
                 className="button"
@@ -202,13 +202,13 @@ export default function ReplyItem({
           </div>
         ) : renderContent ? (
           <div className="topic_content">
-            <div className="sep5">{reply.content}</div>
+            <div className="reply_row">{reply.content}</div>
           </div>
         ) : null}
 
         {/* 操作区 */}
         {!reply.deleted && (
-          <div className="sep5">
+          <div className="reply_row">
             <button
               type="button"
               className="button"
@@ -252,7 +252,7 @@ export default function ReplyItem({
         )}
 
         {reply.deleted && isStaff && (
-          <div className="sep5">
+          <div className="reply_row">
             <button
               type="button"
               className="button"
@@ -266,7 +266,7 @@ export default function ReplyItem({
         )}
 
         {error && (
-          <div className="sep5">
+          <div className="reply_row">
             <span className="fade" role="alert">
               {error}
             </span>

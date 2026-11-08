@@ -213,8 +213,13 @@ a:visited {
   background-color: #e2e2e2;
   /* v0.0.6：原引用 /static/img/shadow_light.png —— 该文件从未入仓
      （public/static/img/ 不存在）⇒ 两个引用点恒定 404。
-     改用等价 CSS 渐变（顶部淡阴影），零二进制资产、无外部素材依赖。 */
+     改用等价 CSS 渐变（顶部淡阴影），零二进制资产、无外部素材依赖。
+     v0.0.9：**必须**限高（background-size: 100% 120px）。不写尺寸时渐变会
+     铺满 #Wrapper 整个高度 ⇒ 整页被叠上一层 3.5% 的黑，实测页面灰底变成
+     rgb(220,220,220)（设计值是 rgb(226,226,226)），越往下越"脏"。
+     配合 repeat-x 只在顶部铺 120px，之后恢复纯 #e2e2e2。 */
   background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0));
+  background-size: 100% 120px;
   background-repeat: repeat-x;
 }
 
@@ -239,6 +244,15 @@ a:visited {
   width: auto;
   margin: 0 310px 0 20px;
   min-width: 0;
+}
+
+/*
+ * 无右栏页面（主题详情在无侧栏内容时、/xna 等）：
+ * 取消为 270px 右栏预留的 310px 边距，左右对称留白。
+ * 否则内容列右侧会留下一条纯灰色空档（见 Wrapper.tsx 注释）。
+ */
+#Main.no-rightbar {
+  margin-right: 20px;
 }
 
 /* ------------------------------ Box / Cell ------------------------------ */
@@ -433,6 +447,14 @@ a:visited {
 .sep5 {
   height: 5px;
 }
+/* v0.0.9 修复：.sep5 在原站是「5px 高的**空白**块」，只能当占位用。
+   回复卡片曾把带内容的行也写成 .sep5 ⇒ 行高被钉死 5px、内容溢出流外，
+   外层 .box{overflow:hidden} 把「感谢 / 编辑 / 删除 / 举报」按钮裁掉
+   （实测卡片高 155px，按钮 bottom 621 > 卡片 bottom 606）。
+   .reply_row 语义是「与上一行相隔 5px 的内容行」：留出间距，高度随内容。 */
+.reply_row {
+  padding-top: 5px;
+}
 .sep3 {
   height: 3px;
 }
@@ -526,7 +548,25 @@ a.tab_current:hover {
   margin: 0 5px 0 0;
   text-align: center;
 }
-.count_livid:hover {
+
+/*
+ * v0.0.9 后修（2026-11-08）：徽章的白字一直**没有生效**。
+ *
+ * `.count_livid` 的优先级是 (0,1,0)，而文件顶部有
+ *   `a:link, a:visited { color: var(--link-color) }` —— (0,1,1)
+ * ⇒ 徽章实际渲染成「灰字 (#778087) 压在蓝灰底 (#aab0c6) 上」，
+ *   对比度约 1.9:1，数字几乎看不清。
+ *
+ * 这里用 `a.count_livid`（同为 0,1,1）并放在**后面**，按源序取胜。
+ * 不采用「删掉 a:link 规则」的做法：那会连带改变其他组件的链接配色，
+ * 影响面不可控。
+ */
+a.count_livid,
+a.count_livid:visited {
+  color: #fff;
+}
+a.count_livid:hover {
+  color: #fff;
   background-color: #969cb1;
   text-decoration: none;
 }

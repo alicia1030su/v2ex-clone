@@ -43,9 +43,16 @@ export default async function HotNodes() {
           ))}
         </div>
         <div className="inner">
-          <Link href="/index.xml" target="_blank">
+          {/*
+            RSS 指向本站的 feed 路由 `/api/feed`（返回 application/rss+xml）。
+            原实现写的是 `/index.xml` —— 那是**原站**的路径，本站并不存在该路由，
+            实测 GET /index.xml 恒 404，且因为用了 next/link 还会在首页触发一次
+            预取 404（控制台报错 + 视觉门禁的资源失败）。
+            feed 不是页面路由，改用原生 <a> 避免 App Router 预取。
+          */}
+          <a href="/api/feed" target="_blank" rel="noopener noreferrer">
             RSS
-          </Link>
+          </a>
         </div>
       </div>
     </>

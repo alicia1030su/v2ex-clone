@@ -106,26 +106,30 @@ export default async function SearchPage({
   return (
     <Wrapper
       rightbar={
+        /*
+         * 搜索结果是动态查询，**没有对应的订阅源**。
+         * 原实现照抄节点页的「节点订阅方式」盒子，指向 /feed/search.xml|json ——
+         * 这两个路由不存在，实测恒 404（给用户四个死链）。
+         * 现在改为站点级订阅源，并把标题改成如实的「站点订阅方式」。
+         */
         <div className="box">
-          <div className="pro-unit-title">节点订阅方式</div>
+          <div className="pro-unit-title">站点订阅方式</div>
           <div className="cell" style={{ padding: '8px', lineHeight: '100%' }}>
             <table cellPadding={0} cellSpacing={0} border={0} width="100%">
               <tbody>
                 <tr>
                   <td width={28}>
-                    <Link href="/feed/search.xml">
+                    <a href="/api/feed" target="_blank" rel="noopener noreferrer">
                       <RssIcon size={28} />
-                    </Link>
+                    </a>
                   </td>
                   <td width={10} />
                   <td width="auto" valign="middle" align="left">
-                    <Link href="/feed/search.xml">RSS</Link>
+                    <a href="/api/feed" target="_blank" rel="noopener noreferrer">
+                      RSS
+                    </a>
                   </td>
-                  <td width={16} valign="middle" align="right">
-                    <Link href="/feed/search.xml" title="复制 RSS 地址">
-                      <CopyIcon size={16} />
-                    </Link>
-                  </td>
+                  <td width={16} valign="middle" align="right" />
                 </tr>
               </tbody>
             </table>
@@ -135,19 +139,17 @@ export default async function SearchPage({
               <tbody>
                 <tr>
                   <td width={28}>
-                    <Link href="/feed/search.json">
+                    <a href="/api/feed/json" target="_blank" rel="noopener noreferrer">
                       <JsonFeedIcon size={28} />
-                    </Link>
+                    </a>
                   </td>
                   <td width={10} />
                   <td width="auto" valign="middle" align="left">
-                    <Link href="/feed/search.json">JSON Feed</Link>
+                    <a href="/api/feed/json" target="_blank" rel="noopener noreferrer">
+                      JSON Feed
+                    </a>
                   </td>
-                  <td width={16} valign="middle" align="right">
-                    <Link href="/feed/search.json" title="复制 JSON Feed 地址">
-                      <CopyIcon size={16} />
-                    </Link>
-                  </td>
+                  <td width={16} valign="middle" align="right" />
                 </tr>
               </tbody>
             </table>
@@ -155,8 +157,13 @@ export default async function SearchPage({
         </div>
       }
     >
-      {/* 节点横幅 —— 标题为搜索关键词，主题总数为匹配结果数 */}
-      <NodeHeader title={keyword} topicCount={total} feedName="search" />
+      {/*
+        节点横幅 —— 标题为搜索关键词，主题总数为匹配结果数。
+        不传 feedName：搜索结果是动态查询，**没有对应的 feed 资源**。
+        原实现传 feedName="search" 会拼出 /feed/search.xml（404），
+        等于给用户一个坏图标。
+      */}
+      <NodeHeader title={keyword} topicCount={total} />
 
       <div className="box">
         {totalPages > 1 ? (

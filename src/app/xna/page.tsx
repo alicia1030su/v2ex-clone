@@ -91,7 +91,15 @@ export default async function XnaPage() {
         <div className="cell" id="SecondaryTabs">
           <div className="fr fade f12">Aggregating from {topics.length} entries</div>
           <Link href="/go/vxna">VXNA</Link> &nbsp; &nbsp;
-          <Link href="/feed/vxna.xml">RSS</Link> &nbsp; &nbsp;
+          {/*
+            原写 `/feed/vxna.xml` —— 本站没有这个路由，实测恒 404，
+            且 next/link 会在打开本页时预取 404（实测 networkidle 永不静默）。
+            改为真实存在的站点级 feed，并用原生 <a> 避免预取。
+          */}
+          <a href="/api/feed" target="_blank" rel="noopener noreferrer">
+            RSS
+          </a>{' '}
+          &nbsp; &nbsp;
           <Link href="/nodes">全部节点</Link>
         </div>
 
