@@ -480,8 +480,8 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 
 | 项 | 值 |
 |---|---|
-| 最终 master SHA | `a86b9bcdb751799a8ef98d3c386feec5ac6f610e` |
-| 产物基线 SHA | `23a88cf`（其后仅文档提交，`deploy/` 未变 ⇒ ZIP 字节不变） |
+| 产物基线 SHA | `23a88cf54abda28b0e677079707c71de52ce269b` |
+| 最终 master | 以 `git rev-parse HEAD` 为准（不写死，避免文档自我追逐） |
 | 合并 PR | #34（本体）、#35（CRLF 产物修复） |
 | CI | PR #34：25 pass / 0 fail；PR #35：31 pass / 0 fail（各 1 项 skipping 为本分支不触发的可选诊断） |
 | 候选 ZIP | `v2ex-clone-v0.0.10-deploy.zip`，SHA256 `2d10957fa2bffacccb443ad6a6e879184764a236557865d4025355bec5dbb2cf` |

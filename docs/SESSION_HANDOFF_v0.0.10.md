@@ -9,8 +9,8 @@
 |---|---|
 | 工作分支 | `release/v0.0.10` → 已合并为 master |
 | 起点 | `master @ 2b54371`（PR #33 squash 合并后的 master） |
-| **当前 HEAD（最终 master）** | **`a86b9bcdb751799a8ef98d3c386feec5ac6f610e`** |
-| 产物基线 SHA | `23a88cf`（其后仅文档提交，`deploy/` 未变 ⇒ ZIP 字节不变） |
+| 产物基线 SHA | **`23a88cf54abda28b0e677079707c71de52ce269b`** |
+| 最终 master | 以 `git rev-parse HEAD` 为准（不写死） |
 | 合并记录 | PR **#34**（本体）+ PR **#35**（CRLF 产物修复），均已 squash 合并 |
 | 旧 Tag | `v0.0.1`~`v0.0.9` **未移动、未删除、未覆盖**（规约：不可逆操作需单独授权） |
 
@@ -190,7 +190,7 @@ SKIP 的两项如实记录：Windows 的 `rm` 被工作区安全 shim 拦截绝�
 
 | 产物 | 位置 / 值 |
 |---|---|
-| 源码 SHA（最终 master） | `a86b9bcdb751799a8ef98d3c386feec5ac6f610e` |
+| 产物基线 SHA | `23a88cf54abda28b0e677079707c71de52ce269b` |
 | 安装包 | `dist/v2ex-clone-v0.0.10-deploy.zip`（143,345 B） |
 | SHA256 | `2d10957fa2bffacccb443ad6a6e879184764a236557865d4025355bec5dbb2cf` |
 | 产物报告 | `docs/RELEASE_ARTIFACT_v0.0.10.md` |
