@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | 节点列表（按分类） | `/go/go` 页面 | `/nodes` | HTTP 200 + 渲染分类块 | ✅ |
 | 节点详情页 | `/go/tech` | `/go/[name]` | HTTP 200 | ✅ |
-| 节点订阅（RSS/JSON Feed） | `/feed/{node}.xml`、`.json` | `GET /api/nodes/{name}/feed`（RSS）、`?format=json`（JSON Feed 1.1） | 单元（`tests/feed-search.spec.ts` 格式有效性）+ E2E 冒烟 | ✅ |
+| 节点订阅（Atom/JSON Feed） | `/feed/{node}.xml`、`.json` | **原站路径** `GET /feed/{node}.xml`（Atom 1.0，50 条）与 `/feed/{node}.json`（JSON Feed 1.0）；另保留 `GET /api/nodes/{name}/feed`（RSS 2.0） | 静态形状护栏（`tests/static/v010-legacy-feed-shape.spec.ts` 13 条）+ E2E（`e2e/v010-legacy-feed.spec.ts` 6 条） | ✅ |
 | 子节点 | 节点页「子节点」区块 + `<node-sidebar>` 自定义元素 | `nodes.parentId` + 渲染 | 数据模型 + 渲染 | ✅ |
 | 管理员创建节点 | — | `POST /api/nodes`（admin→active，moderator→pending） | E2E + 单元 | ✅ |
 | 节点审核 | — | `PATCH /api/nodes`（approve/hide） | 单元 | ✅ |
@@ -184,6 +184,22 @@
 > `pro` 恒 0、`twitter/github/psn/btc` 恒 null、头像为确定性占位 data URI、
 > 软删除主题对公众不可见。
 
+## 13.1 旧版 API 兼容面（v0.0.13）
+
+原站 `/api/*` 下仍有 5 个端点返回 200，v0.0.13 全部补齐（契约逐条实测）：
+
+| 端点 | 载荷 | 条数 | 状态 |
+|---|---|---|---|
+| `GET /api/topics/show.json` | 数组（13 键） | 1 / 10 / 10（按 id / username / node_name） | ✅ |
+| `GET /api/topics/latest.json` | 数组，同形状 | 35 | ✅ |
+| `GET /api/members/show.json` | 单对象（+`status:"found"`） | — | ✅ |
+| `GET /api/nodes/show.json` | 单对象（16 键） | — | ✅ |
+| `GET /api/nodes/all.json` | 数组 | 库内 active 节点 | ✅ |
+| `GET /feed/{node}.xml` | Atom 1.0 | 50 | ✅ |
+| `GET /feed/{node}.json` | JSON Feed 1.0 | 50 | ✅ |
+
+细节与「与原站的差异」见 `docs/API_SPEC.md` §14。
+
 ## 14. 端到端测试覆盖
 
 > ⚠️ 本节原有数字（「67/67 通过、约 1.1 分钟」）是 **v0.0.3 的快照**，
@@ -210,7 +226,7 @@
 | XSS | ✅ | `e2e/security.spec.ts` |
 | 越权 | ✅ | 四身份验收 + 权限边界用例 |
 | 速率限制 | ✅ | 各写接口均有 429 用例 |
-| 旧版 JSON API 兼容 | ✅ | `e2e/v010-legacy-api.spec.ts`（7 条） |
+| 旧版 JSON API 兼容 | ✅ | `e2e/v010-legacy-api.spec.ts`（7 条）+ `e2e/v010-legacy-feed.spec.ts`（6 条） |
 
 测试过程中发现并修复的真实产品缺陷累计 **100+ 条**，逐条取证见 `BUG_REGISTER.md`
 （v0.0.4 ~ v0.0.13，编号 V4-xx / V5-xx / V6-xx / V7-xx / V8-xx / V9-xx / V10-xx）。

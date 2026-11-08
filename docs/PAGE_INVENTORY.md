@@ -90,11 +90,15 @@ V2EX 主站为**服务端渲染**（SSR）传统论坛页面，主域名 `www.v2
 
 | 端点 | HTTP | 说明 |
 |---|---|---|
-| `/api/topics/show.json?id=1` | 200 | 旧版 API（唯一仍可用的 JSON 端点）—— **本项目已实现兼容端点**，见 `docs/API_SPEC.md` §14 与 `src/lib/legacy-topic-api.ts` |
+| `/api/topics/show.json?id=1` | 200 | 旧版 API —— **本项目已实现**，见 `docs/API_SPEC.md` §14.1 |
+| `/api/topics/latest.json` | 200 | 最新 35 条 —— **本项目已实现**（§14.2） |
+| `/api/members/show.json` | 200 | 会员资料 —— **本项目已实现**（§14.2） |
+| `/api/nodes/show.json` | 200 | 节点详情 —— **本项目已实现**（§14.2） |
+| `/api/nodes/all.json` | 200 | 全部节点 —— **本项目已实现**（§14.2） |
 | `/api/topics.json` | 404 | 已下线 |
 | `/api/nodes.json` | 404 | 已下线 |
-| `/feed/{node}.xml` | — | 节点 RSS —— 本项目实现为 `GET /api/nodes/{name}/feed`（另支持 `?format=json`） |
-| `/feed/{node}.json` | — | 节点 JSON Feed —— 同上（`?format=json`） |
+| `/feed/{node}.xml` | 200 | 节点 Atom 1.0（50 条）—— **本项目已实现原站路径**，见 §14.3；另保留 `/api/nodes/{name}/feed`（RSS 2.0） |
+| `/feed/{node}.json` | 200 | 节点 JSON Feed 1.0（50 条）—— **本项目已实现原站路径**，见 §14.3 |
 | `/planet/about` | — | Planet 订阅说明 |
 
 ## 3. 首页 tab 结构

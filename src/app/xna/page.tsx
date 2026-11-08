@@ -92,9 +92,10 @@ export default async function XnaPage() {
           <div className="fr fade f12">Aggregating from {topics.length} entries</div>
           <Link href="/go/vxna">VXNA</Link> &nbsp; &nbsp;
           {/*
-            原写 `/feed/vxna.xml` —— 本站没有这个路由，实测恒 404，
-            且 next/link 会在打开本页时预取 404（实测 networkidle 永不静默）。
-            改为真实存在的站点级 feed，并用原生 <a> 避免预取。
+            v0.0.13 起 `/feed/{node}.xml` **路由已实现**（src/app/feed/[file]/route.ts），
+            但本页的数据源是名为 `vxna` 的聚合节点 —— 该节点在默认 seed 里**不存在**，
+            对它请求 `/feed/vxna.xml` 仍会得到 404。因此这里继续指向站点级 feed。
+            用原生 <a> 而非 next/link：feed 不是页面路由，预取只会白跑一次。
           */}
           <a href="/api/feed" target="_blank" rel="noopener noreferrer">
             RSS
