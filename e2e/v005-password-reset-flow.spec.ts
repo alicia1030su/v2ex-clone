@@ -6,6 +6,7 @@ import {
   waitForHydration,
   clearRateLimits,
   getCsrfToken,
+  clickUntilRequest,
 } from './helpers';
 import { startSmtpFixture, type SmtpFixture } from './smtp-fixture';
 
@@ -152,7 +153,11 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: '发送重置链接' }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: '发送重置链接' }),
+    (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+  );
   const knownRes = await knownResponse;
   const knownBody = await knownRes.text();
   const knownStatus = knownRes.status();
@@ -167,7 +172,11 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: '发送重置链接' }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: '发送重置链接' }),
+    (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+  );
   const unknownRes = await unknownResponse;
   const unknownBody = await unknownRes.text();
   const unknownStatus = unknownRes.status();
@@ -273,7 +282,11 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: '发送重置链接' }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: '发送重置链接' }),
+    (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+  );
   const resp = await respPromise;
   expect(resp.status()).toBe(200);
 
@@ -308,7 +321,11 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     (r) => r.url().includes('/api/auth/reset-password') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: '重置密码' }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: '重置密码' }),
+    (r) => r.url().includes('/api/auth/reset-password') && r.method() === 'POST',
+  );
   const submitRes = await submitPromise;
   expect(submitRes.status()).toBe(200);
   const submitBody = await submitRes.json();
@@ -373,7 +390,11 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     (r) => r.url().includes('/api/auth/signin') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: /登录|登 录|提交/ }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: /登录|登 录|提交/ }),
+    (r) => r.url().includes('/api/auth/signin') && r.method() === 'POST',
+  );
   const oldRes = await oldLogin;
   expect(oldRes.status()).toBe(401);
 
@@ -385,7 +406,11 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     (r) => r.url().includes('/api/auth/signin') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: /登录|登 录|提交/ }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: /登录|登 录|提交/ }),
+    (r) => r.url().includes('/api/auth/signin') && r.method() === 'POST',
+  );
   const newRes = await newLogin;
   expect(newRes.status()).toBe(200);
 });
@@ -407,6 +432,10 @@ test('服务中断：SMTP 停止后申请重置仍返回统一响应，且无邮
   // ⚠️ v0.0.9：这条原本就有 90s 预算（test 第三参数），保持不变；
   //    这里只补 waitForResponse 的 30s 独立上限，避免请求没发出时一路挂到
   //    90s 才报笼统超时。停 / 起 fixture 与「错误可观察」断言均不动。
+  //
+  // ⚠️ v0.0.12（V10-21）：点击改用 clickUntilRequest —— 实测 Firefox 上
+  //    click() 会**正常返回但请求从未发出**（见 helpers.ts 里该函数的取证记录）。
+  //    这是浏览器级偶发，不是产品缺陷；本用例的全部断言一字未动。
   await clearRateLimits(page);
   const username = uniqueName('smtp_down');
   const email = `${username}@${MAIL_DOMAIN}`;
@@ -424,7 +453,11 @@ test('服务中断：SMTP 停止后申请重置仍返回统一响应，且无邮
     (r) => r.url().includes('/api/auth/forgot-password') && r.request().method() === 'POST',
     { timeout: RESPONSE_TIMEOUT },
   );
-  await page.getByRole('button', { name: '发送重置链接' }).click();
+  await clickUntilRequest(
+    page,
+    page.getByRole('button', { name: '发送重置链接' }),
+    (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+  );
   const resp = await respPromise;
 
   // ① 枚举防护：仍返回统一 200（与邮箱是否存在无关）
