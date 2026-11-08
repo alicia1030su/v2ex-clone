@@ -46,7 +46,15 @@ export const MODERATOR = { username: 'moderator', password: DEMO_PASSWORD };
  * 修法：把「进程 env 的令牌」与「`.env.test` 里的令牌」**都试一遍**，
  * 谁能用就用谁 —— 这样无论 shell 里有没有覆盖都能工作。
  */
-function debugTokens(): string[] {
+/**
+ * 导出版本（v0.0.10）
+ *
+ * 新增的 `/api/debug/boom` 用例需要**同一套令牌回退链**：
+ * 进程 env 与 `.env.test` 都可能持有令牌，谁能用就用谁。
+ * 之前这个函数是私有的，导致新的调试端点用例只能自己再抄一遍 ——
+ * 抄错一次就是「401 而不是 500」的假失败。
+ */
+export function debugTokens(): string[] {
   const out: string[] = [];
   const fromEnv = process.env.DEBUG_ENDPOINT_TOKEN?.trim();
   if (fromEnv) out.push(fromEnv);
