@@ -1,4 +1,4 @@
-import { Page, expect, type APIResponse } from '@playwright/test';
+import { Page, expect, type APIResponse, type Locator, type Request } from '@playwright/test';
 import * as nodeFs from 'node:fs';
 import * as nodePath from 'node:path';
 
@@ -445,6 +445,63 @@ export async function gotoResilient(page: Page, url: string, attempts = 3): Prom
       }
       throw err;
     }
+  }
+}
+
+/**
+ * v0.0.12：点击并**确认请求真的发出**（容忍 Firefox「点击丢失」，V10-21）
+ *
+ * ## 事故（CI 实测，run 42488795887，firefox/1920x1080）
+ *
+ * 「SMTP 停止后申请重置」用例 31.5s 失败：`waitForResponse` 30s 超时，
+ * 但失败截图里按钮仍是「发送重置链接」（未进 pending 态）、页面零变化。
+ * 拆开 trace 逐层取证后确认：
+ *   · 点击动作本身**正常完成**（Playwright actionability 检查全过，
+ *     「元素稳定」检查需要 rAF，证明主线程当时是活的）；
+ *   · 点击后 30s 内：没有任何请求发出、没有任何 DOM 变化、
+ *     没有任何控制台错误、也没有原生表单导航（frameUrl 全程不变）；
+ *   · 输入框的值始终在（排除「清水合把受控输入清空」）。
+ * ⇒ 点击事件在浏览器侧丢失，React 的提交处理从未运行。
+ *
+ * 同一症状族 v0.0.9 记录过一次（ef39aa5：按钮停在「发送重置链接」、
+ * trace 里没有 POST），当时归因为「准备阶段耗尽 60s 预算」；
+ * 本次**预算充足**（90s 预算仅用 31.5s，前期准备 <2s）仍复现 ⇒
+ * 是独立的「点击丢失」变体。且同一轮 chromium / webkit / 其余 4 个
+ * firefox 分片的同一条用例全绿 ⇒ **不是产品缺陷**，是浏览器级偶发。
+ *
+ * ## 修法（不动任何断言，与 gotoResilient 同范式）
+ *
+ * 每轮**先注册**请求探针再点击 —— 请求是在点击事件的同一个 task 里
+ * 同步发出的，若先 click 再注册探针，请求可能已经在飞而探针看不见
+ * （假阴性 ⇒ 无谓多点一次）。探针超时未见请求 ⇒ 用 **locator 重新
+ * 解析**后再点（locator 每个 Action 都重新查询 DOM，能拿到 React
+ * 重渲染后的新节点）。最多 `attempts` 轮；全部丢失则交还调用方既有
+ * 的响应等待超时去失败（错误信息不变，仍直指缺失的请求）。
+ *
+ * 用法（保持「先建响应 Promise 再点击」的约定不变）：
+ *   const respPromise = page.waitForResponse(respFilter, { timeout: 30_000 });
+ *   await clickUntilRequest(page, page.getByRole('button', { name: '提交' }), reqFilter);
+ *   const resp = await respPromise;
+ */
+export async function clickUntilRequest(
+  page: Page,
+  locator: Locator,
+  requestPredicate: (r: Request) => boolean,
+  opts: { attempts?: number; probeMs?: number } = {},
+): Promise<void> {
+  const attempts = opts.attempts ?? 3;
+  const probeMs = opts.probeMs ?? 3_000;
+  for (let i = 1; i <= attempts; i++) {
+    // 先注册探针再点击（理由见上方注释：请求与点击同 task 发出）
+    const probe = page
+      .waitForRequest(requestPredicate, { timeout: probeMs })
+      .then(
+        () => true,
+        () => false,
+      );
+    await locator.click();
+    if (await probe) return;
+    // 点击丢失：下一轮用重新解析的 locator 再试
   }
 }
 
