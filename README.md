@@ -58,10 +58,14 @@
 
 | 版本 | 主要内容 |
 |---|---|
+| **v0.0.9** | **视觉真实性整改**：修复「README 截图无样式」事故的根因（截图工具假成功机制）；新增页面健康门禁 + 5 个负向测试；修复 7 项真实版式/资源缺陷（回复操作按钮被裁切、主题页缺右栏、`/xna` 空档、5 个 RSS 死链、回复数徽章白字从未生效、tab 无选中态、整页被渐变压暗）；「最热」tab 长期 500 修复；候选离线安装链路与可观测性修复 |
 | **v0.0.4** | 修复 11 项真实缺陷（含 3 项本轮新发现：`docker-verify.yml` 定义级失败 / 迁移物路径断言错误 / 运行时上传数据误入仓）；3 项性能优化；真实社区规模压测；升级脚本自动同步镜像 tag；发布前只读门禁 |
 | v0.0.3 | 主题/回复生命周期（编辑、软删除、恢复、锁定置顶、投票、感谢）、邮件找回密码、积分体系、节点与 Feed 订阅、后台管理、响应式适配 |
 | v0.0.2 | 限流信任边界修复、供应链漏洞清零、Windows 安装脚本修复、生产镜像裁剪、发布流水线修复 |
 | v0.0.1 | 首个公开版本（开发预览） |
+
+> **v0.0.5 ~ v0.0.8 从未公开发布**（未打 Tag、未出 Release），因此**不存在**这几版的
+> 下载页与镜像标签。唯一可用于升级验证的公开基线是 **v0.0.4**。
 
 
 ---
@@ -91,7 +95,7 @@
 | Markdown 渲染 | ✅ | 渲染前经 `sanitize-html` 白名单清洗 |
 | 回复发布 | ✅ | 楼层号原子分配；主题锁定时拒绝 |
 | 回复分页 | ✅ | 页码导航 |
-| 感谢数展示 | ✅ | 仅计数展示（**点击交互未实现**，见下表） |
+| 感谢数展示 | ✅ | 计数展示 + 点击「感谢 / 已感谢」切换（`POST`/`DELETE /api/thanks`，见 `src/components/ReplyItem.tsx`） |
 | 收藏（主题 / 节点） | ✅ | 支持取消；收藏列表页 `/bookmarks` |
 | 通知 | ✅ | 回复通知自动生成 + 未读计数 + `/notifications` |
 | 搜索 | ✅ | 顶栏 AJAX 联想 + 结果页；主题 / 节点 / 会员三类 |
@@ -138,29 +142,40 @@
 
 ### 仍未实现（本版本**完全未实现**）
 
-> 以下能力在 v0.0.4 中**没有实现**。
+> 以下能力在 v0.0.9 中**没有实现**。
 > 项目**不提供**任何形式的假实现 —— 没有占位按钮、没有假接口、没有静态演示数据冒充。
 > 若你在页面上看到一个不工作的按钮，那是因为**功能没做**，而不是「点了没反应」。
 
 | 能力 | 现状 | 底层准备情况 |
 |---|---|---|
 | 邮件送达的端到端验证 | ⚠️ 部分 | SMTP 客户端与令牌流程已实现并测试；**本机未配置真实 SMTP 服务器**，未验证真实投递 |
-| 头像自动裁剪 | ⚠️ 部分 | 已实现 magic number 校验与存储；**未安装 `sharp`**，当前保存原图（降级路径可用） |
-| 报告回复（举报 UI） | ❌ **未实现** | `reports` 表与后台处理 API 已就绪，缺前端入口 |
+| 头像自动裁剪 | ✅ **已实现** | `sharp@0.35.5` 为生产依赖（`src/lib/avatar.ts` → `processAvatar`）：EXIF 方向校正 → 居中裁正方形 → 重编码并**剥离全部元数据**（含 GPS）；`limitInputPixels` 防图片炸弹。sharp 缺失时降级保存原图 |
+| 举报入口（主题 / 回复） | ✅ **已实现** | `src/components/ReportButton.tsx` 已接入主题页与回复卡片；后台 `/admin` 举报处理页可用 |
 | 节点申请的前端入口 | ✅ **已实现** | `/nodes/request` 页 + `NodeRequestForm`（v0.0.4 `ed385cf` 补齐、`bddb3d0` 修复 V4-20 水合崩溃）+ 后台审批 tab |
-| RSS 阅读器集成 | ❌ **未实现** | Feed 已输出标准格式，未做站内聚合页 |
-| 全文搜索（PostgreSQL FTS） | ❌ **未实现** | 当前为 ILIKE 模糊匹配 |
+| RSS 阅读器集成 | ❌ **未实现** | Feed 已输出标准格式（RSS / Atom / JSON），未做站内聚合页 |
+| 全文搜索（PostgreSQL FTS） | ❌ **未实现** | 当前为 `ILIKE` 模糊匹配 + `pg_trgm` 索引 |
 | 多语言 / i18n | ❌ **未实现** | — |
 | 私信 / 站内信 | ❌ **未实现** | — |
 
 ## 页面截图
 
 > 以下截图均为**本项目本地运行的真实渲染结果**（`local-*.png`），由 Playwright 在
-> `desktop-1280` / `desktop-1920` / `mobile-375` 三个视口下采集。
+> `desktop-1280` / `desktop-1920` / `tablet-768` / `mobile-375` 四个视口下采集。
+>
+> **每张截图都必须先通过「页面健康门禁」才会被写盘**（`tools/visual/lib/page-health.mjs`）。
+> 门禁逐项断言：HTML 2xx、最终 URL 正确、CSS/JS 请求全部成功、样式表真的解析出规则、
+> `#Wrapper` 灰底 = `rgb(226,226,226)`、`.box` 白卡 + 阴影 + 3px 圆角、默认蓝链接 0 个、
+> 内容区居中 1100px、桌面必须双栏、无横向溢出、图片全部加载、无控制台 error、布局已稳定。
+> **任一项不过 ⇒ 拒绝出图**，只把现场图写进 `docs/evidence/visual/health/*-INVALID.png`，
+> 并让任务以退出码 1 失败。也就是说：**README 里不可能再出现「没有样式」的截图**。
 
 ### 首页（`desktop-1280`）
 
-![首页 —— 顶栏节点 tab、主栏主题列表、右侧栏「V2EX = way to explore」与「今日热门主题」](docs/evidence/screenshots/desktop-1280/local-home.png)
+![首页 —— 顶栏 tab（「全部」为选中态）、主栏主题列表（头像 / 标题 / 节点 / 作者 / 回复数徽章）、右侧栏「V2EX = way to explore」与「今日热议主题」](docs/evidence/screenshots/desktop-1280/local-home.png)
+
+### 首页（`desktop-1920`）
+
+![首页 —— 1920px 视口下内容区仍居中约束在 1100px，左右留白对称](docs/evidence/screenshots/desktop-1920/local-home.png)
 
 ### 全部节点
 
@@ -172,7 +187,7 @@
 
 ### 主题详情页
 
-![主题详情 —— 面包屑、主题正文、Markdown 渲染、收藏按钮、分页与楼层回复](docs/evidence/screenshots/desktop-1280/local-topic_detail.png)
+![主题详情 —— 面包屑、主题正文、Markdown 渲染、收藏按钮、楼层回复与「感谢 / 举报」操作区](docs/evidence/screenshots/desktop-1280/local-topic_detail.png)
 
 ### 用户主页
 
@@ -184,9 +199,10 @@
 
 ### 移动端首页（`mobile-375`）
 
-![移动端首页 —— 375px 视口下的响应式布局](docs/evidence/screenshots/mobile-375/local-home.png)
+![移动端首页 —— 375px 视口下的单列响应式布局](docs/evidence/screenshots/mobile-375/local-home.png)
 
-多视口几何测量与像素比对结果见 [`docs/VISUAL_DIFF_REPORT.md`](docs/VISUAL_DIFF_REPORT.md)。
+多视口几何测量、像素比对与**未解决差异清单**见 [`docs/VISUAL_DIFF_REPORT.md`](docs/VISUAL_DIFF_REPORT.md)；
+门禁判据与逐项证据见 [`docs/VISUAL_AUTHENTICITY_v0.0.9.md`](docs/VISUAL_AUTHENTICITY_v0.0.9.md)。
 
 ---
 
@@ -194,7 +210,14 @@
 
 ### 方式 A：一键安装包（推荐）
 
-下载 `v2ex-clone-v0.0.4-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.9-deploy.zip` 并解压。
+
+> 解压后会得到 `deploy/` 目录，安装脚本在里面：
+> `unzip v2ex-clone-v0.0.9-deploy.zip -d v2ex-clone-v0.0.9-deploy && cd v2ex-clone-v0.0.9-deploy/deploy`
+>
+> ⚠️ 已发布的 v0.0.9 安装包内 `deploy/*.sh` **缺少可执行位**（缺陷 V9-09，修复在 master，
+> 但已发布资产按规约不可覆盖）。首次运行前请先 `chmod +x deploy/*.sh`。
+> 同包内 `backup.sh` / `restore.sh` 另有 SIGPIPE 缺陷（V9-13），修复同样在 master。
 
 **Linux / macOS：**
 
@@ -211,7 +234,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 安装完成后访问 **http://localhost:3000**。
 
-安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4>
+安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9>
 
 ### 方式 B：手动 Docker Compose
 
@@ -252,9 +275,9 @@ docker compose up -d
 
 | 内容 | 位置 |
 |---|---|
-| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.4> |
-| 一键部署安装包 | `v2ex-clone-v0.0.4-deploy.zip` |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.4` |
+| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9> |
+| 一键部署安装包 | `v2ex-clone-v0.0.9-deploy.zip` |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.9` |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
 > 镜像拉取需要 GHCR 包为 **public** 才能匿名 `docker pull`。
@@ -318,29 +341,23 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 ./scripts/verify.sh --skip-e2e               # 跳过 E2E
 ```
 
-| 套件 | 用例数 | 命令 | v0.0.4 实测 |
+> **口径原则**：只写**能复现的实测数字**。取数命令写在旁边，任何人都能一条命令复核；
+> 静态 grep 不算口径（部分 spec 用嵌套 for 生成用例），**必须取 Vitest 运行时的 `numTotalTests`**。
+
+| 套件 | 用例数 | 命令 | v0.0.9 实测 |
 |---|---|---|---|
-| 单元测试（vitest） | **194** | `npm run test:unit` | **194 passed / 0 failed / 0 skipped**，**连续 4 轮全绿**（16 个文件）。**本轮隔离实例实测 81.68s**；历史轮次 170~210s（共享实例 55433 口径）。⚠️ **修复前基线为 190 条 / 15 文件**（V4-20 修复新增 `tests/form-name-shadowing.spec.ts` 的 **4 条防回归断言** ⇒ 190 → 194） |
-| E2E（Playwright） | **154** | `npm run test:e2e` | ✅ **当前权威实测 = 154 passed / 0 failed / 0 skipped（11 个文件，3.9m）** —— V4-20 修复后本地实跑全绿。**本地历史轮次口径**：153 passed / 0 failed / 0 skipped，连续 2 轮全绿（11 个文件，4.5m/轮，基于 153 条口径、早于 `ed385cf`）。**修复前的历史快照**：CI run `41873009808` = `153 passed \| 1 failed \| 154 total`，唯一失败为 `e2e/v004-four-roles-ui.spec.ts:122` 节点申请 UI 提交链断裂（V4-20 / R-27）—— **已由 `bddb3d0` 修复并本地实测验证**；****CI 已复验通过**（run `41949555282`，SHA `bddb3d0`：unit ✅ 194 passed/16 文件、e2e ✅ 154 passed/0 failed、docker ✅）** |
+| 单元测试（vitest） | **440**（35 个 spec 文件） | `npm run test:unit` | **440 passed / 0 failed / 0 skipped**，**35/35 文件全绿**，184.78s（2026-11-08，本机隔离实例 `v2ex_test_base`） |
+| E2E（Playwright） | **见下方实测行** | `npm run test:e2e` | 见本节末尾「E2E 实测」 |
+| 视觉健康门禁 | **6 个页面 × 18 项判据** | `node tools/visual/diagnose.mjs --all` | **6/6 页面通过**（含 CSS/JS 加载、双栏几何、计算样式、无溢出） |
+| 门禁负向测试 | **5 个坏页面场景** | `node tools/visual/negative-tests.mjs` | **5/5 被正确拒绝**（无 CSS / 静态资源全挂 / 错误路由 / 站点 502 / 单栏塌陷） |
 
 > ⚠️ **必须注入测试环境变量**：`.env.test` 指向本机隔离实例（**按 `.env.test` 实际解析的端口，当前 55440**；不在版本库中）。
 > 裸跑 vitest 会连默认的 5432 而失败（`ECONNREFUSED`）。CI 与本地全量复验均须注入：
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
-> ⚠️ **历史数字**：本表曾在 v0.0.1～v0.0.3 期间显示「单元 103 / E2E 67」。
-> **v0.0.4 的权威基线是 194 条 / 16 文件 / 194 passed / 0 failed / 0 skipped**（V4-20 修复前为 190 条 / 15 文件）。
->
-> ⚠️ **「185」有两个不同来源，不可混用**：
-> ① **v0.0.3 历史总数**（master @ `37710fb4`，14 个 spec 文件，`185 passed (185)`）；
-> ② **修复前的历史观测**（run `41837212170`，HEAD `930f29e`，`185 passed | 5 skipped (190)` ——
-> ⚠️ **分母仍是 190**，5 条因 `floor-continuity` 在 CI 崩溃而跳过）。
-> **该红灯已由 `8ce5ce9` 修复**，run `41860242099` 与 `41873009808` 的「类型检查 / 单元测试」job 均已 ✅
-> （vitest 15 文件全过、190 passed / 0 skipped）。
-> **无论哪种，v0.0.4 的用例总数在 V4-20 修复后是 194**（修复前是 190）。
-> 口径裁决见 `TEST_REPORT.md` 文首「185 vs 190 裁决」小节与 `docs/evidence/ci/test-baseline-v0.0.4.md` §0.1。
->
-> ⚠️ **静态 grep 不可用作口径**：`grep -cE "^\s*(it|test)\s*[(']"` 得出 180（少于 190），
-> 因部分 spec 用嵌套 for 循环生成用例。**口径必须取 Vitest 运行时的 `numTotalTests`**。
+> ⚠️ **历史数字会过期，因此本文不再罗列历史轮次**。曾出现过的「单元 103 / E2E 67」
+> （v0.0.1~v0.0.3）、「190 / 194」（v0.0.4）都是当时口径；v0.0.9 的基线是上表的 **440 / 35 文件**。
+> 需要追溯时看 `docs/evidence/ci/test-baseline-*.md`，不要从本表推。
 
 > `scripts/verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），
 > 进程管理区分 Windows 与 POSIX。它在**专用验证库**（默认 `v2ex_verify`）上操作，
@@ -363,14 +380,14 @@ v2ex-clone/
 │   │   ├── nodes/  xna/        # 全部节点 / VXNA 聚合
 │   │   ├── about/ faq/ privacy/ forgot/ worldclock/   # 静态页
 │   │   ├── signin/ signup/ settings/ notifications/ bookmarks/ admin/
-│   │   └── api/                # 55 个 API 路由（含 admin 13 / debug 3）
+│   │   └── api/                # 61 个 API 路由（含 admin 15 / debug 4）
 │   ├── components/             # 共享组件
 │   ├── db/                     # Drizzle schema（26 张表）与连接
 │   ├── lib/                    # 认证、CSRF、限流、KV、Markdown、验证码、运行时开关
 │   ├── server/                 # 查询与业务逻辑
 │   └── middleware.ts           # CSRF Cookie 下发
-├── e2e/                        # Playwright 用例（154 个）
-├── tests/                      # vitest 单元测试（190 个）
+├── e2e/                        # Playwright E2E 用例（20 个 spec 文件；条数以运行结果为准）
+├── tests/                      # vitest 单元测试（35 个 spec 文件；条数以运行结果为准）
 ├── tools/
 │   ├── recon/                  # 原站抓取（fetch.sh / crawl.sh）
 │   └── visual/                 # 截图、像素比对、几何测量（capture / diff / measure）
@@ -388,11 +405,11 @@ v2ex-clone/
 > | 数字 | 取数命令 | 实测值 | 口径说明 |
 > |---|---|---|---|
 > | **27 个页面** | `find src/app -name "page.tsx" \| wc -l` | **27**（v0.0.5 起，含新增的 `/reports`「我的举报」）| ⚠️ **含静态页**（`/about` `/faq` `/privacy` `/forgot` `/worldclock` 等）—— **不是「24 个业务页」** |
-> | **55 个 API 路由** | `find src/app/api -name "route.ts" \| wc -l` | **55** | ⚠️ **含** `/api/admin/**`（**13** 个）与 `/api/debug/**`（**3** 个，**仅测试环境启用**）。<br>构成：`admin` 13 + `debug` 3 + 其余业务端点 39 |
-> | **26 张表** | `grep -c "pgTable(" src/db/schema.ts` | **26** | ⚠️ 这是**当前 Drizzle schema 里的表数**，与「迁移文件 3 个（`0000`/`0001`/`0002`）」是**不同的东西** —— 后者是迁移脚本数，不是表数 |
+> | **61 个 API 路由** | `find src/app/api -name "route.ts" \| wc -l` | **61** | ⚠️ **含** `/api/admin/**`（**15** 个）与 `/api/debug/**`（**4** 个，**仅测试环境启用**）。<br>构成：`admin` 15 + `debug` 4 + 其余业务端点 42 |
+> | **26 张表** | `grep -c "pgTable(" src/db/schema.ts` | **26** | ⚠️ 这是**当前 Drizzle schema 里的表数**，与「迁移文件 4 个（`0000_init`/`0001_striped_magdalene`/`0002_v004_perf_indexes`/`0003_v005_reports`）」是**不同的东西** —— 后者是迁移脚本数，不是表数 |
 >
-> 「后台管理（13 个 API）」的复核命令：`find src/app/api/admin -name "route.ts" \| wc -l` → **13**（2026-11-04 实测，仍准确）。
-> `admin` 13 + `debug` 3 = 16，两者**都是** `src/app/api` 下 55 个的一部分 —— 见上方「55 个 API 路由」的构成列。
+> 「后台管理（15 个 API）」的复核命令：`find src/app/api/admin -name "route.ts" \| wc -l` → **15**（2026-11-08 实测）。
+> `admin` 15 + `debug` 4 = 19，两者**都是** `src/app/api` 下 61 个的一部分 —— 见上方「61 个 API 路由」的构成列。
 
 ---
 
@@ -439,16 +456,23 @@ v2ex-clone/
 
 ### 未实现的功能
 
-见上文「[未实现](#未实现本版本完全未实现)」表格 —— 主题编辑与删除、感谢、关注用户、
-积分排行榜、RSS 输出、邮件找回密码、主题标签、附件上传、私信、头像上传、投票、第三方登录。
-**这些不是 bug，是本版本的范围之外。**
+见上文「[未实现](#仍未实现本版本完全未实现)」表格。**当前仍缺的只有 4 项**：
+
+1. 邮件**真实投递**的端到端验证（SMTP 客户端与令牌流程已实现并测试，本机无真实 SMTP）
+2. 站内 RSS 聚合阅读页（Feed 输出本身已实现：RSS / Atom / JSON，站点级 + 节点级）
+3. PostgreSQL 全文搜索（当前是 `ILIKE` + `pg_trgm` 索引）
+4. 多语言 / i18n、私信 / 站内信
+
+> 历史遗留说明：本文档曾在 v0.0.4 期间把「主题编辑与删除、感谢、关注用户、积分排行榜、
+> RSS 输出、邮件找回密码、头像上传、投票」列为「范围之外」——**那批能力在 v0.0.3 就实现了**，
+> 该列表是过期文案，v0.0.9 已删除。
 
 ### 真实缺陷与风险
 
 | # | 项 | 说明 | 影响面 |
 |---|---|---|---|
 | 1 | **CI 环境下暴露的限流清理缺陷（已修复）** | 原「清空限流」端点只删数据库表，配了 Redis 时清空操作**静默失效**（返回 200 但配额未清），导致 CI 中 8 个用例出现 TimeoutError / 429。已通过 KV 抽象新增 `clearAll` 修复，但**该缺陷只会在配置了 Redis 的环境出现**，本地无 Redis 时复现不了 —— 说明类似「按后端分支实现」的路径仍有漏测风险 | 中（已修复） |
-| 2 | **未经生产环境验证** | v0.0.3 仅在开发机与 CI 隔离容器中跑过。**未做**长时间稳定性验证、**未在真实生产环境部署过**。⚠️ **v0.0.4 进展**：已做真实社区规模压测（10 万主题 / 100 万回复、13 场景 / 24785 请求、0 个 5xx），但**长时间稳定性（soak）测试仍未做** | **高** |
+| 2 | **未经生产环境验证** | 只在开发机与 CI 隔离容器里跑过，**未在真实生产环境部署过**。压测已做（10 万主题 / 100 万回复、13 场景 / 24785 请求、0 个 5xx）。**长时间运行**：**1 小时分段 soak 已真实通过**；**24 小时尚未完成**（旧单 Job 设计受平台 6 小时上限限制，分段化工作流已就绪但未跑满 24h），见 `docs/SOAK_24H_FINDING_v0.0.9.md` | **高** |
 | 3 | **seed 演示账号仅非生产环境创建** | `SEED_DEMO_USERS=1` 时会创建 `lisi` / `wangwu` / `zhaoliu` / `moderator` 四个已知账号。在生产环境误设 `APP_RUNTIME_ENV=development` 会导致演示账号被创建 | 中（配置失误即触发） |
 | 4 | **Redis 路径长期行为未观测** | CI 用 service container 提供真实 Redis，但只验证了清空限流这一个路径。Redis 长时间运行下的内存增长、键空间膨胀、连接稳定性**均未观测**。⚠️ **v0.0.4 进展**：`docker-verify.yml` 已实装 `[R-17a]` Redis 中断恢复 / `[R-17b]` PG 中断恢复 / `[R-17c]` 缓存失效与内存观测三个专项，**但本轮尚未实跑** | 中 |
 | 5 | **Docker Compose 未做长时间运行验证** | CI 验证了「构建 → 启动 → 健康检查 → 重启不污染数据」，但**未验证**长期运行的资源占用与日志膨胀。✅ **v0.0.4 进展**：`docker-verify` **九项全部 completed / success**（run `41871503684`，SHA `2773cd1`），九项汇总表全 PASS（含 compose 启动、PG/Redis 健康、数据卷持久化、容器重启、`[R-17a/b/c]` 专项、安装包实际部署、容器资源观察、镜像内容与权限）；修复提交 `827eef7` + `2773cd1` | 中 |

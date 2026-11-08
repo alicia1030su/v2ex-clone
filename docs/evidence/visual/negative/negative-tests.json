@@ -1,0 +1,100 @@
+{
+  "base": "http://127.0.0.1:3210",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "results": [
+    {
+      "id": "no-css",
+      "title": "拦截全部 CSS（模拟样式表 404 / 取不到）",
+      "gateRejected": true,
+      "requiredFailedChecks": [
+        "css.requests",
+        "css.parsed",
+        "design.wrapperBg",
+        "design.noUaLinks"
+      ],
+      "failedChecks": [
+        "css.requests",
+        "static.noFailures",
+        "resources.noFailures",
+        "css.parsed",
+        "console.noErrors",
+        "design.wrapperBg",
+        "design.bodyFont",
+        "design.boxCard",
+        "design.noUaLinks",
+        "design.centered",
+        "design.twoColumn"
+      ],
+      "missing": [],
+      "ok": true
+    },
+    {
+      "id": "no-static",
+      "title": "拦截 /_next/static/**（模拟静态资源整体不可用）",
+      "gateRejected": true,
+      "requiredFailedChecks": [
+        "static.noFailures",
+        "design.wrapperBg",
+        "design.noUaLinks"
+      ],
+      "failedChecks": [
+        "css.requests",
+        "js.requests",
+        "static.noFailures",
+        "resources.noFailures",
+        "css.parsed",
+        "console.noErrors",
+        "design.wrapperBg",
+        "design.bodyFont",
+        "design.boxCard",
+        "design.noUaLinks",
+        "design.centered",
+        "design.twoColumn"
+      ],
+      "missing": [],
+      "ok": true
+    },
+    {
+      "id": "wrong-route",
+      "title": "导航到错误路由（模拟登录墙/重定向/白屏重定向）",
+      "gateRejected": true,
+      "requiredFailedChecks": [
+        "navigation.url"
+      ],
+      "failedChecks": [
+        "navigation.url"
+      ],
+      "missing": [],
+      "ok": true
+    },
+    {
+      "id": "site-404",
+      "title": "站点整体不可用（模拟 502/404 错误页）",
+      "gateRejected": true,
+      "requiredFailedChecks": [
+        "navigation.load"
+      ],
+      "failedChecks": [
+        "navigation.load"
+      ],
+      "missing": [],
+      "ok": true
+    },
+    {
+      "id": "not-two-column",
+      "title": "桌面双栏被压成单栏（模拟 CSS 只加载了一半 / 布局塌陷）",
+      "gateRejected": true,
+      "requiredFailedChecks": [
+        "design.twoColumn"
+      ],
+      "failedChecks": [
+        "design.twoColumn"
+      ],
+      "missing": [],
+      "ok": true
+    }
+  ]
+}

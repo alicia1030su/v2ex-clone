@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { RssIcon, JsonFeedIcon } from '@/components/FeedIcons';
+import { avatarDataUri } from '@/components/Avatar';
 
 /**
  * 节点横幅 —— 对应原站的 .box-title.node-header
@@ -21,8 +22,18 @@ export default function NodeHeader({
 }: {
   title: string;
   topicCount: number;
-  /** feed 文件名前缀，用于生成 /feed/{name}.xml 与 /feed/{name}.json */
-  feedName: string;
+  /**
+   * 节点名，用于生成该节点的 feed 地址 `/api/nodes/{name}/feed`。
+   *
+   * v0.0.9 后修（2026-11-08）：原实现拼的是 `/feed/{name}.xml` 与
+   * `/feed/{name}.json` —— 这两个路由**根本不存在**，实测恒 404
+   * （站点真实路由是 `/api/feed`、`/api/feed/atom`、`/api/feed/json`
+   *  以及 `/api/nodes/{name}/feed`）。
+   * 结果是节点页上两个 feed 图标都是死链，而且因为用了 next/link，
+   * 每次打开节点页还会预取一次 404。
+   * 传空值表示该页面对应不到真实节点（如搜索结果页）—— 此时不渲染图标。
+   */
+  feedName?: string | null;
   avatar?: string | null;
 }) {
   return (
@@ -31,21 +42,24 @@ export default function NodeHeader({
         {avatar ? (
           <img src={avatar} alt={title} width={64} height={64} />
         ) : (
-          // v0.0.6：占位符必须与 img 的盒模型一致 ——
-          // `.cell.page-content-header > img` 带 `margin: 0 10px 0 0`，
-          // 占位 div 不是 img，拿不到该规则 ⇒ 曾经与右侧标题贴死（0 间距）。
-          // 深色横幅（#001d25）上半透明白色可见，无需改色。
-          <div
-            style={{
-              display: 'block',
-              width: 64,
-              height: 64,
-              flex: '0 0 64px',
-              margin: '0 10px 0 0',
-              borderRadius: 4,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px dashed rgba(255,255,255,0.35)',
-            }}
+          /*
+           * v0.0.9：没有图标时**不要**画空框。
+           *
+           * 原实现是一个 64×64 的虚线空盒（只为占住盒模型）。在 README 截图里
+           * 它读起来就是「图片挂了」—— 而真实 V2EX 的每个节点都有彩色图标。
+           * 这里改用与用户头像同一套确定性 SVG 生成器（同节点恒同色同首字），
+           * 既保留 `img` 的盒模型（`.cell.page-content-header > img` 的
+           * `margin: 0 10px 0 0` 才能命中），又不会出现「空框」观感。
+           * 仍然**不复制**原站版权图标。
+           */
+          <img
+            /* seed 必须**直接用节点名**：avatarDataUri 取 seed 的首字符做字形，
+               写成 `node:${title}` 会让所有节点都显示字母「N」（实测踩到）。 */
+            src={avatarDataUri(title, 64)}
+            alt={title}
+            width={64}
+            height={64}
+            className="node-icon-generated"
           />
         )}
         <div>
@@ -56,14 +70,21 @@ export default function NodeHeader({
             <span className="topic-count">
               主题总数 <strong>{topicCount}</strong>
             </span>
-            <span className="node-feed">
-              <Link href={`/feed/${feedName}.xml`} target="_blank">
-                <RssIcon size={16} />
-              </Link>
-              <Link href={`/feed/${feedName}.json`} target="_blank">
-                <JsonFeedIcon size={16} />
-              </Link>
-            </span>
+            {feedName ? (
+              <span className="node-feed">
+                {/* 用原生 <a>：feed 不是页面路由，App Router 预取它只会得到一个 404 */}
+                <a href={`/api/nodes/${feedName}/feed`} target="_blank" rel="noopener noreferrer">
+                  <RssIcon size={16} />
+                </a>
+                <a
+                  href={`/api/nodes/${feedName}/feed?format=json`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <JsonFeedIcon size={16} />
+                </a>
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

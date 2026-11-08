@@ -521,6 +521,28 @@ async function main() {
 
   // ── 基线保存 / 对比 ──
   if (SAVE_BASELINE) {
+    /*
+     * v0.0.9 后修（2026-11-08）：**基线更新必须经过人工审查**。
+     *
+     * 事故背景：README 首页截图是无样式的 HTML，而视觉回归报「63/63 全绿」——
+     * 因为基线本身就是从同一套坏页面上建立的，比的是「坏 vs 坏」。
+     * 一旦允许随手 `--save-baseline`，任何回归都能被「重新拍一张」抹平，
+     * 门禁就退化成橡皮图章。
+     *
+     * 因此保存基线必须显式提供审查凭据（谁、为什么），并写进基线文件。
+     * 没有凭据 ⇒ 拒绝保存并退出码 2（区别于「回归失败」的退出码 1）。
+     */
+    const approval = (process.env.VISUAL_BASELINE_APPROVE ?? '').trim();
+    if (approval.length < 8) {
+      console.error(
+        '\n[regression] ✗ 拒绝保存基线：未提供审查凭据。\n' +
+          '            视觉基线是回归判据的基准，必须在**人工查看过截图**之后才能更新。\n' +
+          '            确认无误后这样运行：\n' +
+          '              VISUAL_BASELINE_APPROVE="<审查人> <日期> <理由>" \\\n' +
+          '                node tools/visual/regression.mjs --base <url> --save-baseline\n',
+      );
+      process.exit(2);
+    }
     await writeFile(
       BASELINE_FILE,
       JSON.stringify(
@@ -531,6 +553,8 @@ async function main() {
           clockAnchor: clockAnchorValid ? clockAnchor.toISOString() : null,
           base: BASE,
           platform: PLATFORM,
+          // v0.0.9：记录审查凭据 —— 没有它就不写基线
+          approvedBy: approval,
           results,
         },
         null,
@@ -539,6 +563,7 @@ async function main() {
       'utf8',
     );
     console.log(`\n[regression] 基线已保存（平台 ${PLATFORM}）→ ${BASELINE_FILE}`);
+    console.log(`[regression] 审查凭据：${approval}`);
     if (!clockAnchorValid) {
       console.log(
         '[regression] ⚠️ 本次未使用固定时钟锚点 —— 基线会随墙上时钟漂移（建议设置 VISUAL_CLOCK_ANCHOR 或 SEED_TIME_ANCHOR）',

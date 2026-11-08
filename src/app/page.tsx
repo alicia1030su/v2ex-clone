@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { HOME_TABS, SECONDARY_TABS } from '@/lib/nav';
@@ -23,7 +23,10 @@ export default async function HomePage({
   const params = await searchParams;
   const user = await getSessionUser();
 
-  const tabKey = params.tab ?? 'home';
+  // v0.0.9：`/` 默认展示「全部」主题，因此默认 tabKey 必须是 'all' ——
+  // 原为 'home'（不存在于 HOME_TABS），导致首页**没有任何 tab 处于选中态**，
+  // 导航条上一片灰字，与参考截图（有一个深色圆角选中块）明显不同。
+  const tabKey = params.tab ?? 'all';
   const page = Math.max(1, Number(params.p ?? 1) || 1);
 
   // 找到当前 tab 对应的节点集合
@@ -31,14 +34,22 @@ export default async function HomePage({
   let nodeNames: string[] = tab?.nodes ?? [];
 
   if (tabKey === 'hot') {
-    // 最热：按 votes + replies 排序
+    // 最热：按「节点内全部主题的 votes + replies 之和」给节点排序，取前 20 个节点。
+    //
+    // v0.0.9 修复：原先写的是 `groupBy(nodes.name).orderBy(desc(topics.votes))` ——
+    // `topics.votes` 既不在 GROUP BY 里也不是聚合函数，PostgreSQL 直接报
+    // `column "topics.votes" must appear in the GROUP BY clause or be used in an
+    // aggregate function` ⇒ **「最热」tab 恒 500**。因为首页默认 tab 不是它，
+    // 这条死链一直没被发现（视觉核验时逐 tab 走查才暴露）。
     const hot = await db
       .select({ name: schema.nodes.name })
       .from(schema.topics)
       .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
       .where(eq(schema.topics.status, 'published'))
       .groupBy(schema.nodes.name)
-      .orderBy(desc(schema.topics.votes))
+      .orderBy(
+        desc(sql<number>`sum(${schema.topics.votes} + ${schema.topics.repliesCount})`),
+      )
       .limit(20);
     nodeNames = hot.map((h) => h.name);
   }

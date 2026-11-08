@@ -10,6 +10,7 @@
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { loadAndVerify } from './lib/page-health.mjs';
 
 const ROOT = path.resolve(process.cwd());
 const OUT_DIR = path.join(ROOT, 'docs', 'evidence', 'visual');
@@ -143,26 +144,80 @@ const only = arg('only');
 
 async function measurePage(page, url) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  await page.evaluate(() => document.fonts?.ready).catch(() => {});
+  /*
+   * ⚠️ 这里**不允许**把等待失败静默吞掉。
+   *
+   * 原站页面常挂着长期未完成的第三方请求（广告 / 统计），`networkidle`
+   * 未必能静默 —— 但「没静默」这件事本身必须**被记录**，否则量出来的
+   * 几何到底是在一张稳定页面上取的、还是在半加载页面上取的，无从判断。
+   * 所以：超时不抛死，但把 `_networkIdle=false` 写进测量结果，可审计。
+   */
+  let networkIdle = true;
+  try {
+    await page.waitForLoadState('networkidle', { timeout: 30000 });
+  } catch {
+    networkIdle = false;
+  }
+  try {
+    await page.evaluate(() => document.fonts?.ready);
+  } catch {
+    /* 字体 API 不存在时不影响测量 */
+  }
   await page.waitForTimeout(500);
+  const data = await page.evaluate(MEASURE, TARGETS);
+  data._networkIdle = networkIdle;
+  return data;
+}
+
+/**
+ * 本地页面必须在**样式已生效**的前提下才测量。
+ *
+ * 否则量到的「本地几何」是「无 CSS 的 HTML 流」，
+ * 拿它和原站比出来的 Δx/Δy 全是假的 —— 表格看起来精确到像素，
+ * 实际是拿一张废页面在算偏差。
+ */
+async function measureLocalVerified(page, url) {
+  const r = await loadAndVerify(page, url, { expectUrl: new URL(url).pathname, requireRightbar: false });
+  const failed = r.checks.filter((c) => !c.ok && c.severity === 'blocker');
+  if (!r.ok) {
+    return { error: `健康门禁未通过：${failed.map((c) => c.id).join(',')}`, checks: failed };
+  }
   return page.evaluate(MEASURE, TARGETS);
 }
 
 async function main() {
   await mkdir(OUT_DIR, { recursive: true });
-  const browser = await chromium.launch({
+
+  /**
+   * 原站与本地**分开两只浏览器**。
+   *
+   * 旧实现只有一只、且无条件带 `--proxy-server` ⇒ 本地页面的
+   * `/_next/static/*` 也被送进代理，量出来的几何是无样式 HTML 的几何。
+   */
+  const refBrowser = await chromium.launch({
     ...(USE_SYSTEM_BROWSER ? { channel: CHANNEL } : {}),
-    args: [`--proxy-server=${PROXY}`],
+    args: ['--disable-blink-features=AutomationControlled'],
   });
-  const ctx = await browser.newContext({
+  const refCtx = await refBrowser.newContext({
     viewport: VIEWPORT,
     deviceScaleFactor: 1,
     locale: 'zh-CN',
     userAgent:
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    proxy: { server: PROXY, bypass: 'localhost,127.0.0.1,::1,0.0.0.0' },
   });
-  const page = await ctx.newPage();
+  const locBrowser = await chromium.launch({
+    ...(USE_SYSTEM_BROWSER ? { channel: CHANNEL } : {}),
+  });
+  const locCtx = await locBrowser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: 1,
+    locale: 'zh-CN',
+  });
+
+  const page = await refCtx.newPage();
+  const locPage = await locCtx.newPage();
+  let invalid = 0;
 
   const report = [];
 
@@ -178,9 +233,13 @@ async function main() {
     }
     await page.waitForTimeout(1000);
     try {
-      loc = await measurePage(page, LOCAL_BASE + p.local);
+      loc = await measureLocalVerified(locPage, LOCAL_BASE + p.local);
     } catch (e) {
       loc = { error: e.message };
+    }
+    if (loc?.error) {
+      invalid += 1;
+      console.log(`  ✗ 本地测量无效：${loc.error}（该项不作为对比依据）`);
     }
 
     const keys = [...TARGETS.map((t) => t.key), '_body', '_document'];
@@ -220,13 +279,30 @@ async function main() {
     await page.waitForTimeout(800);
   }
 
-  await browser.close();
+  await refCtx.close().catch(() => {});
+  await refBrowser.close().catch(() => {});
+  await locCtx.close().catch(() => {});
+  await locBrowser.close().catch(() => {});
   const outFile = path.join(OUT_DIR, `layout-measurements-${VIEWPORT_LABEL}.json`);
   await writeFile(
     outFile,
-    JSON.stringify({ viewport: VIEWPORT, generatedAt: new Date().toISOString(), report }, null, 2),
+    JSON.stringify(
+      {
+        viewport: VIEWPORT,
+        generatedAt: new Date().toISOString(),
+        // 无效条目数 > 0 时，deltas 不完整，不得据此下「还原度」结论
+        invalidLocalMeasurements: invalid,
+        report,
+      },
+      null,
+      2,
+    ),
   );
   console.log(`\n✓ 布局测量: ${path.relative(ROOT, outFile)}`);
+  if (invalid > 0) {
+    console.error(`✗ ${invalid} 个本地页面测量无效（健康门禁未通过）`);
+    process.exit(1);
+  }
 }
 
 main().catch((e) => {

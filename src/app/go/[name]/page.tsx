@@ -53,13 +53,15 @@ export default async function NodePage({
                 <tbody>
                   <tr>
                     <td width={28}>
-                      <Link href={`/feed/${node.name}.xml`}>
+                      <a href={`/api/nodes/${node.name}/feed`} target="_blank" rel="noopener noreferrer">
                         <RssIcon size={28} />
-                      </Link>
+                      </a>
                     </td>
                     <td width={10} />
                     <td width="auto" valign="middle" align="left">
-                      <Link href={`/feed/${node.name}.xml`}>RSS</Link>
+                      <a href={`/api/nodes/${node.name}/feed`} target="_blank" rel="noopener noreferrer">
+                        RSS
+                      </a>
                     </td>
                   </tr>
                 </tbody>
@@ -70,13 +72,23 @@ export default async function NodePage({
                 <tbody>
                   <tr>
                     <td width={28}>
-                      <Link href={`/feed/${node.name}.json`}>
+                      <a
+                        href={`/api/nodes/${node.name}/feed?format=json`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <JsonFeedIcon size={28} />
-                      </Link>
+                      </a>
                     </td>
                     <td width={10} />
                     <td width="auto" valign="middle" align="left">
-                      <Link href={`/feed/${node.name}.json`}>JSON Feed</Link>
+                      <a
+                        href={`/api/nodes/${node.name}/feed?format=json`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        JSON Feed
+                      </a>
                     </td>
                   </tr>
                 </tbody>

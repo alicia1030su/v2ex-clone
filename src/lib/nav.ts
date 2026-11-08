@@ -1,9 +1,12 @@
 /**
  * 顶部导航 tab 定义
- * 依据原站首页实际观察到的 tab 顺序与链接：
- *   程序员 /go/programmer, 创意 /go/create, 好玩 /go/play, Apple /go/apple,
+ * 依据原站首页实际观察到的 tab 顺序与链接（ref-home.png 逐像素核对）：
+ *   技术 /?tab=tech, 创意 /go/create, 好玩 /go/play, Apple /go/apple,
  *   酷工作 /go/jobs, 交易 /go/deals, 城市 /go/city, 问与答 /go/qna,
  *   最热 /?tab=hot, 全部 /?tab=all, R2 /?tab=r2, VXNA /xna
+ *
+ * v0.0.9：首个 tab 的标签原为「程序员」，与原站（「技术」）不一致，
+ * 且与二级 tab 行的首项「程序员」重复 ⇒ 改为「技术」。
  */
 export type HomeTab = {
   key: string;
@@ -14,7 +17,7 @@ export type HomeTab = {
 };
 
 export const HOME_TABS: HomeTab[] = [
-  { key: 'programmer', label: '程序员', href: '/go/programmer', nodes: ['programmer'] },
+  { key: 'tech', label: '技术', href: '/?tab=tech', nodes: ['programmer'] },
   { key: 'create', label: '创意', href: '/go/create', nodes: ['create'] },
   { key: 'play', label: '好玩', href: '/go/play', nodes: ['play'] },
   { key: 'apple', label: 'Apple', href: '/go/apple', nodes: ['apple'] },

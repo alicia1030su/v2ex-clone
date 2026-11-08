@@ -188,12 +188,44 @@ jobs:
             echo "::error::应用未就绪"; tail -30 /tmp/visual-server.log; exit 1
           fi
 
+      # -----------------------------------------------------------------
+      # v0.0.9：**截图真实性门禁**（在视觉回归之前）
+      #
+      # 事故：README 首页截图完全没有 CSS，而回归仍报 63/63 全绿 ——
+      # 因为回归只比「本站自己和自己」，基线也是从坏页面上建立的。
+      # ⇒ 必须先证明「这些页面确实带样式地渲染出来了」，再谈回归。
+      #
+      # 门禁判据（见 tools/visual/lib/page-health.mjs）：
+      #   HTML 200 / 最终 URL 正确 / CSS 与 JS 请求全部成功 /
+      #   /_next/static 无失败 / styleSheets 解析出规则 /
+      #   无未捕获异常 / #Wrapper 灰底 / .box 白卡 / 无默认蓝链接 /
+      #   内容区居中 / 桌面双栏 / 无横向溢出 / 图片全部加载 / 布局稳定
+      # -----------------------------------------------------------------
+      - name: 页面健康门禁（截图真实性）
+        run: |
+          set -euo pipefail
+          node tools/visual/diagnose.mjs \
+            --base http://localhost:3010 \
+            --all \
+            --json docs/evidence/visual/health/health.json
+          echo "✓ 全部页面通过健康门禁（含 CSS/JS 加载、双栏几何、计算样式）"
+
+      - name: 门禁负向测试（证明门禁能拦住坏页面）
+        # 只断言「正常页面能通过」是不够的 —— 必须证明**坏页面会被拒绝**，
+        # 否则门禁可能永远返回 ok（旧截图工具正是如此）。
+        run: |
+          set -euo pipefail
+          node tools/visual/negative-tests.mjs --base http://localhost:3010
+          echo "✓ 无 CSS / 静态资源全挂 / 错误路由 / 站点 502 / 单栏塌陷 五类坏页面均被判红"
+
       - name: 视觉回归（与基线对比）
         id: regression
         env:
           # ⚠️ v0.0.8：脚本侧的时钟锚点必须与应用侧 APP_NOW **一致**
           #    （服务端渲染用 Node 时钟，浏览器冻结了服务器没冻结也没用）。
           VISUAL_CLOCK_ANCHOR: '2026-11-06T04:00:00.000Z'
+          # v0.0.9：基线更新必须带人工审查凭据，否则 regression.mjs 拒绝保存
+          VISUAL_BASELINE_APPROVE: ${{ inputs.update_baseline && format('{0} {1} workflow_dispatch 显式请求更新基线', github.actor, github.run_id) || '' }}
         run: |
           set +e
           # ⚠️ **不**允许在 CI 里自动更新基线 —— 基线更新必须人工审查。
@@ -296,6 +328,8 @@ jobs:
           name: visual-evidence-${{ github.run_id }}
           path: |
             docs/evidence/visual/runs/
+            docs/evidence/visual/health/
+            docs/evidence/visual/negative/
             docs/evidence/visual/component-baseline-linux.json
             /tmp/visual-regression.log
             /tmp/visual-server.log

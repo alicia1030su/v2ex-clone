@@ -9,11 +9,20 @@ node_modules/
 # v0.0.6：隔离构建目录（NEXT_DIST_DIR 兜底，见 next.config.mjs）
 .next-iso*/
 .next-b[0-9]*/
+# v0.0.9：本机 EPERM 规避用的 `.next-vN` 隔离构建目录
+# （`next build` 会改写 tsconfig.json / next-env.d.ts 指向该目录，
+#  提交前必须 `git checkout -- tsconfig.json next-env.d.ts` 还原）
+.next-v[0-9]*/
+.next-partial-*/
+.next-old-*/
 
 # v0.0.6 视觉回归的逐次运行归档（截图 + components.json）
 # 保留在本地供「修改前后对比」，但不入仓 —— 否则每次跑都新增 60+ 张 PNG。
 # 入仓的只有 component-baseline.json（基线）与 reports/（结论报告）。
 docs/evidence/visual/runs/
+# v0.0.9：健康门禁的「现场图」—— 只在截图被拒绝时产生，属临时诊断产物。
+# 正常的 6 张门禁截图与 diagnose-final.json 仍然入仓（是证据，不是垃圾）。
+docs/evidence/visual/health/*-INVALID.png
 out/
 build/
 dist/
