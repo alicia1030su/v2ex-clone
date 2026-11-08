@@ -52,8 +52,8 @@ V2EX 主站为**服务端渲染**（SSR）传统论坛页面，主域名 `www.v2
 | 11 | 搜索 | `/go/search?q=node` | 200 | `/go/search?q=` | `go_search_q_node.html` | ✅ 已实现 |
 | 12 | 会员主页 | `/member/reoah2` | 200 | `/member/[username]` | `member_reoah2.html` | ✅ 已实现 |
 | 13 | 节点分类总览 | `/go/go` | 200 | `/nodes` | `go_go.html` | ✅ 已实现 |
-| 14 | 关于 | `/about` | 200 | — | `about.html` | ⚠️ 未实现（静态说明页） |
-| 15 | FAQ | `/faq` | 200 | — | `faq.html` | ⚠️ 未实现（静态说明页） |
+| 14 | 关于 | `/about` | 200 | `/about` | `about.html` | ✅ 已实现（静态说明页） |
+| 15 | FAQ | `/faq` | 200 | `/faq` | `faq.html` | ✅ 已实现（静态说明页） |
 
 ### 2.2 需要登录的页面（已确认重定向行为）
 
@@ -90,11 +90,11 @@ V2EX 主站为**服务端渲染**（SSR）传统论坛页面，主域名 `www.v2
 
 | 端点 | HTTP | 说明 |
 |---|---|---|
-| `/api/topics/show.json?id=1` | 200 | 旧版 API（唯一仍可用的 JSON 端点） |
+| `/api/topics/show.json?id=1` | 200 | 旧版 API（唯一仍可用的 JSON 端点）—— **本项目已实现兼容端点**，见 `docs/API_SPEC.md` §14 与 `src/lib/legacy-topic-api.ts` |
 | `/api/topics.json` | 404 | 已下线 |
 | `/api/nodes.json` | 404 | 已下线 |
-| `/feed/{node}.xml` | — | 节点 RSS |
-| `/feed/{node}.json` | — | 节点 JSON Feed |
+| `/feed/{node}.xml` | — | 节点 RSS —— 本项目实现为 `GET /api/nodes/{name}/feed`（另支持 `?format=json`） |
+| `/feed/{node}.json` | — | 节点 JSON Feed —— 同上（`?format=json`） |
 | `/planet/about` | — | Planet 订阅说明 |
 
 ## 3. 首页 tab 结构

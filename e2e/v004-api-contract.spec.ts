@@ -29,6 +29,10 @@ const PUBLIC_GET_ENDPOINTS: Array<{ path: string; label: string }> = [
   { path: '/api/leaderboard', label: '积分排行榜' },
   { path: '/api/leaderboard?limit=10&offset=0', label: '积分排行榜（分页）' },
   { path: '/api/topics/3', label: '主题详情' },
+  // v0.0.13：旧版 V2EX JSON API 兼容端点（第三方客户端用）
+  { path: '/api/topics/show.json?id=1', label: '旧版 JSON API（id 模式）' },
+  { path: '/api/topics/show.json?username=lisi', label: '旧版 JSON API（用户模式）' },
+  { path: '/api/topics/show.json?node_name=programmer', label: '旧版 JSON API（节点模式）' },
   { path: '/api/captcha', label: '验证码挑战' },
 ];
 
