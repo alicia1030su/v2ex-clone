@@ -234,6 +234,45 @@ if [ -n "$ZIP" ]; then
         *) bad "ZIP 中央目录解析失败：${MODE_JSON:0:120}" ;;
       esac
 
+      # ── N2 等价判据（本地版）──
+      #
+      # ⚠️ v0.0.11：把发布流水线的 N2「包内版本一致性」**搬到本地**。
+      #
+      # 连续三轮发布都栽在这一处，而每次都是「CI 报错 → 修一处 → 再跑一轮」：
+      #   v0.0.10：deploy/README.md 标题写着 v0.0.9
+      #   v0.0.11：deploy/INSTALL.md 标题写着 v0.0.9（INSTALL.md 也在 N2 检查范围内）
+      # 本地门禁若也查这一项，这两轮就不会白跑。
+      #
+      # 判据与 release.yml 的 N2 保持一致，另加两条更强的：
+      #   ① 包内 README.md / INSTALL.md 的**首行**必须含 vX.Y.Z；
+      #   ② 包内任何 `# V2EX Clone vX.Y.Z` 头部注释不得指向别的版本
+      #      （这一条 N2 没有，但正是它让 .dockerignore / start.sh / stop.sh
+      #       等文件的旧版本号长期无人发现）。
+      N2_FAIL=0
+      # ③ 包内 .env.example 的 V2EX_IMAGE（release.yml 的 N2 也查这一项）
+      ENV_IMG="$(sed -n 's/^V2EX_IMAGE=//p' "$D/.env.example" 2>/dev/null | tail -1 | tr -d '\r\n ')"
+      if [ "$ENV_IMG" != "ghcr.io/alicia1030su/v2ex-clone:v${EXPECT}" ]; then
+        echo "  ✗ 包内 .env.example 的 V2EX_IMAGE = '${ENV_IMG}'，应为 :v${EXPECT}"
+        N2_FAIL=1
+      fi
+      for doc in README.md INSTALL.md; do
+        FIRST="$(head -1 "$D/$doc" 2>/dev/null || true)"
+        case "$FIRST" in
+          *"v${EXPECT}"*) ;;
+          *) echo "  ✗ 包内 $doc 首行版本不是 $TAG：'$FIRST'"; N2_FAIL=1 ;;
+        esac
+      done
+      STALE_HDR="$(grep -rhoE '^# V2EX Clone v[0-9]+\.[0-9]+\.[0-9]+' "$D" 2>/dev/null | grep -v "v${EXPECT}$" | sort -u | tr '\n' ' ')"
+      if [ -n "$STALE_HDR" ]; then
+        echo "  ✗ 包内有头部注释指向其它版本：${STALE_HDR}"
+        N2_FAIL=1
+      fi
+      if [ "$N2_FAIL" -eq 0 ]; then
+        ok "N2 等价判据通过（V2EX_IMAGE + 文档首行 + 全部头部注释 = v${EXPECT}）"
+      else
+        bad "N2 等价判据未通过 —— 若发布，会被流水线的 N2 当场拦下"
+      fi
+
       # 额外在 POSIX 平台上做一次**真实解压后**的磁盘位核对（双保险）
       if [ "$(uname -s)" != "MINGW"* ] && [ "$(uname -s)" != "MSYS"* ] && [ "$(uname -s)" != "CYGWIN"* ]; then
         NOEXEC=""
