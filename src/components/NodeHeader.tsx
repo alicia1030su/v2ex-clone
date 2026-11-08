@@ -23,14 +23,14 @@ export default function NodeHeader({
   title: string;
   topicCount: number;
   /**
-   * 节点名，用于生成该节点的 feed 地址 `/api/nodes/{name}/feed`。
+   * 节点名，用于生成该节点的 feed 地址 **`/feed/{name}.xml` / `.json`**
+   * （原站路径，v0.0.13 起由 `src/app/feed/[file]/route.ts` 真实提供）。
    *
-   * v0.0.9 后修（2026-11-08）：原实现拼的是 `/feed/{name}.xml` 与
-   * `/feed/{name}.json` —— 这两个路由**根本不存在**，实测恒 404
-   * （站点真实路由是 `/api/feed`、`/api/feed/atom`、`/api/feed/json`
-   *  以及 `/api/nodes/{name}/feed`）。
-   * 结果是节点页上两个 feed 图标都是死链，而且因为用了 next/link，
-   * 每次打开节点页还会预取一次 404。
+   * ⚠️ 这段历史值得记：v0.0.9 时 `/feed/{name}.xml` **确实**恒 404
+   * （当时只实现了 `/api/nodes/{name}/feed`），于是把图标改成指向内部
+   * API 路径「先修好死链」。但内部路径不是对外契约 —— 原站用的是
+   * `/feed/{name}.xml`（Atom 1.0）。v0.0.13 补齐原站路径后，
+   * 图标恢复指向原站地址，内部 API 路径继续保留以兼容既有调用方。
    * 传空值表示该页面对应不到真实节点（如搜索结果页）—— 此时不渲染图标。
    */
   feedName?: string | null;
@@ -73,11 +73,11 @@ export default function NodeHeader({
             {feedName ? (
               <span className="node-feed">
                 {/* 用原生 <a>：feed 不是页面路由，App Router 预取它只会得到一个 404 */}
-                <a href={`/api/nodes/${feedName}/feed`} target="_blank" rel="noopener noreferrer">
+                <a href={`/feed/${feedName}.xml`} target="_blank" rel="noopener noreferrer">
                   <RssIcon size={16} />
                 </a>
                 <a
-                  href={`/api/nodes/${feedName}/feed?format=json`}
+                  href={`/feed/${feedName}.json`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

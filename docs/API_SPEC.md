@@ -437,3 +437,54 @@ X-Content-Type-Options: nosniff
 `src/lib/legacy-topic-api.ts` 文件头；形状护栏见
 `tests/static/v010-legacy-api-shape.spec.ts`（13 条）与
 `e2e/v010-legacy-api.spec.ts`（7 条真实 HTTP）。
+
+### 14.2 旧版 API 全家桶（v0.0.13 补齐）
+
+原站 `/api/*` 下**仍有 5 个端点返回 200**（`/api/topics.json`、`/api/nodes.json`
+已下线 404）。v0.0.13 一次性补齐，契约全部经本机 xray 代理实测：
+
+| 端点 | 参数 | 200 载荷 | 条数 | Cache-Control | 与原站差异 |
+|---|---|---|---|---|---|
+| `GET /api/topics/show.json` | `id` / `username` / `node_name`（优先级 id > username > node_name） | 数组（元素 13 键） | 1 / 10 / 10 | 120s | 见 §14.1 |
+| `GET /api/topics/latest.json` | **全部被忽略**（`limit`/`page`/`p`/`node_name`） | 数组，形状同上 | **35** | 120s | 同上 |
+| `GET /api/members/show.json` | `username` / `id`（任一命中，大小写不敏感） | **单对象**（20 键 + `status:"found"`） | — | 600s | `pro` 恒 0、社交字段 null |
+| `GET /api/nodes/show.json` | `name` / `id`（任一命中，大小写不敏感） | **单对象**（16 键） | — | 3600s | `header`/`footer` 空、`aliases` `[]` |
+| `GET /api/nodes/all.json` | 无 | **数组**（元素同节点对象） | 库内 active 节点数 | 7200s | 同上；只含 `status='active'` |
+
+共同约定（**全部实测**）：
+
+- 错误体：`{"status":"error","message":"Object Not Found","rate_limit":{"used":N,"quota":600,"reset_at":<unix秒>}}`
+- 限流：600 次/小时/IP，回写 `x-rate-limit-limit/remaining/reset` 三元组
+- `Content-Type`：`application/json;charset=UTF-8`
+  （**例外**：`/api/members/show.json` 实测带空格 `application/json; charset=UTF-8`，照抄）
+
+**配额的实现差异（如实登记）**：原站 600 次/小时是**所有 `/api/*` 共享一个大桶**；
+本项目按端点分桶（`scope` 不同）。原因是本项目的限流实现按 scope 计数，
+共用大桶会让「某个端点被脚本打满」影响全部端点。这属于**有意偏离**。
+
+### 14.3 旧版节点订阅路径 `/feed/{node}.xml|json`
+
+原站节点订阅地址是 `/feed/{node}.xml`（**Atom 1.0**，50 条）与
+`/feed/{node}.json`（**JSON Feed 1.0**，50 条）。本项目此前只有
+`/api/nodes/{name}/feed`（**RSS 2.0**，30 条）—— **路径与格式都不同**，
+按原站地址配置的阅读器直接 404。
+
+| 路径 | 格式 | 条数 | Content-Type | Cache-Control |
+|---|---|---|---|---|
+| `/feed/{node}.xml` | Atom 1.0 | 50 | `application/atom+xml;charset=UTF-8` | 600s |
+| `/feed/{node}.json` | JSON Feed **1.0** | 50 | `application/json;charset=utf-8` | 1800s |
+| `/feed/all.xml` / `.json` | 同上，全站 | 50 | 同上 | 同上 |
+| `/feed/{不存在}.xml` | — | — | 404（JSON 错误体） | — |
+| `/feed/{node}`（无扩展名） | — | — | 404（原站亦然） | — |
+
+**三处刻意的形状约定**（照抄原站，不「顺手升级」）：
+
+1. Atom 元素顺序：`title → subtitle → icon → logo → link(alternate) →
+   link(self) → id → updated → entry*`
+2. JSON Feed 用 **1.0**（`jsonfeed.org/version/1`）的 `author{}`，
+   **不用** 1.1 的 `authors[]`；条目**无** `content_text`/`summary`
+3. 条目 `id` 两套：Atom 为 `tag:{host},{YYYY-MM-DD}:/t/{id}`，
+   JSON Feed 为主题绝对地址；两者 `link`/`url` 都带 `#reply{N}` 锚点
+
+**与原站的一处有意偏离**：原站 `/feed/all.xml` 返回 **200 但 body 长度为 0**
+（任何阅读器都解析失败，视为原站缺陷）。本项目返回合法的全站 50 条 Atom。
