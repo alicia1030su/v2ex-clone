@@ -179,7 +179,20 @@ function buildZip(entries) {
 
 function walk(dir, base) {
   const out = [];
-  for (const name of readdirSync(dir, { withFileTypes: true })) {
+  /*
+   * ⚠️ v0.0.12：**必须按名字排序**，否则「可复现构建」只在同一平台成立。
+   *
+   * 实测：本地 Windows 打的包（SHA256 935557e8…）与 CI ubuntu 打的包
+   * （SHA256 852e2f0f…）**内容完全相同、字节不同** —— 因为 `readdirSync`
+   * 返回的是文件系统的目录项顺序（NTFS 与 ext4 不一致），ZIP 内的条目
+   * 顺序随之不同。
+   *
+   * 排序后两个平台产出**同一份字节**，SHA256 才真正可复现。
+   */
+  const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
+  for (const name of entries) {
     if (EXCLUDES.includes(name.name)) continue;
     const abs = path.join(dir, name.name);
     const rel = path.posix.join(base, name.name);
