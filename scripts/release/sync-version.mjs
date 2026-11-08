@@ -89,6 +89,99 @@ const CARRIERS = [
     apply: (s) => s.replace(/(v2ex-clone:)v\d+\.\d+\.\d+/, `$1${MAJOR}`),
     verify: (s) => s.includes(`v2ex-clone:${MAJOR}`),
   },
+  /*
+   * ⚠️ v0.0.11：**`deploy/` 下每一个「头部注释里写着本包版本」的文件都纳入**。
+   *
+   * 一次实测列全（`grep -rn '^# V2EX Clone v' deploy/`）：12 个文件。
+   * 漏掉任何一个，N2 的「包内版本一致性」或人工核查就会发现
+   * —— 但那时已经烧掉一轮发布流水线（v0.0.9 → v0.0.10 → v0.0.11 连挂三轮）。
+   * 所以这里用**工厂函数**批量生成，避免再手写遗漏。
+   */
+  {
+    file: 'deploy/install.sh',
+    label: '部署包 install.sh 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/install.ps1',
+    label: '部署包 install.ps1 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/restore.sh',
+    label: '部署包 restore.sh 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/start.sh',
+    label: '部署包 start.sh 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/stop.sh',
+    label: '部署包 stop.sh 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/.dockerignore',
+    label: '部署包 .dockerignore 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  /*
+   * ⚠️ v0.0.11：**`deploy/` 下所有表示「本包版本」的位置都要纳入**。
+   *
+   * 连续两轮发布都在这里翻车：
+   *   · v0.0.10 挂在 `deploy/README.md` 的标题；
+   *   · 修完 README 后 v0.0.11 又挂在 `deploy/INSTALL.md` 的标题
+   *     （`##[error]INSTALL.md 标题首行版本标注不是 v0.0.11`）。
+   * 两次都是「N2 能抓到，但 sync-version 的清单没覆盖」。
+   *
+   * 因此一次性列全：文档标题、镜像引用、安装包文件名、脚本头部注释。
+   * **不**碰历史语境（「v0.0.4 标注」「v0.0.8 起」等）—— 那是历史事实。
+   */
+  {
+    file: 'deploy/INSTALL.md',
+    label: '部署包 INSTALL 文档',
+    apply: (s) =>
+      s
+        .replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`)
+        .replace(/^(>\s*v)\d+\.\d+\.\d+(\s+为\*\*早期开发预览版)/m, `$1${target}$2`)
+        .replace(/(v2ex-clone-v)\d+\.\d+\.\d+(-deploy\.zip)/g, `$1${target}$2`)
+        .replace(/(ghcr\.io\/alicia1030su\/v2ex-clone:)v\d+\.\d+\.\d+/g, `$1${target}`),
+    verify: (s) =>
+      new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s) &&
+      !new RegExp(`ghcr\\.io/alicia1030su/v2ex-clone:v(?!${target.replace(/\./g, '\\.')})`).test(s),
+  },
+  {
+    file: 'deploy/.env.example',
+    label: '部署包 env 模板头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/docker-compose.yml',
+    label: '部署包 compose 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/backup.sh',
+    label: '部署包 backup.sh 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
+  {
+    file: 'deploy/health-check.sh',
+    label: '部署包 health-check.sh 头部',
+    apply: (s) => s.replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`),
+    verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
+  },
   {
     /*
      * ⚠️ v0.0.10：**必须覆盖 `deploy/README.md`**。

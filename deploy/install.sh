@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.9 — 一键安装脚本（Linux / macOS）
+# V2EX Clone v0.0.11 — 一键安装脚本（Linux / macOS）
 #
 # 用法：
 #   chmod +x install.sh && ./install.sh

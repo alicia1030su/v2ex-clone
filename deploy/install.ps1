@@ -1,5 +1,5 @@
 ﻿# ---------------------------------------------------------------------------
-# V2EX Clone v0.0.9 — 一键安装脚本（Windows PowerShell）
+# V2EX Clone v0.0.11 — 一键安装脚本（Windows PowerShell）
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1
