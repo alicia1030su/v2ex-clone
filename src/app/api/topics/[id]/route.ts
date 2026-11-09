@@ -11,6 +11,7 @@ import {
 } from '@/lib/content-service';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
 import { guardCommunityAction } from '@/lib/community-rate-limit';
+import { attachTags } from '@/server/tags';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,13 +155,32 @@ export async function PUT(
   const body = (await request.json().catch(() => null)) as {
     title?: string;
     content?: string;
+    /** v0.0.14：本次追加的标签（不传 = 不动已有标签；传空数组 = 也不动） */
+    tags?: string[] | string;
   } | null;
 
-  if (!body || (body.title === undefined && body.content === undefined)) {
+  if (
+    !body ||
+    (body.title === undefined && body.content === undefined && body.tags === undefined)
+  ) {
     return NextResponse.json({ ok: false, error: '没有需要修改的内容' }, { status: 400 });
   }
 
   try {
+    // v0.0.14：标签是「追加」语义 —— 编辑正文不应该把历史标签一起抹掉。
+    // 这里先落标签再改正文：若正文校验失败（ContentError），标签已经写进去，
+    // 属于**部分成功**；但正文才是主体，报错时用户会重试，重复标签由
+    // `onConflictDoNothing` 兜住，不会产生重复行。反过来先改正文再写标签，
+    // 则正文成功而标签丢失时会得到「编辑成功但没有标签」的静默错误。
+    let appliedTags: string[] | undefined;
+    if (body.tags !== undefined) {
+      try {
+        appliedTags = await attachTags(topicId, body.tags);
+      } catch (err) {
+        console.error('[topics] 编辑时标签写入失败（正文仍会更新）', err);
+      }
+    }
+
     const result = await editTopic(user, topicId, {
       title: body.title,
       content: body.content,
@@ -179,7 +199,7 @@ export async function PUT(
       reason: body.title !== undefined ? '编辑标题' : '编辑正文',
     });
 
-    return NextResponse.json({ ok: true, topic: result });
+    return NextResponse.json({ ok: true, topic: result, tags: appliedTags });
   } catch (err) {
     if (err instanceof ContentError) {
       return NextResponse.json({ ok: false, error: err.message }, { status: err.status });

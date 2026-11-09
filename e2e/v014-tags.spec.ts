@@ -1,0 +1,113 @@
+import { test, expect } from '@playwright/test';
+import {
+  register,
+  logout,
+  uniqueName,
+  apiPost,
+  pickNodeId,
+  clearRateLimits,
+  getCsrfToken,
+} from './helpers';
+
+/**
+ * v0.0.14：**标签链路真实可触达**验收
+ *
+ * ## 为什么这条 E2E 是必要的
+ *
+ * 加标签功能前，`tags` / `topic_tags` 表、主题页标签渲染、`/tag/[name]` 路由
+ * **三者都存在**，但生产代码从不写入 ⇒ 标签页永远为空。
+ * 这种「代码齐全、链路不通」的缺口，静态护栏和单元测试都发现不了：
+ *
+ *   · 单元测试可以证明 `normalizeTag('React') === 'react'`；
+ *   · 静态护栏可以证明路由文件引用了 `attachTags`；
+ *   · **只有真实 HTTP + 真实浏览器**能证明「用户发帖带标签 → 主题页显示 →
+ *     点进去能到标签页 → 标签页里能看到这篇主题」这条链是通的。
+ *
+ * 本文件走完整链路，且断言**正反两面**（标签页能查到 / 无标签时不会凭空出现）。
+ */
+
+test.describe.configure({ mode: 'serial' });
+
+test.describe('v0.0.14 标签链路', () => {
+  test('发帖带标签 → 主题页可见 → 标签页可检索 → 大小写归一', async ({ page }) => {
+    await clearRateLimits(page);
+    const username = uniqueName('v14_tag');
+    await register(page, username);
+    const nodeId = await pickNodeId(page);
+
+    // 用带时间戳的后缀避免与并行分片 / 历史数据串味
+    const suffix = Date.now().toString(36);
+    const tagA = `v14tag${suffix}`;
+    // 故意用大小写混合 + 前后空白 + 井号，验证服务端规范化真的生效
+    const rawTagB = `  #V14Case${suffix}  `;
+    const normalizedB = `v14case${suffix}`;
+
+    const created = await apiPost(page, '/api/topics', {
+      nodeId,
+      title: `v0.0.14 标签链路 ${suffix}`,
+      content: '验证标签从发布到展示到检索的完整链路。',
+      tags: [tagA, rawTagB, '🔥', tagA],
+    });
+    expect(created.status(), '发帖应 201').toBe(201);
+
+    const body = (await created.json()) as { topicId?: number; tags?: string[] };
+    const topicId = Number(body.topicId);
+    expect(Number.isInteger(topicId) && topicId > 0, '响应必须含结构化 topicId').toBe(true);
+
+    // 响应里回显的标签就是规范化后的结果（去重 + 小写 + 去井号 + 丢弃非法）
+    expect(body.tags, '响应应回显规范化后的标签').toEqual([tagA, normalizedB]);
+
+    // 1) 主题页真实渲染标签链接
+    await page.goto(`/t/${topicId}`);
+    const tagLink = page.locator(`a.tag[href="/tag/${tagA}"]`);
+    await expect(tagLink, '主题页应渲染标签链接').toBeVisible({ timeout: 15_000 });
+
+    // 2) 点进标签页，能看到这篇主题（证明 topic_tags 关联真的写进去了）
+    await tagLink.click();
+    await expect(page).toHaveURL(new RegExp(`/tag/${tagA}$`));
+    // ⚠️ TopicItem 渲染的是 `/t/{id}#reply{n}`（锚到最后一楼），
+    //    用精确 `a[href="/t/11"]` 永远匹配不到 —— 第一版就是这么假红的。
+    // `.first()` 是必须的：TopicItem 里标题与回复数**两个**链接都指向
+    // `/t/11#reply0`，严格模式会因 2 个匹配而报「strict mode violation」。
+    await expect(
+      page.locator(`a[href^="/t/${topicId}#"], a[href="/t/${topicId}"]`).first(),
+      '标签页应能检索到该主题',
+    ).toBeVisible({ timeout: 15_000 });
+
+    // 3) 大小写归一：用大写访问同一标签页仍应命中的是同一个标签
+    //    （标签名已小写化，直接访问大写形式应 404 —— 这是「归一化」的可见证据）
+    const upper = await page.request.get(`/tag/${normalizedB.toUpperCase()}`);
+    expect(
+      upper.status(),
+      '标签名统一小写后，大写路径不应命中（否则说明库里存了两种写法）',
+    ).toBe(404);
+
+    // 4) 编辑追加标签：历史标签必须保留（最容易写错的语义）
+    const extraTag = `v14extra${suffix}`;
+    const edited = await page.request.put(`/api/topics/${topicId}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        // ⚠️ 必须用 helper 而不是手写 cookies().find()：
+        //    localhost 与 127.0.0.1 会被浏览器视为两个站点，
+        //    手写读取可能取到另一条同名 Cookie ⇒ 403（本仓已踩过）。
+        'x-csrf-token': await getCsrfToken(page),
+      },
+      data: { tags: [extraTag] },
+    });
+    expect([200, 201]).toContain(edited.status());
+
+    await page.goto(`/t/${topicId}`);
+    await expect(page.locator(`a.tag[href="/tag/${tagA}"]`), '编辑后旧标签必须保留').toBeVisible();
+    await expect(
+      page.locator(`a.tag[href="/tag/${extraTag}"]`),
+      '编辑后新标签应出现',
+    ).toBeVisible();
+
+    await logout(page);
+  });
+
+  test('不存在的标签页返回 404（不会凭空造标签）', async ({ page }) => {
+    const res = await page.request.get(`/tag/${uniqueName('nosuchtag')}`);
+    expect(res.status()).toBe(404);
+  });
+});
