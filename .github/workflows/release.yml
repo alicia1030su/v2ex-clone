@@ -1976,6 +1976,36 @@ jobs:
       #   真实根因由紧随其后的「诊断 token 权限与 API 错误详情」步骤查明。
       pull-requests: write
     steps:
+      # ⚠️ v0.0.14：本 job **必须 checkout**，否则 Release Notes 生成必失败。
+      #
+      # 真实事故（run `42661344826`，v0.0.14 正式发布）：
+      #   「生成中文 Release Notes」在读 `CHANGELOG.md` 时报
+      #   `ENOENT: no such file or directory, open 'CHANGELOG.md'` ⇒ 该 job 判红
+      #   ⇒ 流水线在「镜像已推送、安装包已打好」之后停在**没有 Release**的状态。
+      #
+      # 根因：v0.0.13 的 V13-10 把「更新内容必须由本版本 CHANGELOG 生成」
+      # 加进本 job，但**没有给本 job 加 checkout** ——
+      # 其它 6 个 job（code-checks / security-scan / unit-tests / e2e-tests /
+      # build-image / deploy-verify / package）都有 checkout，只有这里没有。
+      # 于是新逻辑读不到任何仓库文件，**只在真正发布时**才暴露：
+      # ci.yml 不跑 release.yml 的 job，静态护栏只断言「模板里有
+      # `readFileSync('CHANGELOG.md'`」这句代码存在，**不追问运行目录里
+      # 有没有那个文件**。这类「代码写了但运行时输入不存在」的缺口，
+      # 与 V14-01「代码齐全、链路不通」同源。
+      #
+      # 位置要求：**必须在「下载安装包」之前**。
+      #   actions/checkout 默认 `clean: true`，会执行 `git clean -ffdx`
+      #   删掉所有未跟踪文件；若先下载 artifact 再 checkout，
+      #   `release-assets/` 会被静默清空 ⇒ 后续上传资产拿不到文件。
+      #
+      # ref 与其它 7 个 job **完全一致**（tag push ⇒ github.sha；
+      # workflow_dispatch ⇒ master），保证「读到的 CHANGELOG 就是被发布
+      # 那个 Tag 的 CHANGELOG」，不会出现「用 master 的更新说明发旧版的包」。
+      - name: 检出代码（Release Notes 需要 CHANGELOG.md）
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || 'master' }}
+
       - name: 下载安装包
         uses: actions/download-artifact@v8
         with:

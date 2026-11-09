@@ -140,3 +140,100 @@ describe('发布链路：Tag 白名单与版本载体一致（v0.0.14）', () =>
     expect(versions, '白名单未按版本号递增排列（易被手滑覆盖）').toEqual(sorted);
   });
 });
+
+/**
+ * ## 第二个真实事故：读仓库文件的 job 没有 checkout
+ *
+ * run `42661344826`（v0.0.14 正式发布）在**镜像已推送、部署验证通过、
+ * 安装包 N2 校验通过**之后，于「生成中文 Release Notes」步骤判红：
+ *
+ *     Error: ENOENT: no such file or directory, open 'CHANGELOG.md'
+ *
+ * 根因：v0.0.13 的 V13-10 给 `publish-release` 加了「更新内容必须由本版本
+ * CHANGELOG 生成」的逻辑（`readFileSync('CHANGELOG.md')`），
+ * 但**没有给这个 job 加 checkout** —— 全部 8 个 job 里只有它没有。
+ *
+ * 为什么既有门禁抓不到：`ci.yml` 根本不跑 `release.yml` 的 job；
+ * 而 `v013-docs-authenticity.spec.ts` 只断言「模板里有
+ * `readFileSync('CHANGELOG.md'` 这句**代码**」——
+ * 代码在，**运行目录里没有那个文件**。同属「代码写了、链路不通」。
+ *
+ * ⇒ 判据：**任何在 `run:` 里读仓库内文件的 job，都必须有 checkout，
+ *   且 checkout 必须排在 `download-artifact` 之前**。
+ *   后半条不是洁癖：`actions/checkout` 默认 `clean: true` 会
+ *   `git clean -ffdx`，若先下载 artifact 再 checkout，
+ *   `release-assets/` 会被静默清空，后续上传资产拿不到文件。
+ */
+
+/** 按 `  <job-name>:` 切分 jobs 段，返回 job → 该 job 的源码块。 */
+function splitJobs(source: string): Map<string, string> {
+  const lines = source.split('\n');
+  const start = lines.findIndex((l) => /^jobs:\s*$/.test(l));
+  expect(start, '未找到 jobs: 段').toBeGreaterThanOrEqual(0);
+
+  const result = new Map<string, string>();
+  let current: string | null = null;
+  let buffer: string[] = [];
+
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    const m = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (m) {
+      if (current) result.set(current, buffer.join('\n'));
+      current = m[1];
+      buffer = [];
+      continue;
+    }
+    if (current) buffer.push(line);
+  }
+  if (current) result.set(current, buffer.join('\n'));
+  return result;
+}
+
+/** job 块里是否真的会去读仓库文件（按 `run:` 脚本内容判断，不看注释）。 */
+const READS_REPO_FILE = /\b(readFileSync|readFile|cat\s+[A-Za-z0-9_./-]+\.(md|json)|head\s+[A-Za-z0-9_./-]+\.(md|json))\b/;
+
+describe('发布链路：读仓库文件的 job 必须 checkout（v0.0.14）', () => {
+  const jobs = splitJobs(workflow);
+
+  it('jobs 段能被切分且包含 publish-release', () => {
+    expect(jobs.size, 'jobs 段解析结果为空').toBeGreaterThan(5);
+    expect([...jobs.keys()]).toContain('publish-release');
+  });
+
+  it('publish-release 必须 checkout（否则 Release Notes 读不到 CHANGELOG.md）', () => {
+    const block = jobs.get('publish-release') ?? '';
+    expect(block, 'publish-release job 不存在').not.toBe('');
+    expect(
+      block.includes('uses: actions/checkout'),
+      'publish-release 缺少 actions/checkout。\n' +
+        '该 job 的「生成中文 Release Notes」需要读仓库里的 CHANGELOG.md；\n' +
+        '没有 checkout 会在发布时抛 ENOENT，且**只在真正发版时才暴露**。',
+    ).toBe(true);
+  });
+
+  it('publish-release 的 checkout 必须排在下载安装包之前（否则 artifact 会被 git clean 清空）', () => {
+    const block = jobs.get('publish-release') ?? '';
+    const checkoutAt = block.indexOf('uses: actions/checkout');
+    const downloadAt = block.indexOf('uses: actions/download-artifact');
+    expect(checkoutAt, '未找到 checkout').toBeGreaterThanOrEqual(0);
+    expect(downloadAt, '未找到 download-artifact').toBeGreaterThanOrEqual(0);
+    expect(
+      checkoutAt < downloadAt,
+      'checkout 排在 download-artifact 之后 —— actions/checkout 默认 clean:true ' +
+        '会执行 git clean -ffdx，把刚下载的 release-assets/ 静默删除。',
+    ).toBe(true);
+  });
+
+  it('凡是在 run 脚本里读仓库文件的 job 都必须 checkout', () => {
+    const offenders: string[] = [];
+    for (const [name, block] of jobs) {
+      if (!READS_REPO_FILE.test(block)) continue;
+      if (!block.includes('uses: actions/checkout')) offenders.push(name);
+    }
+    expect(
+      offenders,
+      `以下 job 在脚本里读仓库文件却没有 checkout（发布时会 ENOENT）：${offenders.join(', ')}`,
+    ).toEqual([]);
+  });
+});
