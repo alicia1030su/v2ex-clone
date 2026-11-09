@@ -76,6 +76,21 @@ const NODE_TITLE = 'V014 可见性节点';
 const TOPIC_TITLE = 'v014vis uniquetoken 节点可见性探针';
 const TAG_NAME = 'v014vistag';
 
+/*
+ * ⚠️ 这里**刻意不显式传 hook timeout**（走 `vitest.config.ts` 的 120_000）。
+ *
+ * 本 spec 的 beforeAll 要建库 + migrate，一度被写成 `}, 300_000)` —— 理由是
+ * 本机 PG 积压态下实测过 createMs=232s。但那个理由经不起推敲：
+ *   ① 那种极慢是**整台实例**的问题，同一时段**所有** DB spec 都会超时，
+ *      单独给本文件放宽 300s 只能让它「比别人晚红」，不产生任何真实覆盖；
+ *   ② 它把 CI 的最坏用时可观测值从 2 分钟放大到 5 分钟（显式 timeout 会
+ *      **覆盖**全局 hookTimeout，而不是取较大值）。
+ * 实测（本机正常态）：两个 v014 真库 spec 合计 36.9s，单文件 provision 约 8~16s，
+ * 相对 120s 有 7 倍以上余量。
+ * ⇒ 若将来真的在本机遇到 hook timeout，正确的动作是看 `[db-phase]` 的
+ *    `createMs` / `migrateMs` 判断环境，而不是把这里的数字调大。
+ */
+
 beforeAll(async () => {
   logDbTarget('tests/v014-node-visibility.spec.ts', TEST_DB);
 
@@ -135,7 +150,7 @@ beforeAll(async () => {
   replyId = reply.id;
 
   await attachTags(topicId, [TAG_NAME]);
-}, 300_000);
+});
 
 afterAll(async () => {
   await client?.end({ timeout: 5 });

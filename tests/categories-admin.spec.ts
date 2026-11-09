@@ -65,6 +65,16 @@ async function countRowsByName(name: string): Promise<number> {
   return rows.length;
 }
 
+/*
+ * ⚠️ 与 `v014-edit-noop` / `v014-node-visibility` 一致：**刻意不显式传 hook timeout**
+ * （走 `vitest.config.ts` 的 120_000）。
+ *
+ * 本文件一度写成 `}, 900_000)` —— 那是把全局门槛放宽 7.5 倍，只为绕过本机
+ * PG 积压态（实测 createMs 曾达 4m48s）。但那种极慢是**整台实例**的问题，
+ * 单独给一个文件放宽不产生任何真实覆盖，反而把「CI 最坏用时可观测值」从
+ * 2 分钟放大到 15 分钟。显式 timeout 会**覆盖**全局值，不是取较大值。
+ * 实测（本机正常态）provision 约 8~16s，相对 120s 有 7 倍以上余量。
+ */
 beforeAll(async () => {
   logDbTarget('tests/categories-admin.spec.ts', TEST_DB);
 
@@ -82,7 +92,7 @@ beforeAll(async () => {
 
   client = postgres(dbUrlFor(TEST_DB), { prepare: false, max: 10 });
   db = drizzle(client, { schema });
-}, 900_000);
+});
 
 afterAll(async () => {
   await client?.end({ timeout: 5 });
