@@ -109,6 +109,7 @@
 | Release Notes 注入（真实脚本抽取） | 从 `release.yml` heredoc 抽脚本 + 模板实跑 | `VERSION=v0.0.13` ⇒ **exit 0**，注入 2730 字符、无内部状态词；`v0.0.1` / `v0.0.12` / `garbage` ⇒ **均 exit 1** | 前缀碰撞（`v0.0.1` 命中 `v0.0.13`）已不可绕 |
 | **v013 新增 E2E（真实 HTTP）** | `SPEC="v013" bash scripts/ci/run-e2e-locally.sh` | **13 passed / 0 failed，退出码 0**（1.8m） | 含 hidden 节点**前后对照**（active 时探针回复 1 条 → hide 后 `[]`；active 时主题在 `/api/feed` → hide 后消失）、`/feed/all.xml` 与 `/feed/ALL.xml` 均 200 Atom |
 | **全量 E2E（本版最终）** | `SPEC="" SKIP_BUILD=1 bash scripts/ci/run-e2e-locally.sh` | **257 passed / 0 failed，退出码 0**（30.3m） | 比上一轮 256 多 1 条 = 新增 hidden 节点负向用例。前置阶段 `PASS=8 FAIL=0`；本机走 `PgKV` 降级、CI 走真实 Redis，两者各覆盖一半，不得互相冒充 |
+| **一次瞬时 worker 超时（如实记录）** | 同一 `npx vitest run --config vitest.static.config.ts` | 某次运行出现 `Failed to start forks worker ... Timeout waiting for worker to respond`，Vitest 只跑了 14 文件 / 187 用例并 `Errors 1`，**退出码 1** | 本机并发资源竞争（当时同时有 5 个 node 进程与 CI 轮询）；**未改任何超时/门槛**，紧接着复跑即 15 文件 / 200 用例全绿、退出码 0。按纪律记为「环境瞬时故障 + 已复现失败必须披露」，不当作通过 |
 | 完整单元套件 | CI run `42558593027`（job 类型检查 / 单元测试） | **594 passed**（首跑因护栏读 `.env.test` ENOENT 判红 ⇒ 已修真因并复绿） | 合并前 CI 全绿 |
 | 跨浏览器矩阵（15 分片） | CI `E2E 跨浏览器矩阵（v0.0.7）` | **15/15 pass**（chromium / firefox / webkit × 5 视口） | 上一轮反复出问题的 firefox 窄视口本轮通过 |
 | 视觉回归验收 | CI `视觉回归验收` | **success** | — |
