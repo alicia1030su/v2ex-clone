@@ -118,7 +118,8 @@
 | **双基线原地升级 + 备份恢复** | `verify-upgrade-v0010.sh`（v0.0.4 / v0.0.12 → 0.0.13） | **PASS=20 FAIL=0**：业务指纹 46 项逐字节一致、迁移幂等连跑 3 次、备份 → 恢复库指纹完全一致（含结构指纹） | 基线迁移集取自 `git archive v0.0.12 drizzle`（与 v0.0.9 逐字节相同，已核验） |
 | **候选 ZIP（本机）** | `package-deploy-zip.mjs --version 0.0.13` | 15 文件、`deploy/VERSION=0.0.13`、7 个 .sh 均 `0o100755`、SHA256 `1f83fda9…5d71`，**两次构建 SHA256 完全一致** | 与 CI 的 `…candidate.zip` 是不同产物（前者 deploy-only，后者含镜像 tar） |
 | **公开发布（Tag / Release / GHCR）** | — | **未执行**：`v0.0.13` Tag / Release 不存在；匿名拉取 `:v0.0.12`=200、`:v0.0.13`=**404** | 缺 G10 授权 + R-01 DEFERRED ⇒ **NO-GO** |
-| CI run / PR | `feat/v0013-release-closeout` → PR #47 | **30 checks pass / 0 fail / 1 conditional skip（`诊断 Firefox thanks 403`），mergeState=CLEAN** | 唯一一处失败是静态护栏读未跟踪的 `.env.test`（CI ENOENT），已修并复绿；未用重跑掩盖 |
+| CI run / PR | PR #47（30 pass）→ #48（24 pass）→ #49（27 pass） | **全部 CLEAN 合并**；唯一 conditional skip 是 `诊断 Firefox thanks 403`（按设计跳过） | 期间唯一失败为静态护栏读未跟踪 `.env.test`（CI ENOENT），已修真因并复绿，未用重跑掩盖 |
+| CI（最终 `master` 提交） | `CI` / 视觉回归 / 安全审计 / SMTP / Docker+Redis / 候选链路 | **全部 success** | 见 `gh run list --branch master` |
 
 > **纪律**：0 条用例收集必须判失败；跳过用例必须披露；失败退出码必须传播；
 > 不得靠重跑掩盖竞态；每条证据必须对应准确 SHA。
