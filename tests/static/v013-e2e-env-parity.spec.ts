@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -31,7 +31,14 @@ const read = (rel: string) => readFileSync(path.join(ROOT, rel), 'utf8');
 const SCRIPT = read('scripts/ci/run-e2e-locally.sh');
 const PG_SH = read('tests/helpers/start-test-pg.sh');
 const CI = read('.github/workflows/ci.yml');
-const ENV_TEST = read('.env.test');
+/**
+ * ⚠️ 这里**不能**读 `.env.test`：它被 `.gitignore` 忽略（第 34 行），
+ * 只存在于本机，CI checkout 里没有 —— 第一版护栏在 CI 上直接
+ * `ENOENT: no such file or directory, open '.../.env.test'`，
+ * 导致「类型检查 / 单元测试」job 在 Tests 594 passed 的情况下判红。
+ * 护栏只能断言**被版本控制跟踪**的载体：`.env.example` + 脚本本身。
+ */
+const ENV_EXAMPLE = read('.env.example');
 const HEALTH = read('src/app/api/health/ready/route.ts');
 const SMOKE = read('e2e/v004-endpoint-smoke.spec.ts');
 
@@ -39,6 +46,14 @@ const SMOKE = read('e2e/v004-endpoint-smoke.spec.ts');
 function exportLine(name: string): number {
   const lines = SCRIPT.split(/\r?\n/);
   return lines.findIndex((l) => new RegExp(`^export\\s+${name}=`).test(l));
+}
+
+/** `tests/static/**` 下的全部 spec（用 readdirSync 而非手工清单，避免漏新文件） */
+function staticSpecFiles(): string[] {
+  const dir = path.join(ROOT, 'tests', 'static');
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.spec.ts'))
+    .map((f) => `tests/static/${f}`);
 }
 
 describe('v0.0.13 本地 E2E 环境隔离', () => {
@@ -54,9 +69,13 @@ describe('v0.0.13 本地 E2E 环境隔离', () => {
   });
 
   it('本机注入的 REDIS_URL 必须是空值（走 PgKV 降级，不假装本机有 Redis）', () => {
+    // 断言对象必须是**脚本里的注入行**（脚本被跟踪），而不是被 gitignore 的
+    // `.env.test` —— 后者在 CI 上根本不 checkout，读了就会 ENOENT 假红。
     expect(SCRIPT).toMatch(/^export REDIS_URL=""$/m);
     expect(SCRIPT).toMatch(/^export REDIS_PASSWORD=""$/m);
-    expect(ENV_TEST).toMatch(/^REDIS_URL=\s*$/m);
+    // 模板里必须保留这两个键（否则新克隆的仓库不知道要配什么）
+    expect(ENV_EXAMPLE).toMatch(/^REDIS_URL=/m);
+    expect(ENV_EXAMPLE).toMatch(/^REDIS_PASSWORD=/m);
   });
 
   it('CI 必须提供真实 Redis 并注入非空 REDIS_URL（与本机降级路径各自覆盖）', () => {
@@ -109,6 +128,28 @@ describe('v0.0.13 本地 E2E 环境隔离', () => {
     expect(PG_SH).toMatch(/rm -f "\$pidfile"/);
     // 清理只在 do_start 内被调用
     expect(PG_SH).toMatch(/check_port_free\s*\n\s*clear_stale_pid \|\| return 1/);
+  });
+
+  it('静态护栏不得读取被 gitignore 的本地环境文件（CI checkout 里不存在）', () => {
+    // 真实故障（CI run 42558882639，job「类型检查 / 单元测试」）：
+    //   FAIL tests/static/v013-e2e-env-parity.spec.ts
+    //   Error: ENOENT: no such file or directory, open '.../.env.test'
+    // 原因：`vitest.config.ts` 的 include 是 `tests/**/*.spec.ts`，会把
+    // `tests/static/**` 一并收集；而 `.gitignore` 第 34 行忽略了 `.env.test`。
+    // 本地有该文件 ⇒ 本机全绿；CI 没有 ⇒ 假红。
+    // 本断言扫描全部静态护栏的**真实读取调用**，防止同类问题再犯。
+    const offenders: string[] = [];
+    for (const rel of staticSpecFiles()) {
+      const src = read(rel);
+      // 只认 `read('...')` / `readFileSync('...')` 这类真实调用，不误伤注释
+      for (const m of src.matchAll(/\b(?:read|readFileSync)\(\s*'([^']+)'/g)) {
+        const target = m[1];
+        if (/^\.env(\..+)?$/.test(target) && target !== '.env.example') {
+          offenders.push(`${rel} → ${target}`);
+        }
+      }
+    }
+    expect(offenders, `静态护栏读了未跟踪的本地 env 文件：\n${offenders.join('\n')}`).toEqual([]);
   });
 
   it('pg_ctl 等待上限抬高后，就绪判据不得被一起放宽（V13-18）', () => {
