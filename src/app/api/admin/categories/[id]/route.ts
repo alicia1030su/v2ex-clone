@@ -21,8 +21,13 @@ export const dynamic = 'force-dynamic';
  *
  * ## 审计动作的选择
  *
- * `hidden` 的真假会改变全站展示，因此单独记 `CATEGORY_HIDE` / `CATEGORY_SHOW`；
+ * `hidden` 的**实际变化**会改变全站展示，因此单独记 `CATEGORY_HIDE` / `CATEGORY_SHOW`；
  * 只改标题或排序记 `CATEGORY_UPDATE` —— 三者语义不同，不能混成一条。
+ *
+ * ⚠️ 判定依据是**事实**（更新前后的 `hidden` 差异），不是**请求形状**。
+ * 若按「请求里带了 hidden: true」来判，那么对着一个已经禁用的分类重复提交
+ * 会再记一条 `category.hide` —— 审计日志里就会出现根本不存在的变化，
+ * 事后追溯时无法区分「真的下架了一次」与「有人重复点了按钮」。
  *
  * ## 响应字段白名单
  *
@@ -53,12 +58,13 @@ export async function PATCH(
       hidden: body?.hidden,
     });
 
-    const action =
-      body?.hidden === true
+    // 按**事实**判定：只有 hidden 真的翻转了才记 hide/show
+    const hiddenChanged = before ? before.hidden !== category.hidden : false;
+    const action = hiddenChanged
+      ? category.hidden
         ? AuditAction.CATEGORY_HIDE
-        : body?.hidden === false
-          ? AuditAction.CATEGORY_SHOW
-          : AuditAction.CATEGORY_UPDATE;
+        : AuditAction.CATEGORY_SHOW
+      : AuditAction.CATEGORY_UPDATE;
 
     await writeAuditLog(actor.id, {
       action,

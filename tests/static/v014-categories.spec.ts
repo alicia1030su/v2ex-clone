@@ -265,6 +265,38 @@ describe('v0.0.14 · 分类 admin 路由必须经统一守卫', () => {
   });
 
   /**
+   * hide / show 必须按**事实**判（前后差分），不能按**请求形状**判。
+   *
+   * 按请求形状判的后果：对一个**已经禁用**的分类重复提交 `hidden:true`，
+   * 会再记一条 `category.hide` —— 审计里出现根本没发生过的变化。
+   * 这是本仓已经踩过的同类坑（v0.0.14 的编辑审计文案也改成了按 result.changed 判）。
+   */
+  it('hide / show 审计动作按前后差分判定，不按 `body.hidden` 形状判定', () => {
+    const patch = codeOnly(read(CATEGORY_ID_ROUTE));
+    expect(patch, '必须有"前后 hidden 是否真的翻转"的判据').toMatch(
+      /hiddenChanged\s*=\s*before\s*\?\s*before\.hidden\s*!==\s*\w+\.hidden/,
+    );
+    expect(
+      patch,
+      '不得用 `body?.hidden === true ? CATEGORY_HIDE ...` 这种按请求形状的判定',
+    ).not.toMatch(/body\?\.hidden\s*===\s*true\s*\?[\s\S]{0,80}CATEGORY_HIDE/);
+
+    // 负向对照：把判据替换成「按请求形状判」，同一判据必须判红
+    const byRequestShape = patch.replace(
+      /hiddenChanged\s*=\s*before\s*\?\s*before\.hidden\s*!==\s*(\w+)\.hidden\s*:\s*false;/,
+      'hiddenChanged = body?.hidden === true;',
+    );
+    expect(
+      byRequestShape,
+      '负向对照替换失败（说明判据的正则与实际代码对不上）',
+    ).toContain('hiddenChanged = body?.hidden === true;');
+    expect(
+      /hiddenChanged\s*=\s*before\s*\?\s*before\.hidden\s*!==\s*\w+\.hidden/.test(byRequestShape),
+      '按请求形状判定必须被判据抓到',
+    ).toBe(false);
+  });
+
+  /**
    * 负向对照：证明「必须经守卫」这个判据**有鉴别力**。
    *
    * 把 `adminGuardWrite(` 整体抹掉后，判据必须报告缺失 ——
