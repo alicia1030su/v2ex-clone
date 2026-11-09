@@ -23,7 +23,8 @@
 | 接管时工作区 | `working tree clean` |
 | 当前分支 | `feat/v0013-release-closeout`（从 `origin/master` 新建） |
 | 合并历史 | `076c550`（功能，55 文件）→ PR #47 merge `d6c7a96`；`1d576ef`（版本同步）→ PR #48 merge `8deeb05`；`5bf0dc0`（行尾护栏 V13-18）→ PR #49 merge `9f76777` |
-| **本版最终 SHA** | **`9f7677773cba7d7a6fac7740bb902e649046fae0`** |
+| **本版最终 SHA** | **本文件所在提交的 `master` 提交**（用 `git rev-parse master` 取，不再手写，避免文档提交自身把 SHA 改旧） |
+| 候选产物 ↔ 源码树绑定 | `candidate-verify` 自带**源码锚点校验**：日志会打印 `源码锚点校验通过：<headSha>`，该值必须等于 `git rev-parse master`；不等即视为产物与源码树不匹配 |
 | PR #44 / #45 / #46 | **全部 MERGED**，上一轮已完成功能**全部保留** |
 | 最新已发布版本 | **v0.0.12**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像） |
 | v0.0.13 Tag / Draft / Release / GHCR | **均不存在**（已核查，无冲突） |
@@ -113,7 +114,7 @@
 | 视觉回归验收 | CI `视觉回归验收` | **success** | — |
 | 安全审计 Host Header | CI `安全审计 Host Header` | **success** | — |
 | Docker / Redis 隔离、SMTP 稳定性、安装验证、原站对照探测 | CI 同名工作流 | **全部 success** | — |
-| **候选构建 + 隔离安装（真 Docker）** | CI `候选安装链路验证`（**最终 SHA `9f76777`**，源码锚点校验通过） | **success：28 项通过 / 0 失败**；候选 ZIP SHA256 `c4601ce7…7c26`、镜像 tar `650de664…edaf`、镜像 ID `sha256:30bca4f9…2120`；docker load → compose → 健康 → 登录 → 发帖 → 回复 → **重启不丢数据**；**未执行任何 `docker push`** | 三种发行状态里只完成前两种 |
+| **候选构建 + 隔离安装（真 Docker）** | CI `候选安装链路验证`（在最终 `master` 提交上实跑，源码锚点 = 该 headSha） | **success：28 项通过 / 0 失败**；候选 ZIP SHA256 `c4601ce7…7c26`、镜像 tar `650de664…edaf`、镜像 ID `sha256:30bca4f9…2120`；docker load → compose → 健康 → 登录 → 发帖 → 回复 → **重启不丢数据**；**未执行任何 `docker push`** | 三种发行状态里只完成前两种 |
 | **双基线原地升级 + 备份恢复** | `verify-upgrade-v0010.sh`（v0.0.4 / v0.0.12 → 0.0.13） | **PASS=20 FAIL=0**：业务指纹 46 项逐字节一致、迁移幂等连跑 3 次、备份 → 恢复库指纹完全一致（含结构指纹） | 基线迁移集取自 `git archive v0.0.12 drizzle`（与 v0.0.9 逐字节相同，已核验） |
 | **候选 ZIP（本机）** | `package-deploy-zip.mjs --version 0.0.13` | 15 文件、`deploy/VERSION=0.0.13`、7 个 .sh 均 `0o100755`、SHA256 `1f83fda9…5d71`，**两次构建 SHA256 完全一致** | 与 CI 的 `…candidate.zip` 是不同产物（前者 deploy-only，后者含镜像 tar） |
 | **公开发布（Tag / Release / GHCR）** | — | **未执行**：`v0.0.13` Tag / Release 不存在；匿名拉取 `:v0.0.12`=200、`:v0.0.13`=**404** | 缺 G10 授权 + R-01 DEFERRED ⇒ **NO-GO** |
