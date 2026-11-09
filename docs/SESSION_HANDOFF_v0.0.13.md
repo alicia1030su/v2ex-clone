@@ -9,7 +9,7 @@
 
 ## 0. 一句话状态
 
-代码、文档、护栏与测试已提交并推送，**PR #47 已创建、CI 进行中、尚未合并，未发布**。
+代码、文档、护栏与测试已合并到 master（PR #47，merge `d6c7a96`），版本载体已同步到 `0.0.13`（`1d576ef`），**尚未打 Tag / 发布 Release / 推送公开镜像**。
 **公开发布为 NO-GO**：未找到主人对 v0.0.13 的明确风险接受与公开发布授权，R-01 仍为 DEFERRED。
 **Go/No-Go**：候选构建与候选安装判据尚未执行完；见 `RELEASE_GATE.md` §7.2 的 G1~G11。
 
@@ -22,7 +22,7 @@
 | 接管时 `origin/master` HEAD | `7b30d7fd82dec851fa03e402d078a86ac37efbbc` — `feat(v0.0.13): 补齐旧版 API 全家桶（4 端点）+ 节点订阅原站路径 Atom/JSON Feed（V10-24） (#46)` |
 | 接管时工作区 | `working tree clean` |
 | 当前分支 | `feat/v0013-release-closeout`（从 `origin/master` 新建） |
-| 分支上的提交 | `076c550`（v0.0.13 收尾提交，55 文件 / +4769 −524） |
+| 分支上的提交 | 功能提交 `076c550`（55 文件 / +4769 −524，已随 PR #47 合并为 `d6c7a96`）；版本同步提交 `1d576ef`（20 载体） |
 | PR #44 / #45 / #46 | **全部 MERGED**，上一轮已完成功能**全部保留** |
 | 最新已发布版本 | **v0.0.12**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像） |
 | v0.0.13 Tag / Draft / Release / GHCR | **均不存在**（已核查，无冲突） |
@@ -106,8 +106,16 @@
 | Release Notes 注入（真实脚本抽取） | 从 `release.yml` heredoc 抽脚本 + 模板实跑 | `VERSION=v0.0.13` ⇒ **exit 0**，注入 2730 字符、无内部状态词；`v0.0.1` / `v0.0.12` / `garbage` ⇒ **均 exit 1** | 前缀碰撞（`v0.0.1` 命中 `v0.0.13`）已不可绕 |
 | **v013 新增 E2E（真实 HTTP）** | `SPEC="v013" bash scripts/ci/run-e2e-locally.sh` | **13 passed / 0 failed，退出码 0**（1.8m） | 含 hidden 节点**前后对照**（active 时探针回复 1 条 → hide 后 `[]`；active 时主题在 `/api/feed` → hide 后消失）、`/feed/all.xml` 与 `/feed/ALL.xml` 均 200 Atom |
 | **全量 E2E（本版最终）** | `SPEC="" SKIP_BUILD=1 bash scripts/ci/run-e2e-locally.sh` | **257 passed / 0 failed，退出码 0**（30.3m） | 比上一轮 256 多 1 条 = 新增 hidden 节点负向用例。前置阶段 `PASS=8 FAIL=0`；本机走 `PgKV` 降级、CI 走真实 Redis，两者各覆盖一半，不得互相冒充 |
-| 完整单元 / 跨浏览器 / 视觉 63 组合 / 安全 / Docker / 安装 / 升级 / 备份恢复 | 阶段八 16 项门禁中的其余项 | **未执行完（如实标未完成）** | 本机 Docker 不可用 ⇒ 依赖 CI ubuntu runner；不得用本机结果冒充 |
-| CI run / PR | 已推送 `feat/v0013-release-closeout` | **PR #47 已创建；13 个工作流已触发，结果待回填** | 合并前必须全绿；任何失败按真实原因修复，不得重跑掩盖 |
+| 完整单元套件 | CI run `42558593027`（job 类型检查 / 单元测试） | **594 passed**（首跑因护栏读 `.env.test` ENOENT 判红 ⇒ 已修真因并复绿） | 合并前 CI 全绿 |
+| 跨浏览器矩阵（15 分片） | CI `E2E 跨浏览器矩阵（v0.0.7）` | **15/15 pass**（chromium / firefox / webkit × 5 视口） | 上一轮反复出问题的 firefox 窄视口本轮通过 |
+| 视觉回归验收 | CI `视觉回归验收` | **success** | — |
+| 安全审计 Host Header | CI `安全审计 Host Header` | **success** | — |
+| Docker / Redis 隔离、SMTP 稳定性、安装验证、原站对照探测 | CI 同名工作流 | **全部 success** | — |
+| **候选构建 + 隔离安装（真 Docker）** | CI `候选安装链路验证` run `42561354071`（headSha `1d576ef`） | **success：28 项通过 / 0 失败**；候选 ZIP SHA256 `7f1144e7…a037`、镜像 tar `b1c98b9c…b5f8`、镜像 ID `f1cb7f15…1426`；docker load → compose → 健康 → 登录 → 发帖 → 回复 → **重启不丢数据**；**未执行任何 `docker push`** | 三种发行状态里只完成前两种 |
+| **双基线原地升级 + 备份恢复** | `verify-upgrade-v0010.sh`（v0.0.4 / v0.0.12 → 0.0.13） | **PASS=20 FAIL=0**：业务指纹 46 项逐字节一致、迁移幂等连跑 3 次、备份 → 恢复库指纹完全一致（含结构指纹） | 基线迁移集取自 `git archive v0.0.12 drizzle`（与 v0.0.9 逐字节相同，已核验） |
+| **候选 ZIP（本机）** | `package-deploy-zip.mjs --version 0.0.13` | 15 文件、`deploy/VERSION=0.0.13`、7 个 .sh 均 `0o100755`、SHA256 `1f83fda9…5d71`，**两次构建 SHA256 完全一致** | 与 CI 的 `…candidate.zip` 是不同产物（前者 deploy-only，后者含镜像 tar） |
+| **公开发布（Tag / Release / GHCR）** | — | **未执行**：`v0.0.13` Tag / Release 不存在；匿名拉取 `:v0.0.12`=200、`:v0.0.13`=**404** | 缺 G10 授权 + R-01 DEFERRED ⇒ **NO-GO** |
+| CI run / PR | `feat/v0013-release-closeout` → PR #47 | **30 checks pass / 0 fail / 1 conditional skip（`诊断 Firefox thanks 403`），mergeState=CLEAN** | 唯一一处失败是静态护栏读未跟踪的 `.env.test`（CI ENOENT），已修并复绿；未用重跑掩盖 |
 
 > **纪律**：0 条用例收集必须判失败；跳过用例必须披露；失败退出码必须传播；
 > 不得靠重跑掩盖竞态；每条证据必须对应准确 SHA。

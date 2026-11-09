@@ -22,21 +22,20 @@
 
 ---
 
-## 当前版本状态（v0.0.13 开发中）
+## 当前版本状态（v0.0.13 发行候选）
 
-> **版本载体**：`0.0.12`
-> （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护；
-> 开发态刻意保持上一稳定版本，固定最终 SHA 后一次性同步到目标版本。）
+> **版本载体**：`0.0.13`
+> （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。）
 
 | 项 | 值 |
 |---|---|
 | **当前实际公开版本** | **`v0.0.12`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-08 发布） |
-| **当前开发版本** | **`v0.0.13`（候选，未打 Tag、未发布 Release）** |
-| 版本载体 | 开发分支刻意保持 `0.0.12`；**只有固定最终 SHA 后才统一同步到 `0.0.13`**（`node scripts/release/sync-version.mjs 0.0.13`） |
+| **当前开发版本** | **`v0.0.13`**（发行候选：版本载体已固定，**未打 Tag、未发布 Release、未推送镜像标签**） |
+| 版本载体 | `0.0.13`（已由 `sync-version.mjs` 全量同步并通过 20/20 复验） |
 | 发布形态 | 开发预览版（Pre-release），**不是稳定版** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 已发布镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12`（`:v0.0.13` 待正式发布后推送） |
 | 数据库迁移 | `drizzle/` 下 4 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports`），容器启动时幂等执行 |
 
 > **v0.0.13 定位**：旧版 API 兼容收口、功能矩阵真实性、登录交互稳定性与完整发行候选。
@@ -239,19 +238,20 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 
 ### 方式 A：一键安装包（推荐）
 
-> ✅ **v0.0.12 是已正式发布的 Pre-release**，部署 ZIP 与 GHCR 镜像均可获取。
-> 下面的命令以 v0.0.12 为例；v0.0.13 尚未发布，请勿把 v0.0.13 写进
-> `--version`/镜像标签直至正式发布完成。
+> ✅ **v0.0.12 是已正式发布的 Pre-release**，其部署 ZIP 与 GHCR 镜像均可获取。
+> **v0.0.13 目前是开发候选，尚未发布**（无 Tag、无 Release、无镜像标签）；
+> 下面的命令描述的是 **v0.0.13 正式发布后**的用法，现在直接执行会 404。
+> 在正式发布完成前，请用 v0.0.12 的资产。
 > 更旧的 **v0.0.9** 安装包存在两处已确认缺陷（V9-09 脚本缺可执行位、
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
 > 的规约保持原样 —— **建议使用 v0.0.12，不要用 v0.0.9**。
 
-下载 `v2ex-clone-v0.0.12-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.13-deploy.zip` 并解压（该资产在 v0.0.13 Release 发布后提供）。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.12-deploy.zip -d v2ex-clone-v0.0.12-deploy && cd v2ex-clone-v0.0.12-deploy/deploy`
+> `unzip v2ex-clone-v0.0.13-deploy.zip -d v2ex-clone-v0.0.13-deploy && cd v2ex-clone-v0.0.13-deploy/deploy`
 >
-> ✅ v0.0.12 的安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
+> ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
 > **不需要**先 `chmod +x`。若你下载到的包需要 chmod，说明产物不对，请报告。
 
@@ -312,8 +312,8 @@ docker compose up -d
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
 | **最新已发布版本（v0.0.12）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |
-| 一键部署安装包（v0.0.12，已发布） | `v2ex-clone-v0.0.12-deploy.zip`（在该 Release 资产中） |
-| 容器镜像（v0.0.12，与安装包同版） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` |
+| 一键部署安装包 | **本版候选**：`v2ex-clone-v0.0.13-deploy.zip`（v0.0.13 Release 发布后提供）；**当前可下载**：v0.0.12 的同名 ZIP 在其 Release 资产中 |
+| 容器镜像 | **本版候选**：`ghcr.io/alicia1030su/v2ex-clone:v0.0.13`（发布后推送）；**当前可拉取**：`:v0.0.12` |
 | 历史版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9>（含已知缺陷，不建议新装） |
 | v0.0.13 | **尚未发布**：无 Tag、无 Release、无镜像标签；开发候选状态见交接文档 |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
