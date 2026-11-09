@@ -83,7 +83,26 @@ v0.0.13 **从未发布**（无 Tag / Release / 镜像），其成果将由 v0.0.
 
 ---
 
-## 4. 待办（按顺序）
+## 4. Go/No-Go 判据（发布前必须逐项为 PASS）
+
+| 门禁 | 判据 | 当前 |
+|---|---|---|
+| 代码合并 | PR #52 合并到 master，工作区 clean | ✅ 已合并（merge `08848c1`） |
+| 版本载体 | `0.0.14` 在 20 个载体上一致，`sync-version --verify` 全通过 | ✅ 已同步 |
+| 发行一致性 | `verify-release-consistency.sh --expect 0.0.14` = PASS 20 / FAIL 0 | ✅ |
+| 静态与类型 | `tsc` 0；静态 20 文件 / 287 用例 | ✅ |
+| 单元与真库 | 完整单元 60+ 文件；四个 v014 真库 spec 全绿 | ✅（有一次 PG 未就绪的环境失败，复跑即绿） |
+| E2E | 本地 CI 等价复现全绿；跨浏览器 15 分片全绿 | ✅ |
+| 视觉 / 安全 | 视觉回归 + Host Header 攻击矩阵 + CSRF 权限 | ✅ |
+| 候选构建 + 隔离安装 | 真 Docker（ubuntu runner）28 项通过 / 0 失败 | 待最终 SHA 上重跑 |
+| 升级与备份恢复 | v0.0.12 → 0.0.14 双基线 + 备份恢复 | 待最终 SHA 上重跑 |
+| 授权 | 主人对 v0.0.14 的**明确风险接受 + 公开发布授权** | **NO-GO**（未取得） |
+
+> **当前 Go/No-Go 结论**：**开发侧 GO（候选可构建）／公开发布 NO-GO**。
+> 公开发布前必须补齐「候选构建 + 隔离安装」「升级与备份恢复」两项在**最终 SHA** 上的证据，
+> 并取得上述授权。
+
+## 5. 待办（按顺序）
 
 1. PR #52 CI 全绿 → 合并到 master
 2. 独立分支同步版本载体到 `0.0.14`（`sync-version.mjs`）+ README 入口口径 → PR → 合并
@@ -149,6 +168,15 @@ v005-floor-concurrency  drop=91   create=6276  migrate=8627  total=14994
 （`v005-floor-concurrency` 的 100 并发在 `it` 内）⇒ 180s 与已收回的 300s 同属无依据放宽。
 收的时候注意：`v005-floor-concurrency` 的**测试体**上也有 `120_000` / `60_000` 的显式超时，
 与 hook 是同一个病（无依据放宽），下一轮一并审计；`feed-search` 无 per-test 覆盖，可直接收回默认。
+
+
+> **本节上限 / 耗时数字的有效前提**：① vitest 5.x（`file` duration 含 `beforeAll`）；
+> ② `fileParallelism: false`；③ 未配 `bail` / `retry` / `repeat`；
+> ④ 该文件 `beforeAll` 仅做「建库 + migrate + 少量单语句 insert（3~4 条，无循环 / 无批量造数 / 无业务逻辑）」；
+> ⑤ 该文件无 `beforeEach` / `afterEach`。
+> **任一条件变化需重算**：升级 vitest 后 `runSuite` 若重构，`file` 是否仍含 hook 必须重测；
+> 若给 `beforeAll` 加入批量造数，其合理耗时会上一量级，`hookTimeout` 与 `testTimeout` 都需重新评估。
+> 判据是「**语句数与有无循环**」，不是「每条语句几行」—— `v005` 的 users 是一条语句插 2 行。
 
 ## 8. 已知取舍（登记于 `RISK_REGISTER.md`）
 
