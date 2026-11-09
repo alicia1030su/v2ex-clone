@@ -34,3 +34,30 @@ import * as schema from '@/db/schema';
  * `docs/LEGACY_API_MATRIX_v0.0.13.md` §3「有意偏离清单」。
  */
 export const PUBLIC_NODE_CONDITION = eq(schema.nodes.status, 'active');
+
+/** 公共可见的节点状态（**唯一取值**，不要在别处再写字符串字面量） */
+export const PUBLIC_NODE_STATUS = 'active' as const;
+
+/**
+ * 节点状态是否对**公共**访问者可见。
+ *
+ * 用于「已经拿到一行数据、需要二次判断」的场景（例如详情页在查询后
+ * 拿到 node.status）。列表查询请直接用 `PUBLIC_NODE_CONDITION`，
+ * 不要用本函数在内存里过滤 —— 那会让分页总数与列表行数口径不一致。
+ */
+export function isPublicNodeStatus(status: string | null | undefined): boolean {
+  return status === PUBLIC_NODE_STATUS;
+}
+
+/**
+ * 是否允许**绕过**节点可见性（授权审核入口）。
+ *
+ * 只有 moderator / admin 可以查看 hidden / pending 节点下的内容，
+ * 且必须由调用方**显式**传 `includeHidden` —— 默认一律按公共口径。
+ * 这不是「角色不同看到不同列表」的隐式行为，而是审核入口的一次显式例外。
+ */
+export function canReviewHiddenNodes(
+  user: { role?: string | null } | null | undefined,
+): boolean {
+  return user?.role === 'admin' || user?.role === 'moderator';
+}

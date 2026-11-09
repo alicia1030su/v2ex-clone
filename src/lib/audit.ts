@@ -46,6 +46,16 @@ export const AuditAction = {
   REPORT_HANDLE: 'report.handle',
   NODE_REQUEST_APPROVE: 'node_request.approve',
   NODE_REQUEST_REJECT: 'node_request.reject',
+  // 节点分类（v0.0.14）
+  //
+  // 分类是结构性配置：改名 / 改排序影响全站节点目录的展示，
+  // 禁用（hidden）会让一整组节点从公共页面消失。
+  // 因此四个动作都要留痕，且「禁用 / 启用」单独成 action ——
+  // 否则审计查询里无法区分「改了标题」与「下架了一整组节点」。
+  CATEGORY_CREATE: 'category.create',
+  CATEGORY_UPDATE: 'category.update',
+  CATEGORY_HIDE: 'category.hide',
+  CATEGORY_SHOW: 'category.show',
 } as const;
 
 export type AuditActionValue = (typeof AuditAction)[keyof typeof AuditAction];
@@ -55,6 +65,8 @@ export type TargetType =
   | 'reply'
   | 'user'
   | 'node'
+  /** v0.0.14：节点分类（`categories`） */
+  | 'category'
   | 'report'
   | 'node_request'
   | 'credits'

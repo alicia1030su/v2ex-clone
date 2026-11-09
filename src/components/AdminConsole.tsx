@@ -23,6 +23,9 @@ import { csrfFetch } from '@/components/CsrfProvider';
  * | 节点申请 | POST /api/admin/node-requests/[id]/reject                     |
  * | 节点管理 | GET  /api/nodes?includeHidden=true                             |
  * | 节点管理 | PATCH /api/nodes  body { id, action: 'hide' \| 'activate' }   |
+ * | 分类     | GET  /api/admin/categories                                    |
+ * | 分类     | POST /api/admin/categories  body { name, title, sort }        |
+ * | 分类     | PATCH /api/admin/categories/[id] body { title?, sort?, hidden? } |
  * | 日志     | GET  /api/admin/logs?action=&targetType=&targetId=            |
  * | 配置     | GET  /api/admin/config                                        |
  *
@@ -137,7 +140,36 @@ type AdminNode = {
   topicsCount: number;
 };
 
-type TabKey = 'overview' | 'users' | 'credits' | 'reports' | 'nodes' | 'nodemgmt' | 'logs' | 'config';
+/**
+ * 节点分类（后台「分类」tab，v0.0.14）
+ *
+ * 对应 `GET /api/admin/categories` —— 服务端按白名单回显
+ * `id / name / title / sort / hidden / updatedAt`（外加聚合的 nodesCount）。
+ *
+ * `hidden = true` 表示**已禁用**：公共页面不展示该分类，
+ * 但数据与节点的分类归属保留（不做删除，避免 `nodes.category_id` 悬空）。
+ */
+type AdminCategory = {
+  id: number;
+  name: string;
+  title: string;
+  sort: number;
+  hidden: boolean;
+  updatedAt: string;
+  /** 该分类下状态为 active 的节点数（仅展示用，判断能否安全禁用） */
+  nodesCount: number;
+};
+
+type TabKey =
+  | 'overview'
+  | 'users'
+  | 'credits'
+  | 'reports'
+  | 'nodes'
+  | 'nodemgmt'
+  | 'categories'
+  | 'logs'
+  | 'config';
 
 /**
  * 全部 tab 定义。
@@ -147,6 +179,11 @@ type TabKey = 'overview' | 'users' | 'credits' | 'reports' | 'nodes' | 'nodemgmt
  * 原先直接把「积分」写进静态数组，导致**版主也能看到 tab**
  * （只是点进去显示「仅管理员可操作」）—— 那是把权限做成了内容级而非入口级，
  * 既误导用户，也让「tab 是否隐藏」无法作为权限断言。
+ *
+ * v0.0.14：「分类」tab 对 staff **可见**（moderator 有 `categories.view`），
+ * 但写操作按钮只对 `canManageCategories`（`categories.manage`，仅 admin）呈现。
+ * 这是有意的分层：版主需要知道「节点为何从 /nodes 消失」，
+ * 但不能下架一整组节点。
  */
 const ALL_TABS: { key: TabKey; label: string; visibleTo?: Array<'admin' | 'staff'> }[] = [
   { key: 'overview', label: '概览' },
@@ -155,6 +192,7 @@ const ALL_TABS: { key: TabKey; label: string; visibleTo?: Array<'admin' | 'staff
   { key: 'reports', label: '举报' },
   { key: 'nodes', label: '节点申请' },
   { key: 'nodemgmt', label: '节点管理' },
+  { key: 'categories', label: '分类' },
   { key: 'logs', label: '操作日志' },
   { key: 'config', label: '系统配置' },
 ];
@@ -193,10 +231,19 @@ function fmtDate(v: string | null | undefined): string {
 export default function AdminConsole({
   canChangeRole,
   canAdjustCredits,
+  canManageCategories,
 }: {
   canChangeRole: boolean;
   /** v0.0.5：能否调整积分（`credits.adjust` 权限，仅 admin） */
   canAdjustCredits: boolean;
+  /**
+   * v0.0.14：能否管理分类（`categories.manage` 权限，仅 admin）。
+   *
+   * 版主有 `categories.view` ⇒ 能看到列表（排查「节点为何从 /nodes 消失」），
+   * 但看不到任何写按钮。前端隐藏**只是体验优化**，
+   * 服务端 `adminGuardWrite(request, 'categories.manage')` 才是唯一权威。
+   */
+  canManageCategories: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>('overview');
   const [pending, setPending] = useState<string | null>(null);
@@ -240,6 +287,21 @@ export default function AdminConsole({
   // 日志
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [logFilter, setLogFilter] = useState({ action: '', targetType: '' });
+
+  // 分类管理（v0.0.14）
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  /** 新建表单（受控；提交成功后清空） */
+  const [categoryForm, setCategoryForm] = useState({ name: '', title: '', sort: '0' });
+  /**
+   * 行内编辑草稿：记录哪些分类正在编辑（key = 分类 id）。
+   *
+   * 用「草稿 Map + 编辑集合」而不是「直接改 categories 状态」，
+   * 是为了让「取消编辑」不留下脏值 —— 取消时直接丢弃草稿即可。
+   */
+  const [categoryDrafts, setCategoryDrafts] = useState<
+    Record<number, { title: string; sort: string }>
+  >({});
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
 
   // 配置
   const [config, setConfig] = useState<Config | null>(null);
@@ -394,6 +456,26 @@ export default function AdminConsole({
     }
   }, []);
 
+  // ---- 加载：分类（v0.0.14）----
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        categories?: AdminCategory[];
+      };
+      if (!res.ok || !data.ok) {
+        // 错误必须显示真实文本 —— 静默会让「分类页空白」无从排查
+        setMsg({ kind: 'err', text: data.error ?? '分类列表加载失败' });
+        return;
+      }
+      setCategories(data.categories ?? []);
+    } catch {
+      setMsg({ kind: 'err', text: '网络错误，请稍后重试' });
+    }
+  }, []);
+
   // ---- 加载：配置 ----
   const loadConfig = useCallback(async () => {
     try {
@@ -419,6 +501,7 @@ export default function AdminConsole({
     else if (tab === 'reports') void loadReports(reportStatus);
     else if (tab === 'nodes') void loadNodeRequests(nodeStatus);
     else if (tab === 'nodemgmt') void loadAllNodes();
+    else if (tab === 'categories') void loadCategories();
     else if (tab === 'logs') void loadLogs(logFilter.action, logFilter.targetType);
     else if (tab === 'config') void loadConfig();
   }, [
@@ -430,6 +513,7 @@ export default function AdminConsole({
     loadNodeRequests,
     nodeStatus,
     loadAllNodes,
+    loadCategories,
     loadLogs,
     logFilter.action,
     logFilter.targetType,
@@ -582,6 +666,73 @@ export default function AdminConsole({
       void loadAllNodes();
       void loadOverview();
     }
+  }
+
+  // ---- 分类写操作（v0.0.14）----
+  //
+  // 全部经 `act()` → `csrfFetch()`，与其它后台写操作**同一套 CSRF 机制**；
+  // 失败时 `act()` 会把服务端返回的真实错误文本塞进 msg 显示出来。
+  // 服务端权限：`categories.manage`（仅 admin）。
+
+  /** 新建分类。name / title / sort 的最终校验在服务端（这里只做空值预检，避免无谓请求） */
+  async function createNewCategory() {
+    const name = categoryForm.name.trim();
+    const title = categoryForm.title.trim();
+    if (!name || !title) {
+      setMsg({ kind: 'err', text: '分类名与标题都必须填写' });
+      return;
+    }
+    const ok = await act('category-create', '/api/admin/categories', 'POST', {
+      name,
+      title,
+      // 空串交给服务端按默认值 0 处理（避免 Number('') === 0 的隐式语义混进来）
+      sort: categoryForm.sort.trim() === '' ? 0 : Number(categoryForm.sort),
+    });
+    if (ok) {
+      setCategoryForm({ name: '', title: '', sort: '0' });
+      void loadCategories();
+    }
+  }
+
+  /** 保存行内编辑（title / sort） */
+  async function saveCategory(id: number) {
+    const draft = categoryDrafts[id];
+    if (!draft) return;
+    const ok = await act(`category-save-${id}`, `/api/admin/categories/${id}`, 'PATCH', {
+      title: draft.title.trim(),
+      sort: draft.sort.trim() === '' ? 0 : Number(draft.sort),
+    });
+    if (ok) {
+      setEditingCategoryId(null);
+      setCategoryDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      void loadCategories();
+    }
+  }
+
+  /**
+   * 禁用 / 启用分类。
+   *
+   * 禁用只是 `hidden = true` —— **不删数据**，节点归属保留、可一键恢复。
+   * 禁用前提示该分类下的节点数，让操作者知道影响面。
+   */
+  async function setCategoryHidden(category: AdminCategory, hidden: boolean) {
+    if (
+      hidden &&
+      !window.confirm(
+        `确认禁用分类「${category.title}」？\n\n该分类下有 ${category.nodesCount} 个节点。\n` +
+          '禁用后分类不再出现在公共页面（节点数据与归属保留，可随时恢复）。',
+      )
+    ) {
+      return;
+    }
+    const ok = await act(`category-hide-${category.id}`, `/api/admin/categories/${category.id}`, 'PATCH', {
+      hidden,
+    });
+    if (ok) void loadCategories();
   }
 
   return (
@@ -1155,6 +1306,219 @@ export default function AdminConsole({
               </div>
             ))
           )}
+        </>
+      ) : null}
+
+      {/* ---------------- 分类管理（v0.0.14：增 / 改名 / 排序 / 禁用） ---------------- */}
+      {tab === 'categories' ? (
+        <>
+          {/* 新建表单 —— 仅 `categories.manage`（admin）可见 */}
+          {canManageCategories ? (
+            <div className="cell">
+              <strong>新建分类</strong>
+              <div className="sep10" />
+              <table cellPadding={5} cellSpacing={0} border={0} width="100%">
+                <tbody>
+                  <tr>
+                    <td width={120} align="right">
+                      分类名
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={categoryForm.name}
+                        placeholder="如 tech（小写字母/数字/下划线/短横线，2-32）"
+                        aria-label="新分类名称"
+                        maxLength={32}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="right">标题</td>
+                    <td>
+                      <input
+                        type="text"
+                        value={categoryForm.title}
+                        placeholder="如 技术（展示给用户，1-64）"
+                        aria-label="新分类标题"
+                        maxLength={64}
+                        onChange={(e) =>
+                          setCategoryForm({ ...categoryForm, title: e.target.value })
+                        }
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="right">排序</td>
+                    <td>
+                      <input
+                        type="number"
+                        value={categoryForm.sort}
+                        aria-label="新分类排序"
+                        min={-10000}
+                        max={10000}
+                        step={1}
+                        style={{ width: 120 }}
+                        onChange={(e) =>
+                          setCategoryForm({ ...categoryForm, sort: e.target.value })
+                        }
+                      />{' '}
+                      <span className="f12 gray">越小越靠前（-10000 ~ 10000）</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="right">&nbsp;</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => void createNewCategory()}
+                        disabled={pending === 'category-create'}
+                        aria-label="创建分类"
+                      >
+                        {pending === 'category-create' ? '处理中…' : '创建'}
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          {categories.length === 0 ? (
+            <div className="cell">
+              <span className="fade">暂无分类数据</span>
+            </div>
+          ) : (
+            categories.map((c) => {
+              const draft = categoryDrafts[c.id];
+              const isEditing = editingCategoryId === c.id;
+              return (
+                <div key={c.id} className="cell">
+                  <div className="fr f12 gray">
+                    ID {c.id} · {c.nodesCount} 个节点 · 更新于 {fmtDate(c.updatedAt)}
+                  </div>
+                  <div>
+                    <strong>{c.title}</strong>{' '}
+                    <span className="f12 gray">({c.name})</span>{' '}
+                    <span className="badge">排序 {c.sort}</span>{' '}
+                    <span
+                      className="badge"
+                      style={c.hidden ? undefined : { background: '#3d8a56' }}
+                    >
+                      {c.hidden ? '已禁用' : '启用中'}
+                    </span>
+                  </div>
+
+                  {isEditing ? (
+                    <div className="sep5">
+                      <input
+                        type="text"
+                        value={draft?.title ?? c.title}
+                        aria-label={`编辑 ${c.name} 的标题`}
+                        maxLength={64}
+                        style={{ width: 240 }}
+                        onChange={(e) =>
+                          setCategoryDrafts((prev) => ({
+                            ...prev,
+                            [c.id]: { title: e.target.value, sort: draft?.sort ?? String(c.sort) },
+                          }))
+                        }
+                      />{' '}
+                      <input
+                        type="number"
+                        value={draft?.sort ?? String(c.sort)}
+                        aria-label={`编辑 ${c.name} 的排序`}
+                        min={-10000}
+                        max={10000}
+                        step={1}
+                        style={{ width: 100 }}
+                        onChange={(e) =>
+                          setCategoryDrafts((prev) => ({
+                            ...prev,
+                            [c.id]: { title: draft?.title ?? c.title, sort: e.target.value },
+                          }))
+                        }
+                      />{' '}
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => void saveCategory(c.id)}
+                        disabled={pending === `category-save-${c.id}`}
+                        aria-label={`保存 ${c.name}`}
+                      >
+                        {pending === `category-save-${c.id}` ? '处理中…' : '保存'}
+                      </button>{' '}
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => {
+                          setEditingCategoryId(null);
+                          setCategoryDrafts((prev) => {
+                            const next = { ...prev };
+                            delete next[c.id];
+                            return next;
+                          });
+                        }}
+                        aria-label={`取消编辑 ${c.name}`}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  ) : canManageCategories ? (
+                    <div className="sep5">
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => {
+                          setEditingCategoryId(c.id);
+                          setCategoryDrafts((prev) => ({
+                            ...prev,
+                            [c.id]: { title: c.title, sort: String(c.sort) },
+                          }));
+                        }}
+                        aria-label={`编辑分类 ${c.name}`}
+                      >
+                        编辑
+                      </button>{' '}
+                      {c.hidden ? (
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => void setCategoryHidden(c, false)}
+                          disabled={pending === `category-hide-${c.id}`}
+                          aria-label={`启用分类 ${c.name}`}
+                        >
+                          {pending === `category-hide-${c.id}` ? '处理中…' : '启用'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => void setCategoryHidden(c, true)}
+                          disabled={pending === `category-hide-${c.id}`}
+                          aria-label={`禁用分类 ${c.name}`}
+                        >
+                          {pending === `category-hide-${c.id}` ? '处理中…' : '禁用'}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="sep5 f12 gray">分类管理是管理员专属操作（版主只读）</div>
+                  )}
+                </div>
+              );
+            })
+          )}
+
+          <div className="cell">
+            <span className="fade">
+              禁用分类<b>不删除数据</b>：节点仍保留分类归属，只是该分类不再出现在
+              公共页面（<code>/nodes</code>、发帖选节点等）。因此系统不提供「删除分类」。
+              每次创建 / 修改 / 禁用都会写入审计日志。
+            </span>
+          </div>
         </>
       ) : null}
 

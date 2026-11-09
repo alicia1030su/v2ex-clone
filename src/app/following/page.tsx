@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { listFollowing } from '@/lib/follow-service';
 import { relativeTime, fullTimestamp } from '@/lib/time';
@@ -42,13 +44,27 @@ export default async function FollowingPage({
   if (!user) redirect('/signin?next=%2Ffollowing');
 
   const { p } = await searchParams;
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
   const offset = (page - 1) * TOPICS_PER_FOLLOW_PAGE;
 
   // 我关注的人
   const followingUsers = await listFollowing(user.id, 200);
 
   // 我关注的人发布的主题
+  //
+  // v0.0.14 P0-1：关注流是公共阅读面 —— 隐藏 / 待审节点下的主题不得出现。
+  // 过滤条件用 `PUBLIC_NODE_CONDITION`（全仓唯一定义），并且**列表与总数
+  // 用同一个 where 语义**：原实现的 total 是一段独立的原生 SQL，
+  // 只算 `deleted_at IS NULL AND author_id IN (...)` —— 一旦列表加了节点条件，
+  // 总数就会比列表多，分页立刻错位（「第 2 页一片空白但页码还在」）。
+  const followWhere = and(
+    sql`${schema.topics.deletedAt} IS NULL`,
+    sql`${schema.topics.authorId} IN (
+      SELECT following_id FROM follows WHERE follower_id = ${user.id}
+    )`,
+    PUBLIC_NODE_CONDITION,
+  );
+
   const topicRows = await db
     .select({
       id: schema.topics.id,
@@ -67,23 +83,18 @@ export default async function FollowingPage({
     .from(schema.topics)
     .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(
-      sql`${schema.topics.deletedAt} IS NULL AND ${schema.topics.authorId} IN (
-        SELECT following_id FROM follows WHERE follower_id = ${user.id}
-      )`,
-    )
+    .where(followWhere)
     .orderBy(desc(schema.topics.lastReplyAt))
     .limit(TOPICS_PER_FOLLOW_PAGE)
     .offset(offset);
 
-  const totalRows = await db.execute(sql`
-    SELECT count(*)::int AS n FROM topics
-    WHERE deleted_at IS NULL AND author_id IN (
-      SELECT following_id FROM follows WHERE follower_id = ${user.id}
-    )
-  `);
-  const total = Number((totalRows as unknown as Array<{ n: number }>)[0]?.n ?? 0);
-  const totalPages = Math.max(1, Math.ceil(total / TOPICS_PER_FOLLOW_PAGE));
+  const totalRows = await db
+    .select({ n: count() })
+    .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(followWhere);
+  const total = Number(totalRows[0]?.n ?? 0);
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(total / TOPICS_PER_FOLLOW_PAGE)));
 
   return (
     <Wrapper

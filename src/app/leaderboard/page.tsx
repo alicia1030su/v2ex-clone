@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { leaderboard } from '@/lib/credit-service';
 import { getSessionUser } from '@/lib/auth';
 import Wrapper from '@/components/Wrapper';
@@ -36,7 +37,7 @@ export default async function LeaderboardPage({
   searchParams: Promise<{ p?: string }>;
 }) {
   const { p } = await searchParams;
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
 
   const user = await getSessionUser();
 
@@ -44,7 +45,7 @@ export default async function LeaderboardPage({
 
   // leaderboard() 不返回总数，这里用「是否取满一页」推断是否有下一页
   const hasNext = rows.length === PAGE_SIZE;
-  const totalPages = Math.max(1, hasNext ? page + 1 : page);
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, hasNext ? page + 1 : page));
 
   return (
     <Wrapper

@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
 import { safeDecode } from '@/lib/safe-decode';
-import { TOPICS_PER_PAGE } from '@/server/queries';
+import { listTopicsByTag, TOPICS_PER_PAGE } from '@/server/queries';
 import TopicItem from '@/components/TopicItem';
 import PageNav from '@/components/PageNav';
 import Wrapper from '@/components/Wrapper';
@@ -22,7 +23,7 @@ export default async function TagPage({
 }) {
   const { name } = await params;
   const { p } = await searchParams;
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
   // 标签名必须在这里解码：**实测证明 Next.js 的 App Router 不会预解码
   // 动态段参数** —— 删掉这行后 `/tag/%E5%89%8D%E7%AB%AF`（中文标签）
   // 会直接 404。这个结论是跑出来的，不是读文档猜的：
@@ -39,57 +40,26 @@ export default async function TagPage({
     .from(schema.tags)
     .where(eq(schema.tags.name, tagName))
     .limit(1);
+  // 标签不存在 ⇒ 404（不渲染空页：空页会让用户以为「这个标签存在但没有内容」）
   if (!tagRows[0]) notFound();
 
-  // ⚠️ v0.0.14 重构（同时修掉两个真实缺陷）：
+  // ⚠️ v0.0.14 P0-1：列表查询已收敛到 `listTopicsByTag()`。
   //
-  // ① **分页总数算错**：原实现 `Math.ceil(list.length / TOPICS_PER_PAGE)`，
-  //    而 `list` 已被 `.limit(TOPICS_PER_PAGE)` 截断 ⇒ totalPages 恒 ≤ 1，
-  //    任何标签下超过 20 篇主题时**第 2 页永远不可达**；
-  // ② **一次性拉全量 id**：先查该标签下**所有** topic id 再用 IN 列表过滤，
-  //    热门标签会一次拉上万行，且可能撞 PostgreSQL 的绑定参数上限。
+  // 原先这里是**页面内联**的 SQL，与 `listTopics()` 是两套实现，于是：
+  //   · 它漏掉了节点可见性条件 ⇒ 隐藏节点的主题仍能从标签页读到；
+  //   · 它无法被真库测试直接调用 ⇒ 这类「不该出现的东西没出现」的缺陷
+  //     只能靠肉眼点页面，而肉眼恰好看不出来。
   //
-  // 现在改为直接 `topic_tags ⋈ topics` 分页查询 + 同条件 count，
-  // 与 `listTopics()` 的「先分页取行、再单独 count」口径保持一致。
-  const tagWhere = and(
-    eq(schema.topicTags.tagId, tagRows[0].id),
-    eq(schema.topics.status, 'published'),
-  );
+  // 现在页面只负责「标签不存在 ⇒ 404」与渲染，列表 / 计数全部由
+  // `src/server/queries.ts` 的 `listTopicsByTag()` 负责，与其它公共列表
+  // 共用同一套可见性口径（`PUBLIC_NODE_CONDITION`）。
+  //
+  // 分页总数来自 `listTopicsByTag()` 内部的**独立 count** ——
+  // 不是 `items.length`（那会把 totalPages 恒定为 1，第 2 页永远不可达；
+  // v0.0.14 已修过一次，不要回退）。
+  const { items: list, total } = await listTopicsByTag(tagName, page, TOPICS_PER_PAGE);
 
-  const [list, totalRows] = await Promise.all([
-    db
-      .select({
-        id: schema.topics.id,
-        title: schema.topics.title,
-        votes: schema.topics.votes,
-        repliesCount: schema.topics.repliesCount,
-        createdAt: schema.topics.createdAt,
-        lastReplyAt: schema.topics.lastReplyAt,
-        authorId: schema.users.id,
-        authorName: schema.users.username,
-        authorAvatar: schema.users.avatar,
-        nodeId: schema.nodes.id,
-        nodeName: schema.nodes.name,
-        nodeTitle: schema.nodes.title,
-      })
-      .from(schema.topics)
-      .innerJoin(schema.topicTags, eq(schema.topicTags.topicId, schema.topics.id))
-      .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(tagWhere)
-      // 排序必须确定性：同 lastReplyAt 时用 id 兜底，避免翻页时行漂移
-      .orderBy(desc(schema.topics.lastReplyAt), desc(schema.topics.id))
-      .limit(TOPICS_PER_PAGE)
-      .offset((page - 1) * TOPICS_PER_PAGE),
-    db
-      .select({ n: count() })
-      .from(schema.topics)
-      .innerJoin(schema.topicTags, eq(schema.topicTags.topicId, schema.topics.id))
-      .where(tagWhere),
-  ]);
-
-  const total = Number(totalRows[0]?.n ?? 0);
-  const totalPages = Math.max(1, Math.ceil(total / TOPICS_PER_PAGE));
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(total / TOPICS_PER_PAGE)));
 
   return (
     <Wrapper
@@ -112,22 +82,9 @@ export default async function TagPage({
             <span className="fade">该标签下暂无主题</span>
           </div>
         ) : (
-          list.map((t) => (
-            <TopicItem
-              key={t.id}
-              topic={{
-                id: t.id,
-                title: t.title,
-                votes: t.votes,
-                repliesCount: t.repliesCount,
-                createdAt: t.createdAt,
-                lastReplyAt: t.lastReplyAt,
-                author: { id: t.authorId, username: t.authorName, avatar: t.authorAvatar },
-                node: { id: t.nodeId, name: t.nodeName, title: t.nodeTitle },
-                lastReplier: null,
-              }}
-            />
-          ))
+          // `listTopicsByTag()` 返回的就是 `TopicListItem`，直接交给共用组件渲染 ——
+          // 再手拼一次字段等于又造一处「同一实体不同页面形状不同」的口径。
+          list.map((t) => <TopicItem key={t.id} topic={t} />)
         )}
         {totalPages > 1 ? (
           <div className="cell">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { guardCommunityAction } from '@/lib/community-rate-limit';
 
@@ -35,11 +36,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: '参数无效' }, { status: 400 });
   }
 
+  // ── 目标存在性 + 可见性校验（v0.0.14 P0-1）────────────────────
+  //
+  // 收藏是一个**写入**动作，但它的错误语义会泄露信息：
+  // 若只校验「行存在」，用户就能通过「收藏成功 / 失败」探测出
+  // 隐藏节点及其主题的存在性。因此这里统一要求目标**对公共访问者可见**，
+  // 不可见一律按「不存在」返回 404 —— 与详情页的 notFound 口径一致。
+  //
+  // 校验用 **join 一次查完**（不是先查 topic 再查 node 的 N+1）：
+  //   target='topic' ⇒ topics ⋈ nodes，节点必须 active；
+  //   target='node'  ⇒ nodes，节点本身必须 active。
   if (target === 'topic') {
     const exists = await db
       .select({ id: schema.topics.id })
       .from(schema.topics)
-      .where(eq(schema.topics.id, id))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(eq(schema.topics.id, id), PUBLIC_NODE_CONDITION))
       .limit(1);
     if (!exists.length) {
       return NextResponse.json({ ok: false, error: '主题不存在' }, { status: 404 });
@@ -48,7 +60,7 @@ export async function POST(request: Request) {
     const exists = await db
       .select({ id: schema.nodes.id })
       .from(schema.nodes)
-      .where(eq(schema.nodes.id, id))
+      .where(and(eq(schema.nodes.id, id), PUBLIC_NODE_CONDITION))
       .limit(1);
     if (!exists.length) {
       return NextResponse.json({ ok: false, error: '节点不存在' }, { status: 404 });

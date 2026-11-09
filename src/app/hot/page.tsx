@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import Wrapper from '@/components/Wrapper';
 import TopicItem from '@/components/TopicItem';
 import PageNav from '@/components/PageNav';
@@ -26,10 +27,10 @@ export default async function HotPage({
   searchParams: Promise<{ p?: string }>;
 }) {
   const { p } = await searchParams;
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
 
   const result = await listTopics({ page, perPage: PAGE_SIZE, sort: 'hot' });
-  const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(result.total / PAGE_SIZE)));
 
   return (
     <Wrapper

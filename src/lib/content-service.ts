@@ -1,6 +1,7 @@
 import 'server-only';
 import { db, schema } from '@/db';
 import { and, eq, isNull, sql, desc, asc } from 'drizzle-orm';
+import { canReviewHiddenNodes, isPublicNodeStatus } from '@/lib/node-visibility';
 import type { SessionUser } from '@/lib/auth';
 import { canModifyOwnContent, withinEditWindow } from '@/lib/permissions';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
@@ -595,6 +596,18 @@ export async function unvoteTopic(
  * 软删除过滤：
  *  - 默认**不返回**已删除的回复
  *  - includeDeleted=true 时仅对 staff 或作者本人开放
+ *
+ * v0.0.14 P0-1：**节点可见性**。
+ *
+ * 主题所属节点被转为 pending / hidden 后，该主题对普通访问者**不存在**：
+ * 返回 `topic: null`（调用方一律转成 404，与「主题不存在」不可区分）。
+ * staff（moderator / admin）保留查看能力 —— 审核入口需要一个能打开
+ * 被隐藏内容的路径，否则「隐藏」之后连管理员都无法确认内容是否该恢复。
+ *
+ * 判定放在**取到主题之后**（一次额外的节点状态查询），而不是把
+ * `PUBLIC_NODE_CONDITION` 塞进 topic 查询的 where：
+ * 后者会让 staff 也拿不到数据，且会把「不存在」与「不可见」混成一个 SQL 结果，
+ * 将来要区分审核入口时无从下手。
  */
 export async function getTopicDetail(
   topicId: number,
@@ -614,7 +627,25 @@ export async function getTopicDetail(
 
   if (!topic) return { topic: null, replies: [], replyTotal: 0 };
 
-  const isStaff = viewer?.role === 'admin' || viewer?.role === 'moderator';
+  // v0.0.14 P0-1：节点可见性（隐藏 / 待审 ⇒ 对普通访问者不存在）
+  //
+  // ⚠️ 一次 join 查询取 nodeStatus，不要用两次往返拼装 —— 这里在
+  // 高频读路径上（每次主题 API 都被调用），多一次往返纯属浪费。
+  const nodeRows = await db
+    .select({ status: schema.nodes.status })
+    .from(schema.nodes)
+    .where(eq(schema.nodes.id, topic.nodeId))
+    .limit(1);
+  const nodeStatus = nodeRows[0]?.status;
+
+  // 角色判据统一走 `canReviewHiddenNodes()` —— 不要在内容服务里再写一遍
+  // `role === 'admin' || role === 'moderator'`（那正是判据漂移的起点）。
+  const isStaff = canReviewHiddenNodes(viewer);
+  if (!isPublicNodeStatus(nodeStatus) && !isStaff) {
+    // 与「主题不存在」返回完全相同的形状 ⇒ 不泄露「这里曾有内容」
+    return { topic: null, replies: [], replyTotal: 0 };
+  }
+
   const isAuthor = !!viewer && viewer.id === topic.authorId;
   const canSeeDeleted = opts.includeDeleted === true && (isStaff || isAuthor);
 

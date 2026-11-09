@@ -1,3 +1,4 @@
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { avatarUrl } from '@/components/Avatar';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -5,6 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { loadTagNames } from '@/server/tags';
 import { getSessionUser } from '@/lib/auth';
+import { canReviewHiddenNodes } from '@/lib/node-visibility';
 import { renderMarkdown } from '@/lib/markdown';
 import { relativeTime, fullTimestamp, formatDate } from '@/lib/time';
 import { getTopicById, listReplies, REPLIES_PER_PAGE } from '@/server/queries';
@@ -30,13 +32,22 @@ export default async function TopicPage({
   const { id } = await params;
   const { p } = await searchParams;
   const topicId = Number(id);
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
 
   if (!Number.isInteger(topicId) || topicId <= 0) notFound();
 
   const user = await getSessionUser();
   const csrfToken = await readCsrfToken();
-  const topic = await getTopicById(topicId);
+  // v0.0.14 P0-1：节点被转为 pending / hidden 后，其主题对普通访问者
+  // 表现为「不存在」（notFound，不泄露「这里曾有内容」）。
+  //
+  // 放行条件由 `canReviewHiddenNodes(user)` **显式**传入：这是审核入口的
+  // 一次显式例外，不是「角色不同看到不同东西」的隐式分支。
+  // `user` 必须在本次查询**之前**取到 —— 否则永远拿到 undefined，
+  // staff 的审核入口会静默失效（而且失效得看起来很像正常 404）。
+  const topic = await getTopicById(topicId, {
+    includeHiddenNode: canReviewHiddenNodes(user),
+  });
   if (!topic) notFound();
 
   // v0.0.5：已软删除的主题 —— **staff 仍可访问并恢复**。
@@ -70,8 +81,18 @@ export default async function TopicPage({
     .limit(1);
   const author = authorRows[0];
 
-  const { items: replies, total: replyTotal } = await listReplies(topicId, page, REPLIES_PER_PAGE);
-  const totalPages = Math.max(1, Math.ceil(replyTotal / REPLIES_PER_PAGE));
+  // v0.0.14 P0-1：回复列表同样按节点可见性收敛。
+  // staff 打开隐藏节点主题时**必须同时**放行回复，否则审核界面会
+  // 「有正文、零回复」—— 看起来完全正常，实际无从判断。
+  // 传的是同一个 `canReviewHiddenNodes(user)` 结果，与上面的主题查询同源。
+  const canReview = canReviewHiddenNodes(user);
+  const { items: replies, total: replyTotal } = await listReplies(
+    topicId,
+    page,
+    REPLIES_PER_PAGE,
+    { includeHiddenNode: canReview },
+  );
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(replyTotal / REPLIES_PER_PAGE)));
   const contentHtml = await renderMarkdown(topic.content);
   // 预先渲染回复正文（避免在 JSX 回调内 await）
   const repliesWithHtml = await Promise.all(
@@ -200,6 +221,10 @@ export default async function TopicPage({
               user={user ? { id: user.id, role: user.role } : null}
               initialContent={topic.content}
               initialTitle={topic.title}
+              // v0.0.14：编辑表单需要**当前标签**才能提供「移除」入口。
+              // 不传的后果不是崩溃，而是「标签只能加、不能减」——
+              // 一个看起来正常、但用户无法纠正自己输入的体验缺陷。
+              initialTags={tags.map((t) => t.name)}
             />
           </div>
             <span className="gray">

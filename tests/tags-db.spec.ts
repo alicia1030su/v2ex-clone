@@ -6,7 +6,7 @@ import { eq, inArray, desc } from 'drizzle-orm';
 import { runDrizzleKit } from './helpers/local-bin';
 import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifecycle';
 import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
-import { attachTags, loadTagNames } from '../src/server/tags';
+import { attachTags, detachTags, loadTagNames } from '../src/server/tags';
 
 /**
  * 标签落库的**真实数据库**回归测试（v0.0.14）
@@ -222,3 +222,213 @@ describe('loadTagNames：顺序稳定', () => {
     expect(second).toEqual(first);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// v0.0.14 P0-2：**总量**上限（不是单次输入上限）
+// ─────────────────────────────────────────────────────────────────────
+
+/** 数某主题的关联行数（**直接查库**，不信函数返回值） */
+async function countLinks(topicId: number): Promise<number> {
+  const rows = await db
+    .select({ tagId: schema.topicTags.tagId })
+    .from(schema.topicTags)
+    .where(eq(schema.topicTags.topicId, topicId));
+  return rows.length;
+}
+
+describe('attachTags：总量上限 5（真实数据库，反复编辑不能累加）', () => {
+  it('先 attach 3 个、再 attach 5 个 ⇒ 总量仍是 5（不是 8）', async () => {
+    const topicId = await makeTopic('v014 total cap');
+
+    const first = await attachTags(topicId, ['c1a', 'c1b', 'c1c']);
+    expect(first).toEqual(['c1a', 'c1b', 'c1c']);
+    expect(await countLinks(topicId)).toBe(3);
+
+    // 再提交 5 个：只剩 2 个额度 ⇒ 只接受前 2 个新标签
+    const second = await attachTags(topicId, ['c2a', 'c2b', 'c2c', 'c2d', 'c2e']);
+    expect(second, '返回值只含额度内的项').toEqual(['c2a', 'c2b']);
+
+    expect(await countLinks(topicId), '关联行数必须仍是 5').toBe(5);
+    expect(await loadTagNames(topicId)).toHaveLength(5);
+    expect(await loadTagNames(topicId)).toEqual(['c1a', 'c1b', 'c1c', 'c2a', 'c2b']);
+  });
+
+  it('满额后继续 attach 不改变任何东西（幂等且不抛错）', async () => {
+    const topicId = await makeTopic('v014 cap full');
+    await attachTags(topicId, ['f1', 'f2', 'f3', 'f4', 'f5']);
+    expect(await countLinks(topicId)).toBe(5);
+
+    const applied = await attachTags(topicId, ['f6', 'f7']);
+    expect(applied, '满额后没有新标签生效').toEqual([]);
+    expect(await countLinks(topicId)).toBe(5);
+    expect(await loadTagNames(topicId)).toEqual(['f1', 'f2', 'f3', 'f4', 'f5']);
+  });
+
+  it('同一批标签重复 attach 5 次 ⇒ 关联数不变（复合主键幂等）', async () => {
+    const topicId = await makeTopic('v014 idem repeated');
+    const batch = ['r1', 'r2', 'r3'];
+
+    for (let i = 0; i < 5; i += 1) {
+      const applied = await attachTags(topicId, batch);
+      expect(applied, `第 ${i + 1} 次提交返回值应稳定`).toEqual(batch);
+    }
+
+    expect(await countLinks(topicId)).toBe(3);
+    expect(await loadTagNames(topicId)).toEqual(['r1', 'r2', 'r3']);
+  });
+
+  it('已存在的标签**不占**新额度（3 + 4 里含 1 个旧的 ⇒ 结果 5 个而不是 4 个）', async () => {
+    const topicId = await makeTopic('v014 existing no quota');
+    await attachTags(topicId, ['a', 'b']);
+    expect(await countLinks(topicId)).toBe(2);
+
+    // 'a' 已存在（不占额度），剩下 3 个都是新的 ⇒ 2 + 3 = 5，正好装满
+    const applied = await attachTags(topicId, ['a', 'c', 'd', 'e']);
+    expect(applied).toEqual(['a', 'c', 'd', 'e']);
+
+    expect(await loadTagNames(topicId)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(await countLinks(topicId)).toBe(5);
+  });
+
+  it('并发写同一主题：两批各 3 个 ⇒ 总量必须 ≤ 5（真实并发，不是顺序调用）', async () => {
+    const topicId = await makeTopic('v014 concurrent cap');
+
+    // 关键：**真的是并发**。两个事务都先 `SELECT ... FOR UPDATE` 锁主题行，
+    // 后到的那一个必须等前一个提交后重新读已有标签，才可能算对剩余额度。
+    // 如果去掉 FOR UPDATE，两边都会读到"已有 0 个" ⇒ 各自写 3 个 ⇒ 6 个。
+    const [left, right] = await Promise.all([
+      attachTags(topicId, ['p1', 'p2', 'p3']),
+      attachTags(topicId, ['p4', 'p5', 'p6']),
+    ]);
+
+    const total = await countLinks(topicId);
+    expect(total, `两个并发事务写入后总量必须 ≤ 5，实际 ${total}`).toBeLessThanOrEqual(5);
+    expect(total).toBe(5);
+
+    const names = await loadTagNames(topicId);
+    expect(names).toHaveLength(5);
+    // 两个调用的返回值之和不能超过 5（各自回显自己"实际生效"的部分）
+    expect(left.length + right.length).toBe(5);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// v0.0.14：**移除**语义（只删关联，不删标签本体）
+// ─────────────────────────────────────────────────────────────────────
+
+describe('detachTags：移除标签（幂等 / 只影响本主题 / 释放额度）', () => {
+  it('移除 1 个后长度 4；再 attach 2 个 ⇒ 长度仍 5（只收得下 1 个）', async () => {
+    const topicId = await makeTopic('v014 detach basic');
+    await attachTags(topicId, ['d1', 'd2', 'd3', 'd4', 'd5']);
+    expect(await loadTagNames(topicId)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
+
+    const removed = await detachTags(topicId, ['d2']);
+    expect(removed).toEqual(['d2']);
+    expect(await loadTagNames(topicId)).toHaveLength(4);
+    expect(await loadTagNames(topicId)).toEqual(['d1', 'd3', 'd4', 'd5']);
+
+    // 额度只腾出 1 个 ⇒ 提交 2 个时只接受 1 个，总量仍是 5（上限没有被移除破坏）
+    const applied = await attachTags(topicId, ['d6', 'd7']);
+    expect(applied).toEqual(['d6']);
+    expect(await countLinks(topicId)).toBe(5);
+    expect(await loadTagNames(topicId)).toEqual(['d1', 'd3', 'd4', 'd5', 'd6']);
+  });
+
+  it('移除 2 个后追加 2 个 ⇒ 长度仍 5（额度确实被释放，不是「只能删不能加」）', async () => {
+    const topicId = await makeTopic('v014 detach quota release');
+    await attachTags(topicId, ['q1', 'q2', 'q3', 'q4', 'q5']);
+
+    expect(await detachTags(topicId, ['q1', 'q2'])).toEqual(['q1', 'q2']);
+    expect(await loadTagNames(topicId)).toHaveLength(3);
+
+    const applied = await attachTags(topicId, ['q6', 'q7']);
+    expect(applied, '腾出的 2 个额度必须能用掉').toEqual(['q6', 'q7']);
+    expect(await countLinks(topicId)).toBe(5);
+    expect(await loadTagNames(topicId)).toEqual(['q3', 'q4', 'q5', 'q6', 'q7']);
+  });
+
+  it('移除不存在的标签：幂等、不报错、返回空', async () => {
+    const topicId = await makeTopic('v014 detach missing');
+    await attachTags(topicId, ['m1', 'm2']);
+
+    const first = await detachTags(topicId, ['never-existed']);
+    expect(first).toEqual([]);
+    const second = await detachTags(topicId, ['never-existed']);
+    expect(second).toEqual([]);
+
+    // 重复移除同一个已删掉的标签也不报错
+    expect(await detachTags(topicId, ['m1'])).toEqual(['m1']);
+    expect(await detachTags(topicId, ['m1'])).toEqual([]);
+    expect(await loadTagNames(topicId)).toEqual(['m2']);
+  });
+
+  it('移除只影响本主题：其它主题的同名标签必须还在', async () => {
+    const keep = await makeTopic('v014 detach keep');
+    const drop = await makeTopic('v014 detach drop');
+    await attachTags(keep, ['shared2']);
+    await attachTags(drop, ['shared2']);
+
+    expect(await detachTags(drop, ['shared2'])).toEqual(['shared2']);
+
+    expect(await loadTagNames(drop)).toEqual([]);
+    expect(await loadTagNames(keep), '不得替别的主题做决定').toEqual(['shared2']);
+
+    // 标签本体（`tags` 行）也不能被删掉 —— 否则 keep 的关联会变成孤儿
+    const tagRows = await db
+      .select({ id: schema.tags.id })
+      .from(schema.tags)
+      .where(eq(schema.tags.name, 'shared2'));
+    expect(tagRows, '标签本体必须保留').toHaveLength(1);
+  });
+
+  it('移除命名与写入同一套规范化（`#React` 能删掉 `react`）', async () => {
+    const topicId = await makeTopic('v014 detach normalize');
+    await attachTags(topicId, ['React']);
+    expect(await loadTagNames(topicId)).toEqual(['react']);
+
+    expect(await detachTags(topicId, ['  #REACT  '])).toEqual(['react']);
+    expect(await loadTagNames(topicId)).toEqual([]);
+  });
+
+  it('移除与追加可以先后发生（先腾额度再加，等价于 API 的处理顺序）', async () => {
+    const topicId = await makeTopic('v014 detach then attach');
+    await attachTags(topicId, ['x1', 'x2', 'x3', 'x4', 'x5']);
+
+    await detachTags(topicId, ['x1']);
+    const applied = await attachTags(topicId, ['x6']);
+
+    expect(applied).toEqual(['x6']);
+    expect(await countLinks(topicId)).toBe(5);
+    expect(await loadTagNames(topicId)).toContain('x6');
+    expect(await loadTagNames(topicId)).not.toContain('x1');
+  });
+});
+
+describe('不存在的主题：返回空结果，不抛外键/数据库错误', () => {
+  it('attachTags(id=999999) ⇒ []（不抛外键错）', async () => {
+    await expect(attachTags(999_999, ['ghost'])).resolves.toEqual([]);
+
+    // 也不能顺手建出一个孤儿标签（`tags` 行只应在关联成功时产生）
+    const ghost = await db
+      .select({ id: schema.tags.id })
+      .from(schema.tags)
+      .where(eq(schema.tags.name, 'ghost'));
+    expect(ghost, '主题不存在时不得留下无主标签').toHaveLength(0);
+  });
+
+  it('detachTags(id=999999) ⇒ []', async () => {
+    await expect(detachTags(999_999, ['ghost'])).resolves.toEqual([]);
+  });
+
+  it('loadTagNames(id=999999) ⇒ []', async () => {
+    await expect(loadTagNames(999_999)).resolves.toEqual([]);
+  });
+
+  it('非法 id（0 / 负数 / 小数 / undefined）一律返回 []', async () => {
+    expect(await detachTags(0, ['react'])).toEqual([]);
+    expect(await detachTags(-1, ['react'])).toEqual([]);
+    expect(await detachTags(1.5, ['react'])).toEqual([]);
+    expect(await detachTags(undefined as unknown as number, ['react'])).toEqual([]);
+  });
+});
+

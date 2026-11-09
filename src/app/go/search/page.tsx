@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { and, desc, eq, ilike, or, count, inArray } from 'drizzle-orm';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { TOPICS_PER_PAGE } from '@/server/queries';
 import { relativeTime, fullTimestamp } from '@/lib/time';
 import { avatarUrl } from '@/components/Avatar';
@@ -31,11 +33,16 @@ export default async function SearchPage({
 }) {
   const params = await searchParams;
   const q = (params.q ?? '').trim();
-  const page = Math.max(1, Number(params.p ?? 1) || 1);
+  const page = parsePageParam(params.p);
 
   const keyword = q || '搜索';
 
   // 结果统计
+  //
+  // v0.0.14 P0-1：列表与 count **都必须**带节点可见性条件。
+  // 注意 count 只 `from(topics)` 是不够的 —— 条件引用 `nodes.status` 时
+  // PostgreSQL 会报 42P01（缺少 FROM 子句项），所以 count 也要 join nodes，
+  // 与列表查询保持同一组表、同一个 where 构造方式。
   const topicRows = q
     ? await db
         .select({
@@ -58,6 +65,7 @@ export default async function SearchPage({
         .where(
           and(
             eq(schema.topics.status, 'published'),
+            PUBLIC_NODE_CONDITION,
             or(
               ilike(schema.topics.title, `%${q}%`),
               ilike(schema.topics.content, `%${q}%`),
@@ -73,9 +81,11 @@ export default async function SearchPage({
     ? await db
         .select({ n: count() })
         .from(schema.topics)
+        .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
         .where(
           and(
             eq(schema.topics.status, 'published'),
+            PUBLIC_NODE_CONDITION,
             or(
               ilike(schema.topics.title, `%${q}%`),
               ilike(schema.topics.content, `%${q}%`),
@@ -84,14 +94,21 @@ export default async function SearchPage({
         )
     : [{ n: 0 }];
   const total = Number(totalRows[0]?.n ?? 0);
-  const totalPages = Math.max(1, Math.ceil(total / TOPICS_PER_PAGE));
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(total / TOPICS_PER_PAGE)));
 
   // 节点与会员匹配
+  // v0.0.14 P0-1：节点匹配同样不得列出隐藏 / 待审节点 ——
+  // 节点名 + 节点标题本身就是一条泄漏（且指向 404 的死链）。
   const nodeRows = q
     ? await db
         .select()
         .from(schema.nodes)
-        .where(or(ilike(schema.nodes.title, `%${q}%`), ilike(schema.nodes.name, `%${q}%`))!)
+        .where(
+          and(
+            PUBLIC_NODE_CONDITION,
+            or(ilike(schema.nodes.title, `%${q}%`), ilike(schema.nodes.name, `%${q}%`))!,
+          ),
+        )
         .limit(20)
     : [];
 

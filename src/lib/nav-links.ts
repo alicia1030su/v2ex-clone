@@ -53,10 +53,39 @@ export function isStaffRole(user: NavUser): boolean {
 }
 
 /**
+ * 全局内容入口（v0.0.14）：热门 / 最新
+ *
+ * ## 为什么要有这一项
+ *
+ * `/hot` 与 `/recent` 两个页面**早已实现**（热门排序 / 时间倒序），
+ * 但全站没有任何链接指向它们 —— 只能靠手输 URL 进入，属于「孤儿页」。
+ * 对比 v0.0.4 的 `/admin` 入口缺失，是同一类缺陷：
+ * **页面存在 ≠ 用户可达**。
+ *
+ * ## 为什么抽成共享常量而不是在两个分支里各写一遍
+ *
+ * 游客与登录用户都要看到这两个入口。若各写一遍，
+ * 下次调整（改文案 / 改路径 / 加第三个入口）就会漏掉一处 ——
+ * 这正是本模块（单一事实来源）要消除的问题。
+ * 抽成常量后，`/hot` 与 `/recent` 在本文件里**各只出现一次**。
+ *
+ * ## 为什么放在「首页」之后
+ *
+ * 热门 / 最新是**全局内容视图**，与「首页」同级；
+ * 而通知 / 收藏 / 关注 / 设置属于用户自己的工具区。
+ * 把内容入口混进工具区会让导航的语义层次消失。
+ */
+const CONTENT_LINKS: readonly NavLink[] = [
+  { href: '/hot', label: '热门' },
+  { href: '/recent', label: '最新' },
+];
+
+/**
  * 生成导航链接列表。
  *
- * 游客：首页 / 注册 / 登录
- * 登录用户：首页 / 通知 / 收藏 / 积分 / 关注 / [管理后台] / 用户名 / 设置
+ * 游客：首页 / 热门 / 最新 / 注册 / 登录
+ * 登录用户：首页 / 热门 / 最新 / 通知 / 收藏 / 积分 / 关注 / 我的举报
+ *           / [管理后台] / 用户名 / 设置
  *
  * @param user 当前登录用户；null 表示游客
  */
@@ -64,6 +93,7 @@ export function buildNavLinks(user: NavUser): NavLink[] {
   if (!user) {
     return [
       { href: '/', label: '首页' },
+      ...CONTENT_LINKS,
       { href: '/signup', label: '注册' },
       { href: '/signin', label: '登录' },
     ];
@@ -71,6 +101,7 @@ export function buildNavLinks(user: NavUser): NavLink[] {
 
   const links: NavLink[] = [
     { href: '/', label: '首页' },
+    ...CONTENT_LINKS,
     { href: '/notifications', label: '通知' },
     { href: '/bookmarks', label: '收藏' },
     { href: '/leaderboard', label: '积分' },
