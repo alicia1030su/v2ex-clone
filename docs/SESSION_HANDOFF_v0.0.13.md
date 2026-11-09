@@ -9,7 +9,7 @@
 
 ## 0. 一句话状态
 
-代码、文档、护栏与测试已提交并推送，**PR #47 已创建、CI 进行中、尚未合并，未发布**。
+代码、文档、护栏与测试已合并到 master（PR #47，merge `d6c7a96`），版本载体已同步到 `0.0.13`（`1d576ef`），**尚未打 Tag / 发布 Release / 推送公开镜像**。
 **公开发布为 NO-GO**：未找到主人对 v0.0.13 的明确风险接受与公开发布授权，R-01 仍为 DEFERRED。
 **Go/No-Go**：候选构建与候选安装判据尚未执行完；见 `RELEASE_GATE.md` §7.2 的 G1~G11。
 
@@ -22,7 +22,7 @@
 | 接管时 `origin/master` HEAD | `7b30d7fd82dec851fa03e402d078a86ac37efbbc` — `feat(v0.0.13): 补齐旧版 API 全家桶（4 端点）+ 节点订阅原站路径 Atom/JSON Feed（V10-24） (#46)` |
 | 接管时工作区 | `working tree clean` |
 | 当前分支 | `feat/v0013-release-closeout`（从 `origin/master` 新建） |
-| 分支上的提交 | `076c550`（v0.0.13 收尾提交，55 文件 / +4769 −524） |
+| 分支上的提交 | 功能提交 `076c550`（55 文件 / +4769 −524，已随 PR #47 合并为 `d6c7a96`）；版本同步提交 `1d576ef`（20 载体） |
 | PR #44 / #45 / #46 | **全部 MERGED**，上一轮已完成功能**全部保留** |
 | 最新已发布版本 | **v0.0.12**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像） |
 | v0.0.13 Tag / Draft / Release / GHCR | **均不存在**（已核查，无冲突） |
@@ -107,7 +107,7 @@
 | **v013 新增 E2E（真实 HTTP）** | `SPEC="v013" bash scripts/ci/run-e2e-locally.sh` | **13 passed / 0 failed，退出码 0**（1.8m） | 含 hidden 节点**前后对照**（active 时探针回复 1 条 → hide 后 `[]`；active 时主题在 `/api/feed` → hide 后消失）、`/feed/all.xml` 与 `/feed/ALL.xml` 均 200 Atom |
 | **全量 E2E（本版最终）** | `SPEC="" SKIP_BUILD=1 bash scripts/ci/run-e2e-locally.sh` | **257 passed / 0 failed，退出码 0**（30.3m） | 比上一轮 256 多 1 条 = 新增 hidden 节点负向用例。前置阶段 `PASS=8 FAIL=0`；本机走 `PgKV` 降级、CI 走真实 Redis，两者各覆盖一半，不得互相冒充 |
 | 完整单元 / 跨浏览器 / 视觉 63 组合 / 安全 / Docker / 安装 / 升级 / 备份恢复 | 阶段八 16 项门禁中的其余项 | **未执行完（如实标未完成）** | 本机 Docker 不可用 ⇒ 依赖 CI ubuntu runner；不得用本机结果冒充 |
-| CI run / PR | 已推送 `feat/v0013-release-closeout` | **PR #47 已创建；13 个工作流已触发，结果待回填** | 合并前必须全绿；任何失败按真实原因修复，不得重跑掩盖 |
+| CI run / PR | `feat/v0013-release-closeout` → PR #47 | **30 checks pass / 0 fail / 1 conditional skip（`诊断 Firefox thanks 403`），mergeState=CLEAN** | 唯一一处失败是静态护栏读未跟踪的 `.env.test`（CI ENOENT），已修并复绿；未用重跑掩盖 |
 
 > **纪律**：0 条用例收集必须判失败；跳过用例必须披露；失败退出码必须传播；
 > 不得靠重跑掩盖竞态；每条证据必须对应准确 SHA。
