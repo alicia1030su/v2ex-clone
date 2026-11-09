@@ -169,6 +169,15 @@ v005-floor-concurrency  drop=91   create=6276  migrate=8627  total=14994
 收的时候注意：`v005-floor-concurrency` 的**测试体**上也有 `120_000` / `60_000` 的显式超时，
 与 hook 是同一个病（无依据放宽），下一轮一并审计；`feed-search` 无 per-test 覆盖，可直接收回默认。
 
+
+> **本节上限 / 耗时数字的有效前提**：① vitest 5.x（`file` duration 含 `beforeAll`）；
+> ② `fileParallelism: false`；③ 未配 `bail` / `retry` / `repeat`；
+> ④ 该文件 `beforeAll` 仅做「建库 + migrate + 少量单语句 insert（3~4 条，无循环 / 无批量造数 / 无业务逻辑）」；
+> ⑤ 该文件无 `beforeEach` / `afterEach`。
+> **任一条件变化需重算**：升级 vitest 后 `runSuite` 若重构，`file` 是否仍含 hook 必须重测；
+> 若给 `beforeAll` 加入批量造数，其合理耗时会上一量级，`hookTimeout` 与 `testTimeout` 都需重新评估。
+> 判据是「**语句数与有无循环**」，不是「每条语句几行」—— `v005` 的 users 是一条语句插 2 行。
+
 ## 8. 已知取舍（登记于 `RISK_REGISTER.md`）
 
 - ~~纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照~~ —— **已修**：`editTopic()` 空改动提前返回（`tests/v014-edit-noop.spec.ts` **9 条**真库覆盖：不计数 / 不留快照 / 不改 editedAt/updatedAt / 未授权 403 / 超时限 403 / 已删除 404 / 真改动仍计数 / 传了标题≠改了标题）
