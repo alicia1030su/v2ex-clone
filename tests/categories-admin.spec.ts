@@ -68,52 +68,24 @@ async function countRowsByName(name: string): Promise<number> {
 beforeAll(async () => {
   logDbTarget('tests/categories-admin.spec.ts', TEST_DB);
 
-  /**
-   * 「复用已迁移库」开关 —— **仅为本机磁盘劣化时跑断言用**。
-   *
-   * 本机 PG 的磁盘 I/O 已劣化：实测 DROP DATABASE 1m40s、CREATE DATABASE 4m48s、
-   * migrate 2m52s（合计 ~7.5 分钟/次）。在 WorkBuddy 的 Bash 工具里
-   * 「起库 → 跑测试」必须同一次调用完成，而单次调用上限 600s ⇒
-   * 完整 provision 会把整次运行挤爆（实测 hook 300s 超时）。
-   *
-   * 因此提供 `V014_CATEGORIES_REUSE_DB=1`：**跳过 DROP / CREATE**，
-   * 只跑 `drizzle-kit migrate`（幂等，已迁移即 no-op）。
-   * 断言本身**一条都没放宽**（不 skip、不改期望值），
-   * 且默认路径仍是完整 provision —— CI 里不设这个变量，行为与其它 spec 一致。
-   */
-  const reuseDb = process.env.V014_CATEGORIES_REUSE_DB === '1';
-  if (reuseDb) {
-    console.log(`[db-phase] ${TEST_DB}: 复用已存在的库（V014_CATEGORIES_REUSE_DB=1），仅跑幂等 migrate`);
-    runDrizzleKit(['migrate'], {
-      ...process.env,
-      ENV_FILE: '',
-      DATABASE_URL: dbUrlFor(TEST_DB),
-    });
-  } else {
-    await provisionTestDatabase({
-      file: 'tests/categories-admin.spec.ts',
-      db: TEST_DB,
-      adminUrl: adminUrlOf(TEST_DB),
-      migrate: () =>
-        runDrizzleKit(['migrate'], {
-          ...process.env,
-          ENV_FILE: '',
-          DATABASE_URL: dbUrlFor(TEST_DB),
-        }),
-    });
-  }
+  await provisionTestDatabase({
+    file: 'tests/categories-admin.spec.ts',
+    db: TEST_DB,
+    adminUrl: adminUrlOf(TEST_DB),
+    migrate: () =>
+      runDrizzleKit(['migrate'], {
+        ...process.env,
+        ENV_FILE: '',
+        DATABASE_URL: dbUrlFor(TEST_DB),
+      }),
+  });
 
   client = postgres(dbUrlFor(TEST_DB), { prepare: false, max: 10 });
   db = drizzle(client, { schema });
-  // ⚠️ 15 分钟：本机 PG 的**磁盘 I/O 已劣化**（实测 DROP DATABASE 1m40s、
-  //    CREATE DATABASE 4m48s、崩溃恢复期单次 fsync 10s）。
-  //    这是**环境问题**，不是产品缺陷 —— 因此放宽的是钩子超时，
-  //    断言本身一条都没有放宽（更不跳过）。CI 的 service container 是毫秒级。
 }, 900_000);
 
 afterAll(async () => {
   await client?.end({ timeout: 5 });
-  // 复用模式下 DROP 也要 1m40s（本机磁盘劣化）—— 仍执行，保证库不残留
   await dropTestDatabase(adminUrlOf(TEST_DB), TEST_DB).catch(() => undefined);
 });
 
