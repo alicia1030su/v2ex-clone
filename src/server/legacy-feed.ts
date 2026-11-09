@@ -3,6 +3,7 @@ import { db, schema } from '@/db';
 import { and, desc, eq, isNull, ne } from 'drizzle-orm';
 import { normalizeBaseUrl } from '@/lib/feed-builder';
 import { avatarUrl } from '@/components/Avatar';
+import { PUBLIC_NODE_CONDITION } from '@/server/legacy-assemblers';
 import {
   LEGACY_FEED_ITEMS,
   atomIdOf,
@@ -60,7 +61,7 @@ export async function loadLegacyFeed(opts: {
         avatar: schema.nodes.avatar,
       })
       .from(schema.nodes)
-      .where(eq(schema.nodes.name, opts.nodeName.toLowerCase()))
+      .where(and(PUBLIC_NODE_CONDITION, eq(schema.nodes.name, opts.nodeName.toLowerCase())))
       .limit(1);
     const node = nodeRows[0];
     if (!node) return null;
@@ -86,7 +87,9 @@ export async function loadLegacyFeed(opts: {
     })
     .from(schema.topics)
     .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-    .where(and(...conditions))
+    // 全站 Feed 也要收敛：节点转为 pending/hidden 后，其主题不再进入公共订阅
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(...conditions, PUBLIC_NODE_CONDITION))
     // 原站 Feed 按「最后回复时间」倒序（首条即最近活跃）
     .orderBy(desc(schema.topics.lastReplyAt))
     .limit(limit);

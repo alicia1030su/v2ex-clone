@@ -2,29 +2,28 @@ import 'server-only';
 import { db, schema } from '@/db';
 import { and, desc, eq, isNull, inArray, sql } from 'drizzle-orm';
 import { renderMarkdown } from '@/lib/markdown';
-import { avatarUrl } from '@/components/Avatar';
+import { toLegacyTopic, type LegacyTopic } from '@/lib/legacy-topic-api';
 import {
-  MEMBER_AVATAR_SIZES,
-  NODE_AVATAR_SIZES,
-  toLegacyTopic,
-  type LegacyMemberInput,
-  type LegacyNodeInput,
-  type LegacyTopic,
-} from '@/lib/legacy-topic-api';
+  legacyMemberInputFromRow,
+  legacyNodeInputFromRow,
+  loadNodeStars,
+  PUBLIC_NODE_CONDITION,
+} from '@/server/legacy-assemblers';
 
 /**
  * 旧版 V2EX 主题载荷的**共用装配器**
  *
  * ## 为什么不写在路由里
  *
- * `/api/topics/show.json` 与 `/api/topics/latest.json` 返回**同构**的主题对象，
- * 只有「筛选条件」与「条数」不同。第一版实现把装配逻辑抄了两份，
+ * `/api/topics/show.json`、`latest.json`、`hot.json` 返回**同构**的主题对象，
+ * 只有「筛选条件」「排序」「条数」不同。第一版实现把装配逻辑抄了两份，
  * 立刻出现了一个真实缺陷：`latest.json` 那份为了省一次查询，
  * 把 `node.stars` 写成 `0`、`node.parent_node_name` 写成 `null` ——
- * 于是同一个节点在两个端点里返回**不同的值**，第三方客户端交叉核对会发现
- * 「这个节点在这里 0 收藏、在那里 5 收藏」。
+ * 于是同一个节点在两个端点里返回**不同的值**。
  *
- * 抽成一个装配器后，两个端点必然一致；以后新增第三个端点也不会再抄一遍。
+ * v0.0.13（V13-01）进一步把 `member` / `node` 的字段映射抽到
+ * `src/server/legacy-assemblers.ts`，全部旧版端点共用同一份装配器，
+ * 从结构上杜绝「同一实体在不同接口里值不同」。
  *
  * ## 一次性取全（避免 N+1）
  *
@@ -37,36 +36,20 @@ export type LegacyTopicFilter =
   | { kind: 'id'; id: number }
   | { kind: 'username'; username: string }
   | { kind: 'node'; nodeName: string }
-  | { kind: 'latest' };
+  | { kind: 'latest' }
+  /** v0.0.13：/api/topics/hot.json —— 按回复数降序（原站实测） */
+  | { kind: 'hot' };
 
 export type LoadLegacyTopicsOptions = {
   filter: LegacyTopicFilter;
-  /** 返回条数上限（原站实测：show.json 10 条、latest.json 35 条） */
+  /**
+   * 返回条数上限（原站实测：show.json 10 条、latest.json 35 条、hot.json 10 条）
+   */
   limit: number;
   origin: string;
 };
 
-/** 组装指定尺寸的头像 URL 集合（站内同一套确定性占位实现） */
-function memberAvatars(user: { id: number; username: string; avatar: string | null }) {
-  const out = {} as Record<keyof typeof MEMBER_AVATAR_SIZES, string>;
-  for (const [key, size] of Object.entries(MEMBER_AVATAR_SIZES)) {
-    out[key as keyof typeof MEMBER_AVATAR_SIZES] = avatarUrl(user, size);
-  }
-  return out;
-}
-
-function nodeAvatars(node: { id: number; name: string; avatar: string | null }) {
-  const out = {} as Record<keyof typeof NODE_AVATAR_SIZES, string>;
-  for (const [key, size] of Object.entries(NODE_AVATAR_SIZES)) {
-    out[key as keyof typeof NODE_AVATAR_SIZES] = avatarUrl(
-      { id: node.id, username: node.name, avatar: node.avatar },
-      size,
-    );
-  }
-  return out;
-}
-
-/** 批量取「每个主题最后一位回复者」（零回复的主题不在 map 里） */
+/** 批量取「每个主题最后一位回复者」（零回复 / 软删除回复的主题不在 map 里） */
 async function lastReplyers(topicIds: number[]): Promise<Map<number, string>> {
   const map = new Map<number, string>();
   if (topicIds.length === 0) return map;
@@ -85,25 +68,6 @@ async function lastReplyers(topicIds: number[]): Promise<Map<number, string>> {
   for (const row of rows) {
     // 已按 floor 降序 —— 首次出现即最后一楼
     if (!map.has(row.topicId)) map.set(row.topicId, row.username);
-  }
-  return map;
-}
-
-/** 批量取节点收藏数（原站 `node.stars` 语义） */
-async function nodeStars(nodeIds: number[]): Promise<Map<number, number>> {
-  const map = new Map<number, number>();
-  if (nodeIds.length === 0) return map;
-
-  const rows = await db
-    .select({ nodeId: schema.collections.nodeId, cnt: sql<number>`count(*)::int` })
-    .from(schema.collections)
-    .where(
-      and(eq(schema.collections.target, 'node'), inArray(schema.collections.nodeId, nodeIds)),
-    )
-    .groupBy(schema.collections.nodeId);
-
-  for (const row of rows) {
-    if (row.nodeId !== null) map.set(row.nodeId, Number(row.cnt));
   }
   return map;
 }
@@ -143,6 +107,7 @@ export async function loadLegacyTopics(
         bio: schema.users.bio,
         url: schema.users.url,
         location: schema.users.location,
+        status: schema.users.status,
         createdAt: schema.users.createdAt,
         lastActiveAt: schema.users.lastActiveAt,
         avatar: schema.users.avatar,
@@ -164,6 +129,8 @@ export async function loadLegacyTopics(
       and(
         // 公众视图：软删除主题一律不可见（本项目安全策略）
         isNull(schema.topics.deletedAt),
+        // 非 active 节点下的主题不进入任何旧版公共端点（共用条件，避免口径漂移）
+        PUBLIC_NODE_CONDITION,
         filter.kind === 'id' ? eq(schema.topics.id, filter.id) : undefined,
         usernameLower !== undefined
           ? sql`lower(${schema.users.username}) = ${usernameLower}`
@@ -171,7 +138,12 @@ export async function loadLegacyTopics(
         nodeNameLower !== undefined ? eq(schema.nodes.name, nodeNameLower) : undefined,
       ),
     )
-    .orderBy(desc(schema.topics.createdAt))
+    // 排序必须**确定性**：同值时用 id 兜底，避免数据库返回顺序漂移
+    .orderBy(
+      ...(filter.kind === 'hot'
+        ? [desc(schema.topics.repliesCount), desc(schema.topics.id)]
+        : [desc(schema.topics.createdAt), desc(schema.topics.id)]),
+    )
     .limit(filter.kind === 'id' ? 1 : limit);
 
   if (rows.length === 0) return [];
@@ -180,33 +152,36 @@ export async function loadLegacyTopics(
   const nodeIds = [...new Set(rows.map((r) => r.node.id))];
   const [lastBy, stars, rendered] = await Promise.all([
     lastReplyers(topicIds),
-    nodeStars(nodeIds),
+    loadNodeStars(nodeIds),
     Promise.all(rows.map((r) => renderMarkdown(r.topic.content))),
   ]);
 
   return rows.map((row, i) => {
-    const member: LegacyMemberInput = {
+    const member = legacyMemberInputFromRow({
       id: row.author.id,
       username: row.author.username,
       tagline: row.author.tagline,
       bio: row.author.bio,
       url: row.author.url,
       location: row.author.location,
+      status: row.author.status,
       createdAt: row.author.createdAt,
       lastActiveAt: row.author.lastActiveAt,
-      avatars: memberAvatars(row.author),
-    };
+      avatar: row.author.avatar,
+    });
 
-    const node: LegacyNodeInput = {
-      id: row.node.id,
-      name: row.node.name,
-      title: row.node.title,
-      topicsCount: row.node.topicsCount,
-      stars: stars.get(row.node.id) ?? 0,
-      founderId: row.node.founderId,
-      parentNodeName: row.parentNodeName,
-      avatars: nodeAvatars(row.node),
-    };
+    const node = legacyNodeInputFromRow(
+      {
+        id: row.node.id,
+        name: row.node.name,
+        title: row.node.title,
+        topicsCount: row.node.topicsCount,
+        avatar: row.node.avatar,
+        createdBy: row.node.founderId,
+        parentNodeName: row.parentNodeName,
+      },
+      stars.get(row.node.id) ?? 0,
+    );
 
     return toLegacyTopic(
       {

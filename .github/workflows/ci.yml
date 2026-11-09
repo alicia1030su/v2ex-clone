@@ -179,11 +179,24 @@ jobs:
         env:
           DATABASE_URL: postgres://v2ex:ci-postgres-password-not-real@localhost:5432/v2ex_ci
           REDIS_URL: redis://:ci-redis-password-not-real@localhost:6379
-        run: npx vitest run
+        # v0.0.13：同时输出 JSON 计数，交给 assert-test-counts.mjs 判「0 用例」。
+        # Vitest 在「全部 skipped / 0 条收集」时**仍返回 0**，不能只靠退出码。
+        run: npx vitest run --reporter=default --reporter=json --outputFile.json=.vitest-unit.json
+
+      - name: 单元套件用例数门禁（0 条必须判失败）
+        run: node scripts/ci/assert-test-counts.mjs .vitest-unit.json unit
 
       - name: 静态测试（不依赖数据库）
         # 语法护栏 + 观测能力单测（纯静态 / 纯内存）
-        run: npx vitest run --config vitest.static.config.ts
+        run: npx vitest run --config vitest.static.config.ts --reporter=default --reporter=json --outputFile.json=.vitest-static.json
+
+      - name: 静态套件用例数门禁（0 条必须判失败）
+        run: node scripts/ci/assert-test-counts.mjs .vitest-static.json static
+
+      - name: 发行版真实性门禁（开发态源码一致性）
+        # 架构复核发现 ⑦ 此前只在文档里登记、从未接入任何流水线。
+        # 开发态用 deploy/VERSION 作为期望版本，只核源码载体，不核 ZIP/Tag/镜像。
+        run: bash scripts/release/verify-release-consistency.sh --expect "$(tr -d '\r\n' < deploy/VERSION)"
 
       - name: 原地升级验证（v0.0.7 → v0.0.8）
         # ⚠️ v0.0.8 新增（任务书 §七「完成数据库升级、备份、恢复和回滚验证」）：

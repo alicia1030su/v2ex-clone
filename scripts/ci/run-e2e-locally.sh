@@ -99,6 +99,32 @@ export SMTP_SECURE="0"
 export E2E_SMTP_PORT="3025"
 
 export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${DB_NAME}"
+
+# ---------------------------------------------------------------------------
+# v0.0.13：**必须**用 shell 注入 REDIS_URL（不能只靠 ENV_FILE）
+#
+# ## 根因（2026-11-09 全量 E2E 实测，255 passed / 1 failed）
+#
+# 本脚本已设 ENV_FILE=.env.test（其中 REDIS_URL= 为空），但 **Next.js 的
+# @next/env 在应用代码执行前自动加载 .env.local**，而本机 .env.local 里
+# 写着开发用的 REDIS_URL=redis://127.0.0.1:6379。已占位的进程变量赢不了，
+# ⇒ /api/health/ready 的 checkRedis() 判定「configured=true 但 ping 不通」
+# ⇒ 按设计如实返回 503，v004-endpoint-smoke 冒烟用例因此判红。
+#
+# 这是**测试环境隔离缺陷**，不是产品代码回归：CI runner 有真实 redis:7
+# service 并显式注入 REDIS_URL，所以 CI 全绿；本机无 Redis 服务。
+# DATABASE_URL 上面已经用 shell 注入覆盖，REDIS_URL 却漏了 —— 同源漏项。
+#
+# ## 处置
+#
+# 显式 export 空值，让 @next/env 无占位可抢，应用走**设计上合法的单库
+# 部署路径**（src/lib/kv.ts 的 PgKV 降级），checkRedis() 按契约返回
+# configured=false ⇒ ready=200。不改任何测试断言、不跳过该用例、
+# 不降低就绪探针的严格性。CI 的「真实 Redis」路径与本地「PgKV 降级」
+# 路径由两套环境各自覆盖，二者不可互相冒充（见交接文档）。
+# ---------------------------------------------------------------------------
+export REDIS_URL=""
+export REDIS_PASSWORD=""
 export NODE_OPTIONS=""
 export CODEBUDDY_SAFE_DELETE_ENABLED=0
 export CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0
@@ -233,19 +259,35 @@ fi
 # 1. 确保 PG 在跑
 # ---------------------------------------------------------------------------
 
+# v0.0.13 / V13-10：就绪判据必须是**能执行 SQL**，不能只是 TCP 可连。
+# 实测故障：陈旧 postmaster.pid 让 pg_ctl 启动超时，但端口曾被短暂监听，
+# 旧的 `node net.connect` 判据于是打出「[PASS] PostgreSQL 就绪」，
+# 紧接着 `CREATE DATABASE` 失败 —— 典型的**假绿**。
+# 同时旧写法用 `|| true` 吞掉了 start-test-pg.sh 的失败退出码，
+# 违背「失败退出码必须传播」的门禁纪律。
+pg_can_query() {
+  "$PSQL_BIN" -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -X -t -A \
+    -c 'SELECT 1' 2>/dev/null | tr -d '\r\n[:space:]' | grep -qx 1
+}
+
 info "检查 PostgreSQL（${PGHOST}:${PGPORT}）"
-if ! node -e "require('net').connect(${PGPORT},'${PGHOST}').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))" 2>/dev/null; then
+if ! pg_can_query; then
   info "PG 未就绪 —— 尝试启动隔离测试实例"
-  bash "$REPO_ROOT/tests/helpers/start-test-pg.sh" start > /tmp/ci-eq-pg.log 2>&1 || true
+  if ! bash "$REPO_ROOT/tests/helpers/start-test-pg.sh" start > /tmp/ci-eq-pg.log 2>&1; then
+    bad "隔离测试实例启动失败（见 /tmp/ci-eq-pg.log）"
+    tail -20 /tmp/ci-eq-pg.log
+    exit 1
+  fi
   for i in $(seq 1 20); do
-    node -e "require('net').connect(${PGPORT},'${PGHOST}').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))" 2>/dev/null && break
+    pg_can_query && break
     sleep 1
   done
 fi
-if node -e "require('net').connect(${PGPORT},'${PGHOST}').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))" 2>/dev/null; then
-  ok "PostgreSQL 就绪"
+if pg_can_query; then
+  ok "PostgreSQL 就绪（SELECT 1 通过）"
 else
-  bad "PostgreSQL 未就绪（${PGHOST}:${PGPORT}）"
+  bad "PostgreSQL 未就绪（${PGHOST}:${PGPORT}）—— 无法执行 SQL"
+  tail -20 /tmp/ci-eq-pg.log 2>/dev/null || true
   exit 1
 fi
 

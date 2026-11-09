@@ -2,6 +2,7 @@ import 'server-only';
 import type { drizzle } from 'drizzle-orm/postgres-js';
 import { and, desc, eq, isNull, ne } from 'drizzle-orm';
 import * as schema from '@/db/schema';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 
 /**
  * Feed 构建器（v0.0.3）
@@ -13,7 +14,9 @@ import * as schema from '@/db/schema';
  * 1. **必须转义 XML 特殊字符** —— 标题/正文里的 `& < > " '`
  *    若不转义会直接破坏 feed 格式（解析器报错）。
  * 2. **内容来自真实数据库** —— `buildFeedEntries()` 直接查 topics/users/nodes，
- *    软删除（`deleted_at` 非空 **或** `status = 'deleted'`）的主题一律不出现。
+ *    软删除（`deleted_at` 非空 **或** `status = 'deleted'`）的主题一律不出现；
+ *    非 `active` 节点（`pending` / `hidden`）下的主题同样不出现，
+ *    条件取自 `src/lib/node-visibility.ts`（全仓唯一定义，与旧版 Feed 共用）。
  * 3. **时间用 RFC 822 / RFC 3339** —— RSS 用 RFC 822（`Date.toUTCString()`），
  *    Atom 与 JSON Feed 用 RFC 3339（`toISOString()`）。
  * 4. **link 必须是绝对 URL** —— RSS/Atom 规范要求绝对地址，
@@ -70,7 +73,10 @@ export const FEED_MAX_ITEMS = 30;
  * XML 1.0 不允许出现的控制字符。
  * 即便 `& < >` 都已转义，这些字符仍会让 XML 解析器直接报错。
  */
-const INVALID_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
+// XML 1.0 合法字符：#x9 / #xA / #xD / #x20-#xD7FF / #xE000-#xFFFD / #x10000-#x10FFFF。
+// 除控制字符外还剥离**孤立代理项**（成对的高/低代理项＝合法 astral 字符，保留）。
+// eslint-disable-next-line no-control-regex
+const INVALID_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
 /**
  * XML 文本 / 属性值转义。
@@ -194,6 +200,10 @@ export async function buildFeedEntries(
     // deleted_at 非空（v0.0.3 软删除标记）或 status = 'deleted'（旧数据兼容）
     isNull(schema.topics.deletedAt),
     ne(schema.topics.status, 'deleted'),
+    // 节点转为 pending / hidden 后，其主题不得继续从公共订阅流出。
+    // 与旧版 / Feed 公共端点共用 `src/lib/node-visibility.ts` 的唯一定义，
+    // 避免站内 Feed 与旧版 Feed 出现「一个过滤、一个不过滤」的口径漂移。
+    PUBLIC_NODE_CONDITION,
   ];
   if (opts.nodeId != null) {
     conditions.push(eq(schema.topics.nodeId, opts.nodeId));

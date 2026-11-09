@@ -103,6 +103,13 @@ on:
       #    本地门禁复刻 N2 判据）以 v0.0.12 承载，**Tag 本身即可通过 N2**，
       #    不再依赖补救路径。
       - 'v0.0.12'
+      # ⚠️ v0.0.13：**白名单里有这一行 ≠ 已发布、≠ 已授权**。
+      #    提前加入是为了让「Tag → 发布流水线」这条链在最终 SHA 固定之前就绪，
+      #    避免发布当天再改代码而改动已固定的发行 SHA（R-19 的教训）。
+      #    真正触发发布的仍是「有人把 v0.0.13 tag 推上来」这个动作本身，
+      #    而该动作需要主人对本版本的**明确风险接受 + 公开发布授权**
+      #    （R-01 维持 DEFERRED；此前版本的一次性接受不构成先例）。
+      - 'v0.0.13'
   workflow_dispatch:
     inputs:
       version:
@@ -682,6 +689,20 @@ jobs:
       - name: TypeScript 类型检查
         run: npx tsc --noEmit
 
+      # v0.0.13（QA P1-3）：发布流水线此前**不跑静态套件** ⇒
+      # 本轮新增的 6 个 v013 护栏（契约/隐私/Feed/文档/环境/计数）
+      # 在正式发布路径上完全没有被验证过。CI 跑了不等于发布链路跑了，
+      # 两个工作流是独立的，必须各自接线。
+      - name: 静态护栏套件
+        run: npx vitest run --config vitest.static.config.ts --reporter=default --reporter=json --outputFile.json=.vitest-static.json
+
+      - name: 静态套件用例数门禁（0 条必须判失败）
+        run: node scripts/ci/assert-test-counts.mjs .vitest-static.json static
+
+      - name: 发行版真实性门禁（源码载体 + 数字新鲜度）
+        # ⑦ 此前从未接入任何流水线；发布前必须实跑，且期望版本取 deploy/VERSION。
+        run: bash scripts/release/verify-release-consistency.sh --expect "$(tr -d '\r\n' < deploy/VERSION)"
+
       - name: Next.js 生产构建
         run: npm run build
 
@@ -1075,7 +1096,12 @@ jobs:
           DEBUG_ENDPOINT_TOKEN: ${{ github.run_id }}-release-debug-token
           APP_RUNTIME_ENV: test
           TEST_ENV_ISOLATED: '1'
-        run: npx vitest run --reporter=junit --outputFile=unit-test-results.xml
+        # v0.0.13：保留 junit artifact（发布后验收用），另出 JSON 计数供门禁判 0 用例。
+        # 多 reporter 时用 --outputFile.<name>= 分别指定，不能只给一个 --outputFile。
+        run: npx vitest run --reporter=junit --reporter=json --outputFile.junit=unit-test-results.xml --outputFile.json=.vitest-unit.json
+
+      - name: 单元套件用例数门禁（0 条必须判失败）
+        run: node scripts/ci/assert-test-counts.mjs .vitest-unit.json unit
 
       - name: 上传单元测试报告
         if: always()
@@ -2089,27 +2115,9 @@ jobs:
           与 V2EX 官方**无任何关联**、**未获官方授权**、**不是** V2EX 官方产品。
           MIT 许可证**不授予** V2EX 商标使用许可。
 
-          ### v0.0.9 更新内容
+          ### __VERSION__ 更新内容
 
-          - **候选离线安装链路**：固定 SHA 构建 → 导出镜像 tar → 候选安装包 +
-            SHA256SUMS → 独立环境 `docker load` 全链路验证（迁移 / Redis /
-            健康检查 / 登录 / 发帖 / 回复 / 重启不丢数据 / 端口未暴露）。
-            候选包内镜像引用由脚本统一改写，不再指向不存在的远端标签。
-          - **可观测性修复（P0）**：修复 API 错误率统计失效——原埋点在
-            middleware 独立 bundle 里拿不到真实状态码（`byStatus` 恒为
-            `{200: N}`）。现由 `src/instrumentation.ts` 在 Node HTTP 层
-            拦截 `writeHead` 取**真实**状态码与耗时；计数状态挂
-            `globalThis`（跨 bundle 可见），键基数有界（≤2000）。
-          - **全新安装验收**：`verify-fresh-install.sh` 22 项断言（显式清空
-            开发机环境变量，防止误连开发库）。
-          - **真实升级验证**：以**已发布的 v0.0.4 与 v0.0.9** 为双基线，
-            46 项业务数据指纹逐字节一致；迁移幂等（连跑 3 次）；
-            备份 → 恢复后指纹与升级后库完全一致；旧口令哈希仍可登录。
-            （V9-11 勘误：旧文案写「60 项」是未经复算的手写数字，
-            仓库脚本可复现的口径是 46 项业务指纹 / 指纹文件 49 行。）
-          - **运维可靠性**：故障注入验证 21 项（0 跳过）。
-          - **长时间运行稳定性**：分段化工作流 + 时长诚实性闸门（见下文
-            「稳定性验证的真实状态」）。
+          __CHANGELOG_SECTION__
 
           ### 功能清单
 
@@ -2141,14 +2149,17 @@ jobs:
 
           ### 已知限制（如实标注，不阻塞预览版使用）
 
-          - **主题编辑与删除**：未实现（作者侧）
           - **私信**：未实现
           - **真实 SMTP 邮件投递**：未在发布流程中实测（需运维配置 SMTP）
-          - **多浏览器视觉回归**：CI 覆盖 Chromium；Firefox / Safari 未覆盖
+          - **多浏览器视觉回归**：常规 CI 只跑 Chromium；Firefox / WebKit 由
+            `e2e-matrix.yml` 专项矩阵覆盖。**WebKit 是移植构建，不等同真实 Safari**，
+            结论不得外推
           - **原站需登录页面对照**：无权访问他人账号，未拿游客态冒充登录态
           - **指标窗口为进程内聚合**：多实例部署各进程一份，需集中式日志系统
             才能跨实例聚合
           - **版主 / 管理员的部分操作为 API 层验证**，UI 点击流覆盖不完整
+          - **原站旧版 API**：不宣称完全兼容；已下线 / 无法验证的端点在
+            `docs/LEGACY_API_MATRIX_v0.0.13.md` 逐项披露
 
           ### 安装
 
@@ -2171,17 +2182,15 @@ jobs:
           安装脚本会生成随机的数据库口令、Redis 口令与会话密钥，
           并把管理员凭据写入 `INSTALL_CREDENTIALS.txt`（权限 600）。
 
-          **从 v0.0.4 升级**（唯一已公开发布的可升级基线）：
+          **从上一已发布版本升级**（官方升级基线以本版本 `CHANGELOG.md`
+          与 CI 的升级验证产物为准，不沿用历史版本的写死基线）：
           ```bash
           cd v2ex-clone-__VERSION__-deploy/deploy
           ./update.sh        # 保留数据卷，仅更新镜像与迁移
           ```
-          升级路径已经**实测**（两条基线，见 `docs/UPGRADE_VERIFICATION_v0.0.10.md`）：
-          - **v0.0.4 → __VERSION__**：迁移 3 → 4、索引 76 → 78
-          - **v0.0.9 → __VERSION__**：结构不变（无新增迁移）
-
-          两条路径的 **46 项业务数据指纹逐字节一致**（不是抽样），迁移连跑 3 次幂等，
-          备份 → 恢复到独立库后指纹与升级后库完全一致，旧口令哈希可正常登录。
+          升级 / 备份 / 恢复的**本版本实测口径**见 `docs/release-facts.json`
+          的 `upgrade` 段与本版本 CI 产物；历史版本（v0.0.4 / v0.0.9）的
+          迁移数与指纹数只是当时的记录，**不得冒充本版结论**。
 
           **回滚**：
           ```bash
@@ -2215,12 +2224,12 @@ jobs:
 
           | 项目 | 状态 | 说明 |
           |---|---|---|
-          | 单元测试 | ✅ 通过 | 444/444（36 文件） |
-          | E2E | ✅ 通过 | 220/220（20 文件，**零跳过**） |
+          | 单元测试 | ✅ 通过 | 由**本次发布流水线**的「运行单元测试」步骤实跑；结果见本 run 的 `unit-test-results` artifact，数量以该报告为准 |
+          | E2E | ✅ 通过 | 由**本次发布流水线**的「运行 E2E」步骤实跑（Chromium）；结果见本 run 的 E2E 日志，数量以该报告为准 |
           | 安全审计（Host Header / 依赖 / 秘密扫描） | ✅ 通过 | high/critical 阻断门禁 |
           | 候选安装链路（Docker 真实安装） | ✅ 通过 | ubuntu runner 实跑 |
-          | v0.0.4 → __VERSION__ 升级 | ✅ 通过 | 46 项数据指纹逐字节一致 |
-          | v0.0.9 → __VERSION__ 升级 | ✅ 通过 | 同上（结构无变化） |
+          | 上一已发布版本 → __VERSION__ 原地升级 | ✅ 通过 | 口径见 `docs/release-facts.json` 的 `upgrade` 段 |
+          | 备份 → 恢复 | ✅ 通过 | 见本版本 CI 的升级 / 恢复验证产物 |
           | **1 小时持续运行** | ✅ **通过** | 真实运行 3600 秒 = 目标 |
           | **24 小时持续运行** | ⬜ **未完成** | 见下方说明 |
 
@@ -2243,11 +2252,11 @@ jobs:
           |----|------|------|
           | **原站第三方素材曾进入历史提交** | 早期开发阶段为做界面还原，从 `v2ex.com` 抓取的 HTML / CSS / JS / 截图进入了 **Git 历史** | 已核实 |
           | **当前主分支已不再包含相应素材** | 实测当前 `master` 树中 `ref-*.png` / `diff-*.png` / `combo.css` / `combo.js` **零命中** | 已核实 |
-          | **旧 Tag 和部分历史引用仍可能使它们可访问** | 4 个已发布 Tag（v0.0.1~v0.0.4）与若干历史分支仍可达这些对象；克隆仓库即可取得 | **仍然存在** |
+          | **旧 Tag 和部分历史引用仍可能使它们可访问** | 早期已发布 Tag 与若干历史分支仍可达这些对象；克隆仓库即可取得；**改写历史也无法消除已下载 / 已缓存的副本** | **仍然存在** |
           | **历史风险尚未根治** | 清理需改写远端历史（`filter-repo` + force push），属高风险不可逆操作；且改写**无法消除**第三方已下载 / 已缓存的内容 | **DEFERRED** |
           | **本轮没有执行历史改写或 force push** | 未执行任何远端历史改写、force push、Tag 删除或重建、Release 修改、仓库可见性变更 | 已核实 |
           | **本版本的新代码、安装包及镜像经过独立扫描** | gitleaks 秘密扫描 + npm audit（high/critical 阻断）+ 镜像内容审查：安装包只含 `deploy/`（15 个文件），镜像不含 `docs/`，均不含受影响素材 | 已核实 |
-          | **风险接受仅针对 v0.0.9 的发行决定** | 主人已对 v0.0.9 发布门禁作**一次性风险接受**（完整披露 R-01 的前提下） | 仅限本轮 |
+          | **风险接受按版本单独作出** | 此前某版本的一次性风险接受**不构成 __VERSION__ 的授权**；本版本公开发布须在完整披露 R-01 的前提下单独确认 | 待主人裁决 |
           | **后续仍需单独处置历史问题** | 历史清理需单独授权与单独演练，本声明**不构成**素材版权证明，也**不视为** R-01 已修复 | 待办 |
 
           > 详细审计报告见仓库 `docs/R01_COMPLIANCE_REVIEW_v0.0.9.md`。
@@ -2273,8 +2282,105 @@ jobs:
 
           MIT（附商标声明与第三方内容声明），详见安装包内的 `LICENSE`。
           NOTES
+          # ── v0.0.13（V13-10 / QA P1-1）：更新内容必须由本版本 CHANGELOG 生成 ──
+          #
+          # 事故：已发布的 v0.0.12 Release Notes 标题写着「v0.0.9 更新内容」，
+          # 正文整段是 v0.0.9 的候选安装链路 / 可观测性修复 —— 复用旧模板忘改标题。
+          # 已发布 Release 属不可逆对象，本轮**不修改**；但生成模板必须根治。
+          #
+          # 独立 QA 复核又发现第一版抽取逻辑的**两个真实漏洞**：
+          #  ① `l.includes(version)` 是子串匹配 ⇒ `VERSION=v0.0.1` 会命中
+          #     `## [Unreleased] — v0.0.13`（前缀碰撞），把当前开发版本段落
+          #     当成 v0.0.1 发布内容；workflow_dispatch 的 version 输入不受
+          #     tag 白名单保护，这条路径真实可达。
+          #  ② 原有 4 道 shell 闸门只检查主标题 / 更新内容标题 / 旧标题残留 /
+          #     占位符，**没有一道检查注入正文的归属**。注入内容是
+          #     `### A.`~`### F.`，不含 `### v0.0.x 更新内容` ⇒
+          #     第 ④ 道（多个旧版本标题）永远不会触发。
+          # ⇒ 生成物内容错了，但四道闸门全绿，是典型的假合格证。
+          #
+          # 修法：精确版本 token（词边界）+ 段落归属 + 内容闸门 + 函数式 replace。
+          VERSION="$VERSION" node - <<'NODE' || exit 1
+          const fs = require('node:fs');
+          const version = process.env.VERSION;
+          if (!/^v?\d+\.\d+\.\d+$/.test(version)) {
+            console.error('::error::VERSION 不是合法语义版本：' + version);
+            process.exit(1);
+          }
+          // 精确 token：要求版本号后面不是数字或点，杜绝 v0.0.1 命中 v0.0.13
+          const esc = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const versionToken = new RegExp('(?:^|[^0-9])' + esc + '(?![0-9.])');
+          const headingVersion = (line) => {
+            const m = line.match(/\bv?\d+\.\d+\.\d+\b/g);
+            return m ? m[m.length - 1].replace(/^v/, '') : null;
+          };
+          const want = version.replace(/^v/, '');
+          const lines = fs.readFileSync('CHANGELOG.md', 'utf8').split(/\r?\n/);
+          const start = lines.findIndex(
+            (l) => /^##\s/.test(l) && versionToken.test(l) && headingVersion(l) === want,
+          );
+          if (start < 0) {
+            console.error('::error::CHANGELOG.md 缺少 ' + version + ' 段落（精确 token 匹配），拒绝用旧模板生成 Release Notes');
+            process.exit(1);
+          }
+          let end = lines.findIndex((l, i) => i > start && /^##\s/.test(l));
+          if (end < 0) end = lines.length;
+          const raw = lines.slice(start + 1, end);
+          // CHANGELOG 的版本段落开头是**仓库内部状态说明**（版本状态 / 授权边界），
+          // 不能原样搬进公开 Release Notes。只取第一个 `###` 小标题之后的实质内容。
+          const firstSub = raw.findIndex((l) => /^###\s/.test(l));
+          const section = (firstSub >= 0 ? raw.slice(firstSub) : raw).join('\n').trim();
+          if (section.length < 100) {
+            console.error('::error::CHANGELOG 的 ' + version + ' 段落过短，疑似未更新的占位模板');
+            process.exit(1);
+          }
+          // 段落归属与内容闸门（见上）
+          const otherVersionHeadings = section.match(/^#{2,4}\s+v?\d+\.\d+\.\d+[^\n]*$/gm) || [];
+          const foreign = otherVersionHeadings.filter((h) => headingVersion(h) !== want);
+          if (foreign.length > 0) {
+            console.error('::error::Release Notes 注入内容含其它版本标题：' + foreign.join(' | '));
+            process.exit(1);
+          }
+          const devOnly = ['当前开发版本', '当前实际公开版本', '发行候选', '待授权', '尚无 Tag', '未发布'];
+          const leaked = devOnly.filter((w) => section.includes(w));
+          if (leaked.length > 0) {
+            console.error('::error::Release Notes 注入内容含仓库内部状态措辞（发布后会失真）：' + leaked.join(' / '));
+            process.exit(1);
+          }
+          const notes = fs.readFileSync('release-notes.md', 'utf8');
+          if (!notes.includes('__CHANGELOG_SECTION__')) {
+            console.error('::error::Release Notes 模板缺少 __CHANGELOG_SECTION__ 占位符');
+            process.exit(1);
+          }
+          // 函数式替换：section 里出现 `$&` / `$1` / `$'` 时不会被当成替换模式展开。
+          // 同时把 CHANGELOG 的 `### A.`~`### F.` 降一级为 `####`，避免与模板的
+          // `### __VERSION__ 更新内容` 同级（发布页目录层级会更清晰）。
+          const indented = section.replace(/^(#{2,4})\s/gm, '#$1 ');
+          fs.writeFileSync('release-notes.md', notes.replace('__CHANGELOG_SECTION__', () => indented));
+          console.log('已从 CHANGELOG.md 注入 ' + version + ' 段落（' + indented.length + ' 字符，归属校验通过）');
+          NODE
           sed -i "s|__VERSION__|${VERSION}|g" release-notes.md
           sed -i "s|__DIGEST__|${IMAGE_DIGEST}|g" release-notes.md
+          # 版本说明真实性闸门：占位符必须清空、标题必须指向**本版本**
+          NOTES_FAIL=0
+          if grep -q '__CHANGELOG_SECTION__\|__VERSION__\|__DIGEST__' release-notes.md; then
+            echo "::error::Release Notes 仍有未替换的占位符"
+            NOTES_FAIL=1
+          fi
+          if ! grep -qF "## ${VERSION} — 开发预览版" release-notes.md; then
+            echo "::error::Release Notes 主标题版本不是 ${VERSION}"
+            NOTES_FAIL=1
+          fi
+          if ! grep -qF "### ${VERSION} 更新内容" release-notes.md; then
+            echo "::error::Release Notes 缺少本版本更新内容标题（不得复用旧版本标题）"
+            NOTES_FAIL=1
+          fi
+          if grep -qE '^### v0\.0\.[0-9]+ 更新内容' release-notes.md && \
+             [ "$(grep -cE '^### v0\.0\.[0-9]+ 更新内容' release-notes.md)" -ne 1 ]; then
+            echo "::error::Release Notes 出现多个旧版本更新内容标题"
+            NOTES_FAIL=1
+          fi
+          [ "$NOTES_FAIL" -eq 0 ] || exit 1
           echo "Release Notes 已按版本 ${VERSION} 生成（镜像 digest=${IMAGE_DIGEST}）"
           echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
 

@@ -22,48 +22,68 @@
 
 ---
 
-## 当前版本：v0.0.12（开发预览版 / Pre-release）
+## 当前版本状态（v0.0.13 开发中）
 
-> **为什么是 v0.0.11 而不是 v0.0.10**：v0.0.10 的 Tag 已创建，但其内容里
-> `deploy/README.md` 的标题仍写着 `v0.0.9`（该文件从未纳入版本同步），
-> 被发布流水线的「包内版本一致性（N2）」正确拦截。而补救路径要求
-> `deploy/` 与 Tag 零差异 ⇒ 修改该文件必然破坏补救前提 ⇒ **二者互斥**。
-> 由于 Tag 不可移动，改以 v0.0.11 承载同一份代码。v0.0.10 的 Tag
-> **从未发布**（无 Release、无安装包），保留但不再使用。
-> 详见 [`docs/RELEASE_BLOCKER_v0.0.10.md`](docs/RELEASE_BLOCKER_v0.0.10.md)。
+> **版本载体**：`0.0.12`
+> （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护；
+> 开发态刻意保持上一稳定版本，固定最终 SHA 后一次性同步到目标版本。）
 
 | 项 | 值 |
 |---|---|
-| 版本号 | `v0.0.12`（**开发预览版 / Pre-release**） |
-| 发布形态 | **开发预览版（Pre-release）**，不是稳定版 |
+| **当前实际公开版本** | **`v0.0.12`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-08 发布） |
+| **当前开发版本** | **`v0.0.13`（候选，未打 Tag、未发布 Release）** |
+| 版本载体 | 开发分支刻意保持 `0.0.12`；**只有固定最终 SHA 后才统一同步到 `0.0.13`**（`node scripts/release/sync-version.mjs 0.0.13`） |
+| 发布形态 | 开发预览版（Pre-release），**不是稳定版** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` |
+| 已发布镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` |
 | 数据库迁移 | `drizzle/` 下 4 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports`），容器启动时幂等执行 |
 
-> **v0.0.12 是开发预览版。**
+> **v0.0.13 定位**：旧版 API 兼容收口、功能矩阵真实性、登录交互稳定性与完整发行候选。
+> 本版**不重新开发论坛**，也不启动 v0.0.14。
+>
+> - 新增旧版端点：`/api/topics/hot.json`、`/api/replies/show.json`、`/api/nodes/list.json`
+>   （上一轮「全量审计」漏掉了它们，完整 15 项核对见
+>   [`docs/LEGACY_API_MATRIX_v0.0.13.md`](docs/LEGACY_API_MATRIX_v0.0.13.md)）
+> - 接口规格与 Feed 格式区分见 [`docs/API_SPEC.md`](docs/API_SPEC.md) §14
+> - 功能矩阵与当前证据见 [`docs/FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md)
+> - 交接、门禁与授权边界见 [`docs/SESSION_HANDOFF_v0.0.13.md`](docs/SESSION_HANDOFF_v0.0.13.md)
+>
+> ⚠️ **R-01 历史版权风险仍未清理**，本版公开发布需主人单独授权；
+> 详见 [`RISK_REGISTER.md`](RISK_REGISTER.md) 与 `docs/R01_COMPLIANCE_REVIEW_v0.0.9.md`。
+
+> **开发预览版的共同限制（v0.0.12 / v0.0.13 均适用）**
 >
 > - **不保证与 V2EX 完全一致** —— 页面内容、交互细节与原站存在差异
 > - **不具备生产就绪条件** —— 1 小时持续运行已真实通过；**24 小时持续运行尚未完成**
->   （旧单 Job 设计受平台 6 小时上限限制，见 `docs/SOAK_24H_FINDING_v0.0.9.md`）
-> - **不建议用于生产环境** —— 若要使用，请自行评估风险并完成 `deploy/INSTALL.md` 的安全清单
-> - 版本号遵循语义化版本：`0.0.x` 表示接口与行为**仍可能破坏性变更**
+> - **不建议用于生产环境** —— 请先完成 `deploy/INSTALL.md` 的安全清单
 >
-> ### 从旧版本升级到 v0.0.12
+> ### 从旧版本升级
 >
-> 两条已实测的升级路径（业务数据指纹逐字节一致，见
-> `docs/UPGRADE_VERIFICATION_v0.0.10.md`，两条路径对 v0.0.11 同样适用）：
->
-> - **v0.0.4 → v0.0.12**：迁移 3 → 4、索引 76 → 78
-> - **v0.0.9 → v0.0.12**：结构不变（无新增迁移），仅应用二进制更新
->
-> `./update.sh --version v0.0.12` 会自动改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
+> 已实测升级基线为 **v0.0.4**（`docs/UPGRADE_VERIFICATION_v0.0.10.md`）；
+> v0.0.13 的官方升级路径是 **v0.0.12 → v0.0.13**，由本版 CI 的
+> 原地升级与备份恢复门禁验证（结果见交接文档）。
+> `./update.sh --version <目标版本>` 会改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
 > **升级前务必先 `./backup.sh`**。详见 [`deploy/INSTALL.md`](deploy/INSTALL.md) §8。
+
+<details>
+<summary>历史：为什么 v0.0.10 的 Tag 从未发布（v0.0.10 ~ v0.0.12 的旧说明，仅供追溯）</summary>
+
+v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写着 `v0.0.9`
+（该文件从未纳入版本同步），被发布流水线的「包内版本一致性（N2）」正确拦截。
+补救路径要求 `deploy/` 与 Tag 零差异 ⇒ 修改该文件必然破坏补救前提 ⇒ 二者互斥。
+由于 Tag 不可移动，改以 v0.0.11 承载同一份代码；随后 v0.0.12 补齐
+`deploy/` 下 12 个文件的版本标注并**正式发布**。
+详见 [`docs/RELEASE_BLOCKER_v0.0.10.md`](docs/RELEASE_BLOCKER_v0.0.10.md)。
+**v0.0.10 的 Tag 从未发布**（无 Release、无安装包），保留但不再使用。
+
+</details>
 
 ### 版本历史
 
 | 版本 | 主要内容 |
 |---|---|
+| **v0.0.13**（开发中，未发布） | **旧版 API 兼容收口 + 真实性治理 + 登录稳定性**：补齐 `hot.json` / `replies/show.json` / `nodes/list.json` 三个实测仍返回 200 的旧版端点；建立 15 项兼容矩阵并披露未验证项；统一旧版端点的 member/node 装配器（修复 `nodes/show.json` 不限制 active 的跨接口偏差）；Feed 增加严格 XML 转义、ETag/304 与真实阅读器订阅验证；`clickUntilRequest` 加三道闸门防止非幂等写操作重复提交；功能矩阵改为六类状态并加文档真实性护栏；修正 README / CHANGELOG 的过时版本说明 |
 | **v0.0.12** | **v0.0.11 的正式发行载体**：代码与 v0.0.11 完全一致，仅补齐 `deploy/` 下 12 个文件的版本标注（此前只有 7 个被 `sync-version.mjs` 覆盖，导致 v0.0.10 / v0.0.11 的 Tag 内容被发布流水线的 N2 判据正确拦截、两轮 Tag 均未发布）。同时把 N2 判据复刻进本地门禁，发版前即可拦住同类问题 |
 | **v0.0.11** | **v0.0.10 的正式发行载体**：内容与 v0.0.10 完全一致，仅修复一处**版本载体遗漏** —— `deploy/README.md` 的标题行从未纳入 `sync-version.mjs`，导致 v0.0.10 的 Tag 内容里写着 `v0.0.9`，被发布流水线的 N2「包内版本一致性」正确拦截。v0.0.10 的 Tag 因此**从未发布**（无 Release、无安装包），保留但不再使用 |
 | **v0.0.10** | **安装与备份可靠性 + 页面真实性**：Linux 发布包脚本可执行位（V9-09）与 `backup.sh`/`restore.sh` 的 SIGPIPE 假失败（V9-13）已在**产物层**修复并加门禁；新增双基线真实升级验证（v0.0.4 / v0.0.9 → v0.0.10）；新增发行版真实性门禁（源码/Tag/镜像/ZIP/README/Release 六项一致才允许发布）；新增带登录态的全站页面审计（12 类页面 × 23~29 项断言）；页脚版本号改为构建期注入、最高在线改为真实记录；顶栏阴影带由 118px 修正为原站实测的 30px |
@@ -151,7 +171,7 @@
 
 ### 仍未实现（本版本**完全未实现**）
 
-> 以下能力在 v0.0.12 中**没有实现**。
+> 以下能力在 v0.0.13 中**没有实现**（v0.0.12 同样没有）。
 > 项目**不提供**任何形式的假实现 —— 没有占位按钮、没有假接口、没有静态演示数据冒充。
 > 若你在页面上看到一个不工作的按钮，那是因为**功能没做**，而不是「点了没反应」。
 
@@ -219,11 +239,12 @@
 
 ### 方式 A：一键安装包（推荐）
 
-> ⚠️ **v0.0.12 的安装包尚未发布。** 下面的命令描述的是**发布后**的用法；
-> 在 Release 出现之前，请用「方式 B」或从源码构建。
-> 已发布的 **v0.0.9** 安装包存在两处已确认缺陷（V9-09 脚本缺可执行位、
-> V9-13 `backup.sh` 的 SIGPIPE 假失败会删掉正常备份），修复只存在于源码，
-> 已发布资产按「不得覆盖已有 Release」的规约保持原样。**建议直接用 v0.0.12。**
+> ✅ **v0.0.12 是已正式发布的 Pre-release**，部署 ZIP 与 GHCR 镜像均可获取。
+> 下面的命令以 v0.0.12 为例；v0.0.13 尚未发布，请勿把 v0.0.13 写进
+> `--version`/镜像标签直至正式发布完成。
+> 更旧的 **v0.0.9** 安装包存在两处已确认缺陷（V9-09 脚本缺可执行位、
+> V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
+> 的规约保持原样 —— **建议使用 v0.0.12，不要用 v0.0.9**。
 
 下载 `v2ex-clone-v0.0.12-deploy.zip` 并解压。
 
@@ -289,11 +310,12 @@ docker compose up -d
 
 | 内容 | 位置 |
 |---|---|
-| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases>（v0.0.12 **待发布**） |
-| 一键部署安装包（v0.0.12） | `v2ex-clone-v0.0.12-deploy.zip`（**待发布**） |
-| 最近已发布版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9> |
-| 容器镜像（v0.0.12） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` |
-| 容器镜像（v0.0.9） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.9` |
+| **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
+| **最新已发布版本（v0.0.12）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |
+| 一键部署安装包（v0.0.12，已发布） | `v2ex-clone-v0.0.12-deploy.zip`（在该 Release 资产中） |
+| 容器镜像（v0.0.12，与安装包同版） | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` |
+| 历史版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9>（含已知缺陷，不建议新装） |
+| v0.0.13 | **尚未发布**：无 Tag、无 Release、无镜像标签；开发候选状态见交接文档 |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
 > 镜像拉取需要 GHCR 包为 **public** 才能匿名 `docker pull`。
@@ -360,7 +382,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > **口径原则**：只写**能复现的实测数字**。取数命令写在旁边，任何人都能一条命令复核；
 > 静态 grep 不算口径（部分 spec 用嵌套 for 生成用例），**必须取 Vitest 运行时的 `numTotalTests`**。
 
-| 套件 | 用例数 | 命令 | v0.0.12 实测 |
+| 套件 | 用例数 | 命令 | **v0.0.12 历史实测**（非当前结论） |
 |---|---|---|---|
 | 单元测试（vitest） | **444**（36 个 spec 文件） | `npm run test:unit` | **444 passed / 0 failed / 0 skipped**，**36/36 文件全绿**（2026-11-08，本机隔离实例） |
 | E2E（Playwright） | **220**（20 个 spec 文件） | `npm run test:e2e` | **220 passed / 0 failed / 0 skipped**（8.1m，本机 `next start` + 独立库） |
@@ -371,9 +393,13 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > 裸跑 vitest 会连默认的 5432 而失败（`ECONNREFUSED`）。CI 与本地全量复验均须注入：
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
-> ⚠️ **历史数字会过期，因此本文不再罗列历史轮次**。曾出现过的「单元 103 / E2E 67」
-> （v0.0.1~v0.0.3）、「190 / 194」（v0.0.4）都是当时口径；v0.0.12 的基线见上表。
-> 需要追溯时看 `docs/evidence/ci/test-baseline-*.md`，不要从本表推。
+> ⚠️ **上表是 v0.0.12 的历史记录，不是 v0.0.13 的当前结论。**
+> v0.0.13 的**当前测试基线**（单元 / 静态 / E2E / 跨浏览器 / 视觉 / 安装 / 升级
+> 的真实通过数与对应 SHA）以
+> [`docs/SESSION_HANDOFF_v0.0.13.md`](docs/SESSION_HANDOFF_v0.0.13.md)
+> 「当前测试基线」小节和 `docs/release-facts.json` 为唯一口径；
+> 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。
+> 更早的「单元 103 / E2E 67」「190 / 194」等均为当时快照，仅供追溯。
 
 > `scripts/verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），
 > 进程管理区分 Windows 与 POSIX。它在**专用验证库**（默认 `v2ex_verify`）上操作，

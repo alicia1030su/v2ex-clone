@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { resolveBaseUrl } from '@/lib/feed-builder';
 import { loadLegacyTopics } from '@/server/legacy-topics';
+import { PUBLIC_NODE_CONDITION } from '@/server/legacy-assemblers';
 import { parseLegacyId } from '@/lib/legacy-topic-api';
 import {
   LEGACY_LIST_LIMIT,
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
     const exists = await db
       .select({ id: schema.nodes.id })
       .from(schema.nodes)
-      .where(eq(schema.nodes.name, lower))
+      .where(and(PUBLIC_NODE_CONDITION, eq(schema.nodes.name, lower)))
       .limit(1);
     if (exists.length === 0) return legacyNotFoundResponse(rl, 120);
     const topics = await loadLegacyTopics({

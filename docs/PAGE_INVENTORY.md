@@ -92,14 +92,21 @@ V2EX 主站为**服务端渲染**（SSR）传统论坛页面，主域名 `www.v2
 |---|---|---|
 | `/api/topics/show.json?id=1` | 200 | 旧版 API —— **本项目已实现**，见 `docs/API_SPEC.md` §14.1 |
 | `/api/topics/latest.json` | 200 | 最新 35 条 —— **本项目已实现**（§14.2） |
+| `/api/topics/hot.json` | 200 | 热门 10 条（`replies` 降序）—— **本项目已实现**（§14.4，v0.0.13 收尾补齐） |
+| `/api/replies/show.json?topic_id=1` | 200 | 主题回复（异常参数一律 200 `[]`）—— **本项目已实现**（§14.4，v0.0.13 收尾补齐） |
 | `/api/members/show.json` | 200 | 会员资料 —— **本项目已实现**（§14.2） |
 | `/api/nodes/show.json` | 200 | 节点详情 —— **本项目已实现**（§14.2） |
 | `/api/nodes/all.json` | 200 | 全部节点 —— **本项目已实现**（§14.2） |
-| `/api/topics.json` | 404 | 已下线 |
-| `/api/nodes.json` | 404 | 已下线 |
-| `/feed/{node}.xml` | 200 | 节点 Atom 1.0（50 条）—— **本项目已实现原站路径**，见 §14.3；另保留 `/api/nodes/{name}/feed`（RSS 2.0） |
-| `/feed/{node}.json` | 200 | 节点 JSON Feed 1.0（50 条）—— **本项目已实现原站路径**，见 §14.3 |
+| `/api/nodes/list.json` | 200 / 400 | 节点投影列表；`fields`/`sort_by`/`reverse` 三者必填，缺任一 ⇒ 400 HTML —— **本项目已实现**（§14.4，v0.0.13 收尾补齐） |
+| `/api/topics.json` | 404 | 原站已下线，本项目**不实现**（再次实测确认） |
+| `/api/nodes.json` | 404 | 原站已下线，本项目**不实现**（再次实测确认） |
+| `/feed/{node}.xml` | 200 | 节点 Atom 1.0（50 条）—— **本项目已实现原站路径**，见 §14.3 / §14.5；另保留 `/api/nodes/{name}/feed`（RSS 2.0） |
+| `/feed/{node}.json` | 200 | 节点 JSON Feed 1.0（50 条）—— **本项目已实现原站路径**，见 §14.3 / §14.5 |
 | `/planet/about` | — | Planet 订阅说明 |
+
+> ⚠️ **本表只代表列出的端点**，不代表原站全部历史 API；逐项实测、有意偏离
+> 与「无法验证」披露见 `docs/LEGACY_API_MATRIX_v0.0.13.md`，
+> **不宣称完全兼容原站旧版 API**。
 
 ## 3. 首页 tab 结构
 

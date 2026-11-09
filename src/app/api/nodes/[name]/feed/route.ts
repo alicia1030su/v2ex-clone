@@ -1,5 +1,7 @@
 import { db, schema } from '@/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
+import { feedCachedResponse } from '@/lib/feed-cache';
+import { PUBLIC_NODE_CONDITION } from '@/server/legacy-assemblers';
 import {
   buildFeedEntries,
   buildJsonFeed,
@@ -27,7 +29,7 @@ export async function GET(
   const nodeRows = await db
     .select({ id: schema.nodes.id, title: schema.nodes.title, name: schema.nodes.name })
     .from(schema.nodes)
-    .where(eq(schema.nodes.name, nodeName))
+    .where(and(PUBLIC_NODE_CONDITION, eq(schema.nodes.name, nodeName)))
     .limit(1);
   const node = nodeRows[0];
 
@@ -63,13 +65,10 @@ export async function GET(
       items: entries.map(toFeedItem),
     });
 
-    return new Response(json, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/feed+json; charset=utf-8',
-        'Cache-Control': 'public, max-age=120, stale-while-revalidate=300',
-        'X-Content-Type-Options': 'nosniff',
-      },
+    return feedCachedResponse(request, json, {
+      'Content-Type': 'application/feed+json; charset=utf-8',
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=300',
+      'X-Content-Type-Options': 'nosniff',
     });
   }
 
@@ -82,12 +81,9 @@ export async function GET(
     items: entries.map(toFeedItem),
   });
 
-  return new Response(xml, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/rss+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=120, stale-while-revalidate=300',
-      'X-Content-Type-Options': 'nosniff',
-    },
+  return feedCachedResponse(request, xml, {
+    'Content-Type': 'application/rss+xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=120, stale-while-revalidate=300',
+    'X-Content-Type-Options': 'nosniff',
   });
 }

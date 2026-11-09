@@ -1,12 +1,6 @@
-import { NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { desc, eq, sql } from 'drizzle-orm';
-import { avatarUrl } from '@/components/Avatar';
-import type { LegacyMemberInput } from '@/lib/legacy-topic-api';
-import {
-  MEMBER_AVATAR_SIZES,
-  toLegacyMember,
-} from '@/lib/legacy-topic-api';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
+import { assembleLegacyMember, PUBLIC_USER_STATUSES } from '@/server/legacy-assemblers';
 import { resolveBaseUrl } from '@/lib/feed-builder';
 import {
   guardLegacyRateLimit,
@@ -41,17 +35,16 @@ export const dynamic = 'force-dynamic';
  *
  * 与本项目的差异同 `/api/topics/show.json`：`pro` 恒 0、
  * `twitter/github/psn/btc` 恒 `null`、头像为确定性占位 data URI。
+ *
+ * ## v0.0.13（V13-01）：装配器统一 + 隐私
+ *
+ * - `member` 字段改用 `src/server/legacy-assemblers.ts` 的
+ *   `assembleLegacyMember`，与主题 / 回复端点内嵌的 member 必然同构。
+ * - **封禁 / 停用用户的资料不再从匿名接口公开**：查询加
+ *   `status='active'` 条件（原站行为未实测，取更保守一侧）。
+ *   已发布的历史内容仍显示作者用户名，但其自填资料字段会被置空。
+ * - 载荷从不含 email / password_hash / 会话令牌 / 积分余额。
  */
-
-/** 组装头像 URL（六个尺寸，站内同一套确定性占位） */
-function avatarsOf(user: { id: number; username: string; avatar: string | null }) {
-  const out = {} as Record<keyof typeof MEMBER_AVATAR_SIZES, string>;
-  for (const [key, size] of Object.entries(MEMBER_AVATAR_SIZES)) {
-    out[key as keyof typeof MEMBER_AVATAR_SIZES] = avatarUrl(user, size);
-  }
-  return out;
-}
-
 export async function GET(request: Request) {
   const rl = await guardLegacyRateLimit('members-show');
   if (!rl.ok) return legacyRateLimited(rl);
@@ -64,14 +57,13 @@ export async function GET(request: Request) {
   if (!username && id === null) return legacyNotFoundResponse(rl, 600);
 
   // 任一命中即可（实测：?username=Livid&id=1 与二者单独请求结果相同）
-  const conditions = [];
+  const identity = [];
   if (username) {
     const lower = username.toLowerCase();
-    conditions.push(sql`lower(${schema.users.username}) = ${lower}`);
+    identity.push(sql`lower(${schema.users.username}) = ${lower}`);
   }
-  if (id !== null) {
-    conditions.push(eq(schema.users.id, id));
-  }
+  if (id !== null) identity.push(eq(schema.users.id, id));
+  const identityCondition = identity.length === 1 ? identity[0] : or(identity[0], identity[1]);
 
   const rows = await db
     .select({
@@ -81,12 +73,13 @@ export async function GET(request: Request) {
       bio: schema.users.bio,
       url: schema.users.url,
       location: schema.users.location,
+      status: schema.users.status,
       avatar: schema.users.avatar,
       createdAt: schema.users.createdAt,
       lastActiveAt: schema.users.lastActiveAt,
     })
     .from(schema.users)
-    .where(conditions.length === 1 ? conditions[0] : sql`(${conditions[0]} or ${conditions[1]})`)
+    .where(and(eq(schema.users.status, PUBLIC_USER_STATUSES[0]), identityCondition))
     .orderBy(desc(schema.users.id))
     .limit(1);
 
@@ -94,21 +87,8 @@ export async function GET(request: Request) {
   if (!user) return legacyNotFoundResponse(rl, 600);
 
   const origin = resolveBaseUrl(request.url);
-
-  const input: LegacyMemberInput = {
-    id: user.id,
-    username: user.username,
-    tagline: user.tagline,
-    bio: user.bio,
-    url: user.url,
-    location: user.location,
-    createdAt: user.createdAt,
-    lastActiveAt: user.lastActiveAt,
-    avatars: avatarsOf(user),
-  };
-
   // 原站此端点额外返回 status: "found"
-  const payload = { ...toLegacyMember(input, origin), status: 'found' };
+  const payload = { ...assembleLegacyMember(user, origin), status: 'found' };
 
   return new Response(JSON.stringify(payload), {
     status: 200,

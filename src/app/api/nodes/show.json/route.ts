@@ -1,13 +1,9 @@
-import { NextResponse } from 'next/server';
-import { db, schema } from '@/db';
-import { eq, sql } from 'drizzle-orm';
-import { avatarUrl } from '@/components/Avatar';
-import {
-  NODE_AVATAR_SIZES,
-  toLegacyNode,
-  type LegacyNodeInput,
-} from '@/lib/legacy-topic-api';
 import { resolveBaseUrl } from '@/lib/feed-builder';
+import {
+  loadLegacyNodeRecords,
+  publicLegacyNode,
+  type LoadLegacyNodeOptions,
+} from '@/server/legacy-assemblers';
 import {
   guardLegacyRateLimit,
   legacyJsonHeaders,
@@ -38,6 +34,13 @@ export const dynamic = 'force-dynamic';
  * 与本项目的差异：`header`/`footer` 恒空串、`aliases` 恒 `[]`
  * （均未建模，给空值而非编造）、头像为确定性占位 data URI、
  * `founder_id` 取 `nodes.created_by`（未记录则为 0）。
+ *
+ * ## v0.0.13（V13-01）
+ *
+ * 改用共用装配器：现在只暴露 `status='active'` 的节点，
+ * 与 `/api/nodes/all.json` / `/api/nodes/list.json` 的可见性一致。
+ * 此前本端点不限制状态 ⇒ 同一节点在 `all.json` 查不到、在 `show.json`
+ * 却能查到，属于跨接口一致性缺陷。
  */
 export async function GET(request: Request) {
   const rl = await guardLegacyRateLimit('nodes-show');
@@ -50,59 +53,20 @@ export async function GET(request: Request) {
 
   if (!name && id === null) return legacyNotFoundResponse(rl, 3600);
 
-  const conditions = [];
-  if (name) conditions.push(eq(schema.nodes.name, name.toLowerCase()));
-  if (id !== null) conditions.push(eq(schema.nodes.id, id));
+  const matchAny: NonNullable<LoadLegacyNodeOptions['matchAny']> = [];
+  if (name) matchAny.push({ kind: 'name', value: name });
+  if (id !== null) matchAny.push({ kind: 'id', value: id });
 
-  const parentName = sql<string | null>`(select pn.name from nodes pn where pn.id = ${schema.nodes.parentId})`;
+  const records = await loadLegacyNodeRecords({
+    origin: resolveBaseUrl(request.url),
+    matchAny,
+    order: 'id-asc',
+  });
 
-  const rows = await db
-    .select({
-      id: schema.nodes.id,
-      name: schema.nodes.name,
-      title: schema.nodes.title,
-      topicsCount: schema.nodes.topicsCount,
-      avatar: schema.nodes.avatar,
-      createdBy: schema.nodes.createdBy,
-      parentNodeName: parentName,
-    })
-    .from(schema.nodes)
-    .where(conditions.length === 1 ? conditions[0] : sql`(${conditions[0]} or ${conditions[1]})`)
-    .limit(1);
-
-  const node = rows[0];
+  const node = records[0];
   if (!node) return legacyNotFoundResponse(rl, 3600);
 
-  const origin = resolveBaseUrl(request.url);
-
-  // 节点收藏数（原站 stars 语义）
-  const starRows = await db
-    .select({ cnt: sql<number>`count(*)::int` })
-    .from(schema.collections)
-    .where(
-      sql`${schema.collections.target} = 'node' and ${schema.collections.nodeId} = ${node.id}`,
-    );
-
-  const avatars = {} as Record<keyof typeof NODE_AVATAR_SIZES, string>;
-  for (const [key, size] of Object.entries(NODE_AVATAR_SIZES)) {
-    avatars[key as keyof typeof NODE_AVATAR_SIZES] = avatarUrl(
-      { id: node.id, username: node.name, avatar: node.avatar },
-      size,
-    );
-  }
-
-  const input: LegacyNodeInput = {
-    id: node.id,
-    name: node.name,
-    title: node.title,
-    topicsCount: node.topicsCount,
-    stars: Number(starRows[0]?.cnt ?? 0),
-    founderId: node.createdBy,
-    parentNodeName: node.parentNodeName,
-    avatars,
-  };
-
-  return new Response(JSON.stringify(toLegacyNode(input, origin)), {
+  return new Response(JSON.stringify(publicLegacyNode(node)), {
     status: 200,
     headers: legacyJsonHeaders(rl, 3600),
   });
