@@ -31,6 +31,30 @@ export type TopicEditResult = {
   content: string;
   editCount: number;
   editedAt: Date;
+  /**
+   * 本次调用**真的改动了哪些字段**（v0.0.14）。
+   *
+   * 两个都为 `false` 表示 `title` / `content` 与库内值逐字相同 ⇒ 没有写库、
+   * 没有计数、没有 `edit_history` 快照（见 `editTopic()` 的空改动分支）。
+   *
+   * ## 为什么必须由服务层给出，而不是让调用方自己猜
+   *
+   * `PUT /api/topics/[id]` 要写操作审计，文案是「编辑标题 / 编辑正文 / 编辑标签」。
+   * 修复前它用**请求形状**判定：`body.content !== undefined ? '编辑正文' : …`。
+   * 而编辑表单**总是**提交 `content`（`TopicEditForm` 的 payload 无条件带正文），
+   * 于是「用户只删了一个标签」会被记成**「编辑正文」** —— 正文逐字没变。
+   * `edit_history` 修干净了，`audit_logs` 却仍在说假话。
+   *
+   * 判据只有服务层知道（它刚比过库内值），所以用这两个标记把它传给调用方；
+   * 让调用方重新读库比对会多一次往返，且存在「读到的已是被别人改过的值」的竞态 ——
+   * 那正是「按请求形状猜」的同类错误，只是换了个地方猜。
+   *
+   * ⚠️ 必须是**两个独立标记**，不能只给一个 `contentChanged`：
+   *    用户传了 `title` 但标题其实是原值（`TopicEditForm` 只有 staff 才能改标题，
+   *    而它每次都把标题一起发上来）时，只看「传了 title」会误报「编辑标题」。
+   *    传了 ≠ 变了。
+   */
+  changed: { title: boolean; content: boolean };
 };
 
 export type ReplyEditResult = {
@@ -129,6 +153,7 @@ export async function editTopic(
       content: topic.content,
       editCount: topic.editCount,
       editedAt: topic.editedAt ?? topic.updatedAt,
+      changed: { title: false, content: false },
     };
   }
 
@@ -165,6 +190,11 @@ export async function editTopic(
     content: newContent,
     editCount: updated[0]?.editCount ?? 0,
     editedAt: updated[0]?.editedAt ?? now,
+    // 走到这里说明至少有一个字段真的变了（空改动已提前返回），逐字段如实标注
+    changed: {
+      title: newTitle !== topic.title,
+      content: newContent !== topic.content,
+    },
   };
 }
 

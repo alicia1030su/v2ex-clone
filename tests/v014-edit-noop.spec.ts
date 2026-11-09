@@ -170,6 +170,11 @@ describe('editTopic：内容逐字未变 ⇒ 不写库、不计数、不留快�
     expect(result.title).toBe(topic.title);
     expect(result.content).toBe(topic.content);
     expect(result.editCount).toBe(before.topic.editCount);
+    // `changed` 是路由写审计文案的唯一判据（见 route.ts 的 auditReason）
+    expect(result.changed, '空改动必须如实报告「什么都没变」').toEqual({
+      title: false,
+      content: false,
+    });
   });
 
   it('把 title/content 原样传回（前端总会带上正文）同样视为空改动', async () => {
@@ -185,6 +190,10 @@ describe('editTopic：内容逐字未变 ⇒ 不写库、不计数、不留快�
     expect(after.topic.editCount, '原样传回不得计数').toBe(0);
     expect(after.historyCount, '原样传回不得留快照').toBe(0);
     expect(result.title, '返回值应已 trim').toBe(topic.title);
+    expect(
+      result.changed,
+      '传了 content 但正文逐字未变 ⇒ changed.content 必须为 false（这是审计文案的判据）',
+    ).toEqual({ title: false, content: false });
   });
 
   it('真的改了正文 ⇒ 正常计数 + 写一条快照（证明上面的"不写"不是把功能关掉）', async () => {
@@ -208,6 +217,10 @@ describe('editTopic：内容逐字未变 ⇒ 不写库、不计数、不留快�
       .limit(1);
     expect(snapshot.previousContent, '快照必须记录改前内容').toBe(topic.content);
     expect(snapshot.newContent, '快照必须记录改后内容').toBe(`${topic.content}（已补充）`);
+    expect(result.changed, '真改正文必须如实报告 content=true / title=false').toEqual({
+      title: false,
+      content: true,
+    });
   });
 
   it('只改标题（正文不传）也必须计数并留快照', async () => {
@@ -219,6 +232,24 @@ describe('editTopic：内容逐字未变 ⇒ 不写库、不计数、不留快�
     expect(after.historyCount).toBe(1);
     expect(result.title).toBe(`${topic.title} v2`);
     expect(result.content, '未传正文时应保持原值').toBe(topic.content);
+    expect(result.changed, '只改标题 ⇒ title=true / content=false').toEqual({
+      title: true,
+      content: false,
+    });
+  });
+
+  it('传了标题但标题逐字未变 ⇒ changed.title 必须为 false（传了 ≠ 变了）', async () => {
+    // 这是审计文案最容易判错的一格：`TopicEditForm` 每次都会把标题一起发上来，
+    // 若按「传了 title 就算改标题」判，正文一改就会被记成「编辑标题」。
+    const topic = await makeTopic();
+    const result = await editTopic(author, topic.id, {
+      title: topic.title, // 原值
+      content: `${topic.content}（追加一句）`,
+    });
+
+    expect(result.changed, '只有正文真变了').toEqual({ title: false, content: true });
+    const after = await readEditState(topic.id);
+    expect(after.topic.editCount, '真改了正文仍应计数').toBe(1);
   });
 
   it('空改动分支**不得**绕过授权：他人提交空改动仍必须 403', async () => {

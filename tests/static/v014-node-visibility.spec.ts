@@ -360,4 +360,50 @@ describe('节点可见性：站内公共面统一收敛到 PUBLIC_NODE_CONDITION
       'nodes 的 leftJoin 上不得挂状态条件（collections.nodeId 对 topic 收藏恒为 NULL）',
     ).not.toMatch(/leftJoin\(schema\.nodes[\s\S]{0,120}nodes\.status/);
   });
+
+  /**
+   * 审计文案必须按**事实**判，不能按**请求形状**判（v0.0.14）。
+   *
+   * 这是「同一张审计表说假话」的第二个落点：`edit_history` 的空快照修掉之后，
+   * `audit_logs` 里仍有一条指向「编辑正文」的错因记录 —— 因为编辑表单**总是**
+   * 提交 `content`，按 `body.content !== undefined` 判就永远落到「编辑正文」，
+   * 哪怕用户只是删了一个标签、正文逐字没变。
+   *
+   * 判据必须来自服务层刚比过库内值的 `result.changed`（逐字段），
+   * 而不是「请求里有没有这个字段」。
+   */
+  it('编辑审计的 reason 必须依据 result.changed，不得依据请求形状', () => {
+    const route = codeOnly(read('src/app/api/topics/[id]/route.ts'));
+
+    expect(route, '必须有基于 result.changed 的文案判定').toMatch(
+      /result\.changed\.title/,
+    );
+    expect(route, '正文变化也必须看 result.changed.content').toMatch(
+      /result\.changed\.content/,
+    );
+    // 反向断言：不得再用「传了 body.content 就算改正文」这种请求形状判据
+    expect(
+      route,
+      '不得用 `body.content !== undefined` 决定审计文案（前端总是提交正文 ⇒ 必然误报）',
+    ).not.toMatch(/body\.content\s*!==\s*undefined\s*\?/);
+
+    // 负向对照：把判据改回请求形状后，同一断言必须判红
+    const usesFacts = (src: string): boolean => /result\.changed\.title/.test(src);
+    expect(usesFacts(route)).toBe(true);
+    expect(usesFacts(route.replace(/result\.changed\.title/g, 'body.title'))).toBe(false);
+
+    // 服务层必须真的**逐字段**给出变化，而不是只给一个「内容变了没」的布尔：
+    // 传了 title ≠ 改了 title（staff 的编辑表单每次都带标题一起提交）。
+    const service = codeOnly(read('src/lib/content-service.ts'));
+    const body = functionSource(service, 'editTopic');
+    expect(body, 'editTopic 必须返回逐字段的 changed').toMatch(
+      /changed:\s*\{\s*title:/,
+    );
+    expect(body, 'changed.title 必须比较库内值，而不是「传没传」').toMatch(
+      /title:\s*newTitle\s*!==\s*topic\.title/,
+    );
+    expect(body, 'changed.content 必须比较库内值').toMatch(
+      /content:\s*newContent\s*!==\s*topic\.content/,
+    );
+  });
 });

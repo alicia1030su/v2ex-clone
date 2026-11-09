@@ -246,16 +246,43 @@ export async function PUT(
     //    那是「内容改了什么」，**不是**「谁在什么时候改的」。
     //    任务书 §十一 要求「重要行为审计」；
     //    `AuditAction.TOPIC_EDIT` 此前**定义了却从未被调用**。
+    //
+    // ⚠️ v0.0.14：文案必须按**事实**判，不能按**请求形状**判。
+    //
+    //    修复前是 `body.title !== undefined ? '编辑标题' : body.content !== undefined ? '编辑正文' : '编辑标签'`。
+    //    而 `TopicEditForm` **总是**提交 `content`（payload 无条件带正文），
+    //    所以用户「只删一个标签」时 `body.content !== undefined` 为真 ⇒
+    //    审计写 **「编辑正文」**，而正文逐字没变（`editTopic` 的空改动分支
+    //    已经证明它没变、也没写库）。也就是说：`edit_history` 干净了，
+    //    `audit_logs` 里仍是一条指向"改正文"的**错因记录** ——
+    //    审计表说假话，与空快照是同一类缺陷。
+    //
+    //    判据改为服务层返回的 `result.changed`（它刚比过库内值，逐字段给出）。
+    //    为什么不让路由自己再查一次库比对：
+    //      ① 多一次往返；② 存在「两次读之间被别人改了」的竞态，
+    //      读到的值未必是本请求写下的值 —— 那是「按请求形状猜」的同类错误，
+    //      只是把猜测挪到了另一个地方。
+    //
+    //    四种落点（**传了 ≠ 变了**，所以必须逐字段判）：
+    //      · 标题真的变了 ⇒ 「编辑标题」（标题与正文都变时优先报标题，与旧行为一致）
+    //      · 只有正文变了 ⇒ 「编辑正文」
+    //      · 内容一个字段都没变、本次只动了标签 ⇒ 「编辑标签」
+    //      · 内容没变、也没带标签字段 ⇒ 「无实际改动」
+    //
+    //    ⚠️ 最后一种在正常流程里不该发生（空请求会被上面 400 拦掉），
+    //    但一旦出现，审计必须如实记录「什么都没改」，而不是随便挑一个像样的文案。
+    const auditReason = result.changed.title
+      ? '编辑标题'
+      : result.changed.content
+        ? '编辑正文'
+        : body.tags !== undefined || body.removeTags !== undefined
+          ? '编辑标签'
+          : '无实际改动';
     await writeAuditLog(user.id, {
       action: AuditAction.TOPIC_EDIT,
       targetType: 'topic',
       targetId: topicId,
-      reason:
-        body.title !== undefined
-          ? '编辑标题'
-          : body.content !== undefined
-            ? '编辑正文'
-            : '编辑标签',
+      reason: auditReason,
     });
 
     return NextResponse.json({ ok: true, topic: result, tags: appliedTags });
