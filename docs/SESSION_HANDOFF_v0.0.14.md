@@ -105,7 +105,19 @@ v0.0.13 **从未发布**（无 Tag / Release / 镜像），其成果将由 v0.0.
 
 ---
 
-## 6. 已知取舍（登记于 `RISK_REGISTER.md`）
+## 6. 环境坑（本机，非产品缺陷）
+
+- **并行会话共用 `55440` / `3010` 会互相干扰**：实测出现过
+  `CREATE DATABASE` 被另一库的 migrate 阻塞（2m53s~4m54s，正常 2.0~2.3s）、
+  `3D000 database does not exist`（他人并发删同名库）、以及 `.next` 被并发
+  `next build` 替换导致的水合超时。收尾轮**不改** `scripts/ci/run-e2e-locally.sh`
+  （CI 基础设施，改动需重验全部 E2E 入口）；后续版本可考虑给脚本加
+  `DB_NAME` / `APP_PORT` 的并行唯一化默认值。
+- **提交前必须 `git diff` 复核**：本轮发生过一次真实提交事故 —— 工程师做负向
+  对照时留在工作区的 `[NEG] 只点不保存` 版本被一并提交，导致 v014 移除用例
+  在 CI 必红并拖红 9 个跨浏览器分片。已由 `cc6843c` 修正。
+
+## 7. 已知取舍（登记于 `RISK_REGISTER.md`）
 
 - ~~纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照~~ —— **已修**：`editTopic()` 空改动提前返回（`tests/v014-edit-noop.spec.ts` 8 条真库覆盖）
 - 移除标签不删 `tags` 本体 ⇒ `/tag/{name}` 在无关联后仍 200 空列表（有意语义）
