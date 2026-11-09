@@ -110,4 +110,45 @@ test.describe('v0.0.14 标签链路', () => {
     const res = await page.request.get(`/tag/${uniqueName('nosuchtag')}`);
     expect(res.status()).toBe(404);
   });
+
+  test('【判别实验】中文标签的百分号编码路径必须能命中（决定是否需要 decodeURIComponent）', async ({ page }) => {
+    // 这条用例是**判别实验**，不是普通的回归断言：
+    // 若 Next.js 的 App Router **已经**解码动态段参数，则 `/tag/%E5%89%8D%E7%AB%AF`
+    // 进来时 name 已是「前端」，页面里再 decode 一次是无害的幂等操作；
+    // 若 Next **不**解码，则 name 是「%E5%89%8D%E7%AB%AF」，页面**必须** decode 才能命中。
+    // 两种情况只能靠实测区分 — 上一版我凭猜测删掉了 decode，必须用数据说话。
+    await clearRateLimits(page);
+    const username = uniqueName('v14_cjk');
+    await register(page, username);
+    const nodeId = await pickNodeId(page);
+
+    const created = await apiPost(page, '/api/topics', {
+      nodeId,
+      title: `v0.0.14 中文标签判别 ${Date.now()}`,
+      content: '用于验证百分号编码路径是否能命中中文标签。',
+      tags: ['前端'],
+    });
+    expect(created.status()).toBe(201);
+
+    const encoded = `/tag/${encodeURIComponent('前端')}`;
+    const res = await page.request.get(encoded);
+    expect(
+      res.status(),
+      `若此断言失败，说明页面缺少 decodeURIComponent（Next 未预解码）：${encoded}`,
+    ).toBe(200);
+
+    await logout(page);
+  });
+
+  test('标签名含 % 时不得 500（二次解码的边界）', async ({ page }) => {
+    // 缺陷：Next.js 的 App Router 已经解码过动态段参数，页面里再
+    // `decodeURIComponent(name)` 就是**二次解码** —— 遇到字面量 `%`
+    // 会抛 `URIError: URI malformed`，整页 500。
+    // 注意：`%25` 是 `%` 的编码，Next 解一次得到 `100%`，若页面再解一次就炸。
+    const res = await page.request.get('/tag/100%25');
+    expect(
+      res.status(),
+      '二次解码会让该路径 500；正确行为是「查不到这个标签」⇒ 404',
+    ).toBe(404);
+  });
 });
