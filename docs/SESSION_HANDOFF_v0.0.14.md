@@ -107,6 +107,6 @@ v0.0.13 **从未发布**（无 Tag / Release / 镜像），其成果将由 v0.0.
 
 ## 6. 已知取舍（登记于 `RISK_REGISTER.md`）
 
-- 纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照 —— v0.0.14 之前既有行为，本轮继承未引入
+- ~~纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照~~ —— **已修**：`editTopic()` 空改动提前返回（`tests/v014-edit-noop.spec.ts` 8 条真库覆盖）
 - 移除标签不删 `tags` 本体 ⇒ `/tag/{name}` 在无关联后仍 200 空列表（有意语义）
 - `/notifications` 与 `/reports`（用户私有视图）仍展示用户自己相关的隐藏节点标题 —— 未改，语义待单独定义
