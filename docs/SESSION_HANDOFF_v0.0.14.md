@@ -136,12 +136,22 @@ v0.0.13 **从未发布**（无 Tag / Release / 镜像），其成果将由 v0.0.
 （实测 27/27，最慢单文件 17s，相对 120s 有 7 倍余量）。
 
 **仍剩 2 处 180s**：`feed-search.spec.ts:125`、`v005-floor-concurrency.spec.ts:98`。
-两处都是**基线资产**、本轮未动；要不要收需要先实测各自 `[db-phase]` 的真实
-`createMs + migrateMs`，属下一轮「全仓 hook timeout 审计」的一项，**不在本轮冻结范围**。
-注意 `v005-floor-concurrency` 的 `beforeAll` 含并发楼层种子准备，可能确实比别的 spec 慢。
+两处都是**基线资产**、本轮未动，属下一轮「全仓 hook timeout 审计」的一项，**不在本轮冻结范围**。
+本轮已实测两处的真实 provision（本机正常态）：
+
+```
+feed-search             drop=248  create=3956  migrate=8352  total=12556
+v005-floor-concurrency  drop=91   create=6276  migrate=8627  total=14994
+（2 文件 / 18 用例全绿，46s；最慢 15~16s，相对 120s 有 7.5 倍余量）
+```
+
+两处 `beforeAll` 都只有「建库 + migrate + 3~4 条单行 insert」，**没有批量造数、没有并发准备**
+（`v005-floor-concurrency` 的 100 并发在 `it` 内）⇒ 180s 与已收回的 300s 同属无依据放宽。
+收的时候注意：`v005-floor-concurrency` 的**测试体**上也有 `120_000` / `60_000` 的显式超时，
+与 hook 是同一个病（无依据放宽），下一轮一并审计；`feed-search` 无 per-test 覆盖，可直接收回默认。
 
 ## 8. 已知取舍（登记于 `RISK_REGISTER.md`）
 
-- ~~纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照~~ —— **已修**：`editTopic()` 空改动提前返回（`tests/v014-edit-noop.spec.ts` 8 条真库覆盖）
+- ~~纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照~~ —— **已修**：`editTopic()` 空改动提前返回（`tests/v014-edit-noop.spec.ts` **9 条**真库覆盖：不计数 / 不留快照 / 不改 editedAt/updatedAt / 未授权 403 / 超时限 403 / 已删除 404 / 真改动仍计数 / 传了标题≠改了标题）
 - 移除标签不删 `tags` 本体 ⇒ `/tag/{name}` 在无关联后仍 200 空列表（有意语义）
 - `/notifications` 与 `/reports`（用户私有视图）仍展示用户自己相关的隐藏节点标题 —— 未改，语义待单独定义
