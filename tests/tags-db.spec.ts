@@ -81,7 +81,7 @@ beforeAll(async () => {
     .values({ name: 'v014node', title: 'V014 Node', categoryId: cat.id })
     .returning({ id: schema.nodes.id });
   nodeId = node.id;
-}, 300_000);
+});
 
 afterAll(async () => {
   await client?.end({ timeout: 5 });
