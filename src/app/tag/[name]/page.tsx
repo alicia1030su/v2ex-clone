@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { and, count, desc, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { safeDecode } from '@/lib/safe-decode';
 import { TOPICS_PER_PAGE } from '@/server/queries';
 import TopicItem from '@/components/TopicItem';
 import PageNav from '@/components/PageNav';
@@ -22,7 +23,16 @@ export default async function TagPage({
   const { name } = await params;
   const { p } = await searchParams;
   const page = Math.max(1, Number(p ?? 1) || 1);
-  const tagName = decodeURIComponent(name);
+  // 标签名必须在这里解码：**实测证明 Next.js 的 App Router 不会预解码
+  // 动态段参数** —— 删掉这行后 `/tag/%E5%89%8D%E7%AB%AF`（中文标签）
+  // 会直接 404。这个结论是跑出来的，不是读文档猜的：
+  // `e2e/v014-tags.spec.ts` 的「中文标签百分号编码路径必须能命中」用例
+  // 在删除解码后立即失败，恢复后通过。
+  //
+  // `safeDecode` 而不是裸 `decodeURIComponent`：标签名理论上可能含字面量 `%`
+  // （`/tag/100%25`），裸 decode 会抛 `URIError: URI malformed` ⇒ 整页 500。
+  // 解码失败时退回原值，让「查不到该标签」走正常的 404。
+  const tagName = safeDecode(name);
 
   const tagRows = await db
     .select()
