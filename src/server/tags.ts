@@ -33,6 +33,13 @@ import { normalizeTags, TAG_MAX_PER_TOPIC } from '@/lib/tag-normalize';
  * @returns 规范化后实际处理过的标签（可直接回给前端展示）
  */
 export async function attachTags(topicId: number, raw: unknown): Promise<string[]> {
+  // 前置校验：非法 topicId 若直接进 SQL，会抛 PostgreSQL 的
+  // `null value in column "topic_id" violates not-null constraint` —— 调用方
+  // 拿到的是一句难懂的数据库错误，而不是「参数不对」。这里显式拒绝。
+  if (!Number.isInteger(topicId) || topicId <= 0) {
+    return [];
+  }
+
   const names = normalizeTags(raw).slice(0, TAG_MAX_PER_TOPIC);
   if (names.length === 0) return [];
 

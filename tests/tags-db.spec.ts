@@ -144,6 +144,15 @@ describe('attachTags：真实落库', () => {
     expect(await loadTagNames(topicId)).toEqual(['a1', 'b1', 'c1']);
   });
 
+  it('非法 topicId 不抛数据库错误（前置校验，不把 SQL 报错泄漏给调用方）', async () => {
+    // 真实触发路径：`Promise.all(insert...)` 返回的是行集数组，误取 `.id`
+    // 会得到 undefined；旧实现直接进 SQL ⇒ NOT NULL 约束错误。
+    expect(await attachTags(undefined as unknown as number, ['react'])).toEqual([]);
+    expect(await attachTags(0, ['react'])).toEqual([]);
+    expect(await attachTags(-1, ['react'])).toEqual([]);
+    expect(await attachTags(1.5, ['react'])).toEqual([]);
+  });
+
   it('非法/空输入不写任何行（调用方据此跳过）', async () => {
     const topicId = await makeTopic('v014 tags empty');
     expect(await attachTags(topicId, '')).toEqual([]);
