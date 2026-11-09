@@ -97,7 +97,8 @@
 | 静态套件（环境隔离护栏后） | 同上 | **15 文件 / 162 用例：162 passed / 0 failed / 0 skipped，退出码 0**（14.50s） | 过程如实记录：首跑 158/160（2 failed，护栏判据写得不精确 —— `启动应用` 命中头部注释、v004 自动发现无端点字面量）⇒ 按真实结构修正；一次复跑因并发资源竞争收到 SIGTERM（14/15 文件已绿、无失败用例）⇒ 单独复跑取最终数字。新增 `v013-e2e-env-parity.spec.ts` 7 条 |
 | 静态套件（QA/架构 P1 修复后） | 同上 | **15 文件 / 191 用例：191 passed / 0 failed / 0 skipped，退出码 0** | 隐私护栏扩到 5 路径逐文件、Feed 严格扫描器 33 条 |
 | 静态套件（统一收起 + ALL 大小写 + replies 收敛后） | 同上 | **15 文件 / 195 用例：195 passed / 0 failed / 0 skipped，退出码 0**（6.82s） | 工程师 A~E 交付：`replies/show.json` join nodes、`isAll` 大小写归一 |
-| 静态套件（V13-17 站内 Feed 收敛后） | 同上 | **15 文件 / 198 用例：198 passed / 0 failed / 0 skipped，退出码 0**（8.93s） | 新增 `src/lib/node-visibility.ts` 纯模块 + 站内 `/api/feed*` 专项断言 + 纯模块「不得真实 import server-only / @/db」行首锚定判据 + `pg_ctl -t 300` 不得放宽就绪判据（V13-18）。**过程如实记录**：两次 1 failed —— ① 护栏用 `not.toContain` 朴素匹配，被纯模块注释里的说明文字误伤；② 护栏正则漏了 shell 的 `[`（`/if\s+"\$start_rc"/` 对不上 `if [ "$start_rc" ]`）。两处均按真实语法修正后复绿，未放宽任何断言 |
+| 静态套件（V13-18 行尾无关修复后） | 同上 | **15 文件 / 200 用例：200 passed / 0 failed / 0 skipped，退出码 0**（8.16s） | 5 个 v013 护栏的 `read()` 归一化 CRLF（`core.autocrlf=true` 下 `git reset` 会让文件变 CRLF，多行断言在 CI 假绿、本机假红）+ 元护栏扫描 `tests/static/**` 强制该约定；负向对照实跑删掉归一化即 exit 1。上一阶段基线为 197 / 198 用例 |
+| 静态套件（V13-17 站内 Feed 收敛后，历史记录） | 同上 | **15 文件 / 198 用例：198 passed / 0 failed / 0 skipped，退出码 0**（8.93s） | 新增 `src/lib/node-visibility.ts` 纯模块 + 站内 `/api/feed*` 专项断言 + 纯模块「不得真实 import server-only / @/db」行首锚定判据 + `pg_ctl -t 300` 不得放宽就绪判据（V13-18）。**过程如实记录**：两次 1 failed —— ① 护栏用 `not.toContain` 朴素匹配，被纯模块注释里的说明文字误伤；② 护栏正则漏了 shell 的 `[`（`/if\s+"\$start_rc"/` 对不上 `if [ "$start_rc" ]`）。两处均按真实语法修正后复绿，未放宽任何断言 |
 | TypeScript | `NODE_OPTIONS="" npx tsc --noEmit` | **通过（退出码 0）** | 改动收齐后多次复跑，均无输出 |
 | 版本载体 | `node scripts/release/sync-version.mjs 0.0.12 --verify` | **20/20 载体通过，退出码 0** | 新增 README 锚点与 `docs/release-facts.json` 载体 |
 | 发行一致性门禁 ⑦ | `bash scripts/release/verify-release-consistency.sh --expect 0.0.12` | **PASS=19 FAIL=0，退出码 0** | 数字新鲜度 + Release Notes 无写死历史数字的双向断言 |
@@ -111,7 +112,7 @@
 | 视觉回归验收 | CI `视觉回归验收` | **success** | — |
 | 安全审计 Host Header | CI `安全审计 Host Header` | **success** | — |
 | Docker / Redis 隔离、SMTP 稳定性、安装验证、原站对照探测 | CI 同名工作流 | **全部 success** | — |
-| **候选构建 + 隔离安装（真 Docker）** | CI `候选安装链路验证` run `42561354071`（headSha `1d576ef`） | **success：28 项通过 / 0 失败**；候选 ZIP SHA256 `7f1144e7…a037`、镜像 tar `b1c98b9c…b5f8`、镜像 ID `f1cb7f15…1426`；docker load → compose → 健康 → 登录 → 发帖 → 回复 → **重启不丢数据**；**未执行任何 `docker push`** | 三种发行状态里只完成前两种 |
+| **候选构建 + 隔离安装（真 Docker）** | CI `候选安装链路验证`（**最终 SHA `8deeb05`**，源码锚点校验通过） | **success：28 项通过 / 0 失败**；候选 ZIP SHA256 `c4601ce7…7c26`、镜像 tar `650de664…edaf`、镜像 ID `sha256:30bca4f9…2120`；docker load → compose → 健康 → 登录 → 发帖 → 回复 → **重启不丢数据**；**未执行任何 `docker push`** | 三种发行状态里只完成前两种 |
 | **双基线原地升级 + 备份恢复** | `verify-upgrade-v0010.sh`（v0.0.4 / v0.0.12 → 0.0.13） | **PASS=20 FAIL=0**：业务指纹 46 项逐字节一致、迁移幂等连跑 3 次、备份 → 恢复库指纹完全一致（含结构指纹） | 基线迁移集取自 `git archive v0.0.12 drizzle`（与 v0.0.9 逐字节相同，已核验） |
 | **候选 ZIP（本机）** | `package-deploy-zip.mjs --version 0.0.13` | 15 文件、`deploy/VERSION=0.0.13`、7 个 .sh 均 `0o100755`、SHA256 `1f83fda9…5d71`，**两次构建 SHA256 完全一致** | 与 CI 的 `…candidate.zip` 是不同产物（前者 deploy-only，后者含镜像 tar） |
 | **公开发布（Tag / Release / GHCR）** | — | **未执行**：`v0.0.13` Tag / Release 不存在；匿名拉取 `:v0.0.12`=200、`:v0.0.13`=**404** | 缺 G10 授权 + R-01 DEFERRED ⇒ **NO-GO** |

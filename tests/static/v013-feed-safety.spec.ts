@@ -46,7 +46,10 @@ import {
  */
 
 const ROOT = path.resolve(__dirname, '../..');
-const read = (p: string) => readFileSync(path.join(ROOT, p), 'utf8');
+// 静态护栏必须**行尾无关**：CI 是 LF，Windows 本机 core.autocrlf=true 时是 CRLF。
+// 不归一化时，`toContain('a\n    ? b')` 这类多行断言会在本机假红、在 CI 假绿。
+const read = (p: string) =>
+  readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 /**
  * 严格 XML well-formedness 扫描器（不依赖 htmlparser2 的宽松容错）。
