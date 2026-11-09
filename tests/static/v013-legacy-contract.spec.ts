@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import {
   LEGACY_NODE_LIST_FIELDS,
@@ -30,7 +30,10 @@ import {
  */
 
 const ROOT = path.resolve(__dirname, '../..');
-const read = (p: string) => readFileSync(path.join(ROOT, p), 'utf8');
+// 静态护栏必须**行尾无关**：CI 是 LF，Windows 本机 core.autocrlf=true 时是 CRLF。
+// 不归一化时，`toContain('a\n    ? b')` 这类多行断言会在本机假红、在 CI 假绿。
+const read = (p: string) =>
+  readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 describe('旧版端点常量（实测值，不得「顺手调整」）', () => {
   it('条数：show 10 / latest 35 / hot 10', () => {
@@ -113,6 +116,35 @@ describe('/api/replies/show.json —— 异常参数一律 200 []', () => {
     expect(route).toContain("parseLegacyId(url.searchParams.getAll('topic_id'))");
     expect(route).toContain('topicId === null\n    ? []');
     expect(route).not.toContain('legacyNotFoundResponse');
+  });
+
+  it('静态护栏的读取必须行尾无关（CRLF 不得造成本机假红 / CI 假绿）', () => {
+    // 真实故障（2026-11-09 本机）：`git reset --hard` 后 13/14 个静态 spec
+    // 变成 CRLF（core.autocrlf=true，仓库无 .gitattributes 约定），
+    // `expect(route).toContain('topicId === null\n    ? []')` 立刻假红；
+    // 而 CI 是 LF ⇒ 同一个断言在 CI 恒绿。这类「只在某一侧成立」的护栏
+    // 比没有护栏更危险，因为它会被人当成噪音忽略掉。
+    const dir = path.join(ROOT, 'tests', 'static');
+    const offenders: string[] = [];
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.spec.ts'))) {
+      const src = readFileSync(path.join(dir, f), 'utf8').replace(/\r\n/g, '\n');
+      const start = src.indexOf('const read =');
+      if (start < 0) continue;
+      // ⚠️ 不能「匹配不上就跳过」—— 那等于给未识别写法发免检通行证（假绿）。
+      //    这里取 `const read =` 之后 300 字符（足够覆盖多行 helper），
+      //    只要这段里没有归一化就判红，不管它写成什么形态。
+      const snippet = src.slice(start, start + 300);
+      if (!/readFileSync\(/.test(snippet)) {
+        offenders.push(`${f}（read helper 未使用 readFileSync，需人工确认）`);
+        continue;
+      }
+      if (!/\.replace\(\/\\r\\n\/g,\s*'\\n'\)/.test(snippet)) {
+        offenders.push(f);
+      }
+    }
+    expect(offenders, `这些静态 spec 的 read() 未归一化行尾：\n${offenders.join('\n')}`).toEqual(
+      [],
+    );
   });
 
   it('分页参数被忽略：路由不读取 page / page_size', () => {
