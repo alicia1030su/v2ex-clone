@@ -38,6 +38,7 @@ if (!target) {
   process.exit(1);
 }
 const MAJOR = `v${target}`;
+const V = target.replace(/\./g, '\\.');
 
 /** 载体定义：文件 → 替换规则 */
 const CARRIERS = [
@@ -153,10 +154,16 @@ const CARRIERS = [
         .replace(/^(#\s+V2EX Clone v)\d+\.\d+\.\d+/m, `$1${target}`)
         .replace(/^(>\s*v)\d+\.\d+\.\d+(\s+为\*\*早期开发预览版)/m, `$1${target}$2`)
         .replace(/(v2ex-clone-v)\d+\.\d+\.\d+(-deploy\.zip)/g, `$1${target}$2`)
-        .replace(/(ghcr\.io\/alicia1030su\/v2ex-clone:)v\d+\.\d+\.\d+/g, `$1${target}`),
+        // QA P2-4 ②：INSTALL.md 三处镜像引用曾写成 `:0.0.12`（**无 v 前缀**），
+        // 而 deploy 其余载体的约定是 `:v0.0.12`。旧 apply 只匹配带 v 形式，
+        // ⇒ 同步后这三处永远停在旧版本，且 verify 也不会发现。
+        // 现在两种写法都归一到带 v 的标准形式。
+        .replace(/(ghcr\.io\/alicia1030su\/v2ex-clone:)v?\d+\.\d+\.\d+/g, `$1v${target}`),
     verify: (s) =>
-      new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s) &&
-      !new RegExp(`ghcr\\.io/alicia1030su/v2ex-clone:v(?!${target.replace(/\./g, '\\.')})`).test(s),
+      new RegExp(`^#\\s+V2EX Clone v${V}`, 'm').test(s) &&
+      !new RegExp(`ghcr\\.io/alicia1030su/v2ex-clone:v(?!${V})`).test(s) &&
+      // 反向断言：不得残留任何「无 v 前缀」的镜像标签（含旧版本）
+      !/ghcr\.io\/alicia1030su\/v2ex-clone:(?!v)\d+\.\d+\.\d+/.test(s),
   },
   {
     file: 'deploy/.env.example',
@@ -202,13 +209,49 @@ const CARRIERS = [
     verify: (s) => new RegExp(`^#\\s+V2EX Clone v${target.replace(/\./g, '\\.')}`, 'm').test(s),
   },
   {
+    /*
+     * ⚠️ v0.0.13（V13-07）：README 的版本载体改为**显式机器锚点**。
+     *
+     * 旧规则有两个问题：
+     *   ① verify 要求字面量 `## 当前版本：vX.Y.Z`，而 v0.0.13 把 README
+     *      重写成「当前实际公开版本 / 当前开发版本」双行表述后，这个标题
+     *      根本不存在 ⇒ 同步脚本必然判红（静态门禁不会发现，因为它在
+     *      **最终 SHA 同步时**才运行）；
+     *   ② apply 里 `(V2EX Clone v)\d+\.\d+\.\d+/g` 是**全局**替换，
+     *      会把版本历史里「V2EX Clone v0.0.9 曾是…」这类历史事实一并改写，
+     *      属于用工具篡改文档语义。
+     *
+     * 现在只认 README 顶部的 `> **版本载体**：\`X.Y.Z\`` 锚点，
+     * 并由 tests/static/v013-docs-authenticity.spec.ts 保证该锚点与
+     * package.json / deploy/VERSION / docs/release-facts.json 一致。
+     */
     file: 'README.md',
-    label: 'README 当前版本',
-    apply: (s) =>
-      s
-        .replace(/(## 当前版本：v)\d+\.\d+\.\d+/, `$1${target}`)
-        .replace(/(V2EX Clone v)\d+\.\d+\.\d+/g, `$1${target}`),
-    verify: (s) => s.includes(`## 当前版本：v${target}`),
+    label: 'README 版本锚点',
+    apply: (s) => s.replace(/(\*\*版本载体\*\*：`)\d+\.\d+\.\d+(`)/, `$1${target}$2`),
+    verify: (s) => new RegExp(`\\*\\*版本载体\\*\\*：\`${V}\``).test(s),
+  },
+  {
+    /*
+     * ⚠️ v0.0.13（V13-07）：**发行门禁 ⑦ 会断言 docs/release-facts.json
+     * 的 version == deploy/VERSION**。此前本脚本不覆盖它，
+     * 于是「同步版本载体」之后 ⑦ 反而会判红 —— 属于载体清单漏项，
+     * 与 V10-17（deploy/ 下 12 个文件漏标）是同一类根因。
+     *
+     * ⚠️ 只改 `version`（载体版本），**刻意不改** `measurementVersion`：
+     * 后者是 unit/e2e 数字的实测归属版本。若两者一起改，就会把
+     * 上一版的实测数字冒充成本版结论。门禁 ⑦ 在二者不同时要求
+     * status=historical-snapshot + README 标历史 + Notes 不写死数字。
+     */
+    file: 'docs/release-facts.json',
+    label: '发布事实版本（单一事实来源）',
+    apply: (s) => s.replace(/("version"\s*:\s*")[^"]+(")/, `$1${target}$2`),
+    verify: (s) => {
+      try {
+        return JSON.parse(s).version === target;
+      } catch {
+        return false;
+      }
+    },
   },
 ];
 

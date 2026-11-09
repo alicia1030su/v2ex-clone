@@ -1,4 +1,5 @@
 import { db } from '@/db';
+import { feedCachedResponse } from '@/lib/feed-cache';
 import {
   buildFeedEntries,
   buildJsonFeed,
@@ -29,12 +30,9 @@ export async function GET(request: Request) {
     items: entries.map(toFeedItem),
   });
 
-  return new Response(json, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/feed+json; charset=utf-8',
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
-      'X-Content-Type-Options': 'nosniff',
-    },
+  return feedCachedResponse(request, json, {
+    'Content-Type': 'application/feed+json; charset=utf-8',
+    'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
+    'X-Content-Type-Options': 'nosniff',
   });
 }

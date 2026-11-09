@@ -104,10 +104,27 @@ const REFUTED_CLAIMS: Array<{ text: string; evidence: string }> = [
   },
 ];
 
-/** 负面标记（`❌` / `⚠️`）出现在图表行里 */
-function negativeRows(): Array<{ line: number; text: string }> {
+/**
+ * 负面标记（`❌` / `⚠️`）出现在**功能声明**表格行里。
+ *
+ * ⚠️ v0.0.13（V13-07）：矩阵新增了「图例」小节，其中
+ * `| ⚠️ 部分实现 | … |`、`| ❌ 确认缺失 | … |` 是**状态定义**，
+ * 不是「某项功能被标为负面」的声明。若不排除，护栏会把定义本身
+ * 当成「没有给理由的负面断言」而误红（这正是 2026-11-09 静态套件
+ * 2 failed 中第一条的来源）。
+ *
+ * 排除范围**只**是 `## 图例` 到下一个 `## ` 之间；其余所有表格行
+ * 仍按原判据严格检查。底部另有负向对照测试证明该判据没有被放宽。
+ */
+function negativeRows(content: string = matrix): Array<{ line: number; text: string }> {
   const rows: Array<{ line: number; text: string }> = [];
-  matrix.split(/\r?\n/).forEach((text, i) => {
+  let inLegend = false;
+  content.split(/\r?\n/).forEach((text, i) => {
+    if (/^##\s/.test(text)) {
+      inLegend = /^##\s+图例/.test(text);
+      return;
+    }
+    if (inLegend) return;
     if (!text.startsWith('|')) return;
     if (text.includes('❌') || text.includes('⚠️')) {
       rows.push({ line: i + 1, text });
@@ -134,6 +151,22 @@ describe('文档与实现一致性（V10-22）', () => {
       offenders,
       `以下负面状态既没给路径也没给原因（等于「我说没实现」却没有可核查依据）：\n${offenders.join('\n')}`,
     ).toEqual([]);
+  });
+
+  it('负向对照：排除图例不等于放宽判据（图例外的裸负面行仍被抓到）', () => {
+    const synthetic = [
+      '## 图例',
+      '',
+      '| ⚠️ 部分实现 | 状态定义 | 状态定义 |',
+      '| ❌ 确认缺失 | 状态定义 | 状态定义 |',
+      '',
+      '## 9. 假想功能',
+      '',
+      '| 功能 A | ⚠️ | 什么都没写 |',
+      '| 功能 B | ✅ | `src/lib/example.ts` |',
+    ].join('\n');
+    const offenders = negativeRows(synthetic);
+    expect(offenders.map((r) => r.text)).toEqual(['| 功能 A | ⚠️ | 什么都没写 |']);
   });
 
   it('矩阵里引用的每个 e2e / src 路径都真实存在', () => {

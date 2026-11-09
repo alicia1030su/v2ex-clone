@@ -488,3 +488,87 @@ X-Content-Type-Options: nosniff
 
 **与原站的一处有意偏离**：原站 `/feed/all.xml` 返回 **200 但 body 长度为 0**
 （任何阅读器都解析失败，视为原站缺陷）。本项目返回合法的全站 50 条 Atom。
+
+**Feed 节点名大小写口径（如实登记）**：`/feed/{node}.xml|json` 的后缀正则带
+`/i`（`src/app/feed/[file]/route.ts`），`src/server/legacy-feed.ts` 查库前
+`toLowerCase()`；`/api/nodes/{name}/feed` 同样先 `toLowerCase()`。
+因此 `/feed/{Node}.xml` 与 `/feed/{node}.xml` 等价、命中均返回 **200**，
+即**大小写不敏感**。**原站该行为无法确认**，本项目不宣称与原站一致，
+属**有意策略**，见兼容矩阵 §3「有意偏离清单」。不存在的节点名仍返回 404，
+与大小写无关；**不写成「404 / 区分大小写」**。
+
+### 14.4 v0.0.13 收尾补齐的 3 个旧版端点
+
+> 完整 15 项兼容性矩阵（含「未实测 / 无法验证」披露）见
+> [`docs/LEGACY_API_MATRIX_v0.0.13.md`](LEGACY_API_MATRIX_v0.0.13.md)。
+> 上一轮 PR #45/#46 的「全量审计」遗漏了 `hot.json` 与 `replies/show.json`，
+> 并把 `nodes/list.json` 的 400 误当成不可用；本轮逐条复核后补齐。
+
+| 端点 | 关键契约 | 缓存 | 状态 |
+|---|---|---|---|
+| `GET /api/topics/hot.json` | 200 数组 **10 条**，`replies` 严格降序；`limit` / `node_name` / `id` **全部忽略** | 120s | ✅ |
+| `GET /api/replies/show.json` | `topic_id`（同名取最后一个）；无参 / 非法 / 不存在 ⇒ **200 `[]`**；`page`/`page_size` 忽略；8 键；`id` 升序 | **60s** | ✅ |
+| `GET /api/nodes/list.json` | `fields`/`sort_by`/`reverse` **三者必填**，缺任一 ⇒ **400 + 极简 HTML**；`fields` 投影，未知字段 ⇒ `null`；`reverse` 实测不生效 | **30s** | ✅ |
+
+`nodes/list.json` 的 Content-Type 为 `application/json;charset=utf-8`（小写），
+缺参 400 的 body 是原站的
+`<html><title>400: Bad Request</title><body>400: Bad Request</body></html>`，
+**刻意不统一成 JSON 错误体**。
+
+**仍确认下线、不实现**：`GET /api/topics.json`、`GET /api/nodes.json`（2026-11-09
+再次实测 404）。原站 API 2.0（`/api/v2/*`，需 PAT）不在本轮范围。
+
+### 14.5 Feed 格式区分与条件请求
+
+旧版路径与站内自建 Feed **格式不同**，不得混为一谈：
+
+| 路径 | 格式 | 版本 | 条数 |
+|---|---|---|---|
+| `/feed/{node}.xml` | Atom 1.0 | `http://www.w3.org/2005/Atom` | 50 |
+| `/feed/{node}.json` | JSON Feed **1.0** | `jsonfeed.org/version/1` | 50 |
+| `/api/feed` | RSS 2.0 | — | 30 |
+| `/api/feed/atom` | Atom 1.0 | — | 30 |
+| `/api/feed/json` | JSON Feed **1.1** | `jsonfeed.org/version/1.1` | 30 |
+| `/api/nodes/{name}/feed` | RSS 2.0（+`?format=json`） | — | 30 |
+
+v0.0.13 起，**全部 6 类 Feed 响应**统一支持 `ETag`（响应体 SHA-256 强校验）
+与 `If-None-Match` ⇒ **304 且 body 为空**；同时处理 `W/` 弱前缀、列表与 `*`。
+实现见 `src/lib/feed-cache.ts`。Atom 正文用 CDATA，已处理 `]]>` 拆分与
+XML 1.0 非法控制字符，保证严格解析器可读。
+
+### 14.6 旧版 API 的公共数据一致性与隐私口径
+
+返回 `member` / `node` 的旧版端点共用 `src/server/legacy-assemblers.ts`
+装配字段，因此同一实体的 `id`、`stars`、`topics`、`founder_id`、
+头像、时间戳在各接口必然一致；`topics/*.json` 与 `replies/show.json`
+共用 `parseLegacyId` 的参数语义与 `loadNodeStars` 的收藏计数。
+
+- 节点：旧版 / Feed 公共端点**统一只暴露 `status='active'` 节点**。
+  `PUBLIC_NODE_CONDITION`（**唯一定义处** `src/lib/node-visibility.ts`，
+  由 `src/server/legacy-assemblers.ts` re-export）是唯一的
+  节点可见性条件，以下路径**全部引用它**，不存在「目录端点过滤、内容端点不过滤」的分层：
+  - 节点目录类：`nodes/all.json`、`nodes/show.json`、`nodes/list.json`
+    经 `loadLegacyNodeRecords()` 查询；
+  - 主题类：`topics/show.json` / `latest.json` / `hot.json` 的主查询
+    （`src/server/legacy-topics.ts` 的 `innerJoin(schema.nodes, ...)`）与
+    `?node_name=` 存在性检查（`src/app/api/topics/show.json/route.ts`）；
+  - 回复类：`replies/show.json`（`src/server/legacy-replies.ts` 已 `innerJoin(schema.nodes, ...)`）；
+  - Feed 类：`/feed/{node}.xml|json`（`src/server/legacy-feed.ts`）与
+    `/api/nodes/{name}/feed`（`src/app/api/nodes/[name]/feed/route.ts`）；
+  - **站内订阅**：`/api/feed`、`/api/feed/atom`、`/api/feed/json` 也经
+    `src/lib/feed-builder.ts` 引用同一条件（否则站内 RSS 会把隐藏节点的主题
+    继续吐给订阅者，而旧版 Feed 已过滤 —— 两边口径必须一致）。
+  `pending` / `hidden` 节点一律不进入公共载荷：目录端点不列出、
+  `?node_name=` 走 404、按 id 查主题返回 `[]`、节点 Feed 走 404 / 空，
+  全站 Feed（旧版与站内）都不含其主题、其主题的回复也不再按 `topic_id` 可取。
+  - 原站对非 active 节点的旧版 API 行为**无法验证**，本项目
+    **不宣称完全兼容**（也不宣称与原站一致）；这是本项目的**有意策略**，
+    见 [`docs/LEGACY_API_MATRIX_v0.0.13.md`](LEGACY_API_MATRIX_v0.0.13.md) §3「有意偏离清单」。
+- Feed 节点名大小写：**大小写不敏感**（详见 §14.3）；**原站该行为无法确认**，
+  本项目不宣称与原站一致，属**有意策略**（§3 有意偏离清单）。
+- 用户：`members/show.json` 只公开 `status='active'`；封禁 / 停用用户的
+  自填资料字段在内嵌 member 中被置空
+- 内容：软删除主题 / 回复、已删除主题的回复，一律不进入公共接口
+- 载荷：不含 email / password_hash / 会话令牌 / 积分余额 / CSRF token
+- ID 恒为整数；时间恒为 Unix 秒整数（Feed 内为 RFC 3339 字符串，按格式区分）
+- 排序均有确定性兜底（`created` 降序 + `id` 降序；hot 为 `replies` 降序 + `id` 降序）

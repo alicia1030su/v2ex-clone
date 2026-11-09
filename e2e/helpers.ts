@@ -231,6 +231,7 @@ export async function login(page: Page, username: string, password: string) {
       page,
       page.getByRole('button', { name: /登录|登 录/ }),
       (r) => r.url().includes('/api/auth/signin') && r.method() === 'POST',
+      WRITE_CLICK_RETRY,
     ),
   ]);
 }
@@ -277,6 +278,7 @@ export async function register(
       page,
       page.getByRole('button', { name: /注册|注 册/ }),
       (r) => r.url().includes('/api/auth/signup') && r.method() === 'POST',
+      WRITE_CLICK_RETRY,
     ),
   ]);
   // 显式返回实际注册的凭据（见上方说明：调用方不要自己拼邮箱）
@@ -502,25 +504,135 @@ export async function gotoResilient(page: Page, url: string, attempts = 3): Prom
  *   await clickUntilRequest(page, page.getByRole('button', { name: '提交' }), reqFilter);
  *   const resp = await respPromise;
  */
+/**
+ * 「写操作但允许**受闸门约束**的重试」的显式开关。
+ *
+ * 用于登录 / 注册 / 找回密码这类 POST：它们不是幂等的，默认只点一次；
+ * 但 CI 上 Firefox 确有「点击丢失」记录（V10-21），因此需要容忍一次。
+ * 开启后 `clickUntilRequest` 仍会在每轮重试前验证
+ * 「零写请求 + 零在途 + 按钮未进 pending」，确保不会重复提交。
+ */
+export const WRITE_CLICK_RETRY: ClickUntilRequestOptions = {
+  allowWriteRetry: true,
+  attempts: 3,
+};
+
+export type ClickUntilRequestOptions = {
+  /** 最多点击轮数（仅对允许重试的操作生效） */
+  attempts?: number;
+  /** 每轮等待请求的探针时长 */
+  probeMs?: number;
+  /**
+   * 该点击是否为**幂等**操作（GET / 导航 / 纯只读）。默认 `false`。
+   *
+   * 默认 false 是刻意的：写操作（发帖、回复、消费积分、注册、重置密码…）
+   * 绝不能因为「探针没看见请求」就再点一次 —— 那会造成重复提交。
+   */
+  idempotent?: boolean;
+  /**
+   * 非幂等写操作**确需**容忍浏览器级点击丢失时必须显式开启。
+   * 开启后仍受下面三道闸门约束，任一道不满足都不会再点第二次。
+   */
+  allowWriteRetry?: boolean;
+  /**
+   * 「有操作正在处理」的更宽判据。默认：任何非 GET 请求。
+   * 用于捕捉窄探针漏检的请求，避免把「请求其实已发出」误判为点击丢失。
+   */
+  activityPredicate?: (r: Request) => boolean;
+};
+
+/** 按钮/页面是否已进入处理中（pending 态）——决定能否安全再点一次 */
+async function operationInProgress(locator: Locator): Promise<boolean> {
+  try {
+    // disabled：最常见的 React pending 态（SignInForm / 重置表单都用它）
+    if (await locator.isDisabled()) return true;
+    const busy = await locator.getAttribute('aria-busy');
+    if (busy === 'true') return true;
+    const text = (await locator.textContent()) ?? '';
+    return /中…|\.\.\.|处理中|提交中|登录中|注册中|发送中/.test(text);
+  } catch {
+    // locator 已脱离 DOM（例如页面已跳转）—— 说明操作已经发生
+    return true;
+  }
+}
+
+/**
+ * v0.0.13（V13-05）新增的三道闸门，缺一不可：
+ *
+ *  ① **先注册监听**：`page.on('request')` 的宽监听必须在第一次点击之前注册，
+ *     与窄探针一起覆盖「请求已发出但探针谓词太窄」的情形；
+ *  ② **零请求**：宽监听看到任何写请求 ⇒ 绝不再点；
+ *  ③ **零处理中**：仍有在途请求，或按钮进入 disabled/pending 态 ⇒ 绝不再点。
+ *
+ * 对非幂等写操作默认 `attempts = 1`（只点一次）；只有显式
+ * `allowWriteRetry: true` 才允许最多 3 轮，且每轮重试前都要重新过三道闸门。
+ * 全部轮次都丢失时，写操作会**显式抛错**而不是安静返回 ——
+ * 静默吞掉一次丢失的写点击，比让调用方的响应等待超时更难排查。
+ */
 export async function clickUntilRequest(
   page: Page,
   locator: Locator,
   requestPredicate: (r: Request) => boolean,
-  opts: { attempts?: number; probeMs?: number } = {},
+  opts: ClickUntilRequestOptions = {},
 ): Promise<void> {
-  const attempts = opts.attempts ?? 3;
+  const idempotent = opts.idempotent ?? false;
+  const allowWriteRetry = opts.allowWriteRetry ?? false;
+  const retryAllowed = idempotent || allowWriteRetry;
+  const attempts = retryAllowed ? (opts.attempts ?? 3) : 1;
   const probeMs = opts.probeMs ?? 3_000;
-  for (let i = 1; i <= attempts; i++) {
-    // 先注册探针再点击（理由见上方注释：请求与点击同 task 发出）
-    const probe = page
-      .waitForRequest(requestPredicate, { timeout: probeMs })
-      .then(
+  const activityPredicate =
+    opts.activityPredicate ?? ((r: Request) => r.method() !== 'GET');
+
+  // ① 宽监听**先于**任何点击注册；同时跟踪在途请求
+  let observedActivity = 0;
+  const inFlight = new Set<Request>();
+  const onRequest = (r: Request) => {
+    if (!activityPredicate(r)) return;
+    observedActivity += 1;
+    inFlight.add(r);
+  };
+  const onSettled = (r: Request) => inFlight.delete(r);
+  const hasEvents = typeof (page as Page).on === 'function'
+    && typeof (page as Page).off === 'function';
+  if (hasEvents) {
+    page.on('request', onRequest);
+    page.on('requestfinished', onSettled);
+    page.on('requestfailed', onSettled);
+  }
+
+  try {
+    for (let i = 1; i <= attempts; i++) {
+      // 每轮都**先注册探针**再点击（请求与点击同 task 发出）
+      const probe = page.waitForRequest(requestPredicate, { timeout: probeMs }).then(
         () => true,
         () => false,
       );
-    await locator.click();
-    if (await probe) return;
-    // 点击丢失：下一轮用重新解析的 locator 再试
+      await locator.click();
+      if (await probe) return;
+
+      // ② / ③ 重试前的双闸门：只要可能已有操作在处理，就绝不再点
+      if (observedActivity > 0 || inFlight.size > 0 || (await operationInProgress(locator))) {
+        return; // 交还调用方既有的响应等待（请求其实在飞）
+      }
+      if (!retryAllowed) {
+        throw new Error(
+          'clickUntilRequest: 写操作点击后未观察到请求；为防止重复提交，已拒绝重试（allowWriteRetry=false）',
+        );
+      }
+      // 三道闸门全过：确认「零请求 + 零处理中」后才允许下一轮
+    }
+
+    if (!idempotent) {
+      throw new Error(
+        `clickUntilRequest: 写操作连续 ${attempts} 轮点击均未观察到请求；已停止重试以避免重复提交`,
+      );
+    }
+  } finally {
+    if (hasEvents) {
+      page.off('request', onRequest);
+      page.off('requestfinished', onSettled);
+      page.off('requestfailed', onSettled);
+    }
   }
 }
 

@@ -144,6 +144,53 @@ do_init() {
   log "initdb 完成：$PGDATA"
 }
 
+# ── 陈旧 postmaster.pid 清理（v0.0.13 / V13-10）───────────────────────
+#
+# 真实故障（2026-11-09 全量 E2E 复跑实测）：
+#   上一次启动被 SIGTERM / 超时打断，进程已死但 pid 文件留在 "starting" 状态。
+#   `pg_ctl -w start` 于是报 "another server might be running; trying to start
+#   server anyway" 并等到超时 ⇒ 整个 E2E 前置阶段假死，后续建库失败。
+#
+# 安全边界（**全部**满足才动手，且只删这一个锁文件，绝不碰数据文件）：
+#   1. PGDATA 已通过 assert_safe_pgdata（排除 data-v003 等证据库）；
+#   2. pg_isready 不通（实例确实没在跑）；
+#   3. 端口无监听（check_port_free 已保证，且不会误杀陌生进程）；
+#   4. pid 文件里的 PID 在本机查不到存活进程。
+# 若 PID 仍存活 ⇒ 拒绝清理并报错，绝不盲删活实例的锁文件。
+clear_stale_pid() {
+  local pidfile="$PGDATA/postmaster.pid"
+  [ -f "$pidfile" ] || return 0
+  local owner_pid
+  owner_pid="$(head -1 "$pidfile" | tr -d '\r\n[:space:]')"
+  case "$owner_pid" in
+    ''|*[!0-9]*)
+      err "postmaster.pid 首行不是合法 PID：'$owner_pid' —— 拒绝自动处理"
+      return 1
+      ;;
+  esac
+
+  local alive=0
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*|Windows_NT)
+      if tasklist /FI "PID eq ${owner_pid}" 2>/dev/null | grep -qw "${owner_pid}"; then
+        alive=1
+      fi
+      ;;
+    *)
+      if kill -0 "$owner_pid" 2>/dev/null; then alive=1; fi
+      ;;
+  esac
+
+  if [ "$alive" -eq 1 ]; then
+    err "postmaster.pid 里的 PID ${owner_pid} 仍存活 —— 拒绝清理锁文件"
+    err "  请先用 '$0 status' / '$0 stop' 处理；盲删活实例 pid 会造成数据损坏"
+    return 1
+  fi
+
+  log "检测到陈旧 postmaster.pid（PID=${owner_pid} 已不存在），仅删除该锁文件后重启"
+  rm -f "$pidfile" || { err "无法删除 $pidfile"; return 1; }
+}
+
 do_start() {
   assert_safe_pgdata
 
@@ -155,9 +202,32 @@ do_start() {
   [ -f "$PGDATA/PG_VERSION" ] || { log "实例未初始化，先执行 initdb"; do_init; }
 
   check_port_free
+  clear_stale_pid || return 1
 
   log "启动实例：$HOST:$PORT（数据目录 $PGDATA）"
-  "$PGBIN/pg_ctl.exe" -D "$PGDATA" -l "$LOG" -o "-p $PORT" -w start || exit 1
+  # ── `-t 300`：把 pg_ctl 的等待上限从默认 60s 抬高（v0.0.13 / V13-18）──────
+  #
+  # 实测（2026-11-09 11:02，日志 `pg-test-v004.log`）：上一轮 E2E 被 SIGTERM
+  # 打断后数据目录处于「非正常关闭」，下次启动要先做崩溃恢复 + 全目录 fsync：
+  #   syncing data directory (fsync), elapsed time: 10s / 20s / ... / 60s ...
+  # 累计超过 60s，于是 `pg_ctl -w start` 报 `server did not start in time`
+  # 并以 1 退出 —— 但服务其实**正在正常恢复**，几秒后就 ready（manual log
+  # `数据库系统已就绪`）。默认上限把「慢启动」误判成「启动失败」。
+  #
+  # 这里只抬高**等待时间**，不放宽任何就绪判据：超时后仍必须
+  # `pg_isready` + 真实 SQL `SELECT 1` 通过才算成功，否则照旧失败退出。
+  local start_rc=0
+  "$PGBIN/pg_ctl.exe" -D "$PGDATA" -l "$LOG" -o "-p $PORT" -t 300 -w start || start_rc=$?
+  if [ "$start_rc" -ne 0 ]; then
+    # 超时不等于失败：再给一次连接层复核，避免把恢复中的实例判死
+    if "$PGBIN/pg_isready.exe" -h "$HOST" -p "$PORT" -U "$PGUSER" -q 2>/dev/null; then
+      log "pg_ctl 等待超时（exit=$start_rc），但实例已可连接 ⇒ 按成功处理"
+    else
+      err "实例启动失败（pg_ctl exit=$start_rc），日志尾部："
+      tail -20 "$LOG" 2>/dev/null || true
+      exit "$start_rc"
+    fi
+  fi
   "$PGBIN/pg_isready.exe" -h "$HOST" -p "$PORT" -U "$PGUSER" || exit 1
 
   # 判据 A：日志静态检查（recovery / fsync 积压痕迹）
@@ -272,7 +342,7 @@ do_daemon() {
   while true; do
     if ! "$PGBIN/pg_ctl.exe" -D "$PGDATA" status >/dev/null 2>&1; then
       log "PG 已停止，重新拉起"
-      "$PGBIN/pg_ctl.exe" -D "$PGDATA" -l "$LOG" -o "-p $PORT" -w start >/dev/null 2>&1
+      "$PGBIN/pg_ctl.exe" -D "$PGDATA" -l "$LOG" -o "-p $PORT" -t 300 -w start >/dev/null 2>&1
     fi
     sleep 10
   done

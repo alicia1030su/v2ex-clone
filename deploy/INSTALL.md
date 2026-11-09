@@ -142,7 +142,7 @@ docker compose ps
 
 ```
 NAME           IMAGE                                        STATUS
-v2ex-app       ghcr.io/alicia1030su/v2ex-clone:0.0.12       Up (healthy)
+v2ex-app       ghcr.io/alicia1030su/v2ex-clone:v0.0.12       Up (healthy)
 v2ex-postgres  postgres:17-alpine                           Up (healthy)
 v2ex-redis     redis:7-alpine                               Up (healthy)
 ```
@@ -189,7 +189,7 @@ docker compose exec redis redis-cli -a "$(grep '^REDIS_PASSWORD=' .env | cut -d=
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `V2EX_IMAGE` | `ghcr.io/alicia1030su/v2ex-clone:0.0.12` | 应用镜像。改成本地镜像名可离线安装 |
+| `V2EX_IMAGE` | `ghcr.io/alicia1030su/v2ex-clone:v0.0.12` | 应用镜像。改成本地镜像名可离线安装 |
 | `COMPOSE_PROJECT_NAME` | `v2ex` | Compose 项目名。固定后数据卷名稳定，备份/恢复脚本能精确定位 |
 | `APP_PORT` | `3000` | 宿主机映射端口。改端口**必须**同步改下面两项 |
 | `APP_URL` | `http://localhost:3000` | 对外访问地址。会话 Cookie 的 `secure` 标记依赖正确的主机名 |
@@ -404,7 +404,7 @@ docker system prune -a   # 清理无用镜像与构建缓存（**不影响数据
   > ```bash
   > ./backup.sh                       # 1. 先备份（务必）
   > # 2. 编辑 .env，把镜像 tag 改成目标版本，例如：
-  > #    V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:0.0.12
+  > #    V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.12
   > ./update.sh                       # 3. 再升级
   > ```
   >

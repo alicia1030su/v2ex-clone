@@ -7,6 +7,7 @@ import {
   clearRateLimits,
   getCsrfToken,
   clickUntilRequest,
+  WRITE_CLICK_RETRY,
 } from './helpers';
 import { startSmtpFixture, type SmtpFixture } from './smtp-fixture';
 
@@ -157,6 +158,7 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
     page,
     page.getByRole('button', { name: '发送重置链接' }),
     (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const knownRes = await knownResponse;
   const knownBody = await knownRes.text();
@@ -176,6 +178,7 @@ test('邮箱枚举防护：已注册与未注册邮箱的响应**完全一致**'
     page,
     page.getByRole('button', { name: '发送重置链接' }),
     (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const unknownRes = await unknownResponse;
   const unknownBody = await unknownRes.text();
@@ -286,6 +289,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     page,
     page.getByRole('button', { name: '发送重置链接' }),
     (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const resp = await respPromise;
   expect(resp.status()).toBe(200);
@@ -325,6 +329,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     page,
     page.getByRole('button', { name: '重置密码' }),
     (r) => r.url().includes('/api/auth/reset-password') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const submitRes = await submitPromise;
   expect(submitRes.status()).toBe(200);
@@ -394,6 +399,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     page,
     page.getByRole('button', { name: /登录|登 录|提交/ }),
     (r) => r.url().includes('/api/auth/signin') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const oldRes = await oldLogin;
   expect(oldRes.status()).toBe(401);
@@ -410,6 +416,7 @@ test('全链路：申请重置 → 邮件进箱 → 链接有效 → 改密 → 
     page,
     page.getByRole('button', { name: /登录|登 录|提交/ }),
     (r) => r.url().includes('/api/auth/signin') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const newRes = await newLogin;
   expect(newRes.status()).toBe(200);
@@ -457,6 +464,7 @@ test('服务中断：SMTP 停止后申请重置仍返回统一响应，且无邮
     page,
     page.getByRole('button', { name: '发送重置链接' }),
     (r) => r.url().includes('/api/auth/forgot-password') && r.method() === 'POST',
+    WRITE_CLICK_RETRY,
   );
   const resp = await respPromise;
 

@@ -1,4 +1,11 @@
-# API 规格（API_SPEC）
+# API 规格（API_SPEC）—— ⚠️ 历史快照
+
+> **⚠️ 本文件是 v0.0.4 时期的历史快照，不是当前权威 API 规格。**
+> 权威版本：[`docs/API_SPEC.md`](docs/API_SPEC.md)
+> （含 v0.0.13 补齐的 3 个旧版端点、Feed 格式区分、ETag/304 与
+> 公共数据一致性口径；完整兼容矩阵见 `docs/LEGACY_API_MATRIX_v0.0.13.md`）。
+> 本文件保留仅供追溯历史口径，**不得**作为当前版本的接口依据。
+> 静态护栏 `tests/static/v013-docs-authenticity.spec.ts` 会校验此声明不被删除。
 
 > 本表由**真实路由源码**提取生成 —— 路径、HTTP 方法、鉴权要求与 CSRF 要求
 > 均以 `src/app/api/**/route.ts` 的实际实现为准。

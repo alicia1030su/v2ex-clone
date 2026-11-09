@@ -387,16 +387,30 @@ EOF
     bad "README 未出现 E2E 数 ${F_E2E}（与 release-facts.json 不一致）"
   fi
 
-  # Release Notes 模板里的数字必须与事实一致
+  # v0.0.13（QA P1-2）：Release Notes **不得把上一版实测数字冒充本版本结论**。
+  #
+  # 事故根因：模板里曾硬编码 444/444（36 文件）与 220/220（20 文件），那是
+  # v0.0.12 的一次实测；v0.0.13 发布时会原样写进公开说明。更隐蔽的一层是
+  # sync-version.mjs 会把 release-facts.json 的 version 同步到 0.0.13，
+  # 而其中的 unit/e2e 数字仍是 0.0.12 的 ⇒ 「标着新版本、写着旧实测」。
+  # 旧门禁只检查「三者一致」，一致地过期也会全绿 ⇒ 假合格证。
+  #
+  # 新判据：① Notes 稳定性表不写死具体通过数，改为指向本次 run 的真实报告；
+  #         ② release-facts.json 若 version == 本版本，则必须带
+  #            measurementVersion 且等于本版本（证明数字是本版本实测的）。
   if [ -f .github/workflows/release.yml ]; then
-    NOTES_UNIT="$(grep -oE '\| 单元测试 \| ✅ 通过 \| [0-9]+/[0-9]+' .github/workflows/release.yml | grep -oE '[0-9]+/[0-9]+' | head -1)"
-    NOTES_E2E="$(grep -oE '\| E2E \| ✅ 通过 \| [0-9]+/[0-9]+' .github/workflows/release.yml | grep -oE '[0-9]+/[0-9]+' | head -1)"
-    [ "$NOTES_UNIT" = "${F_UNIT}/${F_UNIT}" ] \
-      && ok "Release Notes 的单元测试数 = ${NOTES_UNIT}" \
-      || bad "Release Notes 的单元测试数 = '${NOTES_UNIT}'，期望 ${F_UNIT}/${F_UNIT}"
-    [ "$NOTES_E2E" = "${F_E2E}/${F_E2E}" ] \
-      && ok "Release Notes 的 E2E 数 = ${NOTES_E2E}" \
-      || bad "Release Notes 的 E2E 数 = '${NOTES_E2E}'，期望 ${F_E2E}/${F_E2E}"
+    NOTES_TPL="$(sed -n '/### 稳定性验证的真实状态/,/1 小时持续运行/p' .github/workflows/release.yml)"
+    STALE_COUNTS="$(printf '%s\n' "$NOTES_TPL" | grep -oE '[0-9]{2,}/[0-9]{2,}' | head -5)"
+    if [ -n "$STALE_COUNTS" ]; then
+      bad "Release Notes 稳定性表仍写死历史通过数：${STALE_COUNTS}（应指向本次 run 的真实报告）"
+    else
+      ok "Release Notes 稳定性表不含写死的历史通过数"
+    fi
+    if ! printf '%s\n' "$NOTES_TPL" | grep -q '本次发布流水线'; then
+      bad "Release Notes 稳定性表未声明结果来自本次发布流水线"
+    else
+      ok "Release Notes 稳定性表声明结果来自本次发布流水线"
+    fi
 
     # 反向断言：不得残留历史事故里的「60 项数据指纹」（V9-11）
     if grep -q '60 项数据指纹' .github/workflows/release.yml; then
@@ -404,6 +418,39 @@ EOF
     else
       ok "Release Notes 无 V9-11 的错误口径（60 项）"
     fi
+  fi
+
+  # 数字新鲜度：`version` 是**载体版本**（sync-version.mjs 会同步），
+  # `measurementVersion` 是**实测数字归属的版本**（同步脚本刻意不改）。
+  # 二者不同 ⇒ 数字属于上一版，必须被明确标为历史快照，且对外说明不得引用。
+  if [ "$F_VER" = "$EXPECT" ]; then
+    F_MEAS_VER="$(node -e "const f=require('./${FACTS}'); console.log(f.measurementVersion ?? '')")"
+    F_STATUS="$(node -e "const f=require('./${FACTS}'); console.log(f.status ?? '')")"
+    if [ -z "$F_MEAS_VER" ]; then
+      bad "release-facts.json 缺 measurementVersion —— 无法证明 ${F_UNIT}/${F_E2E} 的归属（禁止把上一版数字标成本版实测）"
+    elif [ "$F_MEAS_VER" = "$EXPECT" ]; then
+      ok "release-facts.json 的实测数字归属 ${F_MEAS_VER}，与本版本一致"
+    else
+      info "release-facts.json：载体版本 ${F_VER}，但实测数字归属 ${F_MEAS_VER}（上一版快照）"
+      # 历史快照必须三重披露：① 显式 status ② README 标注历史 ③ Notes 不写死数字
+      if [ "$F_STATUS" != "historical-snapshot" ]; then
+        bad "数字归属 ${F_MEAS_VER} ≠ 载体 ${F_VER}，但 status 未标为 historical-snapshot"
+      else
+        ok "release-facts.json 已显式标为 historical-snapshot"
+      fi
+      if grep -q '历史实测（非当前结论）\|历史实测.*非当前\|非当前结论' README.md; then
+        ok "README 测试数字已标注为历史实测（非当前结论）"
+      else
+        bad "README 未把 ${F_UNIT}/${F_E2E} 标注为历史实测"
+      fi
+      if ! grep -qE '\| 单元测试 \| ✅ 通过 \| [0-9]+/[0-9]+' .github/workflows/release.yml; then
+        ok "Release Notes 未写死历史通过数（改为指向本次 run 报告）"
+      else
+        bad "Release Notes 仍写死具体通过数，而数字实际归属 ${F_MEAS_VER}"
+      fi
+    fi
+  else
+    ok "release-facts.json 仍是上一版本快照（version=${F_VER}），本轮不作为当前结论"
   fi
 
   # 升级报告里的业务指纹项数必须与事实一致

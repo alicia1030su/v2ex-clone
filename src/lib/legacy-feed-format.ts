@@ -60,14 +60,43 @@ export type LegacyFeedChannel = {
   entries: LegacyFeedEntry[];
 };
 
+/**
+ * 去掉 XML 1.0 不允许的字符。
+ *
+ * XML 1.0 合法范围：#x9 / #xA / #xD / #x20-#xD7FF / #xE000-#xFFFD /
+ * #x10000-#x10FFFF。用户正文里可能夹带控制字符（粘贴自终端等），
+ * 直接写进 XML 会让**任何**严格解析器报 "invalid character"，
+ * 表现为阅读器订阅失败。
+ */
+export function stripInvalidXmlChars(value: string): string {
+  // XML 1.0 合法字符：#x9 / #xA / #xD / #x20-#xD7FF / #xE000-#xFFFD / #x10000-#x10FFFF。
+  // 除了控制字符与 \uFFFE/\uFFFF，还要剥离**孤立代理项**（lone surrogate）：
+  // 它们不是合法的 Unicode 标量值，写入 UTF-8 会变成替换字符 U+FFFD，
+  // 严格 XML 解析器会判为非法。成对的高/低代理项（合法 astral 字符）必须保留。
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+}
+
 /** 转义 XML 文本节点 / 属性值 */
 export function escapeXmlText(value: string): string {
-  return value
+  return stripInvalidXmlChars(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * 把已清洗的 HTML 装进 CDATA 段。
+ *
+ * ⚠️ `]]>` 会提前闭合 CDATA：若正文里出现这个序列（例如代码块里写了
+ * `<![CDATA[…]]>` 的示例），生成的 XML 立刻变成非法文档，阅读器订阅失败。
+ * 标准做法是把它拆成两段 CDATA：`]]]]><![CDATA[>`。
+ * 控制字符同样要先剥离。
+ */
+export function cdata(value: string): string {
+  return stripInvalidXmlChars(value).replace(/]]>/g, ']]]]><![CDATA[>');
 }
 
 /** Date → 原站 Atom 的 `2026-11-08T14:39:45Z`（秒级，无毫秒） */
@@ -124,9 +153,10 @@ export function buildLegacyAtom(channel: LegacyFeedChannel): string {
     parts.push(`\t\t<name>${escapeXmlText(entry.authorName)}</name>`);
     parts.push(`\t\t<uri>${escapeXmlText(entry.authorUrl)}</uri>`);
     parts.push('\t</author>');
-    // 正文用 CDATA —— 原站是富文本 HTML；这里同样是已清洗的 HTML
+    // 正文用 CDATA —— 原站是富文本 HTML；这里同样是已清洗的 HTML。
+    // cdata() 会处理 `]]>` 与 XML 非法控制字符，保证严格解析器可读。
     parts.push(
-      `\t<content type="html" xml:base="${escapeXmlText(channel.homePageUrl)}"><![CDATA[${entry.contentHtml}]]></content>`,
+      `\t<content type="html" xml:base="${escapeXmlText(channel.homePageUrl)}"><![CDATA[${cdata(entry.contentHtml)}]]></content>`,
     );
     parts.push('</entry>');
   }

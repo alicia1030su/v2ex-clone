@@ -10,9 +10,17 @@
     "全部读这个文件。任何一处与它不一致，门禁判红。",
     "",
     "更新规则：只在本版本**实测完成**后写入真实数字，并附 evidence（产物路径）。",
-    "禁止预估、禁止照抄上一版。"
+    "禁止预估、禁止照抄上一版。",
+    "",
+    "⚠️ v0.0.13：`version` 是**载体版本**（sync-version.mjs 会同步到目标版本），",
+    "`measurementVersion` 是**数字的实测归属版本**（刻意不随载体同步）。",
+    "二者不同时，status 必须为 historical-snapshot，且 README 标注为历史实测、",
+    "Release Notes 不得写死这些数字 —— 由门禁 ⑦ 三重校验，防止「标着新版本、",
+    "写着旧实测」的假合格证。当前 444/220 等数字归属 v0.0.12，不是 v0.0.13 结论。"
   ],
   "version": "0.0.12",
+  "measurementVersion": "0.0.12",
+  "status": "historical-snapshot",
   "measuredAt": "2026-11-08",
   "unit": {
     "files": 36,

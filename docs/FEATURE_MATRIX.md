@@ -1,7 +1,8 @@
 # FEATURE_MATRIX — 功能矩阵与验证状态
 
 > 验证方式：每个功能都通过**实际运行**验证（HTTP 响应码 / 数据库查询 / Playwright 交互）。
-> 不接受"未验证的成功声明"——未验证项明确标注为 `⏳` 或 `❌`。
+> 不接受「未验证的成功声明」——状态一律按下方**六类图例**标注，
+> 不得为了「全绿」把未验证项写成已验证。
 >
 > ⚠️ **2026-11-08 全面复核（V10-22）**：本文件自 v0.0.3 写就后**长期未同步**，
 > 累计 **12 处**已实现的功能仍被标成 `❌ 未实现` / `⚠️ 仅数据模型`（详见
@@ -9,12 +10,30 @@
 > 并新增「旧版 JSON API」一行。复核方式：对每一条负面断言，用
 > `grep -r` 在 `src/` 与 `e2e/` 里找实现与用例；找不到才保留负面状态。
 
-## 图例
+## 图例（v0.0.13 重定义 —— 不得为「全绿」放宽定义）
 
-- ✅ 已实现且已验证
-- ⚠️ 已实现但有降级（注明原因）
-- ❌ 未实现（注明原因）
-- ⏳ 实现中 / 待验证
+| 状态 | 含义 | 允许标为此状态的最低条件 |
+|---|---|---|
+| ✅ 已实现且已验证 | 代码存在，**且有当前版本可复现的自动化证据** | 引用的 spec 文件存在且在本版本 CI / 本机实跑通过 |
+| 🟡 已实现但未验证 | 代码存在，但**当前版本**没有跑过对应验收 | 必须写明「缺哪一轮证据」 |
+| ⚠️ 部分实现 | 核心路径可用，但有明确未覆盖部分 | 备注里列出未覆盖项 |
+| 🔶 独立实现 | 与原站不同，采用本项目自定义规则 | 必须写明「原站行为未实测 / 无法确认」 |
+| ❌ 确认缺失 | 明确没有实现 | 必须附可核查路径或原因 |
+| ◻️ 原站行为无法确认 | 原站已下线 / 禁止访问 / 无法验证 | **不得**据此推断「已兼容」或「不需要实现」 |
+
+> **范围声明（重要）**：本矩阵**只代表其列出的范围**，
+> **不代表**覆盖 V2EX 原站的全部功能，也不代表覆盖 API 2.0、
+> 未列出的历史端点或未来行为。旧版 API 的独立核对见
+> `docs/LEGACY_API_MATRIX_v0.0.13.md`。
+>
+> **证据口径**：所有 v0.0.3 ~ v0.0.12 的测试数字都是**历史记录**，
+> 只作为当时状态的存档保留；**v0.0.13 的当前验收必须引用当前证据**
+> （`docs/SESSION_HANDOFF_v0.0.13.md` 的「当前测试基线」小节 +
+> `docs/release-facts.json` + 本版本 CI run）。不得把历史数字写成当前结论。
+>
+> **状态治理**：`tests/static/v013-docs-authenticity.spec.ts` 会校验
+> 本文件的图例、范围声明、当前证据段与 v0.0.13 新增行的证据路径；
+> 缺一项即判红。
 
 ## 1. 账号体系
 
@@ -184,27 +203,65 @@
 > `pro` 恒 0、`twitter/github/psn/btc` 恒 null、头像为确定性占位 data URI、
 > 软删除主题对公众不可见。
 
-## 13.1 旧版 API 兼容面（v0.0.13）
+## 13.1 旧版 API 兼容面（v0.0.13 收尾核对）
 
-原站 `/api/*` 下仍有 5 个端点返回 200，v0.0.13 全部补齐（契约逐条实测）：
+> ⚠️ 上一版写「原站 `/api/*` 下仍有 5 个端点返回 200」—— **该结论不完整**。
+> 2026-11-09 复核又发现 2 个仍返回 200 的端点，并确认
+> `nodes/list.json` 的 400 是缺参而非下线。逐项实测、偏离与未验证项见
+> `docs/LEGACY_API_MATRIX_v0.0.13.md`。**本表不宣称覆盖原站全部 API。**
 
-| 端点 | 载荷 | 条数 | 状态 |
-|---|---|---|---|
-| `GET /api/topics/show.json` | 数组（13 键） | 1 / 10 / 10（按 id / username / node_name） | ✅ |
-| `GET /api/topics/latest.json` | 数组，同形状 | 35 | ✅ |
-| `GET /api/members/show.json` | 单对象（+`status:"found"`） | — | ✅ |
-| `GET /api/nodes/show.json` | 单对象（16 键） | — | ✅ |
-| `GET /api/nodes/all.json` | 数组 | 库内 active 节点 | ✅ |
-| `GET /feed/{node}.xml` | Atom 1.0 | 50 | ✅ |
-| `GET /feed/{node}.json` | JSON Feed 1.0 | 50 | ✅ |
+| 端点 | 载荷 | 条数 | 当前证据（**本版本真实验收**） | 状态 |
+|---|---|---|---|---|
+| `GET /api/topics/show.json` | 数组（13 键） | 1 / 10 / 10 | `e2e/v010-legacy-api.spec.ts`、`tests/static/v010-legacy-api-shape.spec.ts` | ✅ 已实现且已验证 |
+| `GET /api/topics/latest.json` | 数组，同形状 | 35 | `e2e/v010-legacy-api.spec.ts`、`tests/static/v010-legacy-api-shape.spec.ts` | ✅ 已实现且已验证 |
+| `GET /api/topics/hot.json` | 数组，replies 降序 | 10 | `e2e/v013-legacy-api.spec.ts`、`tests/static/v013-legacy-contract.spec.ts` | ✅ 已实现且已验证（V13-02 新增） |
+| `GET /api/replies/show.json` | 数组（8 键） | 主题全部回复 | `e2e/v013-legacy-api.spec.ts`、`tests/static/v013-legacy-contract.spec.ts` | ✅ 已实现且已验证（V13-03 新增） |
+| `GET /api/members/show.json` | 单对象（+`status:"found"`） | — | `e2e/v013-legacy-api.spec.ts`、`tests/static/v013-legacy-privacy.spec.ts` | ✅ 已实现且已验证 |
+| `GET /api/nodes/show.json` | 单对象（16 键） | — | `e2e/v013-legacy-api.spec.ts`、`tests/static/v013-legacy-privacy.spec.ts` | ✅ 已实现且已验证 |
+| `GET /api/nodes/all.json` | 数组 | 库内 active 节点 | `e2e/v013-legacy-api.spec.ts` | ✅ 已实现且已验证 |
+| `GET /api/nodes/list.json` | 投影数组（缺参 400） | 库内 active 节点 | `e2e/v013-legacy-api.spec.ts`、`tests/static/v013-legacy-contract.spec.ts` | ✅ 已实现且已验证（V13-04 新增） |
+| `GET /feed/{node}.xml` | Atom 1.0 | 50 | `e2e/v013-feed-reader.spec.ts`、`tests/static/v013-feed-safety.spec.ts` | ✅ 已实现且已验证 |
+| `GET /feed/{node}.json` | JSON Feed 1.0 | 50 | `e2e/v013-feed-reader.spec.ts`、`tests/static/v013-feed-safety.spec.ts` | ✅ 已实现且已验证 |
+| `GET /api/topics.json` / `/api/nodes.json` | 原站 **404** | — | 2026-11-09 实测记录见矩阵文档 §1 | ◻️ 原站行为无法确认（已下线，不实现） |
 
-细节与「与原站的差异」见 `docs/API_SPEC.md` §14。
+细节与「与原站的差异」见 `docs/API_SPEC.md` §14.2 ~ §14.6。
+
+## 13.2 功能 → 页面 → API → 权限 → 数据库 → 测试 → 状态（v0.0.13 新增面）
+
+| 功能 | 页面入口 | API | 权限 | 数据库 | 测试 | 状态 |
+|---|---|---|---|---|---|---|
+| 热门主题（旧版） | 无（第三方客户端） | `GET /api/topics/hot.json` | 匿名只读 | `topics` + `users` + `nodes` + `collections` | `e2e/v013-legacy-api.spec.ts` | ✅ 已实现且已验证 |
+| 主题回复（旧版） | 无（第三方客户端） | `GET /api/replies/show.json` | 匿名只读 | `replies` + `users` + `topics` | `e2e/v013-legacy-api.spec.ts` | ✅ 已实现且已验证 |
+| 节点投影列表（旧版） | 无（第三方客户端） | `GET /api/nodes/list.json` | 匿名只读 | `nodes` + `collections` | `e2e/v013-legacy-api.spec.ts` | ✅ 已实现且已验证 |
+| 节点订阅（原站路径） | `/go/{node}` 侧栏 Feed 图标 | `GET /feed/{node}.xml\|.json` | 匿名只读 | `topics` + `users` + `nodes` | `e2e/v013-feed-reader.spec.ts` | ✅ 已实现且已验证 |
+| 跨接口字段一致性 | 无（契约约束） | 全部旧版端点 | 匿名只读 | 同上 | `e2e/v013-legacy-api.spec.ts` | ✅ 已实现且已验证 |
+| 隐私与软删除不泄露 | 无（契约约束） | 全部旧版端点 | 匿名只读 | 同上 | `tests/static/v013-legacy-privacy.spec.ts` | ✅ 已实现且已验证 |
+| 非幂等点击不重复提交 | 登录 / 注册 / 找回密码 | 写接口 | 登录态 | — | `tests/static/v010-click-until-request.spec.ts` | ✅ 已实现且已验证 |
+| ETag / 304 增量订阅 | 6 类 Feed 路径 | Feed 路由 | 匿名只读 | — | `e2e/v013-feed-reader.spec.ts` | ✅ 已实现且已验证 |
+| 原站 API 2.0（`/api/v2/*`） | — | — | 需 PAT | — | — | ❌ 确认缺失（不在 v0.0.13 范围） |
+| 原站 24 小时持续运行对照 | — | — | — | — | — | ◻️ 原站行为无法确认 |
+
+## 13.3 v0.0.13 当前验收证据（**当前，不是历史**）
+
+> 下面只列**本次收尾 PR 实际新增 / 实跑**的证据文件；
+> 具体通过数、耗时、SHA 与 CI run 见 `docs/SESSION_HANDOFF_v0.0.13.md`
+> 「当前测试基线」小节和 `docs/release-facts.json`。
+> v0.0.3 ~ v0.0.12 的数字在上文均标注为历史记录，**不得**当作本版本结论。
+
+- 静态：`tests/static/v013-legacy-contract.spec.ts`、`v013-legacy-privacy.spec.ts`、
+  `v013-feed-safety.spec.ts`、`v013-docs-authenticity.spec.ts`、
+  `v010-click-until-request.spec.ts`
+- E2E：`e2e/v013-legacy-api.spec.ts`、`e2e/v013-feed-reader.spec.ts`
+- 契约矩阵：`docs/LEGACY_API_MATRIX_v0.0.13.md`
+- 发布门禁：`RELEASE_GATE.md` 的 v0.0.13 Go/No-Go 段
 
 ## 14. 端到端测试覆盖
 
-> ⚠️ 本节原有数字（「67/67 通过、约 1.1 分钟」）是 **v0.0.3 的快照**，
-> 与当前基线（**220 条 / 20 文件**）不符。权威数字见 `docs/release-facts.json`
-> （单一事实来源），发行门禁会与实际跑次交叉核对。
+> ⚠️ 本节原有数字（「67/67 通过、约 1.1 分钟」）是 **v0.0.3 的快照**；
+> 紧随其后的「220 条 / 20 文件」是 **v0.0.12 的历史记录**，同样不是当前结论。
+> 权威数字见 `docs/release-facts.json`（单一事实来源），
+> v0.0.13 的当前实测见 `docs/SESSION_HANDOFF_v0.0.13.md`「当前测试基线」；
+> 发行门禁会与实际跑次交叉核对。
 
 | 需求项 | 状态 | 备注 |
 |---|---|---|

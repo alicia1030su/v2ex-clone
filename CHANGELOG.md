@@ -7,7 +7,91 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
-## [Unreleased] — v0.0.9（公开发布流程进行中）
+## [Unreleased] — v0.0.13（开发中 / 发行候选，未发布）
+
+> **当前实际公开版本**：`v0.0.12`（Pre-release，2026-11-08）。
+> **当前开发版本**：`v0.0.13`，尚无 Tag / Release / GHCR 镜像。
+> 版本载体在最终 SHA 固定前刻意保持 `0.0.12`。
+> **R-01 历史版权风险维持 DEFERRED**；v0.0.9 / v0.0.10 的一次性风险接受
+> **不自动构成本版本的新授权**。正式公开发布须主人单独授权。
+> 本段落由**实际提交与验证结果**生成，不复用旧模板；逐项证据见
+> `docs/SESSION_HANDOFF_v0.0.13.md` 与 `docs/LEGACY_API_MATRIX_v0.0.13.md`。
+
+### A. 旧版 API 兼容收口（本轮最重要的开发任务）
+
+上一轮已完成并**保留**，本轮不重复实现：
+`/api/topics/show.json`、`latest.json`、`/api/members/show.json`、
+`/api/nodes/show.json`、`all.json`、`/feed/{node}.xml`、`/feed/{node}.json`。
+
+2026-11-09 复核发现上一轮「全量审计」不完整，补齐：
+
+| 端点 | 实测 | 实现 |
+|---|---|---|
+| `GET /api/topics/hot.json` | 200，10 条，`replies` 严格降序，参数全忽略 | `src/app/api/topics/hot.json/route.ts`（V13-02） |
+| `GET /api/replies/show.json` | 200，异常参数一律 `[]`，`page/page_size` 忽略 | `src/app/api/replies/show.json/route.ts` + `src/server/legacy-replies.ts`（V13-03） |
+| `GET /api/nodes/list.json` | 裸路径 400；带齐 `fields/sort_by/reverse` ⇒ 200 投影 | `src/app/api/nodes/list.json/route.ts` + `src/lib/legacy-node-list.ts`（V13-04） |
+
+仍确认下线、不实现：`/api/topics.json`、`/api/nodes.json`（再次实测 404）。
+完整 15 项兼容矩阵（含「未实测 / 无法验证」披露）见
+[`docs/LEGACY_API_MATRIX_v0.0.13.md`](docs/LEGACY_API_MATRIX_v0.0.13.md)。
+**不宣称「完全兼容原站」**。
+
+### B. 接口数据一致性与隐私（V13-01）
+
+- 新增共用装配器 `src/server/legacy-assemblers.ts`；8 个旧版端点
+  不再各自拼装 `member` / `node`，从结构上杜绝「同一节点 stars 不一致」。
+- 修复真实偏差：`nodes/show.json` 此前不限制 `status='active'`，
+  而 `nodes/all.json` 限制 ⇒ 同一节点在两接口可见性不同。
+- `members/show.json` 只公开 active 用户；封禁 / 停用用户自填资料字段
+  在内嵌 member 中被置空；载荷不含邮箱 / 口令哈希 / 令牌 / 积分。
+- 软删除主题与回复、已删除主题的回复，一律不进入公共接口。
+- `topics/*.json` 与 `replies/show.json` 共用 `parseLegacyId` 与
+  `loadNodeStars`；排序均有 `id` 兜底，避免顺序漂移。
+- 新增护栏 `tests/static/v013-legacy-privacy.spec.ts`、
+  `e2e/v013-legacy-api.spec.ts`（跨接口一致性真实 HTTP 断言）。
+
+### C. Feed 完整兼容（V13-06）
+
+- Atom CDATA 处理 `]]>` 拆分与 XML 1.0 非法控制字符 ⇒ 严格解析器可读。
+- 6 类 Feed 路径统一 `ETag`（响应体 SHA-256）+ `If-None-Match` ⇒ 304 空 body。
+- 新增真实阅读器验收 `e2e/v013-feed-reader.spec.ts`：浏览器 `DOMParser`
+  解析、条目 id 唯一稳定、`#replyN` 锚点、时间格式、UTF-8、节点过滤、
+  排序、Markdown 无恶意 HTML、站内链接、UI 订阅链接可点击。
+- 文档明确区分 Atom 1.0 / JSON Feed 1.0（原站路径）与
+  RSS 2.0 / JSON Feed 1.1（站内路径），见 `docs/API_SPEC.md` §14.5。
+
+### D. 登录与点击稳定性（V13-05）
+
+- 复核 `captchaRequired` 两端一致：生产不传即强制验证码；
+  隔离测试环境不渲染也不拉取验证码，服务端校验逻辑未删。
+- **`clickUntilRequest` 加三道闸门**：宽请求监听先于首次点击注册、
+  观察到写请求不再点、有在途请求 / 按钮 pending 不再点；
+  非幂等写操作默认**只点一次**，需显式 `allowWriteRetry` 才允许受闸门约束的重试，
+  全丢失时显式抛错。防止「修 flake」反而造成重复发帖 / 重复消费积分。
+- 新增负向对照 `tests/static/v010-click-until-request.spec.ts`（12 条）。
+
+### E. 功能矩阵真实性治理
+
+- `docs/FEATURE_MATRIX.md` 改为六类状态（已实现且已验证 / 已实现但未验证 /
+  部分实现 / 独立实现 / 确认缺失 / 原站行为无法确认），
+  增加「功能→页面→API→权限→DB→测试→状态」对应表与范围声明。
+- 旧版测试数字明确标注为历史记录，当前验收引用当前证据。
+- 根目录 `FEATURE_MATRIX.md` / `API_SPEC.md` 标为历史快照并指向 docs/ 权威版。
+- 新增文档真实性护栏 `tests/static/v013-docs-authenticity.spec.ts`。
+
+### F. 发行文档修复
+
+- README：把「已发布版本」与「在研版本」分开列明，避免版本状态混用；
+  修正安装包状态、下载链接与最近发布版本等过时断言；
+  镜像标签与安装包版本对齐；测试数字标注为历史实测并指向当前基线。
+- CHANGELOG：移除把 v0.0.9 作为 `[Unreleased]` 标题的旧写法，
+  v0.0.9 段落改标为已发布历史记录。
+- API_SPEC：§14.4 列出新增兼容接口，§14.5 区分 Feed 格式，§14.6 登记一致性与隐私口径。
+- **R-01 继续披露**，不因版本推进而消失。
+
+---
+
+## [历史] v0.0.9（已发布 Pre-release，以下为当时记录，非当前状态）
 
 > **版本载体已同步到 0.0.9**（7 个载体复验通过）。
 > **R-01 维持 DEFERRED**；主人本轮已明确作出**一次性、仅针对 v0.0.9 发行决定**的风险接受，
