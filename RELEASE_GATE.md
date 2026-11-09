@@ -608,15 +608,97 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 报错信息直接点名缺哪个版本、后果是什么、怎么修；恢复后 4/4 复绿。
 （对照用的是**临时删除再恢复**，不是改测试断言 —— 护栏本身未被放宽。）
 
-### 8.3 待回填（发布流水线完成后）
+### 8.3 发布执行结果（已回填 —— 全部为真实响应，无预估）
 
-下表中的每一项都必须由**真实产物 / 真实响应**给出，禁止预估：
+**Tag**
 
-| 项 | 状态 |
+| 项 | 值 |
 |---|---|
-| Tag `v0.0.14` 指向的 commit | 待创建后回填 |
-| Release 可见性（公开 Pre-release / Draft） | 待回填 |
-| Release 资产清单 + 下载后实算 SHA256 | 待回填 |
-| GHCR 镜像 Digest | 待回填 |
-| 匿名 `docker pull` 结果 | 待回填 |
-| 发布后独立验收（`post-release-verify`）结果 | 待回填 |
+| annotated Tag | `v0.0.14` → tag 对象 `56bf7587d696877267ba7e9dee4064b2a9100359` |
+| 指向 commit | **`6d731392b17fe94852fbf966765587719c31a993`** |
+| 是否移动过 | **否**（创建一次，未删除、未重建、未移动） |
+
+**Release**（匿名读取 `api.github.com/.../releases/tags/v0.0.14` → **HTTP 200**，无任何凭据）
+
+| 项 | 值 |
+|---|---|
+| id | `439444090` |
+| 标题 | `v0.0.14 — 开发预览版` |
+| `draft` | **false** |
+| `prerelease` | **true** |
+| 发布者 | `github-actions[bot]` |
+| 发布时间 | `2026-11-09T17:37:20Z` |
+| 页面 | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
+
+**资产**（匿名下载后实算）
+
+| 资产 | 大小 | 实算 SHA256 | 与 `SHA256SUMS` |
+|---|---|---|---|
+| `v2ex-clone-v0.0.14-deploy.zip` | 143,361 B | `2faa8f871d2e94afdbcc1456222da19ce5ddcc5c1b99ae7d56b8136e966c4570` | ✅ **逐字匹配** |
+| `SHA256SUMS` | 96 B | — | 自校验 `sha256sum -c` → **OK** |
+
+> 该 SHA256 与**候选阶段**（由 `5d9413d` 源码树构建）记录的部署包哈希
+> `2faa8f87…4570` **完全一致** ⇒ 发布产物确实是同一个包，未被重建改写。
+> 包内容核对：顶层只有 `deploy/`、**15 个文件**、`deploy/VERSION` = `0.0.14`、
+> 7 个 `.sh` 在 ZIP 中央目录中均为 **0o100755**。
+
+**镜像**（匿名 Bearer 三步流程 + Registry V2 交叉核对）
+
+| 项 | 值 |
+|---|---|
+| 标签 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.14` |
+| 匿名 manifest | **HTTP 200** |
+| `docker-content-digest` | `sha256:29dabe3d57977f40c47188a8d3fc5790ee21fb8f9ec03384b979a3c8731c0354` |
+| 平台 | `linux/amd64`（`sha256:dc32ce99…92cc`）+ attestation（`sha256:db79cf6a…4768`） |
+| 与 Release Notes 中写明的 digest | ✅ 一致（Notes 由 build-image 的实测 output 注入，不是手写） |
+
+**发布后独立验收**（`post-release-verify` run `42667120882`，**全新 runner、全程匿名**）
+
+| # | 检查项 | 结论 |
+|---|---|---|
+| ① | 匿名访问 Release 页面 | ✅ PASS |
+| ② | 匿名下载安装包 + `SHA256SUMS` 校验 | ✅ PASS |
+| ③ | 解压后断言内容齐全、无凭据、无明文 secret | ✅ PASS |
+| ④ | 三方版本一致（包 VERSION / compose 镜像 / Release tag） | ✅ PASS |
+| ④.5 | 按 Release Notes 的 Linux 命令实跑安装路径可达性 | ✅ PASS |
+| ⑤ | 匿名拉取 GHCR 镜像 + Registry V2 交叉核对真实 digest | ✅ PASS |
+| ⑥ | 用**官方包 `install.sh`** 完成全新安装（不 patch、不预置 .env） | ✅ PASS |
+| ⑦ | 补验通知、备份与恢复、Docker 重启后数据保留 | ✅ PASS |
+| ⑧ | 结构化 Step Summary | ✅ PASS |
+
+> 唯一 WARN（非失败项，已披露）：「通知写入路径未在本环境自动化
+> （强验证码 + 需第二用户）」，见该 run 的 annotation。
+
+### 8.4 首次发布失败与补救（如实记录）
+
+| 项 | 内容 |
+|---|---|
+| 首次尝试 | run `42661344826`（tag push，`v0.0.14`），**failure** |
+| 失败点 | `publish-release` → 「生成中文 Release Notes」：`ENOENT: CHANGELOG.md` |
+| 已到达的阶段 | 镜像**已推送**（`:v0.0.14` 200）、部署验证通过、安装包 N2 通过 |
+| 未发生的阶段 | Release **未创建**（`/releases/tags/v0.0.14` 当时 = 404） |
+| 根因 | `publish-release` 是全仓**唯一没有 `checkout`** 的 job，而 v0.0.13 给它加了「从 CHANGELOG 注入正文」 |
+| 修复 | 补 `actions/checkout@v7`（放在下载 artifact **之前**，否则 `git clean -ffdx` 会清空 `release-assets/`）；提交 `765f895` |
+| 补救路径 | `workflow_dispatch` + `publish=true`（流水线内置的 B2/B3 幂等路径）；该路径要求「构建相关路径与 master 零差异」，本次修复只动 `.github/` 与 `tests/`，前置条件成立 |
+| 补救结果 | run `42664285905`，**11/11 job 全 success** |
+| 防复发 | `tests/static/v014-release-chain.spec.ts` 新增 4 条：`publish-release` 必须 checkout、checkout 必须在 download-artifact 之前、凡读仓库文件的 job 都必须 checkout；**均已做负向对照（临时删除 → 判红 → 恢复 → 复绿）** |
+
+> ⚠️ **Tag 未被移动**：补救走的是流水线自带的 dispatch 路径，Tag 始终指向
+> `6d73139`，没有删除/重建/移动 —— 符合「同一版本号不得反复删建或移动」的规约。
+
+### 8.5 一处**已发布 Release Notes 的已知瑕疵**（只披露，不修改）
+
+已发布的 v0.0.14 Release Notes 的 R-01 表格里有一行状态写着「**待主人裁决**」，
+而本版本的公开发布**已经**获得授权 —— 该行的状态列与事实不符。
+
+- **成因**：`release.yml` 的 Notes 模板把这一行**写死**为待定态，
+  模板在 v0.0.13 时期编写，当时确实未授权；发布时没有随事实更新。
+- **为什么不在本轮修改**：修改已发布 Release 属**不可逆操作**，且主人明确禁止
+  「删除 / 覆盖旧 Release」。因此按纪律**只披露、不修改**。
+- **已修的部分**：模板已改为「本版本已单独确认」+ 新增一行指向
+  `docs/RISK_DECISION___VERSION__.md`，并加了静态护栏禁止模板再出现
+  「待主人裁决 / 待授权 / 待批准」（已做负向对照）。**后续版本不会再复现**，
+  但 v0.0.14 的线上说明保持原样。
+- **影响评估**：R-01 的实质披露（素材曾入历史 / 当前树不含 / 历史仍可达 /
+  DEFERRED / 未执行历史改写 / 产物已扫描 / 不构成版权证明）**全部完整**，
+  瑕疵仅限于**一行状态列的措辞**，不影响风险披露的完整性。

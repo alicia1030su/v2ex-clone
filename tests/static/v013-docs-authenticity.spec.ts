@@ -103,29 +103,71 @@ function findChangelogV13Section(text: string): ChangelogV13Section | null {
 }
 
 describe('发行文档真实性（v0.0.13）', () => {
-  it('README 必须区分「已公开版本」与「当前发行候选」（候选版本号 = package.json）', () => {
+  /**
+   * ## 这条护栏为什么在发布后换了口径（而不是被删掉 / 改松）
+   *
+   * 原版写死三件事：README 必须声明「当前实际公开版本 = v0.0.12」、
+   * 「本版候选 = v0.0.14」、以及「未打 Tag、未发布 Release」。
+   * 那是 **开发态** 的正确事实；v0.0.14 一旦真的发布，这三条同时变成假的 ——
+   * 而一条在发版后必然变红的护栏只有两种下场：被人删掉，或被人改松。
+   *
+   * 真正**不随发版失效**的不变量是「README 的版本声明必须自洽」：
+   *   ① 声明的「当前实际公开版本」必须是具体语义版本；
+   *   ② 该版本必须同时出现在 Releases 链接 / 部署包名 / 镜像标签三处，
+   *      且三处版本号**完全一致**（不能声明 v0.0.14 却给 v0.0.12 的包名）；
+   *   ③ 若 `package.json` 的版本 ≠ 已公开版本（开发态），README 必须把
+   *      该版本明确标为「候选」，且不得把它写成已发布；
+   *   ④ 若两者相等（发布态），README 不得再写「未打 Tag、未发布 Release」。
+   *
+   * 这比原版更强：原版只要求「两个版本号各自出现过」，
+   * 现在要求「声明与三处下载入口版本一致」，且两种形态各自判真。
+   */
+  it('README 的版本声明必须自洽：已公开版本 = 三处下载入口版本，候选与载体一致', () => {
     expect(README).toContain('当前实际公开版本');
-    expect(README).toMatch(/当前实际公开版本[^\n]*v0\.0\.12/);
-    // 候选版本必须被明确标注（措辞可能是「当前开发版本」或「本版候选」），
-    // 且版本号必须与 package.json 一致 —— 防止 README 落后于载体同步
-    // ⚠️ 二选一的正则本身是**弱化**（命中任一短语即通过）。用**限定到版本状态
-    //    小节**补回强约束：既要求两条声明同处一节（口径自洽，读者不会看到
-    //    「已公开 v0.0.12」却在别处找不到「候选是谁」），也避免把「下载入口表
-    //    里顺带提到本版候选」这类无关命中当成版本声明。
+    const releasedMatch = README.match(/当前实际公开版本[^\n]*v(\d+\.\d+\.\d+)/);
+    expect(releasedMatch, 'README 未在「当前实际公开版本」后写出具体语义版本').not.toBeNull();
+    const RELEASED = String(releasedMatch?.[1] ?? '');
+    expect(RELEASED, 'README 的已公开版本号格式非法').toMatch(/^\d+\.\d+\.\d+$/);
+
+    // ① 三处下载入口必须指向**同一个**版本（声明与产物不能各说各话）
+    expect(README, `README 缺少 v${RELEASED} 的 Release 链接`).toContain(
+      `releases/tag/v${RELEASED}`,
+    );
+    expect(README, `README 的部署包名不是 v2ex-clone-v${RELEASED}-deploy.zip`).toContain(
+      `v2ex-clone-v${RELEASED}-deploy.zip`,
+    );
+    expect(README, `README 的镜像标签不是 :v${RELEASED}`).toContain(
+      `ghcr.io/alicia1030su/v2ex-clone:v${RELEASED}`,
+    );
+
+    // ② 候选 / 发布 两种形态二选一，且必须与 package.json 的版本对得上
     const statusSection = README.slice(
       README.indexOf('## 当前版本状态'),
       README.indexOf('\n## ', README.indexOf('## 当前版本状态') + 1),
     );
     expect(statusSection.length, 'README 缺少「当前版本状态」小节').toBeGreaterThan(0);
-    expect(
-      statusSection,
-      `「当前版本状态」小节必须声明「本版候选 = v${CANDIDATE}」`,
-    ).toMatch(new RegExp(`(当前开发版本|本版候选)[^\\n]*v${CANDIDATE_ESCAPED}`));
-    expect(
-      statusSection,
-      '同一小节必须同时声明当前实际公开版本（v0.0.12）',
-    ).toMatch(/当前实际公开版本[^\n]*v0\.0\.12/);
-    expect(README).toContain('未打 Tag、未发布 Release');
+
+    if (RELEASED === CANDIDATE) {
+      // 发布态：本版即已公开版本 ⇒ 不得再声称"未发布 / 未打 Tag"
+      expect(
+        statusSection,
+        `README 声明 v${RELEASED} 已公开，却又写着「未打 Tag、未发布 Release」—— 自相矛盾`,
+      ).not.toContain('未打 Tag、未发布 Release');
+      expect(statusSection, `README 未把 v${CANDIDATE} 标注为本版发行版本`).toContain(
+        `v${CANDIDATE}`,
+      );
+      expect(README).not.toContain('未打 Tag、未发布 Release');
+    } else {
+      // 开发态：候选版本必须被明确标注为候选，且不得写成已发布
+      expect(
+        statusSection,
+        `「当前版本状态」小节必须声明「本版候选 = v${CANDIDATE}」`,
+      ).toMatch(new RegExp(`(当前开发版本|本版候选)[^\\n]*v${CANDIDATE_ESCAPED}`));
+      expect(
+        README,
+        `README 把 v${CANDIDATE} 写成已公开发布，但声明的已公开版本是 v${RELEASED}`,
+      ).not.toMatch(new RegExp(`v${CANDIDATE_ESCAPED}[^\\n]{0,20}(已正式发布|已发布 Pre-release)`));
+    }
   });
 
   it('README 不得把 v0.0.13 写成已发布，也不得把 v0.0.9 写成当前版本', () => {

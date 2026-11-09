@@ -225,6 +225,60 @@ describe('发布链路：读仓库文件的 job 必须 checkout（v0.0.14）', (
     ).toBe(true);
   });
 
+  /**
+   * ## 第三个真实缺口：Release Notes 里写死了「待主人裁决」
+   *
+   * v0.0.14 首次发布后核对线上 Release Notes，发现 R-01 表格里有一行：
+   *
+   *     风险接受按版本单独作出 | …… | **待主人裁决**
+   *
+   * 但这行是在**发布成功之后**读到的 —— 而 Release 能发出来，本身就说明
+   * 授权已经作出（发布流水线之外没有任何自动发布路径）。
+   * 于是一条"待裁决"的公开声明，描述的是一个**不可能存在的状态**，
+   * 等于公开说「本版本未获授权就发布了」—— 这是最不该出现的假话。
+   *
+   * 判据：模板**不得**出现"待裁决 / 待授权"这类**待定态**措辞。
+   * 发布流水线的输入只有两种：tag push（已授权）与 dispatch publish=true
+   * （已授权）；不存在"未授权但能发出去"的路径。
+   */
+  /** 只截出 `cat > release-notes.md <<'NOTES'` 到 `NOTES` 之间的**模板正文**。
+   *
+   * ⚠️ 不能扫整个 workflow：文件里另有一处 `devOnly` 数组**合法地**列着
+   * 「待授权 / 未发布」等词 —— 那是**反向过滤**用的黑名单（用来保证这些词
+   * 不会漏进 Release Notes）。第一版护栏就是扫了全文，被自己的黑名单误伤。
+   * 判据必须限定在**真正会写进公开说明的文本**上。
+   * 这与本仓 V13-17 / V14-03 的教训同源：反向断言先剥掉不该算数的部分。
+   */
+  const notesTemplate = (() => {
+    const start = workflow.indexOf("cat > release-notes.md <<'NOTES'");
+    if (start < 0) return '';
+    const bodyStart = workflow.indexOf('\n', start) + 1;
+    const end = workflow.indexOf('\n          NOTES', bodyStart);
+    return end < 0 ? '' : workflow.slice(bodyStart, end);
+  })();
+
+  it('Release Notes 模板必须是可解析的（不能因抽取失败而静默跳过检查）', () => {
+    expect(
+      notesTemplate.length,
+      '未能从 release.yml 抽出 Release Notes 模板正文 —— 护栏会静默失效，判失败',
+    ).toBeGreaterThan(1000);
+  });
+
+  it('Release Notes 模板不得声明「待主人裁决 / 待授权」这类不可能存在的状态', () => {
+    const pending = ['待主人裁决', '待授权', '待批准'];
+    const found = pending.filter((w) => notesTemplate.includes(w));
+    expect(
+      found,
+      `Release Notes 模板含待定态措辞：${found.join(' / ')}。\n` +
+        'Release 能发出来就说明授权已作出；公开说明里写"待裁决"等于自证未授权发布。',
+    ).toEqual([]);
+  });
+
+  it('Release Notes 模板必须由本版本 CHANGELOG 注入更新内容（V13-10 契约）', () => {
+    expect(notesTemplate).toContain('__CHANGELOG_SECTION__');
+    expect(notesTemplate).toContain('### __VERSION__ 更新内容');
+  });
+
   it('凡是在 run 脚本里读仓库文件的 job 都必须 checkout', () => {
     const offenders: string[] = [];
     for (const [name, block] of jobs) {
