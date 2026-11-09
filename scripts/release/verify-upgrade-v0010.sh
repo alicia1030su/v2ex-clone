@@ -233,10 +233,15 @@ SQL
   mig_before="$(grep '^schema.migration.rows|' "/tmp/v0010-fp-${label}-before.txt" | cut -d'|' -f2)"
   mig_after="$(grep '^schema.migration.rows|' "/tmp/v0010-fp-${label}-after.txt" | cut -d'|' -f2)"
   info "索引数 ${idx_before} → ${idx_after}；迁移记录 ${mig_before} → ${mig_after}"
-  if [ "$mig_after" = "4" ]; then
-    ok "升级后迁移记录 = 4（当前迁移集已全部应用）"
+  # ⚠️ 期望值**从 journal 派生**，不要硬编码。
+  #    硬编码 4 的后果：v0.0.14 新增 0004 迁移后，升级明明成功、
+  #    却被判「期望 4，实际 5」—— 门禁红在「脚本没跟上版本」而不是产品问题。
+  local expect_total
+  expect_total="$(node -p "require('./drizzle/meta/_journal.json').entries.length" 2>/dev/null || echo '?')"
+  if [ "$mig_after" = "$expect_total" ]; then
+    ok "升级后迁移记录 = ${mig_after}（当前迁移集 ${expect_total} 条已全部应用）"
   else
-    bad "升级后迁移记录 = ${mig_after}，期望 4"
+    bad "升级后迁移记录 = ${mig_after}，期望 ${expect_total}（取自 drizzle/meta/_journal.json）"
   fi
 
   # ---- 幂等 ----

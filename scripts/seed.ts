@@ -14,7 +14,7 @@
 import { sql as pgSql } from '../src/db/index';
 import { db, schema } from '../src/db';
 import { hashPassword } from '../src/lib/password';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 import { loadProductEnv } from '../src/lib/env-loader.mjs';
 
@@ -303,8 +303,18 @@ async function main() {
   // 1. 分类
   const categoryIds = new Map<string, number>();
   for (const [name, title, sort] of CATEGORIES) {
+    // ⚠️ 必须**显式投影**，不能用 `select()` 取全列。
+    //
+    // `schema.categories` 会随迁移新增列（v0.0.14 加了 `hidden` / `updated_at`），
+    // 而本脚本会被 `scripts/release/verify-upgrade-v0010.sh` 用来给**基线库**
+    // （v0.0.4 / v0.0.12）灌种子数据 —— 那时 0004 迁移还没跑，基线表里
+    // 根本没有这两列。取全列会直接 `42703 column "hidden" does not exist`，
+    // 于是「升级验证」在灌数据阶段就红，看起来像升级坏了，实际是种子脚本
+    // 用了比基线更新的 schema。
+    //
+    // 这里只需要 id，按需投影即可与基线 + 当前两套 schema 同时兼容。
     const existing = await db
-      .select()
+      .select({ id: schema.categories.id })
       .from(schema.categories)
       .where(eq(schema.categories.name, name))
       .limit(1);
@@ -312,10 +322,22 @@ async function main() {
       categoryIds.set(name, existing[0].id);
       continue;
     }
+    // ⚠️ 用**原生 SQL 只写基线就有的列**，不要走 drizzle 的 insert。
+    //
+    // drizzle 会把带 `.default()` 的列（`hidden` / `updated_at`）一起写进
+    // INSERT 的列清单，于是对**基线库**（还没跑 0004）执行时直接
+    // `42703 column "hidden" of relation "categories" does not exist`。
+    // 显式列出 name/title/sort 三列，对基线与当前两套 schema 都成立；
+    // `hidden` / `updated_at` 由列默认值补齐（false / now()）。
+    await db.execute(
+      sql`insert into categories (name, title, sort) values (${name}, ${title}, ${sort})`,
+    );
     const [row] = await db
-      .insert(schema.categories)
-      .values({ name, title, sort })
-      .returning({ id: schema.categories.id });
+      .select({ id: schema.categories.id })
+      .from(schema.categories)
+      .where(eq(schema.categories.name, name))
+      .limit(1);
+    if (!row) throw new Error(`seed: 分类 ${name} 写入后回查失败`);
     categoryIds.set(name, row.id);
   }
   console.log(`  分类: ${categoryIds.size}`);
