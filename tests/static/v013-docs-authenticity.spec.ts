@@ -108,9 +108,23 @@ describe('发行文档真实性（v0.0.13）', () => {
     expect(README).toMatch(/当前实际公开版本[^\n]*v0\.0\.12/);
     // 候选版本必须被明确标注（措辞可能是「当前开发版本」或「本版候选」），
     // 且版本号必须与 package.json 一致 —— 防止 README 落后于载体同步
-    expect(README).toMatch(
-      new RegExp(`(当前开发版本|本版候选)[^\\n]*v${CANDIDATE_ESCAPED}`),
+    // ⚠️ 二选一的正则本身是**弱化**（命中任一短语即通过）。用**限定到版本状态
+    //    小节**补回强约束：既要求两条声明同处一节（口径自洽，读者不会看到
+    //    「已公开 v0.0.12」却在别处找不到「候选是谁」），也避免把「下载入口表
+    //    里顺带提到本版候选」这类无关命中当成版本声明。
+    const statusSection = README.slice(
+      README.indexOf('## 当前版本状态'),
+      README.indexOf('\n## ', README.indexOf('## 当前版本状态') + 1),
     );
+    expect(statusSection.length, 'README 缺少「当前版本状态」小节').toBeGreaterThan(0);
+    expect(
+      statusSection,
+      `「当前版本状态」小节必须声明「本版候选 = v${CANDIDATE}」`,
+    ).toMatch(new RegExp(`(当前开发版本|本版候选)[^\\n]*v${CANDIDATE_ESCAPED}`));
+    expect(
+      statusSection,
+      '同一小节必须同时声明当前实际公开版本（v0.0.12）',
+    ).toMatch(/当前实际公开版本[^\n]*v0\.0\.12/);
     expect(README).toContain('未打 Tag、未发布 Release');
   });
 
