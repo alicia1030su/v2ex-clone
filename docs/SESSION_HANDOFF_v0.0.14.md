@@ -1,0 +1,112 @@
+# SESSION_HANDOFF — v0.0.14 收尾交接
+
+> 目标版本：**v0.0.14**（安全收口：隐藏节点跨页面泄露、标签总量上限；链路补齐：分类管理、孤儿页入口、page 参数）
+> 本文是**持续维护**的交接文档：每次推进后更新 HEAD / PR / CI / 当前测试基线 / 待办 / 授权边界。
+> 最后更新：2026-11-09
+> 上位约束：本轮**不扩张新需求**；功能在缺陷收口后冻结。
+
+---
+
+## 0. 一句话状态
+
+代码、文档、护栏与测试已在分支 `release/v0.0.14-closeout` 完成并通过门禁，**待合并 + 版本载体同步 + 最终 SHA 复验**。
+**公开发布为 NO-GO**：未找到主人对 v0.0.14 的明确风险接受与公开发布授权，R-01 仍为 DEFERRED。
+v0.0.13 **从未发布**（无 Tag / Release / 镜像），其成果将由 v0.0.14 一次性包含 —— 旧候选记录与产物**保持原样，不移动、不改名、不复用**。
+
+---
+
+## 1. 接管基线
+
+| 项 | 值 |
+|---|---|
+| 接管时 `origin/master` HEAD | `6212938fdbeb2a98b99a29990950f8d9dd353b50` — `Merge pull request #51 from alicia1030su/fix/v0014-tag-pagination` |
+| 接管时工作区 | `working tree clean`，无 stash |
+| 本轮分支 | `release/v0.0.14-closeout`（从 `origin/master` 新建） |
+| 功能提交 | `d7b50bb`（P0-1 + P0-2 + 分类管理 + page 参数，52 文件 / +5030 −221） |
+| 测试修正提交 | `9aef8bb`（E2E 区分 staff 审核视角与公众视角） |
+| 文档同步提交 | `e518d30`（CHANGELOG / FEATURE_MATRIX / RISK_REGISTER） |
+| 移除链路 E2E | `e2701e3`（点 × → 保存 → 消失 + 保留项 + 标签页语义 + 可加回） |
+| PR | **#52** `release/v0.0.14-closeout → master` |
+| 最新已发布版本 | **v0.0.12**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像） |
+| v0.0.13 Tag / Release / GHCR | **均不存在**（已核查） |
+| 版本载体（dev 态） | `0.0.13` —— 按 G-VER-01，**最终 SHA 固定前不同步**；合并后在独立分支统一同步到 `0.0.14` |
+
+---
+
+## 2. 本轮改动清单
+
+### P0-1 隐藏节点跨页面泄露
+
+- 收敛层：`src/server/queries.ts`（8 个查询 + 新增 `listTopicsByTag`）、
+  `src/lib/content-service.ts`（`getTopicDetail` join 取 nodeStatus）
+- 14 个直接持 SQL 的文件：首页 / `/hot` / `/recent` / `/go/[name]` / `/go/search` /
+  `/tag/[name]` / `/t/[id]` / `/xna` / `/following` / `/bookmarks` / `/member/[username]` /
+  `/api/search` / `/api/search/suggest` / `/api/users/follows/topics` /
+  `/api/collections` / `/api/replies` / `/api/topics`（POST 校验）/ `HotNodes`
+- 唯一例外：`getTopicById(id, { includeHiddenNode })` 与
+  `listReplies(..., { includeHiddenNode })`，由 `canReviewHiddenNodes(user)` 显式传入
+- 真库三态：`tests/v014-node-visibility.spec.ts`（6 条）
+- 静态护栏：`tests/static/v014-node-visibility.spec.ts`
+- E2E：`e2e/v014-node-visibility.spec.ts`（staff 审核 200 + 登出后公众 404）
+
+### P0-2 标签总量上限与移除
+
+- `src/server/tags.ts`：事务内 `FOR UPDATE` 锁主题行、剩余额度写入、插入按名排序防死锁；
+  `detachTags()` 只删关联不删本体
+- `PUT /api/topics/[id]`：新增 `removeTags`；**鉴权先于写标签**（修 403 请求改标签的漏洞）
+- `TopicEditForm` / `TopicActions`：标签 chips 可移除、可撤销、可追加
+- 真库：`tests/tags-db.spec.ts` 25 条（含真 `Promise.all` 并发总量 ≤ 5）
+- E2E：`e2e/v014-tags.spec.ts` 5 条（含点 × 移除全链路）
+
+### 链路补齐
+
+- `/hot` `/recent`：入口收敛到 `src/lib/nav-links.ts` 的 `CONTENT_LINKS`
+- 分类管理：迁移 `0004_v014_categories.sql`、`src/server/categories.ts`、
+  两个 admin 路由、四个审计 action、后台「分类」tab
+- `page` 参数：`src/lib/page-param.ts` + 10 个公共列表页接入
+
+---
+
+## 3. 当前测试基线（本机实测）
+
+| 项 | 结果 |
+|---|---|
+| `tsc --noEmit` | 0 |
+| 完整单元套件 | 60 文件 / 802 用例 |
+| 静态套件 | 20 文件 / 285 用例 |
+| 真库 `v014-node-visibility` | 6/6 |
+| 真库 `categories-admin` | 22/22 |
+| 真库 `tags-db` | 25/25 |
+| `tag-encoding` / `page-param` | 15/15 / 24/24 |
+| 完整 E2E | 263 passed / 0 failed（10.2m） |
+| v014 定向 E2E | 6/6（干净端口） |
+
+---
+
+## 4. 待办（按顺序）
+
+1. PR #52 CI 全绿 → 合并到 master
+2. 独立分支同步版本载体到 `0.0.14`（`sync-version.mjs`）+ README 入口口径 → PR → 合并
+3. 最终 SHA 上复验：`tsc` / 静态 / 版本载体 / 发行门禁 / 候选 ZIP 双次构建同哈希
+4. 最终 SHA 上触发 `candidate-verify`（真 Docker，含候选镜像 + 隔离安装）
+5. `v0.0.12 → 0.0.14` 双基线原地升级 + 备份恢复（本机 PG）
+6. 回填 `RELEASE_GATE.md` / 本文档的最终 SHA 与候选证据
+7. 集中提交一次发布授权请求（风险接受 + 公开发布授权）
+
+---
+
+## 5. 授权边界（未越界）
+
+- 未创建 `v0.0.14` Tag / Release / Draft
+- 未推送任何 GHCR 镜像；匿名核验 `:v0.0.13` = 404
+- 未改写历史、未 force push、未移动 / 删除任何旧 Tag
+- 未修改已发布的 v0.0.12 Release Notes
+- R-01 仍 **DEFERRED**（81 个对象，历史仍可达）
+
+---
+
+## 6. 已知取舍（登记于 `RISK_REGISTER.md`）
+
+- 纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照 —— v0.0.14 之前既有行为，本轮继承未引入
+- 移除标签不删 `tags` 本体 ⇒ `/tag/{name}` 在无关联后仍 200 空列表（有意语义）
+- `/notifications` 与 `/reports`（用户私有视图）仍展示用户自己相关的隐藏节点标题 —— 未改，语义待单独定义

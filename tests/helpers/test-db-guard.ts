@@ -63,6 +63,7 @@ const ALLOWED_DB_NAMES = new Set([
   'v2ex_v014_tags', // v0.0.14 标签落库（唯一约束收敛 / 追加语义 / 并发）
   'v2ex_v014_categories', // v0.0.14 分类管理（advisory lock 串行化 / 禁用语义 / 重名拒绝）
   'v2ex_v014_nodevis', // v0.0.14 节点可见性（hidden 后各公共查询必须同时不可见）
+  'v2ex_v014_editnoop', // v0.0.14 editTopic 空改动（不计数 / 不留快照 / 不绕过鉴权）
 ]);
 
 /** 新增测试库的保留前缀（比枚举更灵活，但必须带 `v2ex_test_` 前缀） */

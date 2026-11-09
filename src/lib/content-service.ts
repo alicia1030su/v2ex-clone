@@ -57,6 +57,28 @@ function safeWindow(): number {
  * 权限：作者本人，或 moderator/admin。
  * 时限：作者受编辑时限约束；管理角色不受限。
  * 审计：写入 edit_history（不可变快照）。
+ *
+ * ## v0.0.14：内容**没有任何变化**时不写库、不计数、不留快照
+ *
+ * 背景：`PUT /api/topics/[id]` 现在允许「只提交 `tags` / `removeTags`」的请求
+ * （标签的增删是独立语义），但该路由必须先调 `editTopic()` 才能借到唯一的
+ * 授权与编辑时限校验点（见 `src/app/api/topics/[id]/route.ts` 的说明）。
+ * 于是「只删一个标签」也会走到这里，而 `input.title` / `input.content` 都是
+ * `undefined` ⇒ `newTitle`/`newContent` 与库内值逐字相同。
+ *
+ * 修复前的行为（原样继承自 v0.0.3 的无条件写入）：
+ *   · `editCount + 1` ⇒ 按钮从「编辑」变成「编辑 (1)」，用户只是删了个标签；
+ *   · 写一条 `previousTitle === newTitle && previousContent === newContent`
+ *     的**空快照** ⇒ 审计记录看起来像「正文被改过」，实际什么都没改；
+ *   · `editedAt` / `updatedAt` 被刷新 ⇒ 与「未编辑」的事实矛盾。
+ *
+ * 这三者都不是权限问题（授权与时限校验在**前面**，不受本分支影响），
+ * 而是「审计表说了假话」。编辑计数与编辑历史记的是**内容**变更，
+ * 内容没变就不该记。因此这里提前返回，且返回的是**库内现值**。
+ *
+ * ⚠️ 本分支必须位于授权（`canModifyOwnContent`）与时限（`withinEditWindow`）
+ *    校验**之后** —— 否则「不可编辑的人提交一个空改动」会得到 200 而不是 403，
+ *    等于给了一个免费的权限探测口。
  */
 export async function editTopic(
   user: SessionUser,
@@ -97,6 +119,17 @@ export async function editTopic(
   }
   if (newContent.length > 50000) {
     throw new ContentError('INVALID_CONTENT', '内容过长', 400);
+  }
+
+  // 内容逐字未变 ⇒ 这不是一次「编辑」，不写库（见上方文档注释）。
+  if (newTitle === topic.title && newContent === topic.content) {
+    return {
+      topicId,
+      title: topic.title,
+      content: topic.content,
+      editCount: topic.editCount,
+      editedAt: topic.editedAt ?? topic.updatedAt,
+    };
   }
 
   const now = new Date();

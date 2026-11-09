@@ -224,7 +224,11 @@ test.describe('v0.0.14 标签链路', () => {
     await expect(modal.locator(`[data-tag="${keepTag}"]`)).toBeVisible();
 
     // 点 × 标记为待移除（视觉标灰，仍可撤销 —— 误点不该直接生效）
-    // [NEG] 只点不保存
+    await dropChip.getByRole('button', { name: `移除标签 ${dropTag}` }).click();
+    await expect(
+      dropChip,
+      '点击后 chip 应进入「待移除」状态（data-removed=true）',
+    ).toHaveAttribute('data-removed', 'true', { timeout: 10_000 });
 
     await page.getByRole('button', { name: '保存修改' }).click();
 
