@@ -172,11 +172,13 @@ v005-floor-concurrency  drop=91   create=6276  migrate=8627  total=14994
 
 > **本节上限 / 耗时数字的有效前提**：① vitest 5.x（`file` duration 含 `beforeAll`）；
 > ② `fileParallelism: false`；③ 未配 `bail` / `retry` / `repeat`；
-> ④ 该文件 `beforeAll` 仅做「建库 + migrate + 少量单语句 insert（3~4 条，无循环 / 无批量造数 / 无业务逻辑）」；
+> ④ 该文件 `beforeAll` 仅做「建库 + migrate + **常数规模**的 insert / 准备代码」；判据是**规模与数据量参数无关**（O(1)）：对刚插入的常数行做 `for…of` / `.map()` / `new Map()` 建查找表**不算违规**，只有当循环上界来自变量 / 环境变量 / 夹具时才违反。扫描必须按 `beforeAll` 块边界（`floor-continuity` 的 `Array.from` 在 `it` 里，不计入 hook）；
 > ⑤ 该文件无 `beforeEach` / `afterEach`。
 > **任一条件变化需重算**：升级 vitest 后 `runSuite` 若重构，`file` 是否仍含 hook 必须重测；
 > 若给 `beforeAll` 加入批量造数，其合理耗时会上一量级，`hookTimeout` 与 `testTimeout` 都需重新评估。
-> 判据是「**语句数与有无循环**」，不是「每条语句几行」—— `v005` 的 users 是一条语句插 2 行。
+> 判据是「**规模是否与数据量相关**」，不是「语句数」「每条语句几行」或「有没有循环」——
+> `v005` 的 users 是一条语句插 2 行（语句数少但行数多，仍 O(1)）；
+> `content-lifecycle` 的 `for (const row of inserted)` 遍历的是刚插入的常数行（有循环但 O(1)）。
 
 ## 8. 已知取舍（登记于 `RISK_REGISTER.md`）
 
