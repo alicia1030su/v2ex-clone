@@ -17,6 +17,7 @@ export default function NewTopicForm({
   const [nodeId, setNodeId] = useState<string>('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [tags, setTags] = useState('');
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -52,7 +53,13 @@ export default function NewTopicForm({
       const res = await csrfFetch('/api/topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodeId: Number(nodeId), title, content }),
+        body: JSON.stringify({
+          nodeId: Number(nodeId),
+          title,
+          content,
+          // 原样发送字符串，服务端 normalizeTags 负责拆分/小写/去重/截断
+          tags: tags.trim() === '' ? undefined : tags,
+        }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; redirect?: string };
       if (res.ok && data.ok) {
@@ -137,6 +144,27 @@ export default function NewTopicForm({
                   onChange={(e) => setTitle(e.target.value)}
                   required
                 />
+              </td>
+            </tr>
+            <tr>
+              <td align="right" valign="top">
+                标签
+              </td>
+              <td>
+                <input
+                  type="text"
+                  /* ⚠️ 不能叫 `tags`：`HTMLFormElement` 没有这个 DOM 属性，
+                     但保持与 `TopicActions` 一致的命名习惯更安全 —— 见下方 V4-20 说明。 */
+                  name="topic_tags"
+                  id="tags"
+                  maxLength={120}
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="可选，逗号分隔，最多 5 个（如 react, next.js）"
+                />
+                <div className="fade" style={{ marginTop: 4 }}>
+                  服务端会统一小写、去重并折叠空白；非法字符会被丢弃。
+                </div>
               </td>
             </tr>
             <tr>

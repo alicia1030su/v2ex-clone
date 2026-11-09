@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { and, eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { loadTagNames } from '@/server/tags';
 import { getSessionUser } from '@/lib/auth';
 import { renderMarkdown } from '@/lib/markdown';
 import { relativeTime, fullTimestamp, formatDate } from '@/lib/time';
@@ -94,11 +95,9 @@ export default async function TopicPage({
     : [];
   const myThanks = new Set(myThanksRows.map((r) => r.replyId));
 
-  const tags = await db
-    .select({ name: schema.tags.name })
-    .from(schema.topicTags)
-    .innerJoin(schema.tags, eq(schema.tags.id, schema.topicTags.tagId))
-    .where(eq(schema.topicTags.topicId, topicId));
+  // v0.0.14：标签顺序必须稳定。
+  // 原实现直接依赖数据库返回顺序 ⇒ 同一主题两次刷新可能顺序不同（可见瑕疵）。
+  const tags = await loadTagNames(topicId).then((names) => names.map((name) => ({ name })));
 
   // 浏览计数
   await db

@@ -76,7 +76,7 @@
 | 主题编辑（作者） | — | `TopicActions.tsx` 编辑表单 → `PUT /api/topics/[id]`（含编辑时限） | E2E：改正文后页面展示、刷新仍生效；他人主题无编辑按钮 | ✅ |
 | 主题软删除（作者/管理员） | — | `DELETE /api/topics/[id]` → `deleted_at` 软删；`POST /api/topics/[id]/restore` 恢复 | E2E：作者删除后普通访问者不可见、管理员恢复后重新可见 | ✅ |
 | 主题编辑历史 | — | `GET /api/topics/[id]/edit-history` | 单元 | ✅ |
-| 标签 | 主题页 `/tag/{name}` 标签块 | `tags` / `topic_tags` 表 + 渲染 | 模型 + 渲染 | ✅（标签未自动生成） |
+| 标签（发帖/编辑写入 + 检索） | 主题页 `/tag/{name}` 标签块；**原站标签由后台算法生成、前台无输入框** | `src/lib/tag-normalize.ts`（规范化：小写/去重/折叠空白/上限 5×24）+ `src/server/tags.ts`（`attachTags` / `loadTagNames`）；`POST /api/topics` 与 `PUT /api/topics/[id]` 写入，`/t/[id]` 用同一读取函数 | 单元 `tests/tag-normalize.spec.ts` 15 条 + 真库 `tests/tags-db.spec.ts` 9 条 + 静态 `tests/static/v014-tag-chain.spec.ts` 8 条 + E2E `e2e/v014-tags.spec.ts` 2 条（发帖→主题页→标签页→编辑追加） | ✅ 已实现且已验证（**v0.0.14 补齐**：此前表与页面齐全但**零写入**，属「链路不通」） |
 
 ## 4. 回复
 

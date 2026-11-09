@@ -5,6 +5,7 @@ import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
+import { attachTags } from '@/server/tags';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
     nodeId?: number;
     title?: string;
     content?: string;
+    /** v0.0.14：标签（数组或逗号分隔字符串，服务端统一规范化） */
+    tags?: string[] | string;
   } | null;
 
   const nodeId = Number(body?.nodeId ?? 0);
@@ -79,6 +82,20 @@ export async function POST(request: Request) {
     .set({ topicsCount: sql`${schema.nodes.topicsCount} + 1` })
     .where(eq(schema.nodes.id, nodeId));
 
+  // v0.0.14：标签落库。
+  //
+  // 为什么放在主题写入之后、积分之前：标签是主题的附属数据，
+  // 主题 id 必须先存在。这里**不放进事务**是刻意取舍 ——
+  // 标签写入失败不应让整篇帖子发布失败（用户的正文才是主体），
+  // 但也不能静默：失败会打印并继续，标签缺失可由编辑补齐。
+  // 与之相对，积分走账本 + 幂等键，失败必须影响结果（见下方 grantCredits）。
+  let appliedTags: string[] = [];
+  try {
+    appliedTags = await attachTags(topic.id, body?.tags);
+  } catch (err) {
+    console.error('[topics] 标签写入失败（不影响主题发布）', err);
+  }
+
   // 发布主题给作者加积分
   //
   // ⚠️ v0.0.4 修复（真实缺陷，验收清单 D-06 / B-06）：
@@ -109,7 +126,7 @@ export async function POST(request: Request) {
   //
   // 保留 `redirect` 不变（**向后兼容**），只是多给一个结构化字段。
   return NextResponse.json(
-    { ok: true, redirect: `/t/${topic.id}`, topicId: topic.id },
+    { ok: true, redirect: `/t/${topic.id}`, topicId: topic.id, tags: appliedTags },
     { status: 201 },
   );
 }
