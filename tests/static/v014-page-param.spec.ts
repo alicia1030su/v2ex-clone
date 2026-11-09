@@ -6,25 +6,25 @@ import { MAX_PAGE, parsePageParam, clampOffset } from '../../src/lib/page-param'
 /**
  * `page` 参数统一化的静态护栏（v0.0.14）
  *
- * ## 这个文件为什么**只**断言纯模块
+ * ## 演进过程（写在这里，避免后来者以为"反向断言很容易写"）
  *
- * 任务原本的想法是"断言页面不得再出现裸 `Math.max(1, Number(p ?? 1) || 1)`"。
- * 但**页面此刻还没改**（P0-1 由另一位工程师并行重构中，我按协作约束不碰页面）。
- * 若现在就把这条反向断言写进套件，套件会立刻变红；而为了让套件变绿，
- * 只有三种做法，**三种都是错的**：
+ * 任务最初只要求做纯模块 + 单测，禁止改页面（P0-1 由另一位工程师并行重构）。
+ * 那个阶段写「页面不得再出现裸 `Math.max(1, Number(p ?? 1) || 1)`」会立刻变红，
+ * 而为了让套件变绿只有三种做法，**三种都是错的**：
  *
  *   · 恒真断言（`expect(true).toBe(true)`）—— 假绿，护栏失去意义；
  *   · `describe.skip` —— 跳过等于不通过，红灯被藏起来；
  *   · 放宽断言（只查注释、只查某个文件）—— 等于自己阉割护栏。
  *
- * 因此本文件只做两件**现在就能判定真假**的事：
+ * 所以当时**只断言纯模块**，并把 10 处待接入页面登记成一份清单（登记，不判红）。
  *
- * ① 纯模块存在、导出正确、行为正确（含负向对照）；
- * ② 用源码结构断言钉住实现的关键性质（如"必须 `Number.isInteger` 校验"、
- *    "必须钳 `MAX_PAGE`"），而不是靠"某个页面里没有某字符串"。
+ * ## 现在（页面已全部接入）这份文件升级为双向断言
  *
- * 页面接入的护栏（`PAGE_PARAM_MIGRATION_QUEUE` 那份清单转成红灯断言）
- * 等页面合并后再加 —— 那时它是**可判定**的。
+ *   · 10 个分页页面必须调用 `parsePageParam()`；
+ *   · `src/` 下不得再出现裸写法（全量扫描，新写的分页页面也覆盖）；
+ *   · `totalPages` 必须钳到 `MAX_PAGE`（否则导航与实际查询错位）；
+ *   · **反向断言必须自带正向对照** —— 用旧代码的真实样本证明正则有鉴别力，
+ *     否则"把正则改成永不匹配"就能让整份护栏假绿。
  */
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -75,13 +75,18 @@ const PAGE_PARAM_MIGRATED = [
   'src/app/leaderboard/page.tsx',
 ] as const;
 
-/** 递归收集 `src/app` 下的 .tsx 页面文件（相对路径，正斜杠） */
-function collectAppPages(dir = 'src/app', out: string[] = []): string[] {
-  for (const entry of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+/**
+ * 递归收集某个目录下的 `.ts` / `.tsx` 源文件（**绝对路径**）。
+ *
+ * 用绝对路径而不是相对路径：全仓扫描要跨多层目录，
+ * 相对路径在不同调用深度下容易拼错（`../..` 的层数依赖当前目录）。
+ */
+function collectSourceFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules') continue;
-    const rel = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) collectAppPages(rel, out);
-    else if (entry.name.endsWith('.tsx')) out.push(rel);
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) collectSourceFiles(full, out);
+    else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) out.push(full);
   }
   return out;
 }

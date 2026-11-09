@@ -544,6 +544,10 @@ export async function listTopicsByTag(
 
   // 独立 count —— 不能用 `rows.length`（v0.0.14 已修过的真实缺陷：
   // rows 已被 limit 截断 ⇒ totalPages 恒为 1，第 2 页永远不可达）
+  //
+  // ⚠️ join 集合必须与列表查询**逐个相同**（含 users）。
+  // 少一个 innerJoin 就少一层过滤：今天因为外键必然存在而结果相同，
+  // 但任何一次「列表加了 join 忘了改 count」都会让总数与行数悄悄分叉。
   const totalRows = await db
     .select({ n: count() })
     .from(schema.topics)

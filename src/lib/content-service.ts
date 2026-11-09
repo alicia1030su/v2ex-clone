@@ -619,24 +619,18 @@ export async function getTopicDetail(
   replyTotal: number;
 }> {
   const topicRows = await db
-    .select()
+    // 一次 join 同时取回主题行与所属节点状态 —— 不要用两次往返拼装：
+    // 这是高频读路径（每次主题详情 API 都会走），多一次往返纯属浪费。
+    .select({ topic: schema.topics, nodeStatus: schema.nodes.status })
     .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(eq(schema.topics.id, topicId))
     .limit(1);
-  const topic = topicRows[0] ?? null;
+  const row = topicRows[0] ?? null;
+  const topic = row?.topic ?? null;
+  const nodeStatus = row?.nodeStatus;
 
   if (!topic) return { topic: null, replies: [], replyTotal: 0 };
-
-  // v0.0.14 P0-1：节点可见性（隐藏 / 待审 ⇒ 对普通访问者不存在）
-  //
-  // ⚠️ 一次 join 查询取 nodeStatus，不要用两次往返拼装 —— 这里在
-  // 高频读路径上（每次主题 API 都被调用），多一次往返纯属浪费。
-  const nodeRows = await db
-    .select({ status: schema.nodes.status })
-    .from(schema.nodes)
-    .where(eq(schema.nodes.id, topic.nodeId))
-    .limit(1);
-  const nodeStatus = nodeRows[0]?.status;
 
   // 角色判据统一走 `canReviewHiddenNodes()` —— 不要在内容服务里再写一遍
   // `role === 'admin' || role === 'moderator'`（那正是判据漂移的起点）。
