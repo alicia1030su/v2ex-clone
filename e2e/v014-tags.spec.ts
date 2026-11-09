@@ -151,4 +151,159 @@ test.describe('v0.0.14 标签链路', () => {
       '二次解码会让该路径 500；正确行为是「查不到这个标签」⇒ 404',
     ).toBe(404);
   });
+
+  test('编辑模态点 × 移除标签：保存后该标签消失、未被移除的标签保留', async ({ page }) => {
+    // 这条用例包含 **4 次整页导航 + 2 次组件内 `window.location.reload()`**，
+    // 单次「保存 → 等 reload 完成」在本机实测就要 3~8s。
+    // 全局 60s 是给单页用例定的，不够用；这里只放宽这一条的预算，
+    // **不改任何断言的 expect 超时**（断言本身仍各有 10~30s 的显式上限）。
+    test.setTimeout(180_000);
+    /*
+     * ## 这条用例补的是什么缺口
+     *
+     * 标签「移除」链路此前有**三段覆盖、一段空白**：
+     *   · 服务层 `detachTags()` —— 真库测试覆盖（额度释放 / 幂等 / 不删本体）；
+     *   · 路由转发 `removeTags` —— 静态护栏覆盖；
+     *   · 页面接线 `initialTags` —— 静态护栏覆盖；
+     *   · **「用户在浏览器里点 × → 保存 → 标签从页面上消失」** —— **零覆盖**。
+     *
+     * 前三段全绿也挡不住最后一段的缺陷（本仓 V4-04「编辑按钮点了没反应」
+     * 就是「后端全对、界面够不着」）。而这段只有真浏览器能证明：
+     * 静态断言只能证明"字符串存在"，证明不了 React 事件真的绑上了、
+     * `removeTags` 真的进了请求体、保存后页面真的刷新成新状态。
+     *
+     * ## 为什么必须同时断言「保留的那个标签还在」
+     *
+     * 只断言"被移除的消失"时，一个把标签**全部**删掉的实现同样能通过
+     * （`detachTags` 传了超过用户所选的范围、或表单把整组标签都提交了）。
+     * 必须有一条**没被移除**的标签作为负向对照，才能证明"只删了该删的"。
+     */
+    await clearRateLimits(page);
+    const username = uniqueName('v14_rmtag');
+    await register(page, username);
+    const nodeId = await pickNodeId(page);
+
+    // 时间戳后缀：避免与并行分片 / 历史数据串味
+    const suffix = Date.now().toString(36);
+    const keepTag = `v14keep${suffix}`;
+    const dropTag = `v14drop${suffix}`;
+
+    const created = await apiPost(page, '/api/topics', {
+      nodeId,
+      title: `v0.0.14 移除标签 ${suffix}`,
+      content: '用于验证「点 × 移除标签」这条纯前端链路的正文内容。',
+      tags: [keepTag, dropTag],
+    });
+    expect(created.status(), '发帖应 201').toBe(201);
+    const topicId = Number(((await created.json()) as { topicId?: number }).topicId);
+    expect(Number.isInteger(topicId) && topicId > 0).toBe(true);
+
+    await page.goto(`/t/${topicId}`);
+    // 前置：两个标签都在页面上（否则下面的"消失"断言没有意义）
+    await expect(
+      page.locator(`a.tag[href="/tag/${keepTag}"]`),
+      '前置条件：保留的标签应先出现',
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator(`a.tag[href="/tag/${dropTag}"]`),
+      '前置条件：待移除的标签应先出现',
+    ).toBeVisible({ timeout: 15_000 });
+
+    // 打开编辑模态（此按钮在 v0.0.3 曾是假按钮 —— 见 V4-04）
+    await page.getByRole('button', { name: '编辑主题' }).first().click();
+    const modal = page.locator('.topic_edit_modal');
+    await expect(modal, '编辑模态必须真的出现').toBeVisible({ timeout: 15_000 });
+
+    // chip 渲染本身就是 `initialTags` 接线成功的**运行时证据**
+    // （静态护栏只能证明"源码里有 initialTags"，证明不了它真的到了 DOM）
+    const dropChip = modal.locator(`[data-tag="${dropTag}"]`);
+    await expect(
+      dropChip,
+      '当前标签必须以 chip 形式渲染出来（initialTags 接线失败就看不到）',
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(modal.locator(`[data-tag="${keepTag}"]`)).toBeVisible();
+
+    // 点 × 标记为待移除（视觉标灰，仍可撤销 —— 误点不该直接生效）
+    await dropChip.getByRole('button', { name: `移除标签 ${dropTag}` }).click();
+    await expect(
+      dropChip,
+      '点击后 chip 应进入「待移除」状态（data-removed=true）',
+    ).toHaveAttribute('data-removed', 'true', { timeout: 10_000 });
+
+    await page.getByRole('button', { name: '保存修改' }).click();
+
+    // 保存成功后组件会 `window.location.reload()`（见 TopicEditForm.submit）——
+    // 不能同时调用 page.reload()，会与组件的导航竞争（本仓踩过）。
+    await page.waitForLoadState('domcontentloaded');
+
+    // 结果 1：被移除的标签从页面上消失
+    await expect(
+      page.locator(`a.tag[href="/tag/${dropTag}"]`),
+      '保存后该标签必须消失（否则「移除」是假控件）',
+    ).toHaveCount(0, { timeout: 30_000 });
+
+    // 结果 2（负向对照）：没被移除的标签必须仍在
+    await expect(
+      page.locator(`a.tag[href="/tag/${keepTag}"]`),
+      '未被移除的标签必须保留（防止实现把整组标签一起删掉）',
+    ).toBeVisible({ timeout: 15_000 });
+
+    // 结果 3：标签页语义 —— 移除只删「关联」，不删标签本体。
+    //
+    // `detachTags()` 刻意**不删 `tags` 行**（同名标签可能被其它主题使用），
+    // 而 `/tag/[name]` 的判据是「`schema.tags` 里有没有这个名字」：
+    //   `if (!tagRows[0]) notFound();`
+    // ⇒ 移除关联后标签本体仍在 ⇒ 标签页 **200 + 空列表**，**不是 404**。
+    //   404 只留给「库里根本没有这个标签名」。
+    //
+    // ⚠️ 若这里得到 404，说明实现把 `tags` 行也删了 —— 那会影响其它主题
+    //    对同名标签的使用（「删自己的关联」变成「替别人删标签」）。
+    //
+    // ⚠️ 断言必须用**精确 href 正则**，不能用 `toContain('/t/' + topicId)`：
+    //    `toContain('/t/12')` 会被 `/t/123` 命中 ⇒ 「主题其实还在」也能过（假绿）。
+    const topicHref = new RegExp(`href="/t/${topicId}(#[^"]*)?"`);
+
+    const dropPage = await page.request.get(`/tag/${encodeURIComponent(dropTag)}`);
+    expect(dropPage.status(), '移除关联后标签本体仍在 ⇒ 标签页应 200').toBe(200);
+    expect(
+      topicHref.test(await dropPage.text()),
+      '该主题不得再出现在被移除标签的列表里（精确匹配 /t/{id}，不是前缀）',
+    ).toBe(false);
+
+    const keepPage = await page.request.get(`/tag/${encodeURIComponent(keepTag)}`);
+    expect(keepPage.status(), '保留标签的标签页应 200').toBe(200);
+    expect(
+      topicHref.test(await keepPage.text()),
+      '保留标签仍能检索到该主题（同一正则，正向对照）',
+    ).toBe(true);
+
+    // 结果 4：移除不是单向破坏 —— 编辑里能再加回来。
+    //
+    // ⚠️ 选择器必须用 `name`，不能用 `#topic_tags_add`：
+    //    该 input 的 id 是模板串 `topic-tags-add-${topicId}`（连字符），
+    //    name 才是 `topic_tags_add`（下划线）。写 `#topic_tags_add` 会匹配不到
+    //    ⇒ fill 一直等到超时，报错只写「Timeout」，指不到真正原因。
+    await page.goto(`/t/${topicId}`);
+    await page.getByRole('button', { name: '编辑主题' }).first().click();
+    await expect(page.locator('.topic_edit_modal')).toBeVisible({ timeout: 15_000 });
+    // 前置：此时 chips 里只剩 keepTag（证明上一次移除真的落库了）
+    await expect(page.locator(`.topic_edit_modal [data-tag="${keepTag}"]`)).toBeVisible();
+    await expect(page.locator(`.topic_edit_modal [data-tag="${dropTag}"]`)).toHaveCount(0);
+
+    await page
+      .locator('.topic_edit_modal input[name="topic_tags_add"]')
+      .fill(dropTag);
+    await page.getByRole('button', { name: '保存修改' }).click();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(
+      page.locator(`a.tag[href="/tag/${dropTag}"]`),
+      '移除后必须还能加回来（否则「移除」是不可逆的破坏）',
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.locator(`a.tag[href="/tag/${keepTag}"]`),
+      '往返之后原有的 keepTag 也不能丢',
+    ).toBeVisible({ timeout: 15_000 });
+
+    await logout(page);
+  });
 });

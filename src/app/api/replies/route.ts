@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
@@ -56,12 +57,21 @@ export async function POST(request: Request) {
 
   // 资源存在性校验放在限流之前：
   // 对不存在/已锁定主题的请求不应消耗限流配额。
+  //
+  // v0.0.14 P0-1：**必须** join nodes 并过滤节点状态。
+  // 否则「隐藏节点的主题」仍可被回复 —— 回复本身会写入通知、
+  // 给作者加积分，并让回复者从 `/member/{自己}` 看到该主题的标题，
+  // 等于把一条被封存的内容重新带回公共面。
+  //
+  // 不可见 ⇒ 与「主题不存在」完全同样的 404（不区分「存在但被隐藏」，
+  // 否则 403/404 的差别本身就是存在性信标）。
   const topics = await db
     .select()
     .from(schema.topics)
-    .where(eq(schema.topics.id, topicId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(eq(schema.topics.id, topicId), PUBLIC_NODE_CONDITION))
     .limit(1);
-  const topic = topics[0];
+  const topic = topics[0]?.topics;
   if (!topic || topic.status === 'deleted') {
     return NextResponse.json({ ok: false, error: '主题不存在' }, { status: 404 });
   }

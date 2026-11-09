@@ -57,6 +57,14 @@ type Props = {
   initialContent?: string;
   /** 编辑表单的初始标题 */
   initialTitle?: string;
+  /**
+   * 编辑表单的初始标签（v0.0.14）。
+   *
+   * 由页面从 `loadTagNames(topicId)` 传入 —— 本组件**不自己取数**，
+   * 也不做默认以外的推断：默认 `[]` 让调用方未接线时表单仍可用（只是没有
+   * 可移除的标签 chips），不会因为少传一个 prop 就崩掉编辑入口。
+   */
+  initialTags?: string[];
 };
 
 export default function TopicActions({
@@ -66,6 +74,7 @@ export default function TopicActions({
   onDeleted,
   initialContent = '',
   initialTitle = '',
+  initialTags = [],
 }: Props) {
   // v0.0.5：删除后用 `router.refresh()` 让服务端组件重新渲染
   // （见 remove() 内的注释）—— 不用 `window.location.reload()`，
@@ -286,6 +295,7 @@ export default function TopicActions({
           topicId={topic.topicId}
           initialContent={initialContent}
           initialTitle={initialTitle}
+          initialTags={initialTags}
           canEditTitle={topic.canModerate}
           onDone={() => setEditing(false)}
         />

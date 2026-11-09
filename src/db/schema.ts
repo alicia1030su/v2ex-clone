@@ -106,13 +106,39 @@ export const users = pgTable(
   ],
 );
 
+/**
+ * 节点分类（v0.0.1 建表 / v0.0.14 补齐管理链路）
+ *
+ * ## v0.0.14 之前的问题
+ *
+ * 表在、`/nodes` 页面按分类分组渲染也在，但**生产代码里没有任何
+ * insert / update / delete 落点** —— 分类只能由 `scripts/seed.ts` 写入。
+ * 真实部署中管理员**无法创建、改名、排序、禁用**任何分类。
+ *
+ * ## v0.0.14 新增两个字段
+ *
+ *  - `hidden`：禁用态。**不删除数据**，因为 `nodes.category_id` 外键指向它，
+ *    删分类会让节点失去归属（或触发外键失败）。禁用后公共页面不再展示该分类，
+ *    但后台仍可见、节点仍保留归属。
+ *  - `updatedAt`：管理操作的可观测性 —— 「谁在什么时候改过」除了审计日志之外，
+ *    也需要一个行级时间戳（后台列表直接展示）。
+ *
+ * ⚠️ **刻意不给 `name` 加唯一索引**：
+ * 历史数据（不同环境由不同版本 seed 写入）可能已有重名分类，
+ * 加唯一索引会让**升级迁移直接失败**。并发创建改由
+ * `src/server/categories.ts` 的 `pg_advisory_xact_lock` 串行化 + 应用层查重保证。
+ */
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 64 }).notNull(),
   title: varchar('title', { length: 64 }).notNull(),
   /** 排序权重，对应原站左侧节点分类的展示顺序 */
   sort: integer('sort').notNull().default(0),
+  /** v0.0.14：禁用后不在公共页面展示；不删除数据，避免节点失去归属 */
+  hidden: boolean('hidden').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** v0.0.14：最后一次管理操作时间 */
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const nodes = pgTable(

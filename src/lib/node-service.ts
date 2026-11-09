@@ -1,6 +1,7 @@
 import 'server-only';
 import { db, schema } from '@/db';
 import { and, eq, isNull, sql, asc, desc, type SQL } from 'drizzle-orm';
+import { extractRows } from '@/server/sql-rows';
 
 /**
  * 节点服务层（v0.0.3）
@@ -175,24 +176,48 @@ export async function getNodeByName(
   return node;
 }
 
-/** 分类列表（含各分类的节点数） */
+/**
+ * 分类列表（含各分类的节点数）—— 供 `GET /api/nodes?withCategories=true` 使用
+ *
+ * ## v0.0.14 修复的两个真实缺陷
+ *
+ * 1. **查询必然 500**：旧实现 `SELECT c.description`，而 `categories` 表
+ *    **没有 description 列**（v0.0.1 建表起就没有）。
+ *    PostgreSQL 报 42703「column c.description does not exist」⇒
+ *    该端点在生产构建下必然 500。因为没有任何前端调用它，长期未被发现。
+ *    这里删掉该列；返回结构同步移除 `description`（端点此前 100% 失败，
+ *    不存在依赖旧结构的调用方）。
+ * 2. **已禁用的分类仍会出现在公共接口里**：v0.0.14 引入 `categories.hidden`，
+ *    禁用语义是「公共页面不展示，但数据与节点归属保留」。
+ *    因此这里必须 `WHERE c.hidden = false` —— 否则后台点了「禁用」，
+ *    `/api/nodes?withCategories=true` 仍会把该分类吐给前端。
+ *
+ * 排序改为 `sort, id`，与 `/nodes` 页面（`src/server/categories.ts`
+ * 的 `listPublicCategories`）保持**同一口径** —— 两处排序不一致会让
+ * 「页面上的顺序」与「接口给的顺序」对不上。
+ *
+ * 需要**含禁用分类**的后台场景请用 `src/server/categories.ts` 的
+ * `listAllCategories()`（带 nodesCount，一次聚合查询）。
+ */
 export async function listCategories() {
-  const rows: Array<Record<string, unknown>> = await db.execute(sql`
+  const result = await db.execute(sql`
     SELECT
-      c.id, c.name, c.title, c.description,
+      c.id, c.name, c.title, c.sort, c.hidden,
       (
         SELECT count(*)::int FROM nodes n
         WHERE n.category_id = c.id AND n.status = 'active'
       ) AS nodes_count
     FROM categories c
-    ORDER BY c.title ASC
+    WHERE c.hidden = false
+    ORDER BY c.sort ASC, c.id ASC
   `);
 
-  return rows.map((r) => ({
+  return extractRows<Record<string, unknown>>(result).map((r) => ({
     id: Number(r.id),
     name: String(r.name),
     title: String(r.title),
-    description: r.description === null ? null : String(r.description),
+    sort: Number(r.sort ?? 0),
+    hidden: r.hidden === true || r.hidden === 't',
     nodesCount: Number(r.nodes_count ?? 0),
   }));
 }

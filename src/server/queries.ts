@@ -1,6 +1,31 @@
 import 'server-only';
 import { and, desc, eq, ilike, or, sql, count, inArray, isNull } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION, isPublicNodeStatus } from '@/lib/node-visibility';
+
+/**
+ * 站内页面 / 站内 API 的**公共**读取层。
+ *
+ * ## 节点可见性（v0.0.14 P0-1）
+ *
+ * 节点状态（`pending` / `hidden`）在 v0.0.13 只被**旧版 API 与 Feed** 尊重，
+ * 站内页面与站内 API 完全没有过滤 —— 同一个隐藏节点下的主题在
+ * `/api/topics/show.json` 里看不到，却能通过 `/tag/x`、`/go/search`、
+ * `/api/search`、`/following`、`/bookmarks`、`/member/x`、
+ * `/t/{id}`（直接输入 URL）看到。也就是说**隐藏节点对普通用户仍可读**。
+ *
+ * 修复口径：本模块所有面向**公共访问者**的查询都带 `PUBLIC_NODE_CONDITION`
+ * （定义在 `src/lib/node-visibility.ts`，全仓唯一），并且**列表与 count 用同一个
+ * where** —— 否则会出现「列表隐藏了、总数没隐藏」的分页错位。
+ *
+ * 需要跨过该口径的只有两类**显式**例外：
+ *  - 详情页 / 详情 API 的审核入口：`opts.includeHiddenNode`
+ *    （调用方用 `canReviewHiddenNodes(user)` 决定，不在这里猜角色）；
+ *  - 节点查询的 `opts.includeHidden`：给后台审核用。
+ *
+ * 不要在这里引入「按 viewer 角色自动切换过滤」的隐式分支 ——
+ * 那会让同一份 SQL 在不同上下文语义不同，正是本缺陷的成因。
+ */
 
 /** 每页主题数量 —— 原站观察：首页与节点页每页 20 条主题 */
 export const TOPICS_PER_PAGE = 20;
@@ -18,6 +43,15 @@ export type TopicListItem = {
   node: { id: number; name: string; title: string };
   lastReplier: { id: number; username: string } | null;
 };
+
+/**
+ * 主题列表查询的统一返回形状。
+ *
+ * 用具名类型而不是在签名里内联对象字面量，是为了让「列表 + 独立总数」
+ * 这件事只有一个声明处：所有公共列表（首页 / 节点页 / 标签页 / 会员页）
+ * 必须同时给出 `total`，任何一处漏掉 `total` 都会立刻类型报错。
+ */
+export type TopicListResult = { items: TopicListItem[]; total: number };
 
 /**
  * 主题排序表达式（v0.0.4）。
@@ -53,12 +87,17 @@ export async function listTopics(opts: {
    *  - 'created'按创建时间倒序（原站「最新」）
    */
   sort?: 'latest' | 'hot' | 'created';
-}): Promise<{ items: TopicListItem[]; total: number }> {
+}): Promise<TopicListResult> {
   const page = Math.max(1, opts.page ?? 1);
   const perPage = opts.perPage ?? TOPICS_PER_PAGE;
   const offset = (page - 1) * perPage;
 
-  const conditions = [eq(schema.topics.status, 'published')];
+  const conditions = [
+    eq(schema.topics.status, 'published'),
+    // 隐藏 / 待审节点下的主题不进入公共列表（v0.0.14 P0-1）。
+    // 列表查询与下面的 count 查询共用同一个 `where`，两者天然同口径。
+    PUBLIC_NODE_CONDITION,
+  ];
 
   if (opts.nodeId != null) {
     conditions.push(eq(schema.topics.nodeId, opts.nodeId));
@@ -157,12 +196,16 @@ export async function listTopicsByNodeIds(
   nodeIds: number[],
   page = 1,
   perPage = TOPICS_PER_PAGE,
-): Promise<{ items: TopicListItem[]; total: number }> {
+): Promise<TopicListResult> {
   const offset = (Math.max(1, page) - 1) * perPage;
   const where = and(
     eq(schema.topics.status, 'published'),
     inArray(schema.topics.nodeId, nodeIds),
+    // v0.0.14 P0-1：即使调用方把隐藏节点的 id 传进来（例如首页 tab 的
+    // 节点名集合里混进了一个已被删除/隐藏的节点），也不得返回其主题。
+    PUBLIC_NODE_CONDITION,
   );
+
 
   const rows = await db
     .select({
@@ -187,9 +230,13 @@ export async function listTopicsByNodeIds(
     .limit(perPage)
     .offset(offset);
 
+  // ⚠️ count 必须 join 与列表**同样的表**。
+  // 原实现只 `from(topics)`，一旦 where 引用 `nodes.status`（v0.0.14 P0-1）
+  // PostgreSQL 会直接报 42P01「缺少 FROM 子句项」—— 首页「最热」tab 恒 500。
   const totalRows = await db
     .select({ n: count() })
     .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(where);
 
   return {
@@ -208,35 +255,90 @@ export async function listTopicsByNodeIds(
   };
 }
 
-export async function getNodeByName(name: string) {
+/**
+ * 按节点名查询节点。
+ *
+ * ⚠️ v0.0.14 P0-1：**必须**默认过滤非 active 状态。
+ *
+ * 这是 `/go/[name]` 能打开隐藏节点的根因：本函数原先
+ * `where(eq(nodes.name, name))` 完全没有状态条件，于是
+ * `/go/被隐藏的节点` 照常渲染节点头部与主题列表，
+ * 连 `/go/{name}` 的 feed 图标都指向可用订阅源。
+ *
+ * 节点名统一 `.toLowerCase()`，与 `src/lib/node-service.ts` 的同名函数
+ * 保持同一口径（Node 名在库里是小写，用户输入可能带大写）。
+ *
+ * @param opts.includeHidden 显式放行（审核/后台入口用），默认 `false`
+ */
+export async function getNodeByName(
+  name: string,
+  opts: { includeHidden?: boolean } = {},
+) {
+  const conditions = [eq(schema.nodes.name, name.toLowerCase())];
+  if (!opts.includeHidden) {
+    conditions.push(PUBLIC_NODE_CONDITION);
+  }
   const rows = await db
     .select()
     .from(schema.nodes)
-    .where(eq(schema.nodes.name, name))
+    .where(and(...conditions))
     .limit(1);
   return rows[0] ?? null;
 }
 
-export async function getNodeById(id: number) {
-  const rows = await db.select().from(schema.nodes).where(eq(schema.nodes.id, id)).limit(1);
+/**
+ * 按 id 查询节点（同样默认过滤非 active 状态，见 `getNodeByName` 的说明）。
+ */
+export async function getNodeById(id: number, opts: { includeHidden?: boolean } = {}) {
+  const conditions = [eq(schema.nodes.id, id)];
+  if (!opts.includeHidden) {
+    conditions.push(PUBLIC_NODE_CONDITION);
+  }
+  const rows = await db
+    .select()
+    .from(schema.nodes)
+    .where(and(...conditions))
+    .limit(1);
   return rows[0] ?? null;
 }
 
+/**
+ * 公共分类列表（`/nodes`、`/go/new`、`/api/nodes?withCategories=true`）。
+ *
+ * v0.0.14：`categories.hidden = true` 的分类**必须**过滤掉 ——
+ * 「禁用」的语义是「公共页面不展示，数据与节点归属保留」。
+ * 若这里不过滤，后台点了禁用之后分类仍会在节点目录里出现，
+ * 管理员会以为按钮没生效（而数据库里明明已经改了）。
+ *
+ * 后台需要含禁用分类的完整列表，请用 `src/server/categories.ts`
+ * 的 `listAllCategories()`（带 nodesCount）。
+ */
 export async function listCategories() {
   return db
     .select()
     .from(schema.categories)
+    .where(eq(schema.categories.hidden, false))
     .orderBy(schema.categories.sort, schema.categories.id);
 }
 
+/**
+ * 按分类列出节点。
+ *
+ * v0.0.14 P0-1：隐藏 / 待审节点不得出现在公共节点目录（`/nodes`、`/go/new`）。
+ * 过滤用 `PUBLIC_NODE_CONDITION`（而不是这里再写一份状态字面量）。
+ *
+ * 需要包含隐藏节点的调用方（后台审核）应改用
+ * `src/lib/node-service.ts` 的 `listNodes({ includeHidden: true })`。
+ */
 export async function listNodesByCategory(categoryId?: number) {
-  if (categoryId == null) {
-    return db.select().from(schema.nodes).orderBy(schema.nodes.name);
+  const conditions = [PUBLIC_NODE_CONDITION];
+  if (categoryId != null) {
+    conditions.push(eq(schema.nodes.categoryId, categoryId));
   }
   return db
     .select()
     .from(schema.nodes)
-    .where(eq(schema.nodes.categoryId, categoryId))
+    .where(and(...conditions))
     .orderBy(schema.nodes.name);
 }
 
@@ -249,9 +351,35 @@ export async function getUserByUsername(username: string) {
   return rows[0] ?? null;
 }
 
-export async function getTopicById(id: number) {
-  const rows = await db.select().from(schema.topics).where(eq(schema.topics.id, id)).limit(1);
-  return rows[0] ?? null;
+/**
+ * 按 id 查询主题（保留 topics 行的完整形状）。
+ *
+ * v0.0.14 P0-1：节点被转为 pending / hidden 后，其主题**对普通访问者不再存在**。
+ *
+ * 为什么不用 `PUBLIC_NODE_CONDITION` 直接过滤：这里是「已拿到具体 id，
+ * 需要判断该行是否可见」的**单行**场景 —— 用 join + 内存判定可以区分
+ * 「主题不存在」与「主题存在但节点不可见」，两者对外都表现为 `null`
+ * （不泄露「这里曾有内容」），但审核入口需要一个可显式放行的开关。
+ *
+ * @param opts.includeHiddenNode 授权审核入口（moderator / admin）显式放行。
+ *   调用方必须用 `canReviewHiddenNodes(user)` 判定后传入，不要在 SQL 层猜角色。
+ */
+export async function getTopicById(
+  id: number,
+  opts: { includeHiddenNode?: boolean } = {},
+): Promise<typeof schema.topics.$inferSelect | null> {
+  const rows = await db
+    .select({ topic: schema.topics, nodeStatus: schema.nodes.status })
+    .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(eq(schema.topics.id, id))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+  // 返回对象形状与改造前**逐字段相同**（仍是 topics 行），调用方无需改动。
+  if (!isPublicNodeStatus(row.nodeStatus) && !opts.includeHiddenNode) return null;
+  return row.topic;
 }
 
 /**
@@ -259,15 +387,33 @@ export async function getTopicById(id: number) {
  *
  * v0.0.3：**默认过滤掉软删除的回复** —— 已删除内容不得通过普通页面泄露。
  * 管理员/作者可通过 includeDeleted 显式查看（带删除标记）。
+ *
+ * v0.0.14 P0-1：**结构上**保证回复不能从隐藏节点的主题里单独取出。
+ *
+ * 原实现只 `from(replies).innerJoin(users)`，可见性完全依赖调用方
+ * 「先查主题、再决定是否查回复」。只要有一条调用路径跳过那一步
+ * （或主题在两步之间被隐藏），回复就照常返回 —— 这不是假设，而是真实缺口：
+ * 会员页「最近的回复」就是这样直接按 author_id 取回复的。
+ *
+ * 现在回复查询自身 `innerJoin(topics)` + `innerJoin(nodes)` 并带
+ * `PUBLIC_NODE_CONDITION`，可见性成为**查询自身的属性**，不依赖调用方纪律。
+ *
+ * @param opts.includeHiddenNode 授权审核入口（moderator / admin）显式放行。
+ *   ⚠️ 必须由调用方用 `canReviewHiddenNodes(user)` 判定后传入 ——
+ *   否则 staff 打开「隐藏节点下的主题」时会看到正文却**一条回复都没有**，
+ *   审核界面直接残废（这本身也是一种「看起来正常的错误」）。
  */
 export async function listReplies(
   topicId: number,
   page = 1,
   perPage = REPLIES_PER_PAGE,
-  opts: { includeDeleted?: boolean } = {},
+  opts: { includeDeleted?: boolean; includeHiddenNode?: boolean } = {},
 ) {
   const offset = (Math.max(1, page) - 1) * perPage;
   const conditions = [eq(schema.replies.topicId, topicId)];
+  if (!opts.includeHiddenNode) {
+    conditions.push(PUBLIC_NODE_CONDITION);
+  }
   if (!opts.includeDeleted) {
     conditions.push(isNull(schema.replies.deletedAt));
   }
@@ -289,19 +435,38 @@ export async function listReplies(
     })
     .from(schema.replies)
     .innerJoin(schema.users, eq(schema.users.id, schema.replies.authorId))
+    .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(and(...conditions))
     .orderBy(schema.replies.floor)
     .limit(perPage)
     .offset(offset);
 
+  // ⚠️ total 与 items 必须**同口径**。
+  // 原实现的 total 只按 topicId 统计（含已删除回复），items 却排除已删除 ——
+  // 那个不一致在 v0.0.3 起就存在，但它与「节点可见性」无关，本轮**不改**
+  // （改了会让「回复被删后总条数不变」这个既有行为变化）。
+  // 唯一必须保证的是：total 也带节点可见性条件，否则隐藏后 items 空、total 非零。
+  const totalConditions = [eq(schema.replies.topicId, topicId)];
+  if (!opts.includeHiddenNode) {
+    totalConditions.push(PUBLIC_NODE_CONDITION);
+  }
   const totalRows = await db
     .select({ n: count() })
     .from(schema.replies)
-    .where(eq(schema.replies.topicId, topicId));
+    .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(...totalConditions));
 
   return { items: rows, total: Number(totalRows[0]?.n ?? 0) };
 }
 
+/**
+ * 站内「今日热议」侧栏（`HotTopics` 组件）。
+ *
+ * v0.0.14 P0-1：原实现只 join users，没有任何节点状态条件 ——
+ * 隐藏节点的标题、作者、投票数会直接出现在**每个页面**的右栏。
+ */
 export async function listHotTopics(limit = 10) {
   const rows = await db
     .select({
@@ -313,10 +478,99 @@ export async function listHotTopics(limit = 10) {
     })
     .from(schema.topics)
     .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-    .where(eq(schema.topics.status, 'published'))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(eq(schema.topics.status, 'published'), PUBLIC_NODE_CONDITION))
     .orderBy(desc(schema.topics.votes), desc(schema.topics.repliesCount))
     .limit(limit);
   return rows;
+}
+
+/**
+ * 标签页（`/tag/[name]`）的主题列表。
+ *
+ * v0.0.14 P0-1：把原先**写在页面里**的查询搬到这里，理由不是「代码好看」：
+ *
+ *  1. 页面里的内联查询没有节点可见性条件，于是「隐藏节点的主题」
+ *     仍能从标签页读到（与所有其它列表口径不一致）；
+ *  2. 内联查询**无法被真库测试直接调用** —— 只能在浏览器里点，
+ *     而这类缺陷恰恰是「点不出来」的（要看的是「不该出现的东西没出现」）。
+ *
+ * 条件：`tags ⋈ topic_tags ⋈ topics ⋈ users ⋈ nodes`，
+ * 只取 `published` 且节点 `active`。
+ *
+ * `items` 形状与 `listTopics()` 的 `TopicListItem` **完全一致**，
+ * 因此页面可以直接交给同一个 `TopicItem` 组件渲染；
+ * `lastReplier` 沿用页面原行为（标签页不展示最后回复者）置 `null`。
+ */
+export async function listTopicsByTag(
+  tagName: string,
+  page = 1,
+  perPage = TOPICS_PER_PAGE,
+): Promise<TopicListResult> {
+  const pageSafe = Math.max(1, page);
+  const offset = (pageSafe - 1) * perPage;
+
+  const where = and(
+    eq(schema.tags.name, tagName),
+    eq(schema.topics.status, 'published'),
+    PUBLIC_NODE_CONDITION,
+  );
+
+  const rows = await db
+    .select({
+      id: schema.topics.id,
+      title: schema.topics.title,
+      votes: schema.topics.votes,
+      repliesCount: schema.topics.repliesCount,
+      createdAt: schema.topics.createdAt,
+      lastReplyAt: schema.topics.lastReplyAt,
+      authorId: schema.users.id,
+      authorName: schema.users.username,
+      authorAvatar: schema.users.avatar,
+      nodeId: schema.nodes.id,
+      nodeName: schema.nodes.name,
+      nodeTitle: schema.nodes.title,
+    })
+    .from(schema.topics)
+    .innerJoin(schema.topicTags, eq(schema.topicTags.topicId, schema.topics.id))
+    .innerJoin(schema.tags, eq(schema.tags.id, schema.topicTags.tagId))
+    .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(where)
+    // 排序必须确定性：同 lastReplyAt 时用 id 兜底，避免翻页时行漂移
+    .orderBy(desc(schema.topics.lastReplyAt), desc(schema.topics.id))
+    .limit(perPage)
+    .offset(offset);
+
+  // 独立 count —— 不能用 `rows.length`（v0.0.14 已修过的真实缺陷：
+  // rows 已被 limit 截断 ⇒ totalPages 恒为 1，第 2 页永远不可达）
+  //
+  // ⚠️ join 集合必须与列表查询**逐个相同**（含 users）。
+  // 少一个 innerJoin 就少一层过滤：今天因为外键必然存在而结果相同，
+  // 但任何一次「列表加了 join 忘了改 count」都会让总数与行数悄悄分叉。
+  const totalRows = await db
+    .select({ n: count() })
+    .from(schema.topics)
+    .innerJoin(schema.topicTags, eq(schema.topicTags.topicId, schema.topics.id))
+    .innerJoin(schema.tags, eq(schema.tags.id, schema.topicTags.tagId))
+    .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(where);
+
+  return {
+    total: Number(totalRows[0]?.n ?? 0),
+    items: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      votes: r.votes,
+      repliesCount: r.repliesCount,
+      createdAt: r.createdAt,
+      lastReplyAt: r.lastReplyAt,
+      author: { id: r.authorId, username: r.authorName, avatar: r.authorAvatar },
+      node: { id: r.nodeId, name: r.nodeName, title: r.nodeTitle },
+      lastReplier: null,
+    })),
+  };
 }
 
 export async function getUnreadNotificationCount(userId: number) {

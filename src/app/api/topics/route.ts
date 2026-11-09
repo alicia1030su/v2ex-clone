@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { isPublicNodeStatus } from '@/lib/node-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
@@ -63,7 +64,10 @@ export async function POST(request: Request) {
   if (!node) {
     return NextResponse.json({ ok: false, error: '节点不存在' }, { status: 404 });
   }
-  if (node.status !== 'active') {
+  // v0.0.14：状态字面量收敛到 `isPublicNodeStatus()` ——
+  // 公共可见性只有一处定义（`src/lib/node-visibility.ts`），
+  // 否则「哪些状态算可见」会在这里和列表查询里各写一遍并逐渐漂移。
+  if (!isPublicNodeStatus(node.status)) {
     return NextResponse.json({ ok: false, error: '该节点不可发布主题' }, { status: 403 });
   }
 

@@ -16,6 +16,8 @@ import type { SessionUser } from '@/lib/auth';
  * | 处理举报                      |  ✗   |    ✓      |   ✓   |
  * | 隐藏 / 恢复内容                |  ✗   |    ✓      |   ✓   |
  * | 节点审批                      |  ✗   |    ✓      |   ✓   |
+ * | 查看节点分类                   |  ✗   |    ✓      |   ✓   |
+ * | 管理节点分类（增/改/禁用）      |  ✗   |    ✗      |   ✓   |
  * | 调整积分                      |  ✗   |    ✗      |   ✓   |
  * | 查看操作日志                   |  ✗   |    ✓      |   ✓   |
  * | 查看系统配置                   |  ✗   |    ✓      |   ✓   |
@@ -32,6 +34,15 @@ export type Permission =
   | 'reports.handle'
   | 'content.hide'
   | 'nodes.approve'
+  // v0.0.14：节点分类的管理链路
+  //
+  // 为什么拆成两个权限而不是复用 `nodes.approve`：
+  //  - 分类是**结构性配置**（决定 /nodes 的分组与顺序），影响面远大于单个节点审批；
+  //  - 禁用分类会让一整组节点从公共页面消失 ⇒ 只允许 admin；
+  //  - 版主仍需**看到**分类（判断节点该归到哪个分类、排查"节点为何不见"），
+  //    因此保留只读的 `categories.view`。
+  | 'categories.view'
+  | 'categories.manage'
   | 'credits.adjust'
   | 'logs.view'
   | 'config.view';
@@ -45,6 +56,8 @@ const MATRIX: Record<Permission, readonly SessionUser['role'][]> = {
   'reports.handle': ['moderator', 'admin'],
   'content.hide': ['moderator', 'admin'],
   'nodes.approve': ['moderator', 'admin'],
+  'categories.view': ['moderator', 'admin'],
+  'categories.manage': ['admin'],
   'credits.adjust': ['admin'],
   'logs.view': ['moderator', 'admin'],
   'config.view': ['moderator', 'admin'],

@@ -1,6 +1,7 @@
 import 'server-only';
 import { db, schema } from '@/db';
 import { and, eq, isNull, sql, desc, asc } from 'drizzle-orm';
+import { canReviewHiddenNodes, isPublicNodeStatus } from '@/lib/node-visibility';
 import type { SessionUser } from '@/lib/auth';
 import { canModifyOwnContent, withinEditWindow } from '@/lib/permissions';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
@@ -30,6 +31,30 @@ export type TopicEditResult = {
   content: string;
   editCount: number;
   editedAt: Date;
+  /**
+   * 本次调用**真的改动了哪些字段**（v0.0.14）。
+   *
+   * 两个都为 `false` 表示 `title` / `content` 与库内值逐字相同 ⇒ 没有写库、
+   * 没有计数、没有 `edit_history` 快照（见 `editTopic()` 的空改动分支）。
+   *
+   * ## 为什么必须由服务层给出，而不是让调用方自己猜
+   *
+   * `PUT /api/topics/[id]` 要写操作审计，文案是「编辑标题 / 编辑正文 / 编辑标签」。
+   * 修复前它用**请求形状**判定：`body.content !== undefined ? '编辑正文' : …`。
+   * 而编辑表单**总是**提交 `content`（`TopicEditForm` 的 payload 无条件带正文），
+   * 于是「用户只删了一个标签」会被记成**「编辑正文」** —— 正文逐字没变。
+   * `edit_history` 修干净了，`audit_logs` 却仍在说假话。
+   *
+   * 判据只有服务层知道（它刚比过库内值），所以用这两个标记把它传给调用方；
+   * 让调用方重新读库比对会多一次往返，且存在「读到的已是被别人改过的值」的竞态 ——
+   * 那正是「按请求形状猜」的同类错误，只是换了个地方猜。
+   *
+   * ⚠️ 必须是**两个独立标记**，不能只给一个 `contentChanged`：
+   *    用户传了 `title` 但标题其实是原值（`TopicEditForm` 只有 staff 才能改标题，
+   *    而它每次都把标题一起发上来）时，只看「传了 title」会误报「编辑标题」。
+   *    传了 ≠ 变了。
+   */
+  changed: { title: boolean; content: boolean };
 };
 
 export type ReplyEditResult = {
@@ -56,6 +81,28 @@ function safeWindow(): number {
  * 权限：作者本人，或 moderator/admin。
  * 时限：作者受编辑时限约束；管理角色不受限。
  * 审计：写入 edit_history（不可变快照）。
+ *
+ * ## v0.0.14：内容**没有任何变化**时不写库、不计数、不留快照
+ *
+ * 背景：`PUT /api/topics/[id]` 现在允许「只提交 `tags` / `removeTags`」的请求
+ * （标签的增删是独立语义），但该路由必须先调 `editTopic()` 才能借到唯一的
+ * 授权与编辑时限校验点（见 `src/app/api/topics/[id]/route.ts` 的说明）。
+ * 于是「只删一个标签」也会走到这里，而 `input.title` / `input.content` 都是
+ * `undefined` ⇒ `newTitle`/`newContent` 与库内值逐字相同。
+ *
+ * 修复前的行为（原样继承自 v0.0.3 的无条件写入）：
+ *   · `editCount + 1` ⇒ 按钮从「编辑」变成「编辑 (1)」，用户只是删了个标签；
+ *   · 写一条 `previousTitle === newTitle && previousContent === newContent`
+ *     的**空快照** ⇒ 审计记录看起来像「正文被改过」，实际什么都没改；
+ *   · `editedAt` / `updatedAt` 被刷新 ⇒ 与「未编辑」的事实矛盾。
+ *
+ * 这三者都不是权限问题（授权与时限校验在**前面**，不受本分支影响），
+ * 而是「审计表说了假话」。编辑计数与编辑历史记的是**内容**变更，
+ * 内容没变就不该记。因此这里提前返回，且返回的是**库内现值**。
+ *
+ * ⚠️ 本分支必须位于授权（`canModifyOwnContent`）与时限（`withinEditWindow`）
+ *    校验**之后** —— 否则「不可编辑的人提交一个空改动」会得到 200 而不是 403，
+ *    等于给了一个免费的权限探测口。
  */
 export async function editTopic(
   user: SessionUser,
@@ -98,6 +145,18 @@ export async function editTopic(
     throw new ContentError('INVALID_CONTENT', '内容过长', 400);
   }
 
+  // 内容逐字未变 ⇒ 这不是一次「编辑」，不写库（见上方文档注释）。
+  if (newTitle === topic.title && newContent === topic.content) {
+    return {
+      topicId,
+      title: topic.title,
+      content: topic.content,
+      editCount: topic.editCount,
+      editedAt: topic.editedAt ?? topic.updatedAt,
+      changed: { title: false, content: false },
+    };
+  }
+
   const now = new Date();
   const updated = await db
     .update(schema.topics)
@@ -131,6 +190,11 @@ export async function editTopic(
     content: newContent,
     editCount: updated[0]?.editCount ?? 0,
     editedAt: updated[0]?.editedAt ?? now,
+    // 走到这里说明至少有一个字段真的变了（空改动已提前返回），逐字段如实标注
+    changed: {
+      title: newTitle !== topic.title,
+      content: newContent !== topic.content,
+    },
   };
 }
 
@@ -595,6 +659,18 @@ export async function unvoteTopic(
  * 软删除过滤：
  *  - 默认**不返回**已删除的回复
  *  - includeDeleted=true 时仅对 staff 或作者本人开放
+ *
+ * v0.0.14 P0-1：**节点可见性**。
+ *
+ * 主题所属节点被转为 pending / hidden 后，该主题对普通访问者**不存在**：
+ * 返回 `topic: null`（调用方一律转成 404，与「主题不存在」不可区分）。
+ * staff（moderator / admin）保留查看能力 —— 审核入口需要一个能打开
+ * 被隐藏内容的路径，否则「隐藏」之后连管理员都无法确认内容是否该恢复。
+ *
+ * 判定放在**取到主题之后**（一次额外的节点状态查询），而不是把
+ * `PUBLIC_NODE_CONDITION` 塞进 topic 查询的 where：
+ * 后者会让 staff 也拿不到数据，且会把「不存在」与「不可见」混成一个 SQL 结果，
+ * 将来要区分审核入口时无从下手。
  */
 export async function getTopicDetail(
   topicId: number,
@@ -606,15 +682,27 @@ export async function getTopicDetail(
   replyTotal: number;
 }> {
   const topicRows = await db
-    .select()
+    // 一次 join 同时取回主题行与所属节点状态 —— 不要用两次往返拼装：
+    // 这是高频读路径（每次主题详情 API 都会走），多一次往返纯属浪费。
+    .select({ topic: schema.topics, nodeStatus: schema.nodes.status })
     .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(eq(schema.topics.id, topicId))
     .limit(1);
-  const topic = topicRows[0] ?? null;
+  const row = topicRows[0] ?? null;
+  const topic = row?.topic ?? null;
+  const nodeStatus = row?.nodeStatus;
 
   if (!topic) return { topic: null, replies: [], replyTotal: 0 };
 
-  const isStaff = viewer?.role === 'admin' || viewer?.role === 'moderator';
+  // 角色判据统一走 `canReviewHiddenNodes()` —— 不要在内容服务里再写一遍
+  // `role === 'admin' || role === 'moderator'`（那正是判据漂移的起点）。
+  const isStaff = canReviewHiddenNodes(viewer);
+  if (!isPublicNodeStatus(nodeStatus) && !isStaff) {
+    // 与「主题不存在」返回完全相同的形状 ⇒ 不泄露「这里曾有内容」
+    return { topic: null, replies: [], replyTotal: 0 };
+  }
+
   const isAuthor = !!viewer && viewer.id === topic.authorId;
   const canSeeDeleted = opts.includeDeleted === true && (isStaff || isAuthor);
 

@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { getNodeByName, listTopics, TOPICS_PER_PAGE } from '@/server/queries';
 import { relativeTime, fullTimestamp } from '@/lib/time';
 import { avatarUrl } from '@/components/Avatar';
@@ -23,8 +25,11 @@ export default async function NodePage({
 }) {
   const { name } = await params;
   const { p } = await searchParams;
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
 
+  // v0.0.14 P0-1：`getNodeByName()` 现在默认只返回 active 节点，
+  // 隐藏 / 待审节点在这里**直接 404** —— 不再渲染节点头部、过滤后仍显示
+  // 「该节点暂无主题」。页面不要再写一遍状态判断（口径必须只有一处）。
   const node = await getNodeByName(name);
   if (!node) notFound();
 
@@ -33,13 +38,15 @@ export default async function NodePage({
     page,
     perPage: TOPICS_PER_PAGE,
   });
-  const totalPages = Math.max(1, Math.ceil(total / TOPICS_PER_PAGE));
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(total / TOPICS_PER_PAGE)));
 
   // 子节点（原站节点页侧栏的「子节点」区块）
+  // v0.0.14 P0-1：子节点同样是公共面 —— 隐藏的子节点不得出现在侧栏，
+  // 否则会给出一个点进去 404 的链接，并暴露「这里有个被隐藏的节点」。
   const children = await db
     .select()
     .from(schema.nodes)
-    .where(eq(schema.nodes.parentId, node.id))
+    .where(and(eq(schema.nodes.parentId, node.id), PUBLIC_NODE_CONDITION))
     .limit(20);
 
   return (

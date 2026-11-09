@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { relativeTime } from '@/lib/time';
 import { avatarUrl } from '@/components/Avatar';
 import Wrapper from '@/components/Wrapper';
@@ -23,11 +24,13 @@ export const dynamic = 'force-dynamic';
  * 不复制原站的第三方聚合内容。
  */
 export default async function XnaPage() {
-  // 聚合节点：名称以 xna- 开头的节点
+  // 聚合节点：名称为 `vxna` 的节点
+  // v0.0.14 P0-1：节点本身也必须是 active —— 否则聚合页会继续为
+  // 一个已隐藏的节点工作（渲染标题、链接到 `/go/vxna` 死链）。
   const nodes = await db
     .select()
     .from(schema.nodes)
-    .where(eq(schema.nodes.name, 'vxna'))
+    .where(and(eq(schema.nodes.name, 'vxna'), PUBLIC_NODE_CONDITION))
     .limit(1);
 
   const topics = nodes[0]
@@ -42,7 +45,10 @@ export default async function XnaPage() {
         })
         .from(schema.topics)
         .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
-        .where(eq(schema.topics.nodeId, nodes[0].id))
+        // v0.0.14 P0-1：主题查询同样要 join nodes 并过滤 ——
+        // 只过滤外层节点是不够的：主题的 nodeId 与外层查询是两个入口。
+        .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+        .where(and(eq(schema.topics.nodeId, nodes[0].id), PUBLIC_NODE_CONDITION))
         .orderBy(desc(schema.topics.createdAt))
         .limit(20)
     : [];

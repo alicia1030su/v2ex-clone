@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { HOME_TABS, SECONDARY_TABS } from '@/lib/nav';
 import { listTopics, type TopicListItem } from '@/server/queries';
 import TopicItem from '@/components/TopicItem';
@@ -27,7 +29,7 @@ export default async function HomePage({
   // 原为 'home'（不存在于 HOME_TABS），导致首页**没有任何 tab 处于选中态**，
   // 导航条上一片灰字，与参考截图（有一个深色圆角选中块）明显不同。
   const tabKey = params.tab ?? 'all';
-  const page = Math.max(1, Number(params.p ?? 1) || 1);
+  const page = parsePageParam(params.p);
 
   // 找到当前 tab 对应的节点集合
   const tab = HOME_TABS.find((t) => t.key === tabKey);
@@ -45,7 +47,14 @@ export default async function HomePage({
       .select({ name: schema.nodes.name })
       .from(schema.topics)
       .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(eq(schema.topics.status, 'published'))
+      .where(
+        and(
+          eq(schema.topics.status, 'published'),
+          // v0.0.14 P0-1：「节点排行」本身也是公共面 —— 隐藏节点不得上榜，
+          // 否则榜单里会出现一个点进去 404 的节点名（既是泄漏也是坏链接）。
+          PUBLIC_NODE_CONDITION,
+        ),
+      )
       .groupBy(schema.nodes.name)
       .orderBy(
         desc(sql<number>`sum(${schema.topics.votes} + ${schema.topics.repliesCount})`),
@@ -59,7 +68,7 @@ export default async function HomePage({
     const nodeRows = await db
       .select({ id: schema.nodes.id, name: schema.nodes.name })
       .from(schema.nodes)
-      .where(inArray(schema.nodes.name, nodeNames));
+      .where(and(inArray(schema.nodes.name, nodeNames), PUBLIC_NODE_CONDITION));
     const nodeIds = nodeRows.map((n) => n.id);
     if (nodeIds.length === 1) {
       listResult = await listTopics({ nodeId: nodeIds[0], page, perPage: PAGE_SIZE });
@@ -71,7 +80,7 @@ export default async function HomePage({
     listResult = await listAllTopics(page, PAGE_SIZE);
   }
 
-  const totalPages = Math.max(1, Math.ceil(listResult.total / PAGE_SIZE));
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(listResult.total / PAGE_SIZE)));
 
   return (
     <Wrapper

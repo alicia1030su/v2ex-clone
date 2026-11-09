@@ -30,12 +30,15 @@ export const dynamic = 'force-dynamic';
  *   POST /api/admin/reports/[id]/handle
  *   GET  /api/admin/node-requests?status=
  *   POST /api/admin/node-requests/[id]/approve | /reject
+ *   GET  /api/admin/categories              （v0.0.14，categories.view）
+ *   POST /api/admin/categories              （v0.0.14，categories.manage）
+ *   PATCH /api/admin/categories/[id]        （v0.0.14，categories.manage）
  *   GET  /api/admin/logs?action=&targetType=
  *   GET  /api/admin/config
  *
  * 权限矩阵见 src/lib/permissions.ts：
- *   - moderator：查看用户、封禁/解封、处理举报、审批节点、看日志与配置
- *   - admin    ：以上全部 + 变更他人角色
+ *   - moderator：查看用户、封禁/解封、处理举报、审批节点、查看分类、看日志与配置
+ *   - admin    ：以上全部 + 变更他人角色 + 管理分类（增/改/禁用）
  */
 export default async function AdminPage() {
   const user = await getSessionUser();
@@ -64,7 +67,14 @@ export default async function AdminPage() {
         <div className="header">
           <a href="/">V2EX</a> <span className="chevron">&nbsp;›&nbsp;</span> 管理后台
         </div>
-        <AdminConsole canChangeRole={isAdmin(user)} canAdjustCredits={isAdmin(user)} />
+        <AdminConsole
+          canChangeRole={isAdmin(user)}
+          canAdjustCredits={isAdmin(user)}
+          // v0.0.14：分类管理（categories.manage）—— 仅 admin。
+          // 版主仍有 categories.view，能在「分类」tab 看到列表但不能改。
+          canManageCategories={isAdmin(user)}
+        />
+
       </div>
     </Wrapper>
   );

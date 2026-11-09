@@ -74,10 +74,18 @@ floor_counters      （楼层号原子分配器）
 | 列 | 类型 | 说明 |
 |---|---|---|
 | `id` | serial PK | |
-| `name` | varchar(64) NOT NULL | 分类标识（如 `tech`） |
+| `name` | varchar(64) NOT NULL | 分类标识（如 `tech`）。**无唯一索引**（历史数据可能重名，加索引会让升级迁移失败）；并发创建由 `pg_advisory_xact_lock` 串行化 + 应用层查重保证 |
 | `title` | varchar(64) NOT NULL | 显示名（如 `技术`） |
-| `sort` | integer DEFAULT 0 | 展示顺序 |
+| `sort` | integer DEFAULT 0 | 展示顺序（列表恒定按 `sort, id` 排序，见 `categories_sort_idx`） |
+| `hidden` | boolean NOT NULL DEFAULT false | **v0.0.14**：禁用态。公共页面不展示该分类，数据与节点归属保留（不删除，避免 `nodes.category_id` 悬空） |
 | `created_at` | timestamptz | |
+| `updated_at` | timestamptz NOT NULL DEFAULT now() | **v0.0.14**：最后一次管理操作时间，所有写操作都会刷新它 |
+
+管理链路（v0.0.14 补齐）：`src/server/categories.ts`（服务层）→
+`/api/admin/categories` 与 `/api/admin/categories/[id]`（权限 `categories.view` /
+`categories.manage`）→ `/admin` 的「分类」tab。写操作全部写入审计日志
+（`category.create` / `category.update` / `category.hide` / `category.show`）。
+公共读取请用 `listPublicCategories()`（过滤 `hidden = false`）。
 
 ### `nodes` — 节点
 

@@ -7,41 +7,125 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
-## [Unreleased] — v0.0.14（开发中，未发布）
+## [Unreleased] — v0.0.14（发行候选，未发布）
 
 > **当前实际公开版本**：`v0.0.12`（Pre-release，2026-11-08）。
 > `v0.0.13` 已合并且版本载体固定为 `0.0.13`，但**未打 Tag、未发布 Release**；
-> `v0.0.14` 在其之上开发，**尚无 Tag / Release / GHCR 镜像**。
+> `v0.0.14` 在其之上开发，使其**包含 v0.0.13 的全部成果**。
+> `v0.0.14` 尚无 Tag / Release / GHCR 镜像。
 > **R-01 历史版权风险维持 DEFERRED**；正式公开发布须主人单独授权。
 
-### A. 标签链路打通（真实「链路不通」缺口）
+### A. 安全：隐藏节点跨页面信息泄露（P0-1）
 
-`tags` / `topic_tags` 表、主题页标签块、`/tag/{name}` 页面**三者从 v0.0.1 就存在**，
-但全仓**没有任何生产代码写入标签**（只有压测脚本 `scripts/loadtest/seed-large.ts` 写）。
-结果是标签页在真实使用中永远为空 —— 「代码齐全、链路不通」，
-静态护栏与单元测试都不会因为它变红。
+v0.0.13 只把「非 active 节点不可见」收敛到**旧版 API 与 Feed**（7 条路径）。
+站内页面与站内 API **一条都没接**，于是同一个 hidden 节点下的主题：
 
-本轮补齐：
+- 在 `/api/topics/show.json` 里看不到；
+- 却能通过 `/tag/{name}`、`/go/search`、`/api/search`、`/following`、
+  `/bookmarks`、`/member/{username}`、`/t/{id}`（直接输入 URL）读到。
 
-- 新增纯函数层 `src/lib/tag-normalize.ts`：小写归一（防 `React` / `react` 分裂）、
-  空白折叠为连字符、剔除 emoji / 全角符号（防 `/tag/*` 链接 404）、
-  单标签 1..24 字符、单主题最多 5 个；非法项**丢弃而非报错**（不阻断发帖）
-- 新增落库层 `src/server/tags.ts`：`attachTags()`（`onConflictDoNothing` + 回查，
-  **唯一约束冲突与并发安全**）、`loadTagNames()`（码点排序，**与 locale 无关**）
-- `POST /api/topics` 与 `PUT /api/topics/[id]` 均写入标签；编辑是**追加**语义
-  （不删除历史标签），响应回显规范化后的结果
-- 发帖表单新增标签输入框（`name="topic_tags"`，刻意避开 `HTMLFormElement` 同名属性 —— V4-20 教训）
-- 主题页改用共用读取函数：同一主题两次刷新标签顺序不再漂移
+**隐藏只对订阅者生效，对网页访客不生效。**
 
-### B. 验证
+本轮把站内公共面全部接上 `src/lib/node-visibility.ts` 的同一判据：
 
-- 纯函数单测 15 条；真库测试 9 条（幂等 / 全局不重复建标签 / 追加语义 /
-  并发写同名标签 / 大小写收敛 / 上限 / 空输入不写行 / 顺序稳定）
-- 静态链路护栏 8 条（**不看文件是否存在，只看写入是否真的被调用**）
-- E2E 2 条：发帖带标签 → 主题页渲染 → 点进标签页可检索 → 编辑追加保留旧标签；
-  另断言大写路径 404（证明库里只有小写一种写法）
-- 过程如实记录：E2E 第一版两处假红（`TopicItem` 渲染的是 `/t/{id}#reply{n}`
-  导致精确 href 匹配不到；去掉锚点后标题与回复数两个链接又触发 strict mode violation）
+- `src/server/queries.ts`：`listTopics` / `listTopicsByNodeIds` / `listHotTopics` /
+  `getTopicById` / `getNodeByName` / `getNodeById` / `listNodesByCategory` /
+  `listReplies` 全部带条件；新增 `listTopicsByTag`（标签页从页面内联 SQL 收敛过来，
+  使其可被真库测试直接调用）
+- 14 个直接持 SQL 的文件 + 6 个改为委托收敛查询的页面
+- `getTopicById` / `listReplies` 提供**显式** `includeHiddenNode` 审核例外，
+  由 `canReviewHiddenNodes(user)` 传入；默认一律公共口径
+- 列表与 `count` 使用**同一 where**（否则会出现「列表隐藏了、总数没隐藏」的分页错位）
+
+顺带修掉的真实缺陷：
+
+- `getNodeByName` 原无状态过滤 ⇒ `/go/{hidden}` 能正常打开
+- `listReplies` 原不 join topics/nodes ⇒ 回复不依赖主题可见性、可独立泄露
+- `node-service.listCategories` 原 `SELECT c.description`（`categories` 表无此列）
+  ⇒ 该端点在生产构建下**必然 500**
+
+### B. 安全：标签总量上限未得到完整保证（P0-2）
+
+`normalizeTags()` 只能保证**单次调用** ≤ 5 个；编辑是追加语义，
+于是「每次提交 5 个」可以无限累加（5 → 10 → 15 …），`TAG_MAX_PER_TOPIC` 形同虚设。
+
+- `attachTags()` 改为**事务内** `SELECT ... FOR UPDATE` 锁定主题行，
+  读已有标签、只补到剩余额度；插入前按名字排序防死锁；
+- 返回值改为「库里**最终**生效的标签」，而不是本次输入（额度截断时不会误导前端）；
+- 新增 `detachTags()`：只删 `topic_tags` 关联行，不删 `tags` 本体；
+- `PUT /api/topics/[id]` 新增 `removeTags` 字段；编辑表单提供标签 chips 移除入口，
+  补齐「只能加、不能减」的体验缺陷；
+- `editTopic()` 在 title/content 逐字未变时**提前返回**（不写库、不计数、不留快照）——
+  否则「只删一个标签」会让按钮变成「编辑 (1)」并在审计表里留下一条什么都没改的记录。
+  提前返回位于授权与时限校验**之后**，避免把空改动变成免费的权限探测口；
+- **鉴权顺序修正**：原实现把 `attachTags()` 放在 `editTopic()` 之前，
+  而 `editTopic()` 是唯一的授权 + 编辑时限校验点 ⇒ 任何登录用户都能用
+  `{ "tags": ["x"] }` 给**别人的主题**改标签（正文那条路 403，标签却已落库）。
+  现在先鉴权再写标签。
+
+### C. 孤儿页：`/hot` 与 `/recent` 没有站内入口
+
+两个页面早已实现且可用，但全站**没有任何链接指向它们**，只能手输 URL。
+入口收敛到 `src/lib/nav-links.ts` 的 `CONTENT_LINKS`（游客与登录用户共用），
+位置紧跟「首页」，因为它们是**全局内容视图**而不是用户工具。
+
+### D. 分类管理链路（表与页面齐全、管理链路不通）
+
+`categories` 表从 v0.0.1 起存在，`/nodes` 也按分类分组渲染，
+但生产代码**没有任何 insert / update / delete 落点** —— 只能由 seed 写入。
+真实部署中管理员无法创建 / 改名 / 排序 / 禁用分类。
+
+- 迁移 `0004_v014_categories.sql`：新增 `hidden`、`updated_at`、`(sort, id)` 索引
+  （全部 `IF NOT EXISTS`，纯加法，可原地升级）
+- `src/server/categories.ts`：`pg_advisory_xact_lock` 串行化并发创建 + 应用层查重
+  （**刻意不加 `name` 唯一索引**：历史数据可能已有重名，加索引会让升级迁移失败）
+- `GET/POST /api/admin/categories`、`PATCH /api/admin/categories/[id]`
+- 权限拆两个：`categories.view`（moderator + admin）、`categories.manage`（仅 admin）
+- 审计四个 action：`category.create` / `category.update` / `category.hide` / `category.show`
+- 后台「分类」tab：列表 / 新建 / 改名 / 排序 / 禁用 / 启用
+- 公共侧过滤：`queries.listCategories()` 与 `node-service.listCategories()` 均排除
+  `hidden = true`
+
+### E. 公共列表 `page` 参数
+
+新增 `src/lib/page-param.ts`：
+
+- 只接受十进制正整数；`'1.5'` / `'Infinity'` / `'-3'` / `'1e3'` / `'0x10'` 一律回退第 1 页
+- 超过上限（`MAX_PAGE = 1000`）**钳到上限**而不是回退第 1 页
+  （否则用户翻到第 1001 页会莫名回到首页，地址栏与实际内容不一致）
+- `clampOffset()` 保证 `OFFSET` 永不溢出成 `1e+21` 这类非法 bigint 文本
+- 10 个公共列表页全部接入；`totalPages` 同步钳在 `MAX_PAGE`
+
+### F. 标签编码与特殊字符（实测，不靠框架行为猜测）
+
+- 中文标签的百分号编码路径可命中（`/tag/%E5%89%8D%E7%AB%AF` → 200）
+- 字面量 `%`（`/tag/100%25`）返回 **404 而非 500**（`safeDecode` 失败原样返回）
+- 畸形编码（`%E4%B8`、`%ZZ`、`%E4%B8%`、`a%zzb`、`%C3%28`）均不抛异常
+- 全角拉丁（`ＡＢＣ`）当前被 `normalizeTag` 丢弃 —— 这是**实测行为**，已用测试记录，
+  不假装它被归一化成半角
+
+### G. 验证（真实执行）
+
+| 门禁 | 结果 |
+|---|---|
+| `tsc --noEmit` | 0 |
+| 静态套件 | 20 文件 / 285 用例 |
+| 完整单元套件 | 60 文件 / 802 用例 |
+| 真库 `v014-node-visibility` | 6/6（active → hidden → active 三态闭环） |
+| 真库 `categories-admin` | 22/22（含并发同名 create 只成功一个） |
+| 真库 `tags-db` | 25/25（含真 `Promise.all` 并发总量 ≤ 5） |
+| `tag-encoding` / `page-param` | 15/15 / 24/24 |
+| E2E `v014-*`（本地 CI 等价复现） | 5/5（含 staff 审核视角与公众视角分离） |
+
+### H. 本轮修复过程中被修正的**测试自身**问题（如实记录）
+
+- E2E 「active 时 /nodes 应列出该节点」假红：临时节点未带 `categoryId`，
+  而 `/nodes` 按分类分组渲染 —— 无分类节点本就不出现。改为先取真实分类。
+- E2E 「hidden 后主题页应 404」假红：用例全程以 admin 身份跑，
+  而 staff 审核入口**有意**允许查看隐藏内容。改为先断言 staff 可访问，
+  退出登录后再断言公众 404。
+- 静态护栏被注释误伤 / 被 `import` 满足（「名字出现 ≠ 真的被调用」）：
+  统一改为剥注释 + 匹配调用形态，并逐条做负向对照。
 
 ## [Unreleased] — v0.0.13（开发中 / 发行候选，未发布）
 

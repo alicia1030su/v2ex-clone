@@ -1,7 +1,9 @@
+import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { avatarUrl } from '@/components/Avatar';
 import { notFound } from 'next/navigation';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { getUserByUsername, listTopics, TOPICS_PER_PAGE } from '@/server/queries';
 import { formatDate, fullTimestamp } from '@/lib/time';
 import { stripMarkdown } from '@/lib/markdown';
@@ -23,7 +25,7 @@ export default async function MemberPage({
 }) {
   const { username } = await params;
   const { p } = await searchParams;
-  const page = Math.max(1, Number(p ?? 1) || 1);
+  const page = parsePageParam(p);
 
   const user = await getUserByUsername(username);
   if (!user) notFound();
@@ -38,8 +40,12 @@ export default async function MemberPage({
     page,
     perPage: TOPICS_PER_PAGE,
   });
-  const totalPages = Math.max(1, Math.ceil(total / TOPICS_PER_PAGE));
+  const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(total / TOPICS_PER_PAGE)));
 
+  // v0.0.14 P0-1：会员页「最近的回复」原先只 join topics ——
+  // 隐藏节点下主题的**回复正文片段**会直接显示在会员主页上，
+  // 而点击标题却 404。现在补 join nodes + 节点可见性条件：
+  // 回复这一层自身就必须能判定可见性，不能指望调用方先查主题。
   const replyRows = await db
     .select({
       id: schema.replies.id,
@@ -50,7 +56,8 @@ export default async function MemberPage({
     })
     .from(schema.replies)
     .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
-    .where(eq(schema.replies.authorId, user.id))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(eq(schema.replies.authorId, user.id), PUBLIC_NODE_CONDITION))
     .orderBy(desc(schema.replies.createdAt))
     .limit(10);
 

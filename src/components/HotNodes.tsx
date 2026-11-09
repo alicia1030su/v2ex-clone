@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 
 /**
  * 最热节点 —— 对应原站首页侧栏的「最热节点」区块
@@ -10,6 +11,12 @@ import { db, schema } from '@/db';
  *     .cell  <span class="fade">最热节点</span>
  *     .cell  a.item_node × N
  *     .inner RSS 图标 + 链接
+ *
+ * v0.0.14 P0-1：这里原本**自己写了一份** `eq(nodes.status,'active')`。
+ * 行为是对的（没有泄漏），但那是节点可见性判据的第二份实现 ——
+ * 一旦 `src/lib/node-visibility.ts` 的口径变化（例如引入 `pending` 的特殊处理），
+ * 这个侧栏就会悄悄落后，而它出现在**每一个页面**上。
+ * 现在改为引用共用条件，判据仍只有一处定义。
  */
 export default async function HotNodes() {
   // 按主题数排序取前 15 个节点
@@ -21,7 +28,7 @@ export default async function HotNodes() {
       topicsCount: schema.nodes.topicsCount,
     })
     .from(schema.nodes)
-    .where(eq(schema.nodes.status, 'active'))
+    .where(PUBLIC_NODE_CONDITION)
     .orderBy(desc(schema.nodes.topicsCount), desc(schema.nodes.id))
     .limit(15);
 

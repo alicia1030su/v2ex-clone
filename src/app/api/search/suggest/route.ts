@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,9 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(schema.topics.status, 'published'),
+          // v0.0.14 P0-1：联想框是**每个页面**都会出现的公共面 ——
+          // 隐藏节点的主题标题从这里泄露得最广（首页搜索框输入两个字就能看到）。
+          PUBLIC_NODE_CONDITION,
           or(ilike(schema.topics.title, kw), ilike(schema.topics.content, kw))!,
         ),
       )
@@ -39,7 +43,10 @@ export async function GET(request: Request) {
       .select({ id: schema.nodes.id, title: schema.nodes.title, name: schema.nodes.name })
       .from(schema.nodes)
       .where(
-        or(ilike(schema.nodes.title, kw), ilike(schema.nodes.name, kw))!,
+        and(
+          PUBLIC_NODE_CONDITION,
+          or(ilike(schema.nodes.title, kw), ilike(schema.nodes.name, kw))!,
+        ),
       )
       .limit(4),
     db
