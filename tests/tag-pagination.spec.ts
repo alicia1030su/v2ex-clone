@@ -47,6 +47,19 @@ let db: ReturnType<typeof drizzle<typeof schema>>;
 let nodeId = 0;
 let authorId = 0;
 
+/*
+ * ⚠️ 这里**刻意不显式传 hook timeout**（走 `vitest.config.ts` 的 120_000）。
+ *
+ * 本文件一度写成 `}, 300_000)` —— 那是为绕过本机 PG 的 I/O 积压态
+ * （实测 createMs 曾达 233~289s）。但那个理由经不起推敲：
+ *   ① 那种极慢是**整台实例**的问题，同一时段**所有** DB spec 都会超时，
+ *      单独给一个文件放宽只能让它「比别人晚红」，不产生任何真实覆盖；
+ *   ② 显式 timeout 会**覆盖**全局 hookTimeout（不是取较大值），
+ *      于是把 CI 的最坏用时可观测值从 2 分钟放大到 5 分钟。
+ * 实测（本机正常态）：totalMs=16979（createMs=6998 / migrateMs=9874），最慢单文件 17s，相对 120s 有 7 倍以上余量。
+ * ⇒ 若将来真在本机撞到 hook timeout，正确动作是看 `[db-phase]` 输出的
+ *    `createMs` / `migrateMs` 判断环境，而不是把这里的数字调大。
+ */
 beforeAll(async () => {
   logDbTarget('tests/tag-pagination.spec.ts', TEST_DB);
 

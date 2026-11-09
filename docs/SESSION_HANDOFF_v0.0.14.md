@@ -118,11 +118,29 @@ v0.0.13 **从未发布**（无 Tag / Release / 镜像），其成果将由 v0.0.
   （正常 ~12s）。同一命令紧接着复跑即 20 文件 / 287 用例全绿。判定为本机并发
   （同时有 E2E 服务、`next build`、另一会话的 PG 操作）导致的资源竞争，
   **未调整任何超时/门槛**；按纪律记为「环境瞬时故障 + 已复现必须披露」。
+- **扫描类结论必须打印分母（本轮两次因此得出假事实）**：用
+  `grep "}, [0-9]\{4,\});"` 统计 hook timeout 时字符集漏了下划线 ⇒ 静默少报
+  `180_000`；用 `glob.glob`（Windows 反斜杠）与 `git ls-tree`（正斜杠）做
+  `in` 比较 ⇒ 基线侧全部判定为「不存在」，扫出「基线 0 处放宽」的假结论。
+  两者外观都与「确实是 0」完全相同。以后凡「全仓无 X」的结论，先报分母。
 - **提交前必须 `git diff --cached` 逐文件核对**：本轮发生过一次真实提交事故 —— 工程师做负向
   对照时留在工作区的 `[NEG] 只点不保存` 版本被一并提交，导致 v014 移除用例
   在 CI 必红并拖红 9 个跨浏览器分片。已由 `cc6843c` 修正。这也是本轮**唯一造成过真实红灯**的流程问题（其余红灯都是环境态或测试自身断言选错观察点）。
 
-## 7. 已知取舍（登记于 `RISK_REGISTER.md`）
+## 7. hook timeout 现状（本轮统一后的真实口径）
+
+基线 `6212938` 本来就有 **4 处** >120s 的 `beforeAll` hook timeout：
+`tags-db` / `tag-pagination`（各 300s）、`feed-search` / `v005-floor-concurrency`（各 180s）。
+本轮新增的 3 处（`categories-admin` 900s、`v014-edit-noop` / `v014-node-visibility` 各 300s）
+已在 `22957d2` 收回；基线中的 `tags-db` / `tag-pagination` 两处在 `4065f4f` 一并收回
+（实测 27/27，最慢单文件 17s，相对 120s 有 7 倍余量）。
+
+**仍剩 2 处 180s**：`feed-search.spec.ts:125`、`v005-floor-concurrency.spec.ts:98`。
+两处都是**基线资产**、本轮未动；要不要收需要先实测各自 `[db-phase]` 的真实
+`createMs + migrateMs`，属下一轮「全仓 hook timeout 审计」的一项，**不在本轮冻结范围**。
+注意 `v005-floor-concurrency` 的 `beforeAll` 含并发楼层种子准备，可能确实比别的 spec 慢。
+
+## 8. 已知取舍（登记于 `RISK_REGISTER.md`）
 
 - ~~纯标签编辑会 `editCount + 1` 并写空 `edit_history` 快照~~ —— **已修**：`editTopic()` 空改动提前返回（`tests/v014-edit-noop.spec.ts` 8 条真库覆盖）
 - 移除标签不删 `tags` 本体 ⇒ `/tag/{name}` 在无关联后仍 200 空列表（有意语义）

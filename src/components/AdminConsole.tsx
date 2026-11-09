@@ -1556,6 +1556,9 @@ export default function AdminConsole({
                       <option value="user">用户</option>
                       <option value="report">举报</option>
                       <option value="node_request">节点申请</option>
+                      {/* v0.0.14：分类操作（category.create / update / hide / show）
+                          若不在这里加，管理员就无法按目标类型筛出分类变更 */}
+                      <option value="category">节点分类</option>
                     </select>
                   </td>
                 </tr>
