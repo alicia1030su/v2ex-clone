@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { and, desc, eq, ilike, or, count, inArray } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, count } from 'drizzle-orm';
 import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';

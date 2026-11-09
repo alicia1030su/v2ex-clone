@@ -61,6 +61,8 @@
 | 节点名唯一 | — | `uniqueIndex(nodes_name_uidx)` | 单元 | ✅ |
 | 节点名格式校验 | — | `^[a-z0-9][a-z0-9_-]{1,31}$` | 单元 | ✅ |
 | 节点收藏（"加入收藏"） | 原站节点页有「加入收藏」按钮 | `POST /api/collections` target=node | E2E | ✅ |
+| **节点可见性（hidden/pending 不得漏出）** | 原站隐藏节点不下发内容 | `src/lib/node-visibility.ts` 的 `PUBLIC_NODE_CONDITION` 被**站内全部公共读取路径**引用（`queries.ts` 的 8 个查询 + 14 个直接持 SQL 的文件 + 6 个委托页面）；`includeHiddenNode` 仅 staff 审核入口显式放行 | 真库 `tests/v014-node-visibility.spec.ts` 6 条（active→hidden→active 三态闭环）+ 静态 `tests/static/v014-node-visibility.spec.ts` + E2E `e2e/v014-node-visibility.spec.ts`（首页/热门/最新/节点目录/节点页/标签页/主题页/主题API/搜索/联想/Feed 全链路，且 staff 与公众视角分离） | ✅ 已实现且已验证（**v0.0.14 补齐**：v0.0.13 只覆盖旧版 API 与 Feed 7 条路径，站内一条都没接） |
+| **分类管理（创建/改名/排序/禁用）** | 原站分类由后台维护 | 迁移 `0004_v014_categories`（`hidden` / `updated_at` / `(sort,id)` 索引）+ `src/server/categories.ts`（`pg_advisory_xact_lock` 串行化）+ `GET/POST /api/admin/categories`、`PATCH /api/admin/categories/[id]` + 后台「分类」tab | 真库 `tests/categories-admin.spec.ts` 22 条（含并发同名 create 只成功一个）+ 静态 `tests/static/v014-categories.spec.ts` | ✅ 已实现且已验证（**v0.0.14 补齐**：此前全仓零写入，分类只能由 seed 写入） |
 
 ## 3. 主题
 
@@ -68,6 +70,9 @@
 |---|---|---|---|---|
 | 主题列表（首页） | `/` 50 条 `item_title` | `/` 每页 20 条 | HTTP 200 + 计数 | ✅ |
 | 主题列表（节点页） | `/go/tech` 20 条 | `/go/[name]` | HTTP 200 | ✅ |
+| **热门页 `/hot`** | 原站有独立热门页 | `/hot`（`listTopics({ sort:'hot' })`） | 站内入口由 `src/lib/nav-links.ts` 的 `CONTENT_LINKS` 提供（游客与登录用户都有）；静态 `tests/static/v014-orphan-pages.spec.ts` 断言四种身份导航都含该入口 | ✅（**v0.0.14 补入口**：页面早已存在但全站零链接，属孤儿页） |
+| **最新页 `/recent`** | 原站有独立最新页 | `/recent`（`listTopics({ sort:'created' })`） | 同上 | ✅（**v0.0.14 补入口**，同上） |
+| **公共列表 `page` 参数校验** | — | `src/lib/page-param.ts`：`parsePageParam()` 只接受十进制正整数，非法一律回退第 1 页，超过 `MAX_PAGE=1000` **钳到上限**；`clampOffset()` 保证 OFFSET 不溢出 | 单元 `tests/page-param.spec.ts` 24 条 + 静态 `tests/static/v014-page-param.spec.ts`（10 个页面必须接入 + 全仓反向断言 + 正则鉴别力对照） | ✅（**v0.0.14 补齐**：原实现 `Math.max(1, Number(p ?? 1) || 1)` 会放过 `'1.5'` 与 `'Infinity'` ⇒ SQL 报错 500） |
 | 主题详情 | `/t/1253638` | `/t/[id]` | HTTP 200 + 楼层号连续 | ✅ |
 | 主题浏览计数 | `· N 次点击` | `topics.views` 每次 +1 | DB 查询前后对比 | ✅ |
 | 主题投票（顶/踩） | `upVoteTopic(id)` / `downVoteTopic(id)` JS 函数 | `TopicActions.tsx` 箭头按钮 → `POST/DELETE /api/votes` | E2E：点击后计数增加、刷新仍正确、重复点击不叠加、未登录不显示 | ✅ |
@@ -76,7 +81,7 @@
 | 主题编辑（作者） | — | `TopicActions.tsx` 编辑表单 → `PUT /api/topics/[id]`（含编辑时限） | E2E：改正文后页面展示、刷新仍生效；他人主题无编辑按钮 | ✅ |
 | 主题软删除（作者/管理员） | — | `DELETE /api/topics/[id]` → `deleted_at` 软删；`POST /api/topics/[id]/restore` 恢复 | E2E：作者删除后普通访问者不可见、管理员恢复后重新可见 | ✅ |
 | 主题编辑历史 | — | `GET /api/topics/[id]/edit-history` | 单元 | ✅ |
-| 标签（发帖/编辑写入 + 检索） | 主题页 `/tag/{name}` 标签块；**原站标签由后台算法生成、前台无输入框** | `src/lib/tag-normalize.ts`（规范化：小写/去重/折叠空白/上限 5×24）+ `src/server/tags.ts`（`attachTags` / `loadTagNames`）；`POST /api/topics` 与 `PUT /api/topics/[id]` 写入，`/t/[id]` 用同一读取函数 | 单元 `tests/tag-normalize.spec.ts` 15 条 + 真库 `tests/tags-db.spec.ts` 9 条 + 静态 `tests/static/v014-tag-chain.spec.ts` 8 条 + E2E `e2e/v014-tags.spec.ts` 2 条（发帖→主题页→标签页→编辑追加） | ✅ 已实现且已验证（**v0.0.14 补齐**：此前表与页面齐全但**零写入**，属「链路不通」） |
+| 标签（发帖/编辑追加/**移除** + 检索） | 主题页 `/tag/{name}` 标签块；**原站标签由后台算法生成、前台无输入框** | `src/lib/tag-normalize.ts`（规范化：小写/去重/折叠空白/上限 5×24）+ `src/server/tags.ts`：`attachTags` 在**事务内 `FOR UPDATE`** 锁主题行、按剩余额度写入（**总量** ≤ 5，追加不会累加超限）、`detachTags` 只删关联不删本体、`loadTagNames` 码点排序；`PUT /api/topics/[id]` 支持 `tags`（追加）与 `removeTags`（移除），且**鉴权先于写标签** | 单元 `tests/tag-normalize.spec.ts` 15 条 + `tests/tag-encoding.spec.ts` 15 条 + 真库 `tests/tags-db.spec.ts` **25 条**（含真 `Promise.all` 并发总量 ≤ 5、已有标签不占额度、detach 释放额度）+ 静态 `tests/static/v014-tag-chain.spec.ts` + E2E `e2e/v014-tags.spec.ts` 4 条（发帖→主题页→标签页→大小写归一→中文编码路径→`%` 不 500） | ✅ 已实现且已验证（**v0.0.14 收口**：写入链路 + 总量上限 + 移除语义 + 编码边界） |
 
 ## 4. 回复
 
