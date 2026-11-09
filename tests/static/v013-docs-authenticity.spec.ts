@@ -45,7 +45,22 @@ const ROOT_API_SPEC = read('API_SPEC.md');
 const BUG_REGISTER = read('BUG_REGISTER.md');
 const RELEASE_GATE = read('RELEASE_GATE.md');
 
-const HANDOFF = 'docs/SESSION_HANDOFF_v0.0.13.md';
+/**
+ * 当前**发行候选**版本 —— 从 `package.json` 派生，**不硬编码**。
+ *
+ * 为什么改成派生：这条护栏原本写死 `v0.0.13`，而 v0.0.13 从未发布、
+ * 成果由 v0.0.14 一次性包含。硬编码的后果是每次推进版本号，
+ * 「文档必须区分已公开版本与开发候选」这条**真正重要的护栏**都要人工改一次，
+ * 改的时候很容易顺手把它改松（例如把版本正则删掉）。
+ * 现在断言的是**关系**（README 必须同时声明「已公开版本」与「开发候选」，
+ * 且候选版本号 = package.json 的版本），与具体版本号解耦，不会随发版失效。
+ */
+const CANDIDATE = String(
+  JSON.parse(read('package.json')).version ?? '',
+);
+const CANDIDATE_TAG = `v${CANDIDATE}`;
+const HANDOFF = `docs/SESSION_HANDOFF_${CANDIDATE_TAG}.md`;
+const CANDIDATE_ESCAPED = CANDIDATE.replace(/\./g, '\\.');
 
 /**
  * CHANGELOG 中 v0.0.13 段落标题的**两种合法形态**：
@@ -88,11 +103,14 @@ function findChangelogV13Section(text: string): ChangelogV13Section | null {
 }
 
 describe('发行文档真实性（v0.0.13）', () => {
-  it('README 必须区分「已公开版本 v0.0.12」与「开发候选 v0.0.13」', () => {
+  it('README 必须区分「已公开版本」与「当前发行候选」（候选版本号 = package.json）', () => {
     expect(README).toContain('当前实际公开版本');
-    expect(README).toContain('当前开发版本');
     expect(README).toMatch(/当前实际公开版本[^\n]*v0\.0\.12/);
-    expect(README).toMatch(/当前开发版本[^\n]*v0\.0\.13/);
+    // 候选版本必须被明确标注（措辞可能是「当前开发版本」或「本版候选」），
+    // 且版本号必须与 package.json 一致 —— 防止 README 落后于载体同步
+    expect(README).toMatch(
+      new RegExp(`(当前开发版本|本版候选)[^\\n]*v${CANDIDATE_ESCAPED}`),
+    );
     expect(README).toContain('未打 Tag、未发布 Release');
   });
 
