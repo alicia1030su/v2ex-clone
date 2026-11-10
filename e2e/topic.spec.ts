@@ -153,3 +153,89 @@ test.describe('主题与回复', () => {
     }
   });
 });
+
+/**
+ * v0.0.16：「最后回复来自 X」必须是**真实最后回复者**
+ *
+ * ## 为什么这条必须在 E2E 层
+ *
+ * 缺陷的表现是「页面完全正常，只是名字是错的」：
+ * 查询把 `lastReplier` 硬编码为 `null`，组件用 `?? topic.author.username` 兜底
+ * ⇒ 每一行都写「最后回复来自 <楼主>」。
+ *
+ * - 真库测试（`tests/v016-last-replier.spec.ts`）证明了**查询返回值**正确；
+ * - 但只有 E2E 能证明**页面渲染出来的那个名字**也是对的 ——
+ *   中间还隔着组件与模板，任何一层再引入一次兜底都会让真库测试照样绿。
+ *
+ * 本用例用两个真实用户走完整链路：
+ *   A 发主题 → 页面显示「最后回复来自 A」（此时唯一回复者是 A 自己）
+ *   → B 回复 → 页面必须变成「最后回复来自 B」
+ * 并额外断言**不能**是 A（修复前的错误值）。
+ */
+test('最后回复者：B 回复后页面必须显示 B，而不是楼主 A', async ({ page, browser }) => {
+  const authorName = uniqueName('lastauthor');
+  const replierName = uniqueName('lastreplier');
+
+  // A 发主题
+  await register(page, authorName);
+  const title = `最后回复者探针 ${Date.now()}`;
+  await page.goto('/go/new');
+  await page.selectOption('#nodeId', { label: '程序员' });
+  await page.fill('#title', title);
+  await page.fill('#content', '用于验证「最后回复来自」显示真实回复者的主题正文。');
+  await Promise.all([
+    page.waitForURL(/\/t\/\d+/, { timeout: 30_000 }),
+    page.click('button[type="submit"]'),
+  ]);
+  const topicUrl = page.url();
+  const topicId = Number(topicUrl.match(/\/t\/(\d+)/)?.[1]);
+  expect(topicId).toBeGreaterThan(0);
+
+  // A 自己回复一条（此时唯一回复者是 A）
+  await page.fill('#reply-content', `A 的自回复 ${Date.now()}`);
+  await page.click('form button[type="submit"]');
+  await expect(page.locator('#reply-content')).toBeVisible({ timeout: 20_000 });
+
+  // 独立 BrowserContext：B 是另一个真实用户，不与 A 共享登录态
+  const ctxB = await browser.newContext();
+  const pageB = await ctxB.newPage();
+  try {
+    await register(pageB, replierName);
+    await pageB.goto(`/t/${topicId}`);
+    await pageB.fill('#reply-content', `B 的回复 ${Date.now()}`);
+    await pageB.click('form button[type="submit"]');
+    await expect(pageB.locator('#reply-content')).toBeVisible({ timeout: 20_000 });
+  } finally {
+    await ctxB.close();
+  }
+
+  // 首页列表里该主题的「最后回复来自」必须是 B
+  await page.goto('/');
+  const row = page.locator('.cell.item').filter({ hasText: title }).first();
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  const rowText = (await row.innerText()).replace(/\s+/g, ' ');
+
+  expect(rowText, `首页该行未显示「最后回复来自」：${rowText}`).toContain('最后回复来自');
+  expect(
+    rowText,
+    `首页显示的最后回复者是楼主 ${authorName}，不是真实最后回复者 ${replierName}`,
+  ).not.toContain(`最后回复来自 ${authorName}`);
+  expect(rowText).toContain(`最后回复来自 ${replierName}`);
+
+  // 「最热」tab 同样必须正确（这是缺陷的另一处，此前恒为 null）
+  await page.goto('/?tab=hot');
+  const hotRow = page.locator('.cell.item').filter({ hasText: title }).first();
+  if ((await hotRow.count()) > 0) {
+    const hotText = (await hotRow.innerText()).replace(/\s+/g, ' ');
+    expect(
+      hotText,
+      `「最热」tab 显示的最后回复者是楼主 ${authorName}：${hotText}`,
+    ).not.toContain(`最后回复来自 ${authorName}`);
+    expect(hotText).toContain(`最后回复来自 ${replierName}`);
+  } else {
+    test.info().annotations.push({
+      type: 'observation',
+      description: '该主题未进入「最热」tab 前 20（主题数不足或排序靠后），只验证了首页列表',
+    });
+  }
+});
