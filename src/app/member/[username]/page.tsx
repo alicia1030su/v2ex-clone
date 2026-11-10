@@ -90,15 +90,27 @@ export default async function MemberPage({
             <div className="f16">{user.balance}</div>
           </div>
           {/* v0.0.4：关注入口（R-24）—— 关注/取消关注都走真实 UI 点击流 */}
-          <div className="cell">
-            <FollowButton
-              userId={user.id}
-              username={user.username}
-              currentUserId={viewer?.id ?? null}
-              initiallyFollowing={followState.isFollowing}
-              initialFollowersCount={followState.followersCount}
-            />
-          </div>
+          {/*
+           * v0.0.16：必须按「是否展示」条件渲染。
+           *
+           * `FollowButton` 在两种情况下返回 `null`：
+           *   ① 访客（`currentUserId === null`）；
+           *   ② 看自己的主页（不能关注自己）。
+           * 若外层 cell 无条件渲染，这两类访客都会在右栏看到一个
+           * **空的 20px cell**（实测 member 页报 `270x20` 空 cell）。
+           * 结构探针的 emptyCells 专门抓这个 —— 空盒子不报错，只多一条空白。
+           */}
+          {viewer && viewer.id !== user.id ? (
+            <div className="cell">
+              <FollowButton
+                userId={user.id}
+                username={user.username}
+                currentUserId={viewer.id}
+                initiallyFollowing={followState.isFollowing}
+                initialFollowersCount={followState.followersCount}
+              />
+            </div>
+          ) : null}
           {user.bio ? (
             <div className="cell">
               <span className="f12 gray">简介</span>

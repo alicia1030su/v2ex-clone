@@ -192,3 +192,61 @@ describe('v0.0.16 交互护栏：异步校准不得覆盖用户已操作的状�
     ).toBe(true);
   });
 });
+
+describe('v0.0.16 结构护栏 ④：会返回 null 的组件不得被无条件 cell 包住', () => {
+  /**
+   * ## 这条护栏防的是「空盒子」
+   *
+   * `TopicActions` 对未登录返回 `null`、`FollowButton` 对访客与「看自己」返回
+   * `null`。如果调用处写成：
+   *
+   *     <div className="cell"><TopicActions ... /></div>
+   *
+   * 那么组件返回 null 时，**cell 仍然渲染** —— 页面上多出一个 20px 高的
+   * 空白条（实测 `topic_detail` 770x20、`member` 270x20）。
+   *
+   * 它不报错、不 500、截图不看细节也发现不了，只会让版面莫名多一条空白。
+   * 结构探针（`tools/visual/probe-pages.mjs` 的 `emptyCells`）能抓，
+   * 但它需要跑真实浏览器；这里用静态断言把「写法」钉死，成本更低。
+   */
+  const CASES = [
+    { file: 'src/app/t/[id]/page.tsx', comp: 'TopicActions', why: '未登录时返回 null' },
+    { file: 'src/app/member/[username]/page.tsx', comp: 'FollowButton', why: '访客/看自己时返回 null' },
+  ] as const;
+
+  for (const { file, comp, why } of CASES) {
+    it(`${comp}（${why}）必须在条件里渲染，不能裸包 cell`, () => {
+      const src = stripComments(read(file));
+      const idx = src.indexOf(`<${comp}`);
+      expect(idx, `${file} 里找不到 <${comp} —— 结构已变，本用例需重写`).toBeGreaterThan(0);
+
+      /*
+       * 判据要做两层：
+       *   ① 先找到**包住该组件的那个 cell**（`<div className="cell">`）；
+       *   ② 再看这个 cell 本身是否处于条件渲染（`{cond ? (` / `{cond && (`）。
+       *
+       * ⚠️ 只看组件前 400 字符是不够的 —— 实际写法是
+       *   `{user ? (\n  <div className="cell">\n    <TopicActions`
+       * 组件前面紧挨着的是 cell 标签，条件在**再往前一层**。
+       * （第一版就是这个错：断言恒假 ⇒ 用例永远红，属于「判据写错」而非「代码有问题」。）
+       */
+      const beforeComp = src.slice(Math.max(0, idx - 600), idx);
+      const cellIdx = beforeComp.lastIndexOf('<div className="cell">');
+      expect(cellIdx, `${comp} 外层没有 <div className="cell"> —— 结构已变，本用例需重写`).toBeGreaterThanOrEqual(0);
+
+      const absoluteCellIdx = Math.max(0, idx - 600) + cellIdx;
+      const beforeCell = src.slice(Math.max(0, absoluteCellIdx - 300), absoluteCellIdx);
+      const tail = beforeCell.replace(/\s+/g, ' ').trimEnd();
+
+      // `{user ? (` / `{viewer && viewer.id !== user.id ? (` / `{cond && (`
+      // 归一化空白后，条件表达式的结尾必然是 `? (` 或 `&& (` 或 `&&`
+      const conditional = /\?\s*\(\s*$/.test(tail) || /&&\s*\(\s*$/.test(tail) || /&&\s*$/.test(tail);
+
+      expect(
+        conditional,
+        `<${comp}> 外层的 cell 不在条件渲染里 —— 它${why}，` +
+          'cell 仍会渲染 ⇒ 页面上多一个空的 20px 盒子（实测 topic_detail 770x20 / member 270x20）',
+      ).toBe(true);
+    });
+  }
+});

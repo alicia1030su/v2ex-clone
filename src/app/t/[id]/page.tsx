@@ -201,31 +201,40 @@ export default async function TopicPage({
          *      ③ 登录用户则看到操作按钮长在「N 条回复」的区域里，语义错位。
          *    这类问题 HTTP 200、无控制台错误、截图肉眼也容易忽略，
          *    只有结构断言（tools/visual/probe-pages.mjs 的 badNesting）能抓到。
+         *
+         * ⚠️ v0.0.16 二次修正：搬出来之后仍要**按登录态条件渲染**。
+         *    `TopicActions` 对未登录返回 `null`，若外层 cell 无条件渲染，
+         *    匿名访客就会在主题正文与回复区之间看到一个**空的 20px cell**
+         *    （实测 `topic_detail` 仍报 1 个 `770x20` 空 cell）。
+         *    结构探针的 emptyCells 判据专门抓这个 —— 空盒子不会报错，只会让
+         *    版面莫名多出一条空白。
          */}
-        <div className="cell">
-          <TopicActions
-            topic={{
-              topicId: topic.id,
-              locked: topic.locked,
-              pinned: topic.pinned,
-              deleted: topic.deletedAt !== null,
-              edited: topic.editCount > 0,
-              editCount: topic.editCount,
-              votes: topic.votes,
-              myVote: myVoteRows[0]?.direction ?? null,
-              canEdit: canModifyOwnContent(user, topic.authorId),
-              canDelete: canModifyOwnContent(user, topic.authorId),
-              canModerate: user?.role === 'moderator' || user?.role === 'admin',
-            }}
-            user={user ? { id: user.id, role: user.role } : null}
-            initialContent={topic.content}
-            initialTitle={topic.title}
-            // v0.0.14：编辑表单需要**当前标签**才能提供「移除」入口。
-            // 不传的后果不是崩溃，而是「标签只能加、不能减」——
-            // 一个看起来正常、但用户无法纠正自己输入的体验缺陷。
-            initialTags={tags.map((t) => t.name)}
-          />
-        </div>
+        {user ? (
+          <div className="cell">
+            <TopicActions
+              topic={{
+                topicId: topic.id,
+                locked: topic.locked,
+                pinned: topic.pinned,
+                deleted: topic.deletedAt !== null,
+                edited: topic.editCount > 0,
+                editCount: topic.editCount,
+                votes: topic.votes,
+                myVote: myVoteRows[0]?.direction ?? null,
+                canEdit: canModifyOwnContent(user, topic.authorId),
+                canDelete: canModifyOwnContent(user, topic.authorId),
+                canModerate: user?.role === 'moderator' || user?.role === 'admin',
+              }}
+              user={{ id: user.id, role: user.role }}
+              initialContent={topic.content}
+              initialTitle={topic.title}
+              // v0.0.14：编辑表单需要**当前标签**才能提供「移除」入口。
+              // 不传的后果不是崩溃，而是「标签只能加、不能减」——
+              // 一个看起来正常、但用户无法纠正自己输入的体验缺陷。
+              initialTags={tags.map((t) => t.name)}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="sep20" />
