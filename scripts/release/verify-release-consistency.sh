@@ -343,12 +343,48 @@ if [ -n "$ZIP" ]; then
     || bad "README 的安装包名不是 v2ex-clone-v${EXPECT}-deploy.zip"
 fi
 
-# 反向断言：不得残留旧版本号
-STALE="$(grep -oE 'v0\.0\.[0-9]+-deploy\.zip' README.md 2>/dev/null | sort -u | grep -v "v${EXPECT}" || true)"
-if [ -z "$STALE" ]; then
-  ok "README 无旧版本安装包名残留"
+# 反向断言：不得把**旧的**安装包名当作当前版本
+#
+# ⚠️ v0.0.15 修正：这条判据原先**无条件**要求 README 里只有 v${EXPECT} 的包名。
+#    它在**候选态**下是错的 —— 候选版本还没有 Release 资产，
+#    此时 README 指向「上一个已发布版本」的包名是**唯一诚实的写法**，
+#    判红等于要求文档撒谎（v0.0.15 实测就红在这里）。
+#
+#    这与本轮 V15-05 同源：**把「状态应该是某一种」当成了判据**，
+#    而正确的不变量是「README 的下载指引必须与真实可下载的东西一致」。
+#
+#    因此改成**按发布状态**判定：
+#      · 已发布（本地有 tag，或 README 声明的当前公开版本 == EXPECT）⇒ 严格：
+#        不得残留任何旧包名（防止发版后忘了改下载入口）；
+#      · 候选态 ⇒ README 必须指向**上一个**已发布版本的包名，且**不得**
+#        自称本版可下载（这才是诚实）。
+RELEASED_TAG=0
+if git rev-parse -q --verify "refs/tags/v${EXPECT}" >/dev/null 2>&1; then
+  RELEASED_TAG=1
+fi
+# ⚠️ 必须先取**整行**再提版本，不能用 `[^|]*` ——
+#    README 里这条是表格行（`| **当前实际公开版本** | ... |`），
+#    `[^|]*` 会在第一个 `|` 处截断，于是永远提取不到版本号。
+#    第一版正是这么写的，结果「已发布态」分支**永远不成立**，
+#    负向对照（把公开版本改成 v0.0.15 + 保留旧包名）**没有判红**。
+#    这类「判据看似存在、实际恒假」的写法，与本轮 V15-04 同源。
+README_PUBLIC="$(grep '当前实际公开版本' README.md 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+if [ "$RELEASED_TAG" -eq 1 ] || [ "$README_PUBLIC" = "v${EXPECT}" ]; then
+  STALE="$(grep -oE 'v0\.0\.[0-9]+-deploy\.zip' README.md 2>/dev/null | sort -u | grep -v "v${EXPECT}" || true)"
+  if [ -z "$STALE" ]; then
+    ok "README 无旧版本安装包名残留（已发布态）"
+  else
+    bad "README 残留旧版本安装包名（已发布态不允许）：${STALE}"
+  fi
 else
-  bad "README 残留旧版本安装包名：${STALE}"
+  # 候选态：允许指向上一已发布版本，但必须**不是**本版包名
+  if grep -q "v2ex-clone-v${EXPECT}-deploy.zip" README.md 2>/dev/null; then
+    bad "候选态下 README 声称可下载 v${EXPECT} 的安装包 —— 该资产尚不存在"
+  else
+    ALLOWED="$(grep -oE 'v0\.0\.[0-9]+-deploy\.zip' README.md 2>/dev/null | sort -u | head -1)"
+    info "候选态：README 下载入口指向 ${ALLOWED:-（无）}（发布前正常；发布后必须改为 v${EXPECT}）"
+    ok "README 未把尚不存在的 v${EXPECT} 安装包写成可下载"
+  fi
 fi
 
 STALE_TAG="$(grep -oE 'releases/tag/v0\.0\.[0-9]+' README.md 2>/dev/null | sort -u | grep -v "v${EXPECT}" | head -5 || true)"

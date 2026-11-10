@@ -36,7 +36,7 @@
 
 ## 当前版本状态（v0.0.14 已发布；v0.0.15 开发中）
 
-> **版本载体**：`0.0.14`
+> **版本载体**：`0.0.15`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
 > 开发态刻意停留在**上一个已发布版本**，只在最终 SHA 固定后才同步 —— G-VER-01。）
 
@@ -45,7 +45,7 @@
 | **当前实际公开版本** | **`v0.0.14`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-09 发布） |
 | **本版候选** | **`v0.0.15`**（开发中：**未打 Tag、未发布 Release、未推送镜像标签**；无本版发布授权） |
 | **上一已发布版本** | `v0.0.12`（Pre-release，2026-11-08） |
-| 版本载体 | `0.0.14`（已由 `sync-version.mjs` 全量同步并通过 20/20 复验；`0.0.15` 待最终 SHA 固定后同步） |
+| 版本载体 | `0.0.15`（已由 `sync-version.mjs` 全量同步并通过 20/20 复验） |
 | 发布形态 | 开发预览版（Pre-release），**不是稳定版** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
@@ -70,6 +70,13 @@
 >   功能矩阵与证据见 [`docs/FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md)；
 >   交接与门禁见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)。
 >
+> **v0.0.15（开发中，未发布）**：本轮不新增功能，只做「把上一版声称做过、但没真做的事做一遍」。
+> 修复**通知收件箱在节点隐藏后仍显示原主题标题**的跨用户泄露；补齐通知的**真实双用户**验收；
+> 修正长期稳定性「24 小时」的口径（分段累计 ≠ 单实例连续）；建立**发布预演**机制
+> （不推 Tag / 不推镜像即可演练整条链路）；完成 R-01 的 12 项调查与隔离清理演练。
+> 当前测试基线、门禁结论与授权边界见
+> [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
+>
 > ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。本版本的公开发布已在**完整披露 R-01** 的前提下
 > 由项目所有者单独授权（一次性、仅限 v0.0.14，不构成后续版本先例）；
 > 该授权**不包含**历史改写，R-01 状态不变。
@@ -85,8 +92,10 @@
 > ### 从旧版本升级
 >
 > 已实测升级基线为 **v0.0.4**（`docs/UPGRADE_VERIFICATION_v0.0.10.md`）；
-> v0.0.14 的官方升级路径是 **v0.0.12 → v0.0.14**，由本版门禁真实验证
-> （结果见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)）。
+> v0.0.14 的官方升级路径是 **v0.0.12 → v0.0.14**，由该版门禁真实验证
+> （结果见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)）；
+> **v0.0.15 的升级路径 v0.0.14 → v0.0.15** 的验证结果见
+> [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
 > `./update.sh --version <目标版本>` 会改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
 > **升级前务必先 `./backup.sh`**。详见 [`deploy/INSTALL.md`](deploy/INSTALL.md) §8。
 
@@ -423,12 +432,15 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > 裸跑 vitest 会连默认的 5432 而失败（`ECONNREFUSED`）。CI 与本地全量复验均须注入：
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
-> ⚠️ **上表是 v0.0.12 的历史记录，不是 v0.0.14 的当前结论。**
-> v0.0.14 的**当前测试基线**（单元 / 静态 / E2E / 跨浏览器 / 视觉 / 安装 / 升级
+> ⚠️ **上表是 v0.0.12 的历史记录，不是 v0.0.15 的当前结论。**
+> v0.0.15 的**当前测试基线**（单元 / 静态 / E2E / 跨浏览器 / 视觉 / 安装 / 升级
 > 的真实通过数与对应 SHA）以
-> [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)
+> [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)
 > 「当前测试基线」小节和 `docs/release-facts.json` 为唯一口径；
 > 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。
+>
+> v0.0.14 的历史基线见
+> [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)。
 > 更早的「单元 103 / E2E 67」「190 / 194」等均为当时快照，仅供追溯。
 
 > `scripts/verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），

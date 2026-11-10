@@ -123,6 +123,7 @@ on:
       #    公开发布授权**，见 `docs/RISK_DECISION_v0.0.14.md`；
       #    R-01 仍为 DEFERRED —— 该接受是一次性的、仅限本版本，不构成先例。
       - 'v0.0.14'
+      - 'v0.0.15'
   workflow_dispatch:
     inputs:
       version:
