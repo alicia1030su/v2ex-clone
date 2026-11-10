@@ -91,6 +91,48 @@ function sql(query) {
   return execFileSync('docker', args, { encoding: 'utf8', timeout: 30_000 }).trim();
 }
 
+/**
+ * 导航到指定 URL，**容忍「被另一个导航打断」**。
+ *
+ * ## 为什么需要它（真实失败现场）
+ *
+ * 首次在 CI 运行时报：
+ *
+ *     ../../verify-tools/scripts/release/acceptance-official.mjs:236:19
+ *     page.goto: Navigation to "http://localhost:3000/t/11" is interrupted
+ *                by another navigation to "http://localhost:3000/t/11"
+ *
+ * 位置正是「编辑主题」之后那一行。根因不是产品缺陷：
+ * `TopicEditForm` 在保存成功后**主动** `window.location.reload()`
+ * （v0.0.10 的修复，避免「改完页面不更新」），于是紧接着的 `page.goto()`
+ * 与这个刷新**竞争** —— 同一个 URL、两个导航，浏览器只保留一个。
+ *
+ * 表现为「导航被打断」，很容易被误读成「页面坏了 / 登录态丢了」。
+ * 正确处理不是加 sleep，而是：先等当前文档落定，再导航；若仍被打断则重试。
+ *
+ * @param page  Playwright Page
+ * @param url   目标 URL
+ * @param opts  `{ waitUntil }`，默认 `'domcontentloaded'`
+ */
+async function gotoStable(page, url, opts = {}) {
+  const waitUntil = opts.waitUntil ?? 'domcontentloaded';
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      // 先让**当前**文档把自己的导航走完（reload 也是导航）
+      await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => undefined);
+      return await page.goto(url, { waitUntil, timeout: 30_000 });
+    } catch (e) {
+      lastErr = e;
+      const msg = String((e && e.message) || e);
+      // 只对「导航被打断」重试；其它错误（超时、DNS、5xx 导航失败）直接抛
+      if (!/interrupted by another navigation|ERR_ABORTED/i.test(msg) || attempt === 3) throw e;
+      await page.waitForTimeout(300);
+    }
+  }
+  throw lastErr;
+}
+
 /** 建一个真实会话：注册新用户（注册接口不要求验证码） */
 async function signUp(context, user) {
   const page = await context.newPage();
@@ -138,7 +180,7 @@ async function main() {
     // ── ① 游客：浏览 → 节点 → 主题 → 搜索 → 用户 → 受限操作被引导登录 ──
     console.log('\n① 游客');
     const guest = await guestCtx.newPage();
-    const home = await guest.goto(APP_URL, { waitUntil: 'domcontentloaded' });
+    const home = await gotoStable(guest, APP_URL, { waitUntil: 'domcontentloaded' });
     home?.status() === 200 ? pass('游客访问首页', 'HTTP 200') : fail('游客访问首页', `HTTP ${home?.status()}`);
 
     const topicLinks = await guest.$$eval('a[href^="/t/"]', (as) => as.map((a) => a.getAttribute('href')));
@@ -150,7 +192,7 @@ async function main() {
       .catch(() => null);
     if (!nodeHref) fail('首页有节点入口', '未找到 /go/ 链接');
     else {
-      const r = await guest.goto(APP_URL + nodeHref, { waitUntil: 'domcontentloaded' });
+      const r = await gotoStable(guest, APP_URL + nodeHref, { waitUntil: 'domcontentloaded' });
       const count = await guest.$$eval('a[href^="/t/"]', (as) => as.length);
       r?.status() === 200 && count > 0
         ? pass('节点页可浏览主题', `${nodeHref} → ${count} 条主题链接`)
@@ -159,7 +201,7 @@ async function main() {
 
     const firstTopic = [...new Set(topicLinks)][0];
     if (firstTopic) {
-      const r = await guest.goto(APP_URL + firstTopic, { waitUntil: 'domcontentloaded' });
+      const r = await gotoStable(guest, APP_URL + firstTopic, { waitUntil: 'domcontentloaded' });
       const hasTitle = await guest.$eval('h1', (h) => (h.textContent || '').trim().length > 0).catch(() => false);
       r?.status() === 200 && hasTitle
         ? pass('主题详情可读', `${firstTopic}`)
@@ -170,7 +212,7 @@ async function main() {
       loginHint > 0 ? pass('未登录回复入口引导登录', `${loginHint} 个登录链接`) : fail('未登录回复入口引导登录', '页面上没有登录引导');
     }
 
-    const search = await guest.goto(`${APP_URL}/go/search?q=claude`, { waitUntil: 'networkidle' });
+    const search = await gotoStable(guest, `${APP_URL}/go/search?q=claude`, { waitUntil: 'networkidle' });
     const searchBoxes = await guest.$$eval('.box', (b) => b.length);
     search?.status() === 200 && searchBoxes > 0
       ? pass('搜索页可访问', `HTTP 200 / ${searchBoxes} 个内容盒`)
@@ -180,7 +222,7 @@ async function main() {
       .$$eval('a[href^="/member/"]', (as) => as.map((a) => a.getAttribute('href')).find((h) => h && h.length > '/member/'.length))
       .catch(() => null);
     if (memberHref) {
-      const r = await guest.goto(APP_URL + memberHref, { waitUntil: 'domcontentloaded' });
+      const r = await gotoStable(guest, APP_URL + memberHref, { waitUntil: 'domcontentloaded' });
       r?.status() === 200 ? pass('用户主页可访问', memberHref) : fail('用户主页可访问', `HTTP ${r?.status()}`);
     } else {
       fail('用户主页可访问', '页面上没有指向具体用户的链接');
@@ -194,7 +236,7 @@ async function main() {
 
     const nodeId = Number(sql('select id from nodes order by id limit 1;'));
     const titleA = `验收主题 A ${stamp}`;
-    await pageA.goto(`${APP_URL}/go/new`, { waitUntil: 'domcontentloaded' });
+    await gotoStable(pageA, `${APP_URL}/go/new`, { waitUntil: 'domcontentloaded' });
     // 选择器以真实实现为准（src/components/NewTopicForm.tsx：id=title / id=content / id=nodeId）
     const hasForm = await pageA.$('#title').catch(() => null);
     if (!hasForm) {
@@ -215,7 +257,7 @@ async function main() {
       fail('后续 A 流程', '缺少主题 id，跳过');
     } else {
       // 标签
-      await pageA.goto(`${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
+      await gotoStable(pageA, `${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
       const editBtn = pageA.locator('button[aria-label="编辑主题"]').first();
       if (await editBtn.count()) {
         await editBtn.click().catch(() => {});
@@ -233,7 +275,7 @@ async function main() {
       // 编辑正文（普通用户**不能**改标题：TopicActions 里 canEditTitle={topic.canModerate}，
       // 因此用「改标题」验编辑必然失败 —— 那是权限设计，不是缺陷）
       const newContent = `验收主题 A 编辑后的正文 ${stamp}`;
-      await pageA.goto(`${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
+      await gotoStable(pageA, `${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
       const editBtn2 = pageA.locator('button[aria-label="编辑主题"]').first();
       if (await editBtn2.count()) {
         await editBtn2.click().catch(() => {});
@@ -250,7 +292,7 @@ async function main() {
       } else fail('用户 A 编辑主题', '主题页没有编辑按钮（可能已过编辑时限）');
 
       // 回复（自己回复自己：只需验证写入链路）
-      await pageA.goto(`${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
+      await gotoStable(pageA, `${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
       // ⚠️ 必须限定在回复表单内：编辑表单的 textarea 也叫 name="content"，
       //    编辑框打开时全页有 2 个同名控件，`.first()` 会填进编辑框。
       /*
@@ -289,7 +331,7 @@ async function main() {
     const pageB = regB.page;
 
     if (topicA) {
-      await pageB.goto(`${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
+      await gotoStable(pageB, `${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
       const replyBoxB = pageB
         .locator('#reply-content, form[action="/api/replies"] textarea[name="content"]')
         .first();
@@ -315,7 +357,7 @@ async function main() {
           : fail('提及通知落库', '收件人没有 mention 通知');
 
         // A 的收件箱：能看到、能标已读、刷新后仍已读
-        const inbox = await pageA.goto(`${APP_URL}/notifications`, { waitUntil: 'networkidle' });
+        const inbox = await gotoStable(pageA, `${APP_URL}/notifications`, { waitUntil: 'networkidle' });
         const items = await pageA.$$eval('.cell', (cs) => cs.length);
         inbox?.status() === 200 && items > 0 ? pass('用户 A 收件箱可见', `${items} 个 cell`) : fail('用户 A 收件箱可见', `HTTP ${inbox?.status()}`);
 
@@ -351,7 +393,7 @@ async function main() {
     const role = sql(`select role from users where username='${U.m.username}';`);
     role === 'admin' ? pass('测试账号提升为管理员（隔离库）', 'role=admin') : fail('测试账号提升为管理员', `role=${role}`);
 
-    const admin = await pageM.goto(`${APP_URL}/admin`, { waitUntil: 'networkidle' });
+    const admin = await gotoStable(pageM, `${APP_URL}/admin`, { waitUntil: 'networkidle' });
     const dashBoxes = await pageM.$$eval('.box', (b) => b.length);
     admin?.status() === 200 && dashBoxes > 0
       ? pass('管理员后台可访问', `${dashBoxes} 个内容盒`)
@@ -369,7 +411,7 @@ async function main() {
       const reportRow = sql(`select count(*) from reports where target_type='topic' and target_id=${reported} and status='pending';`);
       Number(reportRow) >= 1 ? info(`举报数据就绪（${reportRow} 条 pending）`) : info('举报数据未写入（可能已有唯一约束）');
 
-      await pageM.goto(`${APP_URL}/admin`, { waitUntil: 'networkidle' });
+      await gotoStable(pageM, `${APP_URL}/admin`, { waitUntil: 'networkidle' });
 
       /*
        * 处理入口用 `window.prompt` 收「处理说明」—— 必须在点击**之前**挂
@@ -440,8 +482,8 @@ async function main() {
     // ── ⑤ 双 context 并发：A 与 B 同时在线互不干扰 ──
     console.log('\n⑤ 双用户并发');
     await Promise.all([
-      pageA.goto(`${APP_URL}/notifications`, { waitUntil: 'domcontentloaded' }),
-      pageB.goto(`${APP_URL}/notifications`, { waitUntil: 'domcontentloaded' }),
+      gotoStable(pageA, `${APP_URL}/notifications`, { waitUntil: 'domcontentloaded' }),
+      gotoStable(pageB, `${APP_URL}/notifications`, { waitUntil: 'domcontentloaded' }),
     ]);
     const aName = await pageA.evaluate(() => document.body.textContent?.includes('退出') ?? false);
     const bName = await pageB.evaluate(() => document.body.textContent?.includes('退出') ?? false);
