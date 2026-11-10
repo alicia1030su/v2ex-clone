@@ -289,8 +289,38 @@ printf '  PG: %s:%s\n' "$PGHOST" "$PGPORT"
 printf '  v0.0.4 迁移集: %s\n' "$V004_MIG"
 printf '  v0.0.9 迁移集: %s\n' "$V009_MIG"
 
-run_baseline "v004" "$V004_MIG" 3
-run_baseline "v009" "$V009_MIG" 4
+# ── 基线迁移数**从各自的 journal 派生**，不硬编码 ─────────────────────
+#
+# ⚠️ v0.0.15：这里原本写死 `3` 与 `4`。v0.0.14 新增了 `0004_v014_categories`，
+#    于是用 `git archive v0.0.14 drizzle` 当基线时真实迁移数是 **5**，
+#    脚本却仍期待 4 ⇒ **升级成功却判红**。
+#    这不是产品问题，是「脚本没跟上版本」——v0.0.14 曾修过一次同类问题
+#    （当时也是硬编码），本轮又因为换了基线 tag 复发。
+#
+#    正确做法：每个基线目录自己的 `meta/_journal.json` 才是它的真实迁移数。
+#    这样换任何基线 tag 都不需要改脚本。
+journal_count() {
+  local dir="$1"
+  local j="$dir/meta/_journal.json"
+  [ -f "$j" ] || return 1
+  # ⚠️ 不能用 `node -e ... "$j"`：本机 Git Bash 的 `/tmp` 是 MSYS 虚拟路径，
+  #    而 node 会把它当成 `C://tmp//...` ⇒ MODULE_NOT_FOUND。
+  #    改用 grep 数 `"tag":` 行 —— 每个 journal entry 恰好一行 tag，
+  #    纯 shell 工具，不跨路径语义，也不依赖 node 版本。
+  grep -c '"tag":' "$j" 2>/dev/null | tr -d '\r'
+}
+
+V004_EXPECT="$(journal_count "$V004_MIG")"
+V009_EXPECT="$(journal_count "$V009_MIG")"
+
+if [ -z "$V004_EXPECT" ] || [ -z "$V009_EXPECT" ]; then
+  die "无法从基线迁移目录的 _journal.json 派生迁移数（检查 --v004-migrations / --v009-migrations）"
+fi
+
+info "派生迁移数：v004 基线 = ${V004_EXPECT}，第二基线 = ${V009_EXPECT}"
+
+run_baseline "v004" "$V004_MIG" "$V004_EXPECT"
+run_baseline "v009" "$V009_MIG" "$V009_EXPECT"
 
 printf '\n%s═══ 汇总：PASS=%d FAIL=%d ═══%s\n' "$C_BLD" "$PASS" "$FAIL" "$C_RST"
 [ "$FAIL" -eq 0 ] || exit 1
