@@ -133,8 +133,33 @@ v0.0.15 的发布链路已验证可用（11/11 + 13 项匿名验收）。
 | 静态护栏（`vitest.static.config.ts`） | **26 文件 / 331 用例全通过** |
 | 完整单元（`vitest run`） | **69 文件 / 875 用例全通过**（隔离实例 :55440） |
 | 真库 `v016-last-replier` | **5 / 5** |
-| 结构探针（14 页 × 1280×900） | **0 空 cell / 0 非法嵌套 / 0 横向溢出 / 0 失败请求** |
+| **E2E 通知双用户全链路**（`e2e/v015-notifications.spec.ts`） | **11 / 11 通过**（38.4s）—— 回复 / 提及 / 感谢 / 未读·已读·刷新保留 / 并发 / 软删 / 封禁边界 / hidden 节点不泄露 / 系统通知不被过滤 |
+| **E2E 核心套件**（`topic.spec.ts` + `feature.spec.ts`） | **25 / 25 通过**（38.8s），含本轮新增的「最后回复者双用户」用例（4.0s） |
+| 结构探针（**21 页** × 1280×900） | **0 空 cell / 0 非法嵌套 / 0 横向溢出 / 0 失败请求**（原 14 页，本轮补 7 页） |
 | 六视口横向溢出（320/375/390/768/1280/1920） | **全部 ok** |
+| 重复提交（双击「提交回复」） | 只发出 **1 个 POST（303）**，数据库 **1 条** —— 原生 form 导航天然防重 |
+
+### 本地 E2E 环境的一个**必须注意的坑**
+
+Playwright 的配置会按 `ENV_FILE → .env.test → .env.local → .env` 加载环境，
+而 `.env.test` 里的 `DATABASE_URL` 指向隔离实例 `:55440`。
+如果被测应用跑在 `:55433`（视觉测量库）而 E2E 从 `.env.test` 取 `:55440`，
+则 `global-setup` 的「同步 seed 口令」会写到**另一个库**，表现为
+「管理员登录一直超时」——**不是权限问题、也不是验证码问题**。
+
+正确做法：跑 E2E 时显式把 `DATABASE_URL` 指到**被测应用实际连的那个库**：
+
+```bash
+LOCAL_BASE=http://127.0.0.1:3211 ENV_FILE=.env.test \
+DATABASE_URL="postgres://…:55433/v2ex_v016_visual" \
+CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
+```
+
+另有两个本机专属坑（与 CI 无关）：
+- **`CODEBUDDY_SAFE_DELETE_ENABLED=1` 会让 Playwright 清理 `test-results/` 失败**
+  （安全删除 shim 在批量删除时抛错，整个 run 直接退出）⇒ 跑 E2E 必须置 `0`；
+- 测试实例必须是 `APP_RUNTIME_ENV=test` + `TEST_ENV_ISOLATED=1` +
+  `DISABLE_CAPTCHA=1`，否则管理员登录被强制验证码拦住（**这是正确行为**）。
 
 ### 负向对照（全部实测判红后恢复）
 
