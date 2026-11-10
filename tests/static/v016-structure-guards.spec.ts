@@ -152,3 +152,43 @@ describe('v0.0.16 结构护栏 ③：站内链接不得指向缺参数的动态�
     expect(offenders, `发现裸 /member 链接（点击 404）：${offenders.join(' / ')}`).toEqual([]);
   });
 });
+
+describe('v0.0.16 交互护栏：异步校准不得覆盖用户已操作的状态', () => {
+  /**
+   * ## 这条护栏防的具体现象
+   *
+   * `CollectButton` 挂载时会拉一次「我是否已收藏」来校准。这份拉取与用户点击
+   * **并发**：用户在 fetch 返回前点了收藏，后端已写入、UI 已切到「已收藏」，
+   * 随后那个更早发出的 fetch 返回「未收藏」，把状态覆盖回去。
+   *
+   * 表现是：点收藏 → 变「已收藏」→ 一两秒后自己变回「收藏」，
+   * 刷新又显示已收藏（数据库对、UI 错）。这类缺陷不产生任何报错。
+   *
+   * 修法是「用户操作过就丢弃校准结果」（`userActedRef`）。
+   * 静态断言只能锁住**这个机制存在**；真正的时序验证在 E2E。
+   */
+  const FILE = 'src/components/CollectButton.tsx';
+
+  it('挂载校准必须先检查 userActedRef，再 setCollected', () => {
+    const src = stripComments(read(FILE));
+    // 找 useEffect 里的 setCollected 调用
+    const effectIdx = src.indexOf('useEffect(');
+    expect(effectIdx, `${FILE} 里找不到 useEffect —— 结构已变，本用例需重写`).toBeGreaterThan(0);
+    const effectBody = src.slice(effectIdx, src.indexOf('}, [target, id]);', effectIdx));
+
+    expect(
+      effectBody.includes('userActedRef.current'),
+      '挂载校准直接 setCollected 而不检查 userActedRef —— ' +
+        '用户点击与校准并发时，后者会覆盖前者（点了收藏又自己变回去）',
+    ).toBe(true);
+  });
+
+  it('toggle 必须做并发点击保护（pending 期间直接 return）', () => {
+    const src = stripComments(read(FILE));
+    expect(
+      /if\s*\(\s*pending\s*\)\s*return/.test(src),
+      'toggle 缺少 `if (pending) return` —— 快速双击会发出两个 POST，' +
+        '最终 UI 状态取决于哪个响应后到',
+    ).toBe(true);
+  });
+});
