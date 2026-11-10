@@ -129,7 +129,7 @@ export default function CreditBadge({
       <span className="f16">{state.status === 'ready' ? state.balance : '—'}</span>
 
       {state.status === 'error' ? (
-        <div className="sep5">
+        <div className="reply_row">
           <span className="f12 gray" role="alert">
             {state.text}
           </span>{' '}
@@ -146,7 +146,29 @@ export default function CreditBadge({
 
       {state.status === 'ready' && showLedger ? (
         <>
-          <div className="sep5">
+          {/*
+           * ⚠️ v0.0.16：这里**不能**用 `.sep5` 当容器。
+           *
+           * `.sep5` 在原站语义是「5px 高的**空白占位块**」，样式里写死
+           * `height: 5px`。把 31px 高的按钮塞进去的结果不是「没有间距」，
+           * 而是：
+           *   ① 按钮**溢出**这个 5px 盒子（实测按钮 y=1029..1060）；
+           *   ② 紧接着的签到区域（`checkin-box`，y=1044..1075）在**同一个
+           *      静态流**里，于是它盖住了按钮的下半部分 ⇒
+           *      `elementFromPoint(按钮中心)` 命中的是 `div.checkin-box`，
+           *      点击被它拦截；
+           *   ③ 用户看到的是一个**看起来正常、点不动**的按钮 ——
+           *      没有任何报错，Playwright 只会报 `intercepts pointer events`。
+           *
+           * 这与 v0.0.9 修过的「回复卡片把内容行写成 .sep5 ⇒ 按钮被
+           * `.box{overflow:hidden}` 裁掉」是**同一类错误**：把占位块当容器。
+           * 那次修了回复卡片，但没在别处排查同一种写法 —— 这里就是漏网的一处。
+           *
+           * `.reply_row` 的语义正是「与上一行相隔 5px 的内容行」：
+           * 留出间距、高度随内容。名称不完美，但它是本仓既有的、语义正确的
+           * 选择，比新造一个 class 更能防止下一次误用。
+           */}
+          <div className="reply_row">
             <button
               type="button"
               className="button"
@@ -159,7 +181,7 @@ export default function CreditBadge({
           </div>
 
           {expanded ? (
-            <div className="sep5">
+            <div className="reply_row">
               {state.ledger.length === 0 ? (
                 <div className="f12 gray">暂无积分流水</div>
               ) : (
@@ -167,7 +189,7 @@ export default function CreditBadge({
                   <div key={e.id} className="f12 gray">
                     {LEDGER_LABELS[e.type] ?? e.type} · {e.amount > 0 ? '+' : ''}
                     {e.amount} · 余 {e.balanceAfter}
-                    {e.reason ? ` · ${e.reason}` : ''}
+                    {e.reason ? ` · ${e.reason}` : null}
                   </div>
                 ))
               )}

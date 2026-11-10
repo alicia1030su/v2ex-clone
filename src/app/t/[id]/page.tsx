@@ -187,21 +187,29 @@ export default async function TopicPage({
             <ReportButton target="topic" id={topicId} />
           ) : null}
         </div>
-      </div>
 
-      <div className="sep20" />
-      <div id="topic-replies">
-        <div className="box">
-          <div className="cell">
-            <div className="fr" style={{ margin: '-3px -5px 0px 0px' }}>
-              {tags.map((t) => (
-                <Link key={t.name} href={`/tag/${encodeURIComponent(t.name)}`} className="tag">
-                  <li className="fa fa-tag" /> {t.name}
-                </Link>
-              ))}
-            </div>
-
-          {/* v0.0.3：主题操作栏（投票 / 编辑 / 删除 / 锁定 / 置顶） */}
+        {/*
+         * v0.0.16：主题操作栏（投票 / 编辑 / 删除 / 锁定 / 置顶）
+         *
+         * ⚠️ 这里修掉一个**结构缺陷**（不是样式问题）：
+         *    修复前这段 `<TopicActions>` 被写在了**回复区头部 cell 的内部**，
+         *    于是形成 `.box > .cell > .cell` 的嵌套。
+         *    后果：
+         *      ① 匿名访客（`TopicActions` 对未登录返回 null）会看到一个
+         *         **空的 21px 高 cell**，把回复头从一行拆成三段；
+         *      ② 回复计数被挤到嵌套 cell 之后，与参考站的「计数 + 时间」单行头不符；
+         *      ③ 登录用户则看到操作按钮长在「N 条回复」的区域里，语义错位。
+         *    这类问题 HTTP 200、无控制台错误、截图肉眼也容易忽略，
+         *    只有结构断言（tools/visual/probe-pages.mjs 的 badNesting）能抓到。
+         *
+         * ⚠️ v0.0.16 二次修正：搬出来之后仍要**按登录态条件渲染**。
+         *    `TopicActions` 对未登录返回 `null`，若外层 cell 无条件渲染，
+         *    匿名访客就会在主题正文与回复区之间看到一个**空的 20px cell**
+         *    （实测 `topic_detail` 仍报 1 个 `770x20` 空 cell）。
+         *    结构探针的 emptyCells 判据专门抓这个 —— 空盒子不会报错，只会让
+         *    版面莫名多出一条空白。
+         */}
+        {user ? (
           <div className="cell">
             <TopicActions
               topic={{
@@ -215,10 +223,9 @@ export default async function TopicPage({
                 myVote: myVoteRows[0]?.direction ?? null,
                 canEdit: canModifyOwnContent(user, topic.authorId),
                 canDelete: canModifyOwnContent(user, topic.authorId),
-                canModerate:
-                  user?.role === 'moderator' || user?.role === 'admin',
+                canModerate: user?.role === 'moderator' || user?.role === 'admin',
               }}
-              user={user ? { id: user.id, role: user.role } : null}
+              user={{ id: user.id, role: user.role }}
               initialContent={topic.content}
               initialTitle={topic.title}
               // v0.0.14：编辑表单需要**当前标签**才能提供「移除」入口。
@@ -227,6 +234,21 @@ export default async function TopicPage({
               initialTags={tags.map((t) => t.name)}
             />
           </div>
+        ) : null}
+      </div>
+
+      <div className="sep20" />
+      <div id="topic-replies">
+        <div className="box">
+          {/* 回复区头：与参考站一致 —— 左「N 条回复 • 时间」，右标签（floated） */}
+          <div className="cell">
+            <div className="fr" style={{ margin: '-3px -5px 0px 0px' }}>
+              {tags.map((t) => (
+                <Link key={t.name} href={`/tag/${encodeURIComponent(t.name)}`} className="tag">
+                  <li className="fa fa-tag" /> {t.name}
+                </Link>
+              ))}
+            </div>
             <span className="gray">
               {replyTotal} 条回复 &nbsp;<strong className="snow">•</strong> &nbsp;
               {fullTimestamp(topic.lastReplyAt)}
@@ -332,8 +354,22 @@ export default async function TopicPage({
                   <input type="hidden" name="redirect" value={`/t/${topicId}`} />
                   {/* 原生表单无法自动加请求头，必须通过隐藏字段传递 CSRF token */}
                   <input type="hidden" name="csrfToken" value={csrfToken} />
+                  {/*
+                   * v0.0.16：给回复框一个**唯一 id**。
+                   *
+                   * 编辑表单里的 textarea 也叫 `name="content"`，于是编辑框打开时
+                   * 全页有 2 个同名控件。这对用户没影响（两个在不同 form 里），
+                   * 但它让任何按 `textarea[name=content]` 定位的自动化都可能
+                   * 命中**错误的那个** —— 验收脚本就踩过：点「编辑」后填「回复」，
+                   * 内容实际进了编辑框，测试还以为通过了。
+                   *
+                   * 加 id 是最小的改动：不影响提交字段名（仍叫 content），
+                   * 同时给测试与无障碍一个明确锚点。
+                   */}
                   <textarea
+                    id="reply-content"
                     name="content"
+                    aria-label="回复内容"
                     placeholder="回复内容"
                     required
                     minLength={2}

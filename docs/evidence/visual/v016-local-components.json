@@ -1,0 +1,49 @@
+{
+  "measuredAt": "2026-11-10T15:22:06.025Z",
+  "source": {
+    "kind": "live",
+    "base": "http://127.0.0.1:3210"
+  },
+  "viewport": "1280x900",
+  "values": {
+    "wrapper_width": {
+      "w": 1280,
+      "h": 838
+    },
+    "content_width": {
+      "w": 1060,
+      "h": 36
+    },
+    "main_width": {
+      "w": 770,
+      "h": 818
+    },
+    "top_height": {
+      "w": 1280,
+      "h": 45
+    },
+    "top_position": "static",
+    "body_font": "\"Helvetica Neue\", \"Luxi Sans\", \"Segoe UI\", \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif, \"Apple Logo\"",
+    "body_size": "14px",
+    "body_lineheight": "normal",
+    "body_color": "rgb(0, 0, 0)",
+    "body_bg": "rgb(255, 255, 255)",
+    "link_color": "rgb(119, 128, 135)",
+    "topic_title_size": null,
+    "avatar_size": {
+      "w": 24,
+      "h": 24
+    },
+    "box_border": "",
+    "box_bg": "rgb(255, 255, 255)",
+    "cell_padding": "10px",
+    "cell_border_bottom": "1px solid rgba(128, 128, 128, 0.227)",
+    "button_bg": null,
+    "sep_height": {
+      "w": 270,
+      "h": 20
+    },
+    "gray_color": "rgb(204, 204, 204)",
+    "small_size": "12px"
+  }
+}

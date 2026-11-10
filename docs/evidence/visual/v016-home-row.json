@@ -1,0 +1,118 @@
+{
+  "measuredAt": "2026-11-10T15:25:19.644Z",
+  "files": {
+    "ref": "docs/evidence/screenshots/ref-home.png",
+    "local": "docs/evidence/screenshots/local-home.png"
+  },
+  "geometry": {
+    "contentLeft": {
+      "ref": 110,
+      "local": 110,
+      "delta": 0,
+      "unit": "px"
+    },
+    "titleStartX": {
+      "ref": null,
+      "local": null,
+      "delta": null,
+      "unit": "px"
+    },
+    "titleHeight": {
+      "ref": null,
+      "local": null,
+      "delta": null,
+      "unit": "px"
+    }
+  },
+  "avatar": {
+    "w": {
+      "ref": 48,
+      "local": 13
+    },
+    "h": {
+      "ref": 123,
+      "local": 87
+    },
+    "inset": {
+      "ref": 10,
+      "local": 11
+    }
+  },
+  "titleBand": {
+    "ref": {
+      "y0": null,
+      "y1": null,
+      "h": null,
+      "darkest": 127
+    },
+    "local": {
+      "y0": null,
+      "y1": null,
+      "h": null,
+      "darkest": 127
+    }
+  },
+  "metaBand": {
+    "ref": {
+      "y0": null,
+      "y1": null,
+      "h": null,
+      "darkest": 127
+    },
+    "local": {
+      "y0": null,
+      "y1": null,
+      "h": null,
+      "darkest": 127
+    }
+  },
+  "separators": {
+    "ref": [
+      60,
+      221,
+      292,
+      363,
+      434,
+      505,
+      578,
+      649,
+      720,
+      791
+    ],
+    "local": [
+      60,
+      109,
+      151,
+      222,
+      293,
+      364,
+      435,
+      506,
+      577,
+      648
+    ]
+  },
+  "rowHeights": {
+    "ref": [
+      161,
+      71,
+      71,
+      71,
+      71,
+      73,
+      71,
+      71
+    ],
+    "local": [
+      49,
+      42,
+      71,
+      71,
+      71,
+      71,
+      71,
+      71
+    ]
+  },
+  "rowHeightDelta": -112
+}

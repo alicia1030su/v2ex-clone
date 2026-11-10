@@ -52,14 +52,17 @@ export default async function SignInPage({
             <div className="sep20" />
             <div className="box">
               <div className="header">其他登录方式</div>
-              <div className="cell" style={{ textAlign: 'center' }}>
+              <div className="cell">
                 <div className="sign_in_methods">
+                  {/* v0.0.16：横向整行按钮 —— 图标左、文案右（与参考站一致）。
+                      图标槽位固定 28px，文案不换行；整行 250×44 都是可点击区域。 */}
                   <div className="sign_in_with" style={{ opacity: 0.55, cursor: 'not-allowed' }}>
-                    <div
+                    <span
+                      aria-hidden
                       style={{
-                        width: 32,
-                        height: 32,
-                        margin: '0 auto 6px auto',
+                        width: 28,
+                        height: 28,
+                        flex: '0 0 28px',
                         borderRadius: '50%',
                         background: '#fff',
                         border: '1px solid var(--box-border-color)',
@@ -71,15 +74,16 @@ export default async function SignInPage({
                       }}
                     >
                       G
-                    </div>
-                    <div className="sign_in_with_label">Sign in with Google</div>
+                    </span>
+                    <span className="sign_in_with_label">Sign in with Google</span>
                   </div>
                   <div className="sign_in_with" style={{ opacity: 0.55, cursor: 'not-allowed' }}>
-                    <div
+                    <span
+                      aria-hidden
                       style={{
-                        width: 32,
-                        height: 32,
-                        margin: '0 auto 6px auto',
+                        width: 28,
+                        height: 28,
+                        flex: '0 0 28px',
                         borderRadius: '50%',
                         background: 'linear-gradient(135deg,#9945ff,#14f195)',
                         display: 'flex',
@@ -90,8 +94,8 @@ export default async function SignInPage({
                       }}
                     >
                       S
-                    </div>
-                    <div className="sign_in_with_label">Sign in with Solana</div>
+                    </span>
+                    <span className="sign_in_with_label">Sign in with Solana</span>
                   </div>
                 </div>
               </div>

@@ -1,0 +1,570 @@
+{
+  "measuredAt": "2026-11-10T21:21:52.875Z",
+  "base": "http://127.0.0.1:3210",
+  "results": [
+    {
+      "page": "home",
+      "path": "/",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 960
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 1217
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 980
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 6,
+      "hydrated": true,
+      "docH": 1262,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "nodes",
+      "path": "/nodes",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 983
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 88
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 1003
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 11,
+      "hydrated": true,
+      "docH": 1241,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "node_detail",
+      "path": "/go/claude",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 319
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 148
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 339
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 4,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "topic_detail",
+      "path": "/t/1",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 638
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 682
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 658
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": "用 deepseek 的 api+ccswitch 效果怎么样？",
+      "boxes": 5,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "member",
+      "path": "/member/admin",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 502
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 170
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 522
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 4,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "signin",
+      "path": "/signin",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 370
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 187
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 370
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 2,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "signup",
+      "path": "/signup",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 584
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 0
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 604
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 1,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "search",
+      "path": "/go/search?q=claude",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 400
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 148
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 420
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 4,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "about",
+      "path": "/about",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 652
+      },
+      "rightbar": null,
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 672
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": "About V2EX",
+      "boxes": 1,
+      "hydrated": true,
+      "docH": 910,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "faq",
+      "path": "/faq",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 979
+      },
+      "rightbar": null,
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 999
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": "V2EX FAQ",
+      "boxes": 1,
+      "hydrated": true,
+      "docH": 1237,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "hot",
+      "path": "/",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 960
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 1217
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 980
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 6,
+      "hydrated": true,
+      "docH": 1262,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "notifications",
+      "path": "/notifications",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 370
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 187
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 370
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 2,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "bookmarks",
+      "path": "/bookmarks",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 370
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 187
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 370
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 2,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "page": "settings",
+      "path": "/settings",
+      "vp": "1280x900",
+      "status": 200,
+      "overflowX": 0,
+      "badNesting": [],
+      "floatBleed": [],
+      "emptyCells": [],
+      "main": {
+        "x": 110,
+        "y": 45,
+        "w": 770,
+        "h": 370
+      },
+      "rightbar": {
+        "x": 900,
+        "y": 45,
+        "w": 270,
+        "h": 187
+      },
+      "content": {
+        "x": 90,
+        "y": 45,
+        "w": 1100,
+        "h": 370
+      },
+      "top": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 45
+      },
+      "h1": null,
+      "boxes": 2,
+      "hydrated": true,
+      "docH": 900,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    }
+  ]
+}

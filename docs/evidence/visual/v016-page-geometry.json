@@ -1,0 +1,436 @@
+{
+  "measuredAt": "2026-11-10T15:36:03.987Z",
+  "dir": "docs/evidence/screenshots",
+  "results": [
+    {
+      "page": "home",
+      "scanYs": {
+        "120": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "900-1169(270)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 270,
+            "mainWidth": 270,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)",
+              "900-1169(270)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 1040,
+            "mainWidth": 770,
+            "sideWidth": 270
+          }
+        },
+        "300": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 770,
+            "mainWidth": 770,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)",
+              "934-1169(236)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 1006,
+            "mainWidth": 770,
+            "sideWidth": 236
+          }
+        }
+      },
+      "delta_300": {
+        "mainWidth": 0,
+        "sideWidth": 236,
+        "headerHeight": 0,
+        "boxCount": 1
+      },
+      "delta_120": {
+        "mainWidth": 500,
+        "sideWidth": 270,
+        "headerHeight": 0,
+        "boxCount": 1
+      }
+    },
+    {
+      "page": "topic_detail",
+      "scanYs": {
+        "120": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#444349",
+            "headerHeight": 44,
+            "boxes": [
+              "371-796(426)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 426,
+            "mainWidth": 426,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "528-796(269)",
+              "900-1169(270)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 539,
+            "mainWidth": 270,
+            "sideWidth": 269
+          }
+        },
+        "300": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#444349",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 770,
+            "mainWidth": 770,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)",
+              "900-942(43)",
+              "1118-1169(52)"
+            ],
+            "boxCount": 3,
+            "totalWhite": 865,
+            "mainWidth": 770,
+            "sideWidth": 52
+          }
+        }
+      },
+      "delta_300": {
+        "mainWidth": 0,
+        "sideWidth": 52,
+        "headerHeight": 0,
+        "boxCount": 2
+      },
+      "delta_120": {
+        "mainWidth": -156,
+        "sideWidth": 269,
+        "headerHeight": 0,
+        "boxCount": 1
+      }
+    },
+    {
+      "page": "member",
+      "scanYs": {
+        "120": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "193-879(687)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 687,
+            "mainWidth": 687,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)",
+              "974-1169(196)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 966,
+            "mainWidth": 770,
+            "sideWidth": 196
+          }
+        },
+        "300": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-180(71)",
+              "279-879(601)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 672,
+            "mainWidth": 601,
+            "sideWidth": 71
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 770,
+            "mainWidth": 770,
+            "sideWidth": null
+          }
+        }
+      },
+      "delta_300": {
+        "mainWidth": 169,
+        "sideWidth": -71,
+        "headerHeight": 0,
+        "boxCount": -1
+      },
+      "delta_120": {
+        "mainWidth": 83,
+        "sideWidth": 196,
+        "headerHeight": 0,
+        "boxCount": 1
+      }
+    },
+    {
+      "page": "nodes_all",
+      "scanYs": {
+        "120": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "936-1148(213)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 213,
+            "mainWidth": 213,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)",
+              "900-1169(270)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 1040,
+            "mainWidth": 770,
+            "sideWidth": 270
+          }
+        },
+        "300": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)",
+              "1028-1169(142)"
+            ],
+            "boxCount": 2,
+            "totalWhite": 912,
+            "mainWidth": 770,
+            "sideWidth": 142
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [],
+            "boxCount": 0,
+            "totalWhite": 0,
+            "mainWidth": null,
+            "sideWidth": null
+          }
+        }
+      },
+      "delta_300": {
+        "mainWidth": -770,
+        "sideWidth": -142,
+        "headerHeight": 0,
+        "boxCount": -2
+      },
+      "delta_120": {
+        "mainWidth": 557,
+        "sideWidth": 270,
+        "headerHeight": 0,
+        "boxCount": 1
+      }
+    },
+    {
+      "page": "search",
+      "scanYs": {
+        "120": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "936-1148(213)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 213,
+            "mainWidth": 213,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "969-1169(201)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 201,
+            "mainWidth": 201,
+            "sideWidth": null
+          }
+        },
+        "300": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-879(770)"
+            ],
+            "boxCount": 1,
+            "totalWhite": 770,
+            "mainWidth": 770,
+            "sideWidth": null
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [],
+            "boxCount": 0,
+            "totalWhite": 0,
+            "mainWidth": null,
+            "sideWidth": null
+          }
+        }
+      },
+      "delta_300": {
+        "mainWidth": -770,
+        "sideWidth": 0,
+        "headerHeight": 0,
+        "boxCount": -1
+      },
+      "delta_120": {
+        "mainWidth": -12,
+        "sideWidth": 0,
+        "headerHeight": 0,
+        "boxCount": 0
+      }
+    },
+    {
+      "page": "signin",
+      "scanYs": {
+        "120": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-251(142)",
+              "258-571(314)",
+              "578-879(302)",
+              "911-1158(248)"
+            ],
+            "boxCount": 4,
+            "totalWhite": 1006,
+            "mainWidth": 314,
+            "sideWidth": 302
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-244(135)",
+              "247-862(616)",
+              "900-961(62)",
+              "964-1105(142)",
+              "1108-1169(62)"
+            ],
+            "boxCount": 5,
+            "totalWhite": 1017,
+            "mainWidth": 616,
+            "sideWidth": 142
+          }
+        },
+        "300": {
+          "ref": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-254(145)",
+              "518-573(56)",
+              "575-879(305)"
+            ],
+            "boxCount": 3,
+            "totalWhite": 506,
+            "mainWidth": 305,
+            "sideWidth": 145
+          },
+          "local": {
+            "size": "1280x900",
+            "pageBg": "#e2e2e2",
+            "headerHeight": 44,
+            "boxes": [
+              "110-244(135)",
+              "246-863(618)",
+              "900-1169(270)"
+            ],
+            "boxCount": 3,
+            "totalWhite": 1023,
+            "mainWidth": 618,
+            "sideWidth": 270
+          }
+        }
+      },
+      "delta_300": {
+        "mainWidth": 313,
+        "sideWidth": 125,
+        "headerHeight": 0,
+        "boxCount": 0
+      },
+      "delta_120": {
+        "mainWidth": 302,
+        "sideWidth": -160,
+        "headerHeight": 0,
+        "boxCount": 1
+      }
+    }
+  ]
+}

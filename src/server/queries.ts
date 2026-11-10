@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, desc, eq, ilike, or, sql, count, inArray, isNull } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { extractRows } from '@/server/sql-rows';
 import { PUBLIC_NODE_CONDITION, isPublicNodeStatus } from '@/lib/node-visibility';
 
 /**
@@ -69,6 +70,69 @@ function topicOrder(sort: 'latest' | 'hot' | 'created' | undefined) {
     default:
       return [desc(schema.topics.lastReplyAt), desc(schema.topics.id)];
   }
+}
+
+/**
+ * 批量取「每个主题的最后回复者」—— 一页 20 个主题各取 1 行。
+ *
+ * ## v0.0.16 修掉的两个真实问题（都有实测证据）
+ *
+ * ### ① 读放大：按页取 20 条，却按帖读全量
+ *
+ * 修复前的写法是把这一页 20 个主题的**全部回复**（不限条数）都查出来，
+ * 再在 JS 里按 `createdAt` 倒序取「每个主题的第一条」。
+ *
+ * 实测（`v2ex_v016_loadtest`：2000 主题 / 22990 回复，其中 1 个长帖 2990 回复）：
+ *
+ *     Sort ... rows=3190      ← 为 20 个「最后回复者」读了 3190 行
+ *
+ * 代价与本页最长帖的回复数成正比：首页出现一个 3000 楼的帖子就多读 3000 行，
+ * 5 万楼就是 5 万行。
+ *
+ * 修法：`LATERAL (... LIMIT 1)` —— 每个主题只取 1 行。
+ * 同一数据集实测 **rows=20**，代价从「与本页最长帖回复数成正比」
+ * 变成「与主题数成正比」。
+ *
+ * ⚠️ 不用 `DISTINCT ON (topic_id)`：它仍要把 3190 行排完序再取唯一值
+ *    （实测 rows 仍是 3190，只是输出 20 行），读放大没有消失。
+ *
+ * ### ② 数据错误：「最热」tab 的最后回复者是**假的**
+ *
+ * `listTopicsByNodeIds()`（首页「最热」tab）此前把 `lastReplier` 硬编码为 `null`，
+ * 而 `TopicItem` 在 `lastReplier === null` 时**回退成作者名**：
+ *
+ *     {topic.lastReplier?.username ?? topic.author.username}
+ *
+ * 于是「最热」tab 上每一行都写着 `最后回复来自 <楼主>` —— 一个看起来完全正常、
+ * 但**内容是错的**的字段。实测该 tab 前 6 条里有 **5 条**真实最后回复者 ≠ 楼主
+ * （例如 `群晖 NAS 如何防止中勒索软件？` 楼主 `lisi`，真实最后回复者 `admin`）。
+ *
+ * 修复方式不是「把 null 藏起来」，而是**两处列表都算真实值**：
+ * 本函数抽出共享实现，`listTopics` 与 `listTopicsByNodeIds` 都调用它。
+ * 组件侧只在**确实没有回复**时不渲染该片段（见 `TopicItem`）。
+ */
+async function loadLastRepliers(ids: number[]): Promise<Map<number, { id: number; username: string }>> {
+  const out = new Map<number, { id: number; username: string }>();
+  if (ids.length === 0) return out;
+
+  const lastRows = await db.execute(sql`
+    SELECT t.id AS topic_id, u.id AS user_id, u.username
+    FROM topics t
+    CROSS JOIN LATERAL (
+      SELECT r.author_id
+      FROM replies r
+      WHERE r.topic_id = t.id
+      ORDER BY r.created_at DESC, r.id DESC
+      LIMIT 1
+    ) lr
+    JOIN users u ON u.id = lr.author_id
+    WHERE t.id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
+  `);
+
+  for (const lr of extractRows<{ topic_id: number; user_id: number; username: string }>(lastRows)) {
+    out.set(Number(lr.topic_id), { id: Number(lr.user_id), username: lr.username });
+  }
+  return out;
 }
 
 export async function listTopics(opts: {
@@ -154,26 +218,7 @@ export async function listTopics(opts: {
     .where(where);
 
   const ids = rows.map((r) => r.id);
-  let lastRepliers: Map<number, { id: number; username: string }> = new Map();
-  if (ids.length > 0) {
-    const lastReplies = await db
-      .select({
-        topicId: schema.replies.topicId,
-        id: schema.users.id,
-        username: schema.users.username,
-        createdAt: schema.replies.createdAt,
-      })
-      .from(schema.replies)
-      .innerJoin(schema.users, eq(schema.users.id, schema.replies.authorId))
-      .where(inArray(schema.replies.topicId, ids))
-      .orderBy(desc(schema.replies.createdAt), desc(schema.replies.id));
-
-    for (const lr of lastReplies) {
-      if (!lastRepliers.has(lr.topicId)) {
-        lastRepliers.set(lr.topicId, { id: lr.id, username: lr.username });
-      }
-    }
-  }
+  const lastRepliers = await loadLastRepliers(ids);
 
   return {
     total: Number(totalRows[0]?.n ?? 0),
@@ -239,6 +284,11 @@ export async function listTopicsByNodeIds(
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(where);
 
+  const ids = rows.map((r) => r.id);
+  // v0.0.16：这里此前恒为 `null`，而 TopicItem 会回退成作者名 ⇒
+  // 「最热」tab 的「最后回复来自」全部显示楼主（实测 6 条里 5 条是错的）。
+  const lastRepliers = await loadLastRepliers(ids);
+
   return {
     total: Number(totalRows[0]?.n ?? 0),
     items: rows.map((r) => ({
@@ -250,7 +300,7 @@ export async function listTopicsByNodeIds(
       lastReplyAt: r.lastReplyAt,
       author: { id: r.authorId, username: r.authorName, avatar: r.authorAvatar },
       node: { id: r.nodeId, name: r.nodeName, title: r.nodeTitle },
-      lastReplier: null,
+      lastReplier: lastRepliers.get(r.id) ?? null,
     })),
   };
 }
@@ -542,6 +592,10 @@ export async function listTopicsByTag(
     .limit(perPage)
     .offset(offset);
 
+  // v0.0.16：与首页 / 最热 tab 统一口径 —— 标签页同样给出**真实**最后回复者。
+  // 此前这里是硬编码 `null`，而 TopicItem 会回退成作者名 ⇒ 标签页的名称也是假的。
+  const lastRepliers = await loadLastRepliers(rows.map((r) => r.id));
+
   // 独立 count —— 不能用 `rows.length`（v0.0.14 已修过的真实缺陷：
   // rows 已被 limit 截断 ⇒ totalPages 恒为 1，第 2 页永远不可达）
   //
@@ -568,7 +622,7 @@ export async function listTopicsByTag(
       lastReplyAt: r.lastReplyAt,
       author: { id: r.authorId, username: r.authorName, avatar: r.authorAvatar },
       node: { id: r.nodeId, name: r.nodeName, title: r.nodeTitle },
-      lastReplier: null,
+      lastReplier: lastRepliers.get(r.id) ?? null,
     })),
   };
 }

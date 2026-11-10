@@ -60,15 +60,30 @@ export default function TopicItem({ topic }: { topic: TopicListItem }) {
                 <Link href={`/member/${topic.author.username}`}>{topic.author.username}</Link>
               </strong>{' '}
               {DOT}
-              <span title={fullTimestamp(topic.createdAt)}>{relativeTime(topic.createdAt)}</span>{' '}
-              {DOT} 最后回复来自{' '}
-              <strong>
-                <Link
-                  href={`/member/${topic.lastReplier?.username ?? topic.author.username}`}
-                >
-                  {topic.lastReplier?.username ?? topic.author.username}
-                </Link>
-              </strong>
+              <span title={fullTimestamp(topic.createdAt)}>{relativeTime(topic.createdAt)}</span>
+              {/*
+               * v0.0.16：`最后回复来自 X` 只在**确实有回复者**时渲染。
+               *
+               * 修复前这里是 `topic.lastReplier?.username ?? topic.author.username` ——
+               * 「取不到就显示楼主」。后果是**最热 tab 每一行都写着楼主**，
+               * 而数据库里 6 条有 5 条真实最后回复者是别人。
+               *
+               * 根因不是这里，而是 `listTopicsByNodeIds()` 把 lastReplier 硬编码 null
+               * （已在 queries.ts 修掉）。但组件这一层的兜底同样是错的：
+               * 它把「没有数据」伪装成「数据是楼主」——一种看不出来的错误。
+               * 现在改为：没有回复者就不渲染这一段，宁可少一行字，也不写假名字。
+               */}
+              {topic.lastReplier ? (
+                <>
+                  {' '}
+                  {DOT} 最后回复来自{' '}
+                  <strong>
+                    <Link href={`/member/${topic.lastReplier.username}`}>
+                      {topic.lastReplier.username}
+                    </Link>
+                  </strong>
+                </>
+              ) : null}
             </span>
           </td>
           <td width={70} align="right" valign="middle">

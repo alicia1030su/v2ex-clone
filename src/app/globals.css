@@ -461,13 +461,43 @@ a:visited {
 
 /* ------------------------------ Separators ------------------------------ */
 
+/*
+ * ⚠️ v0.0.16：`.sepN` 一律用 `min-height` 而**不是** `height`。
+ *
+ * ## 为什么（这是一个反复复发的真实缺陷）
+ *
+ * `.sepN` 在原站的语义是「N px 高的**空白**占位块」，样式里写死 `height`。
+ * 只当占位用时完全正确。但只要有人把**带内容的行**写成 `.sepN`：
+ *
+ *   · 容器高度仍被钉死在 N px ⇒ 内容**溢出**到流外；
+ *   · 溢出部分会被**后面的兄弟节点覆盖**，或反过来盖住别人；
+ *   · 后果分两种，都属于「看起来正常、实际坏掉」：
+ *       - 外层有 `overflow:hidden` ⇒ 内容被**裁掉**（v0.0.9 的回复按钮）；
+ *       - 外层没有 ⇒ 与下一个块**重叠**，点击被另一个元素拦截
+ *         （v0.0.16 的「积分流水」按钮，实测被 `checkin-box` 挡住下半部分）。
+ *
+ * 历史上只在**使用处**逐个改成 `.reply_row`（v0.0.9），于是同类错误在
+ * 别的组件里继续复发（v0.0.16 又抓到至少 6 处 `sep5` 装按钮/输入框）。
+ * 逐个改是「修实例」，改这里才是「修这类」。
+ *
+ * ## 为什么 `min-height` 是安全的
+ *
+ * - 纯占位用时容器无内容 ⇒ 高度**恰好**等于 N px，与原行为**完全一致**；
+ * - 装了内容时容器撑开 ⇒ 不再溢出、不再重叠、不再被裁。
+ *
+ * 也就是说：正常用法零变化，错误用法自动变正确。这是单向的安全改动。
+ *
+ * 同时保留 `.reply_row`（padding-top）作为「与上一行相隔 5px 的内容行」的
+ * **语义**写法 —— 新代码应该用它，而不是靠 `min-height` 兜底。
+ */
 .sep20 {
-  height: 20px;
-}.sep10 {
-  height: 10px;
+  min-height: 20px;
+}
+.sep10 {
+  min-height: 10px;
 }
 .sep5 {
-  height: 5px;
+  min-height: 5px;
 }
 /* v0.0.9 修复：.sep5 在原站是「5px 高的**空白**块」，只能当占位用。
    回复卡片曾把带内容的行也写成 .sep5 ⇒ 行高被钉死 5px、内容溢出流外，
@@ -478,7 +508,7 @@ a:visited {
   padding-top: 5px;
 }
 .sep3 {
-  height: 3px;
+  min-height: 3px;
 }
 #Rightbar > .sep20:last-child {
   display: none;
@@ -840,25 +870,48 @@ textarea {
   color: #fff;
 }
 
+/* 第三方登录（v0.0.16 修订）
+ *
+ * ## 修的是什么
+ *
+ * 参考站是**整行横向**按钮：左侧图标、右侧文案、宽度撑满侧栏、行间 8px。
+ * 修复前本站是 `inline-block` + 图标居中在上、文案在下的小方块，
+ * 两个并排 ⇒ 视觉上像「两张卡」而不是「登录方式列表」，
+ * 与参考站在**信息层级与可点击区域**上都不同。
+ *
+ * 修复后：`flex` 横向、`width: 100%`、图标固定 28px 槽位、文案左对齐。
+ * 可点击区域从「约 145×92 的两个方块」变成「整行 250×44」，
+ * 移动端也更容易点中（这是 B 类「样式实现差异」，同时改善了可用性）。
+ */
+.sign_in_methods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .sign_in_with {
-  display: inline-block;
-  padding: 10px 20px;
-  margin: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--box-border-color);
   border-radius: var(--box-border-radius);
+  background-color: #fff;
   cursor: pointer;
-  text-align: center;
+  text-align: left;
 }
 .sign_in_with:hover {
   background-color: var(--box-background-hover-color);
 }
 .sign_in_with img {
   display: block;
-  margin: 0 auto 6px auto;
+  margin: 0;
+  flex: 0 0 auto;
 }
 .sign_in_with_label {
-  font-size: 12px;
-  color: var(--color-gray);
+  font-size: 13px;
+  color: var(--link-color);
+  white-space: nowrap;
 }
 
 /* ------------------------------ Markdown body ------------------------------ */
@@ -1531,4 +1584,26 @@ textarea {
   .topic_edit_modal .topic_edit_panel {
     padding: 14px;
   }
+}
+
+/* ------------------------------ Auth forms (v0.0.16) ------------------------------ */
+/*
+ * 参考站的登录 / 注册输入框**不是撑满主栏**，而是固定约 320px 宽。
+ *
+ * 实测（1280×900，参考截图 ref-signin.png）：
+ *   标签列 110..254（约 145px），输入框 256..573（约 318px），
+ *   右侧留白一直到 879 —— 也就是说表单只占主栏左侧一半左右。
+ *
+ * 修复前本站输入框是 `width: 100%`（约 616px），
+ * 视觉上是「一大片输入框」，与参考站的紧凑排版明显不同（B 类差异）。
+ * 同时它还有一个体验副作用：超长输入框会让用户误以为可以填很长内容。
+ *
+ * 只作用于 `.auth-form` —— 不改全局 input，避免影响发帖 / 回复等
+ * 本就该占满宽度的表单。
+ */
+.auth-form input[type='text'],
+.auth-form input[type='password'],
+.auth-form input[type='email'] {
+  width: 320px;
+  max-width: 100%;
 }
