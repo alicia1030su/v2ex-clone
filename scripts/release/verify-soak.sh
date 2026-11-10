@@ -117,11 +117,35 @@ TOTAL_SECONDS="$(parse_duration "$DURATION")"
 #   SAMPLES_TOTAL     —— 到目前为止累计的采样次数
 #   HEALTH_FAILS      —— 累计失败次数
 #   READY_FAILS       —— 累计失败次数
+#   SEGMENTS_TOTAL    —— 到目前为止已完成的段数
+#   MAX_SEGMENT_SECONDS —— **单段最长**连续运行秒数（= 单实例最长连续观测）
+#   LONGEST_MEM_MB    —— 全程观测到的最大内存占用
+#   MAX_CONN_USED     —— 全程观测到的最大 PG 连接数
 #
-# ## 关键纪律
+# ## 关键纪律（v0.0.15 修正 —— 这一条曾被写错）
 #
 # 「累计时长」= 各段**真实运行时长之和**，不是「配置时长」。
 # 每段结束时写入自己真实跑了多久 ⇒ 汇总时得到的是**真实累计值**。
+#
+# ⚠️ **v0.0.15 重要修正**：本脚本原先的注释写
+#    「⇒『24 小时』指应用实际持续运行 24 小时」——
+#    **这句话是错的，已改正**。
+#
+#    事实是：分段链的每一段都会
+#      ① `docker run` 一个**全新的 PostgreSQL 容器**（全新数据目录）；
+#      ② `npm run build` 重新构建；
+#      ③ `next start` 起一个**全新的应用进程**；
+#      ④ 段末 `docker rm -f soak-postgres` 销毁数据库。
+#    ⇒ 段与段之间**不共享实例、不共享数据库**（只通过 artifact 传累计计数）。
+#
+#    所以 5 段 × 5 小时的 24 小时「累计」，
+#    真实含义是「**5 个互不相同的实例各跑了 5 小时**」，
+#    **不是**「同一个实例连续运行了 24 小时」。
+#    两者不是一回事：前者证明不了「单实例长期运行不劣化」。
+#
+#    本脚本因此额外记录 `MAX_SEGMENT_SECONDS`（单段最长 = 单实例最长连续观测）
+#    与 `SEGMENTS_TOTAL`（实例重建次数 = 段数），
+#    供汇总环节**同时报告两个数字**，禁止只用累计值冒充连续值。
 # ---------------------------------------------------------------------------
 
 # --- 输出目录 -------------------------------------------------------------
@@ -141,6 +165,10 @@ CUMULATIVE_SECONDS=0
 SAMPLES_TOTAL=0
 HEALTH_FAILS=0
 READY_FAILS=0
+SEGMENTS_TOTAL=0
+MAX_SEGMENT_SECONDS=0
+LONGEST_MEM_MB=0
+MAX_CONN_USED=0
 
 if [ -n "$RESUME_FROM" ] && [ -f "${RESUME_FROM}/state.env" ]; then
   # shellcheck disable=SC1091
@@ -267,6 +295,38 @@ TOTAL_SAMPLES=$(( SAMPLES_TOTAL + SAMPLES ))
 TOTAL_HEALTH_FAILS=$(( HEALTH_FAILS ))
 TOTAL_READY_FAILS=$(( READY_FAILS ))
 
+# --- 单实例口径（v0.0.15）--------------------------------------------------
+#
+# 分段链的每段都是**全新实例 + 全新数据库**，所以：
+#   · 累计时长 = 多个实例的时长之和（证明不了"单实例长期运行"）；
+#   · 单段最长   = 我们真实观测到的**最长连续运行**（这才是"连续"的证据）。
+# 两个数字必须**同时报告**，不许只用累计值冒充连续值。
+SEGMENTS_TOTAL=$(( SEGMENTS_TOTAL + 1 ))
+if [ "$ACTUAL_SECONDS" -gt "$MAX_SEGMENT_SECONDS" ]; then
+  SEGMENT_MAX_NOW="$ACTUAL_SECONDS"
+else
+  SEGMENT_MAX_NOW="$MAX_SEGMENT_SECONDS"
+fi
+MAX_SEGMENT_SECONDS_NEW="$SEGMENT_MAX_NOW"
+
+# 资源峰值（从本段 perf 日志里取最大值；缺列为空 ⇒ 保持原值）
+MEM_PEAK="$(awk -F, 'NR>1 && $3 != "" { if ($3+0 > m) m = $3+0 } END { if (m > 0) printf "%.1f", m }' "$PERF_LOG" 2>/dev/null || echo '')"
+CONN_PEAK="$(awk -F, 'NR>1 && $5 != "" { if ($5+0 > m) m = $5+0 } END { if (m > 0) printf "%d", m }' "$PERF_LOG" 2>/dev/null || echo '')"
+if [ -n "$MEM_PEAK" ]; then
+  LONGEST_MEM_MB_NEW="$(awk -v a="$LONGEST_MEM_MB" -v b="$MEM_PEAK" 'BEGIN { printf "%.1f", (a+0 > b+0 ? a : b) }')"
+else
+  LONGEST_MEM_MB_NEW="$LONGEST_MEM_MB"
+fi
+if [ -n "$CONN_PEAK" ]; then
+  if [ "$CONN_PEAK" -gt "${MAX_CONN_USED:-0}" ] 2>/dev/null; then
+    MAX_CONN_USED_NEW="$CONN_PEAK"
+  else
+    MAX_CONN_USED_NEW="$MAX_CONN_USED"
+  fi
+else
+  MAX_CONN_USED_NEW="$MAX_CONN_USED"
+fi
+
 # --- 写本段状态（供下一段续跑）-------------------------------------------
 STATE_DIR="${OUT_DIR}/state"
 mkdir -p "$STATE_DIR"
@@ -275,12 +335,20 @@ CUMULATIVE_SECONDS=${TOTAL_CUMULATIVE}
 SAMPLES_TOTAL=${TOTAL_SAMPLES}
 HEALTH_FAILS=${TOTAL_HEALTH_FAILS}
 READY_FAILS=${TOTAL_READY_FAILS}
+SEGMENTS_TOTAL=${SEGMENTS_TOTAL}
+MAX_SEGMENT_SECONDS=${MAX_SEGMENT_SECONDS_NEW}
+LONGEST_MEM_MB=${LONGEST_MEM_MB_NEW}
+MAX_CONN_USED=${MAX_CONN_USED_NEW}
 EOF
 # 把证据副本放进状态目录（下一段从这里取）
 cp "$HEALTH_LOG" "$PERF_LOG" "$ERR_LOG" "$STATE_DIR/" 2>/dev/null || true
 
 echo "实际运行时长：${ACTUAL_SECONDS} 秒（${ACTUAL_H} 小时）" >> "${EVIDENCE}/baseline.txt"
 echo "累计运行时长：${TOTAL_CUMULATIVE} 秒" >> "${EVIDENCE}/baseline.txt"
+echo "单段最长连续运行：${MAX_SEGMENT_SECONDS_NEW} 秒" >> "${EVIDENCE}/baseline.txt"
+echo "已完成段数（= 实例重建次数）：${SEGMENTS_TOTAL}" >> "${EVIDENCE}/baseline.txt"
+echo "峰值内存：${LONGEST_MEM_MB_NEW} MB" >> "${EVIDENCE}/baseline.txt"
+echo "峰值PG连接：${MAX_CONN_USED_NEW}" >> "${EVIDENCE}/baseline.txt"
 echo "samples=${TOTAL_SAMPLES}" >> "${EVIDENCE}/baseline.txt"
 echo "health_fails=${TOTAL_HEALTH_FAILS}" >> "${EVIDENCE}/baseline.txt"
 echo "ready_fails=${TOTAL_READY_FAILS}" >> "${EVIDENCE}/baseline.txt"

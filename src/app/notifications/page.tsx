@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation';
-import { and, count, desc, eq } from 'drizzle-orm';
-import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import Wrapper from '@/components/Wrapper';
 import NotificationsList from '@/components/NotificationsList';
+import { listNotificationsForUser, listRecentNotifications } from '@/server/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,36 +22,17 @@ export default async function NotificationsPage() {
   const user = await getSessionUser();
   if (!user) redirect('/signin?next=%2Fnotifications');
 
-  const unreadRows = await db
-    .select({ n: count() })
-    .from(schema.notifications)
-    .where(
-      and(
-        eq(schema.notifications.userId, user.id),
-        eq(schema.notifications.read, false),
-      ),
-    );
-  const unread = Number(unreadRows[0]?.n ?? 0);
-
-  const totalRows = await db
-    .select({ n: count() })
-    .from(schema.notifications)
-    .where(eq(schema.notifications.userId, user.id));
-  const total = Number(totalRows[0]?.n ?? 0);
-
-  // 侧栏「最近的通知」——最新 5 条（服务端直查，保证首屏有内容）
-  const recentRows = await db
-    .select({
-      id: schema.notifications.id,
-      message: schema.notifications.message,
-      read: schema.notifications.read,
-      createdAt: schema.notifications.createdAt,
-      topicId: schema.notifications.topicId,
-    })
-    .from(schema.notifications)
-    .where(eq(schema.notifications.userId, user.id))
-    .orderBy(desc(schema.notifications.createdAt))
-    .limit(5);
+  // v0.0.15 P0-1：统计与侧栏都必须走**同一个可见性判据**。
+  //
+  // 修复前这里直接查 `notifications` 表（三处各自写 SQL），于是：
+  //   · 节点被 hidden / 主题被软删除后，未读数仍然把它们算进去；
+  //   · 右栏「最新」会继续显示隐藏节点的主题标题 ——
+  //     即使列表本身修好了，右栏也是一条独立的泄露路径。
+  //
+  // 现在三个数字（total / unread / recent）与列表共用
+  // `src/server/notifications.ts` 的 join + where，口径不可能漂移。
+  const { total, unread } = await listNotificationsForUser(user.id, { limit: 1 });
+  const recentRows = await listRecentNotifications(user.id, 5);
 
   return (
     <Wrapper
