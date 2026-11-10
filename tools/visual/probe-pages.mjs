@@ -58,6 +58,25 @@ const PAGES = [
   { name: 'notifications', path: '/notifications' },
   { name: 'bookmarks', path: '/bookmarks' },
   { name: 'settings', path: '/settings' },
+  /*
+   * v0.0.16 扩充：补上此前完全没被结构探针覆盖的页面。
+   *
+   * 这些页面都有真实缺陷史：
+   *   · `/leaderboard`（积分榜）与 `/following`（关注）长期只有后端没有入口
+   *     （v0.0.14 修过孤儿页），但**从未被结构断言覆盖**；
+   *   · `/tag/[name]` 是 V16-02「假最后回复者」的第二处；
+   *   · `/worldclock`、`/privacy`、`/reports`、`/admin` 从未进过探针。
+   *
+   * 未登录访问 `/admin` 会被重定向到 `/signin`（这是**正确行为**，不是缺陷），
+   * 因此这里只断言重定向后页面结构正常，不断言它是后台。
+   */
+  { name: 'leaderboard', path: '/leaderboard' },
+  { name: 'following', path: '/following' },
+  { name: 'tag_detail', path: '/tag/claude' },
+  { name: 'privacy', path: '/privacy' },
+  { name: 'worldclock', path: '/worldclock' },
+  { name: 'reports', path: '/reports' },
+  { name: 'admin_guest', path: '/admin' },
 ];
 
 async function probe(page, vp) {
