@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-08T05:33:29.427Z",
+  "capturedAt": "2026-11-10T15:27:08.608Z",
   "localBase": "http://127.0.0.1:3210",
   "viewports": {
     "desktop-1280": {
@@ -200,7 +200,7 @@
       "localUrl": "http://127.0.0.1:3210/notifications",
       "referenceStatus": "no-auth-reference",
       "local": "docs\\evidence\\screenshots\\desktop-1280\\local-notifications.png",
-      "localStatus": "ok",
+      "localStatus": "skipped: auth-required",
       "diagnostic": "docs\\evidence\\visual\\health\\desktop-1280-notifications-INVALID.png",
       "health": {
         "ok": true,
@@ -214,7 +214,7 @@
       "localUrl": "http://127.0.0.1:3210/bookmarks",
       "referenceStatus": "no-auth-reference",
       "local": "docs\\evidence\\screenshots\\desktop-1280\\local-bookmarks.png",
-      "localStatus": "ok",
+      "localStatus": "skipped: auth-required",
       "diagnostic": "docs\\evidence\\visual\\health\\desktop-1280-bookmarks-INVALID.png",
       "health": {
         "ok": true,
@@ -228,7 +228,7 @@
       "localUrl": "http://127.0.0.1:3210/settings",
       "referenceStatus": "no-auth-reference",
       "local": "docs\\evidence\\screenshots\\desktop-1280\\local-settings.png",
-      "localStatus": "ok",
+      "localStatus": "skipped: auth-required",
       "diagnostic": "docs\\evidence\\visual\\health\\desktop-1280-settings-INVALID.png",
       "health": {
         "ok": true,
@@ -242,7 +242,7 @@
       "localUrl": "http://127.0.0.1:3210/notifications",
       "referenceStatus": "no-auth-reference",
       "local": "docs\\evidence\\screenshots\\desktop-1280\\local-dashboard.png",
-      "localStatus": "ok",
+      "localStatus": "skipped: auth-required",
       "diagnostic": "docs\\evidence\\visual\\health\\desktop-1280-dashboard-INVALID.png",
       "health": {
         "ok": true,
@@ -256,7 +256,7 @@
       "localUrl": "http://127.0.0.1:3210/admin",
       "referenceStatus": "no-origin-equivalent",
       "local": "docs\\evidence\\screenshots\\desktop-1280\\local-admin.png",
-      "localStatus": "ok",
+      "localStatus": "skipped: auth-required",
       "diagnostic": "docs\\evidence\\visual\\health\\desktop-1280-admin-INVALID.png",
       "health": {
         "ok": true,

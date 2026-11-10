@@ -190,15 +190,33 @@ if (JSON_OUT) {
   console.error(`已写入 ${JSON_OUT}`);
 }
 
+/*
+ * 硬缺陷判据。
+ *
+ * ⚠️ v0.0.16：`emptyCells` 必须计入 —— 修复前它只打印不判红，
+ * 于是 `topic_detail` 的 `770x20` 与 `member` 的 `270x20` 两个空盒子
+ * 在报告里出现了、但**退出码仍是 0**。那等于「测量了但不设门禁」，
+ * 下次回归不会有人注意到。
+ *
+ * 空盒子的成因几乎总是同一个：组件在某种状态下返回 `null`，
+ * 而调用处无条件渲染了外层 `.cell`。它不报错、不 500、HTTP 200，
+ * 只是版面上多一条 20px 空白 —— 正是最难靠肉眼发现的一类。
+ */
 const hardFails = results.filter(
-  (r) => r.status !== 200 || r.overflowX > 1 || r.badNesting.length > 0 || r.pageErrors.length > 0 || r.failedRequests.length > 0,
+  (r) =>
+    r.status !== 200 ||
+    r.overflowX > 1 ||
+    r.badNesting.length > 0 ||
+    r.emptyCells.length > 0 ||
+    r.pageErrors.length > 0 ||
+    r.failedRequests.length > 0,
 );
 if (hardFails.length > 0) {
   console.error(`\n⚠️ ${hardFails.length} 个页面存在硬缺陷：`);
   for (const f of hardFails) {
     console.error(
       `  [${f.vp}] ${f.page}: status=${f.status} overflowX=${f.overflowX} nest=${JSON.stringify(f.badNesting)} ` +
-        `pageErr=${JSON.stringify(f.pageErrors)} failed=${JSON.stringify(f.failedRequests)}`,
+        `emptyCells=${JSON.stringify(f.emptyCells)} pageErr=${JSON.stringify(f.pageErrors)} failed=${JSON.stringify(f.failedRequests)}`,
     );
   }
   process.exitCode = 1;

@@ -1,0 +1,763 @@
+{
+  "measuredAt": "2026-11-10T16:00:33.555Z",
+  "base": "http://127.0.0.1:3210",
+  "rounds": 3,
+  "results": [
+    {
+      "page": "home",
+      "label": "首页",
+      "url": "/",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 404,
+        "ttfb": 167,
+        "domContentLoaded": 267,
+        "loadComplete": 375,
+        "fcp": 444,
+        "staticBytes": 114606,
+        "jsBytes": 109659,
+        "cssBytes": 4947,
+        "imgCount": 0,
+        "requestCount": 7,
+        "lcp": 444,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=444",
+          "first-contentful-paint=444"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 83,
+        "ttfb": 31,
+        "fcp": 92,
+        "lcp": 92,
+        "cls": 0,
+        "domContentLoaded": 68,
+        "loadComplete": 68,
+        "jsBytes": 107859,
+        "cssBytes": 4647,
+        "staticBytes": 112506,
+        "requestCount": 7,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 9,
+        "tupFetch": 215,
+        "tupRet": 318,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 404,
+          "ttfb": 167,
+          "domContentLoaded": 267,
+          "loadComplete": 375,
+          "fcp": 444,
+          "staticBytes": 114606,
+          "jsBytes": 109659,
+          "cssBytes": 4947,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 444,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=444",
+            "first-contentful-paint=444"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 83,
+          "ttfb": 31,
+          "domContentLoaded": 68,
+          "loadComplete": 68,
+          "fcp": 92,
+          "staticBytes": 112506,
+          "jsBytes": 107859,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 92,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=92",
+            "first-contentful-paint=92"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 69,
+          "ttfb": 23,
+          "domContentLoaded": 50,
+          "loadComplete": 55,
+          "fcp": 80,
+          "staticBytes": 112506,
+          "jsBytes": 107859,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 80,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=80",
+            "first-contentful-paint=80"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "node",
+      "label": "节点页",
+      "url": "/go/claude",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 71,
+        "ttfb": 20,
+        "domContentLoaded": 46,
+        "loadComplete": 61,
+        "fcp": 120,
+        "staticBytes": 114191,
+        "jsBytes": 109544,
+        "cssBytes": 4647,
+        "imgCount": 0,
+        "requestCount": 8,
+        "lcp": 120,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=120",
+          "first-contentful-paint=120"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 55,
+        "ttfb": 18,
+        "fcp": 76,
+        "lcp": 76,
+        "cls": 0,
+        "domContentLoaded": 39,
+        "loadComplete": 40,
+        "jsBytes": 109244,
+        "cssBytes": 4647,
+        "staticBytes": 113891,
+        "requestCount": 9,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 9,
+        "tupFetch": 139,
+        "tupRet": 150,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 71,
+          "ttfb": 20,
+          "domContentLoaded": 46,
+          "loadComplete": 61,
+          "fcp": 120,
+          "staticBytes": 114191,
+          "jsBytes": 109544,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 120,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=120",
+            "first-contentful-paint=120"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 55,
+          "ttfb": 18,
+          "domContentLoaded": 39,
+          "loadComplete": 40,
+          "fcp": 76,
+          "staticBytes": 113891,
+          "jsBytes": 109244,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 9,
+          "lcp": 76,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=76",
+            "first-contentful-paint=76"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 52,
+          "ttfb": 17,
+          "domContentLoaded": 35,
+          "loadComplete": 37,
+          "fcp": 56,
+          "staticBytes": 113891,
+          "jsBytes": 109244,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 56,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=56",
+            "first-contentful-paint=56"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "topic",
+      "label": "主题详情",
+      "url": "/t/1",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 96,
+        "ttfb": 36,
+        "domContentLoaded": 59,
+        "loadComplete": 84,
+        "fcp": 124,
+        "staticBytes": 116956,
+        "jsBytes": 112309,
+        "cssBytes": 4647,
+        "imgCount": 0,
+        "requestCount": 8,
+        "lcp": 124,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=124",
+          "first-contentful-paint=124"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 63,
+        "ttfb": 23,
+        "fcp": 76,
+        "lcp": 76,
+        "cls": 0,
+        "domContentLoaded": 46,
+        "loadComplete": 49,
+        "jsBytes": 112009,
+        "cssBytes": 4647,
+        "staticBytes": 116656,
+        "requestCount": 9,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 12,
+        "tupFetch": 153,
+        "tupRet": 220,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 96,
+          "ttfb": 36,
+          "domContentLoaded": 59,
+          "loadComplete": 84,
+          "fcp": 124,
+          "staticBytes": 116956,
+          "jsBytes": 112309,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 124,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=124",
+            "first-contentful-paint=124"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 63,
+          "ttfb": 23,
+          "domContentLoaded": 46,
+          "loadComplete": 49,
+          "fcp": 72,
+          "staticBytes": 116656,
+          "jsBytes": 112009,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 9,
+          "lcp": 72,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=72",
+            "first-contentful-paint=72"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 59,
+          "ttfb": 20,
+          "domContentLoaded": 45,
+          "loadComplete": 46,
+          "fcp": 76,
+          "staticBytes": 116656,
+          "jsBytes": 112009,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 76,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=76",
+            "first-contentful-paint=76"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "search",
+      "label": "搜索",
+      "url": "/go/search?q=claude",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 65,
+        "ttfb": 17,
+        "domContentLoaded": 41,
+        "loadComplete": 54,
+        "fcp": 84,
+        "staticBytes": 113539,
+        "jsBytes": 108892,
+        "cssBytes": 4647,
+        "imgCount": 0,
+        "requestCount": 8,
+        "lcp": 84,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=84",
+          "first-contentful-paint=84"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 59,
+        "ttfb": 17,
+        "fcp": 76,
+        "lcp": 76,
+        "cls": 0,
+        "domContentLoaded": 40,
+        "loadComplete": 40,
+        "jsBytes": 108592,
+        "cssBytes": 4647,
+        "staticBytes": 113239,
+        "requestCount": 8,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 8,
+        "tupFetch": 145,
+        "tupRet": 225,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 65,
+          "ttfb": 17,
+          "domContentLoaded": 41,
+          "loadComplete": 54,
+          "fcp": 84,
+          "staticBytes": 113539,
+          "jsBytes": 108892,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 84,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=84",
+            "first-contentful-paint=84"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 59,
+          "ttfb": 17,
+          "domContentLoaded": 40,
+          "loadComplete": 40,
+          "fcp": 76,
+          "staticBytes": 113239,
+          "jsBytes": 108592,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 76,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=76",
+            "first-contentful-paint=76"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 59,
+          "ttfb": 17,
+          "domContentLoaded": 40,
+          "loadComplete": 40,
+          "fcp": 60,
+          "staticBytes": 113239,
+          "jsBytes": 108592,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 60,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=60",
+            "first-contentful-paint=60"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "member",
+      "label": "用户主页",
+      "url": "/member/admin",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 64,
+        "ttfb": 18,
+        "domContentLoaded": 37,
+        "loadComplete": 52,
+        "fcp": 80,
+        "staticBytes": 113608,
+        "jsBytes": 108961,
+        "cssBytes": 4647,
+        "imgCount": 0,
+        "requestCount": 7,
+        "lcp": 80,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=80",
+          "first-contentful-paint=80"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 53,
+        "ttfb": 18,
+        "fcp": 64,
+        "lcp": 64,
+        "cls": 0,
+        "domContentLoaded": 36,
+        "loadComplete": 38,
+        "jsBytes": 108661,
+        "cssBytes": 4647,
+        "staticBytes": 113308,
+        "requestCount": 8,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 11,
+        "tupFetch": 168,
+        "tupRet": 197,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 64,
+          "ttfb": 18,
+          "domContentLoaded": 37,
+          "loadComplete": 52,
+          "fcp": 80,
+          "staticBytes": 113608,
+          "jsBytes": 108961,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 80,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=80",
+            "first-contentful-paint=80"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 50,
+          "ttfb": 15,
+          "domContentLoaded": 31,
+          "loadComplete": 33,
+          "fcp": 60,
+          "staticBytes": 113308,
+          "jsBytes": 108661,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 60,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=60",
+            "first-contentful-paint=60"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 53,
+          "ttfb": 18,
+          "domContentLoaded": 36,
+          "loadComplete": 38,
+          "fcp": 64,
+          "staticBytes": 113308,
+          "jsBytes": 108661,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 64,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=64",
+            "first-contentful-paint=64"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "nodes_all",
+      "label": "全部节点",
+      "url": "/nodes",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 79,
+        "ttfb": 24,
+        "domContentLoaded": 58,
+        "loadComplete": 64,
+        "fcp": 96,
+        "staticBytes": 112806,
+        "jsBytes": 108159,
+        "cssBytes": 4647,
+        "imgCount": 0,
+        "requestCount": 7,
+        "lcp": 96,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=96",
+          "first-contentful-paint=96"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 62,
+        "ttfb": 26,
+        "fcp": 72,
+        "lcp": 72,
+        "cls": 0,
+        "domContentLoaded": 46,
+        "loadComplete": 46,
+        "jsBytes": 107859,
+        "cssBytes": 4647,
+        "staticBytes": 112506,
+        "requestCount": 8,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 14,
+        "tupFetch": 146,
+        "tupRet": 161,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 79,
+          "ttfb": 24,
+          "domContentLoaded": 58,
+          "loadComplete": 64,
+          "fcp": 96,
+          "staticBytes": 112806,
+          "jsBytes": 108159,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 96,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=96",
+            "first-contentful-paint=96"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 62,
+          "ttfb": 26,
+          "domContentLoaded": 46,
+          "loadComplete": 46,
+          "fcp": 72,
+          "staticBytes": 112506,
+          "jsBytes": 107859,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 72,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=72",
+            "first-contentful-paint=72"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 58,
+          "ttfb": 16,
+          "domContentLoaded": 39,
+          "loadComplete": 40,
+          "fcp": 72,
+          "staticBytes": 112506,
+          "jsBytes": 107859,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 72,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=72",
+            "first-contentful-paint=72"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "hot",
+      "label": "最热",
+      "url": "/hot",
+      "status": 200,
+      "cold": {
+        "round": 1,
+        "status": 200,
+        "wallMs": 67,
+        "ttfb": 20,
+        "domContentLoaded": 45,
+        "loadComplete": 58,
+        "fcp": 68,
+        "staticBytes": 112806,
+        "jsBytes": 108159,
+        "cssBytes": 4647,
+        "imgCount": 0,
+        "requestCount": 8,
+        "lcp": 68,
+        "cls": 0,
+        "paintEntries": [
+          "first-paint=68",
+          "first-contentful-paint=68"
+        ]
+      },
+      "warmMedian": {
+        "wallMs": 71,
+        "ttfb": 23,
+        "fcp": 88,
+        "lcp": 88,
+        "cls": 0,
+        "domContentLoaded": 49,
+        "loadComplete": 53,
+        "jsBytes": 107859,
+        "cssBytes": 4647,
+        "staticBytes": 112506,
+        "requestCount": 7,
+        "imgCount": 0
+      },
+      "dbDelta": {
+        "xact": 9,
+        "tupFetch": 215,
+        "tupRet": 318,
+        "blksRead": 0
+      },
+      "runs": [
+        {
+          "round": 1,
+          "status": 200,
+          "wallMs": 67,
+          "ttfb": 20,
+          "domContentLoaded": 45,
+          "loadComplete": 58,
+          "fcp": 68,
+          "staticBytes": 112806,
+          "jsBytes": 108159,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 8,
+          "lcp": 68,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=68",
+            "first-contentful-paint=68"
+          ]
+        },
+        {
+          "round": 2,
+          "status": 200,
+          "wallMs": 71,
+          "ttfb": 23,
+          "domContentLoaded": 49,
+          "loadComplete": 53,
+          "fcp": 88,
+          "staticBytes": 112506,
+          "jsBytes": 107859,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 88,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=88",
+            "first-contentful-paint=88"
+          ]
+        },
+        {
+          "round": 3,
+          "status": 200,
+          "wallMs": 64,
+          "ttfb": 21,
+          "domContentLoaded": 45,
+          "loadComplete": 49,
+          "fcp": 80,
+          "staticBytes": 112506,
+          "jsBytes": 107859,
+          "cssBytes": 4647,
+          "imgCount": 0,
+          "requestCount": 7,
+          "lcp": 80,
+          "cls": 0,
+          "paintEntries": [
+            "first-paint=80",
+            "first-contentful-paint=80"
+          ]
+        }
+      ]
+    }
+  ]
+}

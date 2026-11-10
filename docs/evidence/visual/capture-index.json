@@ -1,98 +1,75 @@
 {
+  "capturedAt": "2026-11-10T21:16:10.528Z",
   "viewport": {
     "width": 1280,
     "height": 900
   },
   "scale": 1,
   "locale": "zh-CN",
+  "localBase": "http://127.0.0.1:3210",
+  "gate": "tools/visual/lib/page-health.mjs",
+  "invalidLocalCaptures": 0,
   "pages": [
     {
       "name": "home",
       "originUrl": "https://www.v2ex.com/",
-      "localUrl": "http://localhost:3010/",
-      "reference": "docs\\evidence\\screenshots\\ref-home.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/",
       "local": "docs\\evidence\\screenshots\\local-home.png",
       "localStatus": "ok"
     },
     {
       "name": "node_claude",
       "originUrl": "https://www.v2ex.com/go/claude",
-      "localUrl": "http://localhost:3010/go/claude",
-      "reference": "docs\\evidence\\screenshots\\ref-node_claude.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/go/claude",
       "local": "docs\\evidence\\screenshots\\local-node_claude.png",
-      "localStatus": "ok"
-    },
-    {
-      "name": "node_tech",
-      "originUrl": "https://www.v2ex.com/go/programmer",
-      "localUrl": "http://localhost:3010/go/programmer",
-      "reference": "docs\\evidence\\screenshots\\ref-node_tech.png",
-      "referenceStatus": "ok",
-      "local": "docs\\evidence\\screenshots\\local-node_tech.png",
       "localStatus": "ok"
     },
     {
       "name": "topic_detail",
       "originUrl": "https://www.v2ex.com/t/1253638",
-      "localUrl": "http://localhost:3010/t/1",
-      "reference": "docs\\evidence\\screenshots\\ref-topic_detail.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/t/1",
       "local": "docs\\evidence\\screenshots\\local-topic_detail.png",
       "localStatus": "ok"
     },
     {
       "name": "recent",
       "originUrl": "https://www.v2ex.com/recent",
-      "localUrl": "http://localhost:3010/?tab=all",
-      "reference": "docs\\evidence\\screenshots\\ref-recent.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/?tab=all",
       "local": "docs\\evidence\\screenshots\\local-recent.png",
       "localStatus": "ok"
     },
     {
       "name": "signin",
       "originUrl": "https://www.v2ex.com/signin",
-      "localUrl": "http://localhost:3010/signin",
-      "reference": "docs\\evidence\\screenshots\\ref-signin.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/signin",
       "local": "docs\\evidence\\screenshots\\local-signin.png",
       "localStatus": "ok"
     },
     {
       "name": "signup",
       "originUrl": "https://www.v2ex.com/signup",
-      "localUrl": "http://localhost:3010/signup",
-      "reference": "docs\\evidence\\screenshots\\ref-signup.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/signup",
       "local": "docs\\evidence\\screenshots\\local-signup.png",
       "localStatus": "ok"
     },
     {
       "name": "search",
       "originUrl": "https://www.v2ex.com/go/search?q=claude",
-      "localUrl": "http://localhost:3010/go/search?q=claude",
-      "reference": "docs\\evidence\\screenshots\\ref-search.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/go/search?q=claude",
       "local": "docs\\evidence\\screenshots\\local-search.png",
       "localStatus": "ok"
     },
     {
       "name": "member",
       "originUrl": "https://www.v2ex.com/member/reoah2",
-      "localUrl": "http://localhost:3010/member/admin",
-      "reference": "docs\\evidence\\screenshots\\ref-member.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/member/admin",
       "local": "docs\\evidence\\screenshots\\local-member.png",
       "localStatus": "ok"
     },
     {
       "name": "nodes_all",
       "originUrl": "https://www.v2ex.com/go/go",
-      "localUrl": "http://localhost:3010/nodes",
-      "reference": "docs\\evidence\\screenshots\\ref-nodes_all.png",
-      "referenceStatus": "ok",
+      "localUrl": "http://127.0.0.1:3210/nodes",
       "local": "docs\\evidence\\screenshots\\local-nodes_all.png",
       "localStatus": "ok"
     }
