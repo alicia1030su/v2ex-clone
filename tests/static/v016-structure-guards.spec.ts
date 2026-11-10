@@ -250,3 +250,66 @@ describe('v0.0.16 结构护栏 ④：会返回 null 的组件不得被无条件 
     });
   }
 });
+
+describe('v0.0.16 结构护栏 ⑤：.sepN 不得用固定 height（会把内容挤出去）', () => {
+  /**
+   * ## 这一类错误已经复发两次
+   *
+   * `.sepN` 是「N px 高的**空白**占位块」。把带内容的行写成 `.sepN`：
+   *   · 容器高度被钉死 ⇒ 内容溢出到流外；
+   *   · 外层有 `overflow:hidden` ⇒ 内容被裁掉（v0.0.9 回复按钮）；
+   *   · 外层没有 ⇒ 与下一个块**重叠**，点击被别的元素拦截
+   *     （v0.0.16「积分流水」按钮被 `checkin-box` 挡住下半部分，
+   *       Playwright 报 `intercepts pointer events`）。
+   *
+   * v0.0.9 只在**使用处**改成 `.reply_row` —— 那是修实例，所以又复发了。
+   * v0.0.16 改为从 CSS 层修：`.sepN` 用 `min-height`。
+   * 纯占位时高度恰好 N px（与原行为一致），装内容时容器撑开。
+   *
+   * 本护栏锁死「不得改回 `height`」——那会让同类缺陷再次静默复发。
+   */
+  const CSS = 'src/app/globals.css';
+
+  for (const n of [20, 10, 5, 3]) {
+    it(`.sep${n} 必须用 min-height 而不是 height`, () => {
+      const src = read(CSS);
+      // 精确匹配 `.sepN { ... }` 块
+      const re = new RegExp(`\\n\\.sep${n}\\s*\\{([^}]*)\\}`, 'm');
+      const m = src.match(re);
+      expect(m, `${CSS} 里找不到 .sep${n} 规则 —— 样式结构已变，本用例需重写`).toBeTruthy();
+      const body = m![1];
+
+      expect(
+        /min-height\s*:/.test(body),
+        `.sep${n} 没有 min-height。纯占位时它必须恰好 ${n}px，` +
+          '装了内容时必须能撑开 —— 否则内容溢出、被裁或被别的元素盖住',
+      ).toBe(true);
+      expect(
+        /(^|[^-])height\s*:/.test(body.replace(/min-height\s*:/g, '')),
+        `.sep${n} 又用回了固定 height —— 这正是 v0.0.9 与 v0.0.16 两次缺陷的根因`,
+      ).toBe(false);
+    });
+  }
+
+  it('不把 .sepN 当容器装按钮 / 输入框（语义上应使用 .reply_row）', () => {
+    const files = [
+      'src/components/CreditBadge.tsx',
+      'src/components/NotificationsList.tsx',
+      'src/components/AdminConsole.tsx',
+    ];
+    const offenders: string[] = [];
+    for (const f of files) {
+      const src = stripComments(read(f));
+      // 匹配 <div className="sepN"> 后面紧跟（同一行或下一行）button/input/select
+      const re = /<div className="sep(?:3|5|10|20)">\s*\n?\s*<(button|input|select|textarea)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        offenders.push(`${f}: <${m[1]}>`);
+      }
+    }
+    expect(
+      offenders,
+      `把占位块当容器用（应改为 .reply_row）：${offenders.join(' / ')}`,
+    ).toEqual([]);
+  });
+});

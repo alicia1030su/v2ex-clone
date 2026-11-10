@@ -321,7 +321,7 @@ export default function NotificationsList() {
                   {!n.read ? <span className="badge pro" style={{ marginLeft: 6 }}>新</span> : null}
                 </div>
 
-                <div className="sep5">
+                <div className="reply_row">
                   {!n.read ? (
                     <button
                       type="button"

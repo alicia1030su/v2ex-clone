@@ -901,7 +901,7 @@ export default function AdminConsole({
                   <span className="f12 gray">积分 {u.balance}</span>
                 </div>
 
-                <div className="sep5">
+                <div className="reply_row">
                   {canChangeRole ? (
                     <>
                       <select
@@ -1129,7 +1129,7 @@ export default function AdminConsole({
                 ) : null}
 
                 {r.status === 'pending' ? (
-                  <div className="sep5">
+                  <div className="reply_row">
                     <button
                       type="button"
                       className="button"
@@ -1191,7 +1191,7 @@ export default function AdminConsole({
                 {n.description ? <div className="f12 gray">{n.description}</div> : null}
 
                 {n.status === 'pending' ? (
-                  <div className="sep5">
+                  <div className="reply_row">
                     <button
                       type="button"
                       className="button"
@@ -1275,7 +1275,7 @@ export default function AdminConsole({
                     版主可见列表但没有按钮 —— 前端隐藏只是体验优化，
                     服务端仍是唯一权威。 */}
                 {canChangeRole ? (
-                  <div className="sep5">
+                  <div className="reply_row">
                     {n.status === 'hidden' ? (
                       <button
                         type="button"
@@ -1412,7 +1412,7 @@ export default function AdminConsole({
                   </div>
 
                   {isEditing ? (
-                    <div className="sep5">
+                    <div className="reply_row">
                       <input
                         type="text"
                         value={draft?.title ?? c.title}
@@ -1467,7 +1467,7 @@ export default function AdminConsole({
                       </button>
                     </div>
                   ) : canManageCategories ? (
-                    <div className="sep5">
+                    <div className="reply_row">
                       <button
                         type="button"
                         className="button"
