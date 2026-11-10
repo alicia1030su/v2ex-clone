@@ -434,7 +434,19 @@ async function main() {
         .waitFor({ state: 'visible', timeout: 15_000 })
         .catch(() => undefined);
 
-      const handled = pageM.locator('button:has-text("接受")').first();
+      /*
+       * ⚠️ 必须用 aria-label 精确锚定，**不能**用 `has-text("接受")`。
+       *
+       * 举报页有三个筛选 tab：待处理 / **已接受** / 已驳回。
+       * `button:has-text("接受")` 会**先匹配到「已接受」这个 tab**
+       * （DOM 顺序在前），`.first()` 点的是它 ——
+       * 点完只是切换了筛选条件，**举报状态当然还是 pending**。
+       *
+       * 实测：`接受按钮数: 1  文本: 已接受` ⇒ 命中的是 tab，不是操作按钮。
+       * 这类「选择器命中错误元素」在断言层面表现为「操作无效」，
+       * 与产品缺陷**无法区分** —— 所以必须锚在只有操作按钮才有的属性上。
+       */
+      const handled = pageM.locator('button[aria-label="接受举报并隐藏内容"]').first();
       if (await handled.count()) {
         /*
          * ⚠️ 点击必须在 React 水合之后。刚 `goto` + 点 tab 就点按钮，
@@ -485,9 +497,26 @@ async function main() {
       gotoStable(pageA, `${APP_URL}/notifications`, { waitUntil: 'domcontentloaded' }),
       gotoStable(pageB, `${APP_URL}/notifications`, { waitUntil: 'domcontentloaded' }),
     ]);
-    const aName = await pageA.evaluate(() => document.body.textContent?.includes('退出') ?? false);
-    const bName = await pageB.evaluate(() => document.body.textContent?.includes('退出') ?? false);
-    aName && bName ? pass('两个独立会话同时在线', '双方都处于登录态') : fail('两个独立会话同时在线', `A=${aName} B=${bName}`);
+    /*
+     * 登录态判据必须是**每个页面都有的东西**。
+     *
+     * 第一版用「页面文本含『退出』」—— 而「退出登录」按钮只出现在
+     * `/settings`，通知页没有它 ⇒ 两个会话都被判成未登录（实测 A=false B=false）。
+     * 这不是产品缺陷，是**判据选错了观察点**。
+     *
+     * 正确观察点：导航栏里指向 `/member/<自己的用户名>` 的链接 ——
+     * 它由 `buildNavLinks()` 在**登录态**下生成，全站每个页面都有。
+     */
+    const hasOwnNav = async (page, username) =>
+      page.evaluate(
+        (name) => !!document.querySelector(`a[href="/member/${name}"]`),
+        username,
+      );
+    const aName = await hasOwnNav(pageA, U.a.username);
+    const bName = await hasOwnNav(pageB, U.b.username);
+    aName && bName
+      ? pass('两个独立会话同时在线', '双方导航栏都有各自的个人主页链接')
+      : fail('两个独立会话同时在线', `A=${aName} B=${bName}`);
 
     // ── ⑥ 页面健康（验收视角的最后一关） ──
     const overflow = await Promise.all(
