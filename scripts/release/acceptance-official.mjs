@@ -339,7 +339,7 @@ async function main() {
         await replyBoxB.fill(`@${U.a.username} 用户 B 回复并提及，时间戳 ${stamp}`);
         await pageB.locator('button:has-text("提交回复")').first().click().catch(() => {});
         await pageB.waitForLoadState('networkidle').catch(() => {});
-        const nb = sql(`select count(*) from replies r join users u on u.id=r.user_id where u.username='${U.b.username}' and r.topic_id=${topicA};`);
+        const nb = sql(`select count(*) from replies r join users u on u.id=r.author_id where u.username='${U.b.username}' and r.topic_id=${topicA};`);
         Number(nb) >= 1 ? pass('用户 B 回复写入数据库', `${nb} 条`) : fail('用户 B 回复写入数据库', '0 条');
 
         const replyNotify = sql(
@@ -361,15 +361,15 @@ async function main() {
         const items = await pageA.$$eval('.cell', (cs) => cs.length);
         inbox?.status() === 200 && items > 0 ? pass('用户 A 收件箱可见', `${items} 个 cell`) : fail('用户 A 收件箱可见', `HTTP ${inbox?.status()}`);
 
-        const unreadBefore = Number(sql(`select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.a.username}' and n.read_at is null;`));
+        const unreadBefore = Number(sql(`select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.a.username}' and n.read = false;`));
         const readAll = pageA.locator('button:has-text("全部标记已读")').first();
         if (await readAll.count()) {
           await readAll.click().catch(() => {});
           await pageA.waitForLoadState('networkidle').catch(() => {});
-          const unreadAfter = Number(sql(`select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.a.username}' and n.read_at is null;`));
+          const unreadAfter = Number(sql(`select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.a.username}' and n.read = false;`));
           unreadAfter < unreadBefore ? pass('用户 A 全部标记已读', `未读 ${unreadBefore} → ${unreadAfter}`) : fail('用户 A 全部标记已读', `未读仍为 ${unreadAfter}`);
           await pageA.reload({ waitUntil: 'networkidle' });
-          const unreadReload = Number(sql(`select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.a.username}' and n.read_at is null;`));
+          const unreadReload = Number(sql(`select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.a.username}' and n.read = false;`));
           unreadReload === unreadAfter ? pass('刷新后已读状态保持', `未读 ${unreadReload}`) : fail('刷新后已读状态保持', `未读变成 ${unreadReload}`);
         } else {
           fail('用户 A 全部标记已读', '没有「全部已读」入口');
