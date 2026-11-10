@@ -148,15 +148,61 @@ describe('发行文档真实性（v0.0.13）', () => {
     expect(statusSection.length, 'README 缺少「当前版本状态」小节').toBeGreaterThan(0);
 
     if (RELEASED === CANDIDATE) {
-      // 发布态：本版即已公开版本 ⇒ 不得再声称"未发布 / 未打 Tag"
+      // 发布态：**已公开的那个版本**不得被说成"未发布 / 未打 Tag"。
+      //
+      // ⚠️ 这里的判据必须**逐行、且只针对已公开版本**，不能对整个文件
+      //    做 `not.toContain('未打 Tag、未发布 Release')`。
+      //
+      //    第一版就是这么写的，然后 v0.0.15 开始开发时它判红了 ——
+      //    因为 README 里合法地新增了一行：
+      //
+      //        | **本版候选** | **`v0.0.15`**（开发中：未打 Tag、未发布 Release…） |
+      //
+      //    这句话**关于 v0.0.15 是完全正确的**，而断言却把它算到了
+      //    v0.0.14 头上。这与本轮 V15-06（反向断言扫整份日志被自己的
+      //    正常输出命中）是**同一类错**：作用域太宽 ⇒ 断言指向了它
+      //    本来不打算管的对象。
+      //
+      //    正确判据：「**该未发布声明的主语**是已公开版本」时才判红。
+      //
+      //    为什么不能只看「同一行里出现已公开版本 + 未发布字样」——
+      //    库里真有这样的句子，而且**完全正确**：
+      //
+      //        | v0.0.13 | **从未发布**：无 Tag、无 Release…；其成果已由 v0.0.14 一次性包含 |
+      //        > `v0.0.13` **从未发布**（无 Tag / Release / 镜像），其成果由 v0.0.14 一次性包含。
+      //
+      //    这两句都同时含「v0.0.14」与「未发布」，但主语是 **v0.0.13**。
+      //    按行判会把它们一起判红 ⇒ 又是一次「作用域太宽」。
+      //
+      //    判据：对每个未发布字样，取它**之前最近的版本号**作为主语；
+      //    只有主语 == 已公开版本时，才算「声称已发布版本未发布」。
+      const unpublishedClaims = ['未打 Tag', '未发布', '尚未发布', '无 Tag', '尚无 Tag'];
+      const versionRe = /v(\d+\.\d+\.\d+)/g;
+      const offending: string[] = [];
+
+      for (const line of README.split('\n')) {
+        for (const word of unpublishedClaims) {
+          let from = 0;
+          for (;;) {
+            const at = line.indexOf(word, from);
+            if (at < 0) break;
+            from = at + word.length;
+            // 该关键词之前最近的版本号 = 这句话的主语
+            const prefix = line.slice(0, at);
+            const versions = [...prefix.matchAll(versionRe)].map((m) => m[1]);
+            const subject = versions.length > 0 ? versions[versions.length - 1] : null;
+            if (subject === RELEASED) offending.push(line.trim());
+          }
+        }
+      }
+
       expect(
-        statusSection,
-        `README 声明 v${RELEASED} 已公开，却又写着「未打 Tag、未发布 Release」—— 自相矛盾`,
-      ).not.toContain('未打 Tag、未发布 Release');
+        offending,
+        `README 声称 v${RELEASED} 已公开，却又说**它**未发布 —— 自相矛盾`,
+      ).toEqual([]);
       expect(statusSection, `README 未把 v${CANDIDATE} 标注为本版发行版本`).toContain(
         `v${CANDIDATE}`,
       );
-      expect(README).not.toContain('未打 Tag、未发布 Release');
     } else {
       // 开发态：候选版本必须被明确标注为候选，且不得写成已发布
       expect(
