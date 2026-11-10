@@ -50,6 +50,13 @@ env:
   REPO: ${{ github.repository }}
   WORK: /tmp/official-acceptance
   NODE_VERSION: '22.23.4'
+  # ⚠️ v0.0.16：必须定义在 **job 级**。第⑥步（跑验收）与第⑦步（输出摘要）
+  # 都要用它；只在第⑥步的 `env:` 里定义时，第⑦步在 `set -u` 下引用未定义变量
+  # ⇒ 直接退出 1，整条工作流被判红 —— 而**验收本体其实是全绿的**。
+  # 实测：run 42919855649 的 ⑥ 步 success（30 PASS / 0 FAIL），
+  # 只有 ⑦ 步 failure，导致 job 结论为 failure。这种「活干完了报告没写出来」
+  # 的失败最容易被误读成「验收没通过」。
+  ARTIFACT_DIR: ${{ github.workspace }}/acceptance-out
 
 jobs:
   acceptance:
@@ -140,7 +147,6 @@ jobs:
           APP_URL: http://localhost:3000
           COMPOSE_FILE: ${{ env.INST_DIR }}/docker-compose.yml
           ENV_FILE: ${{ env.INST_DIR }}/.env
-          ARTIFACT_DIR: ${{ github.workspace }}/acceptance-out
           BROWSER_CHANNEL: chromium
         run: |
           set -euo pipefail
@@ -161,6 +167,11 @@ jobs:
               echo "| 检查项 | 结果 | 真实值 |"
               echo "|---|---|---|"
               awk -F'\t' 'NR>1 {printf "| %s | %s | %s |\n", $1, $2, $3}' "$ARTIFACT_DIR/results.tsv"
+              echo ""
+              # 汇总行直接由 tsv 统计，避免摘要与真实结果脱钩
+              PASS_N=$(awk -F'\t' 'NR>1 && $2=="PASS"' "$ARTIFACT_DIR/results.tsv" | wc -l)
+              FAIL_N=$(awk -F'\t' 'NR>1 && $2=="FAIL"' "$ARTIFACT_DIR/results.tsv" | wc -l)
+              echo "**汇总：$PASS_N PASS / $FAIL_N FAIL**"
             else
               echo "（未产出 results.tsv —— 验收脚本可能在早期失败）"
             fi
