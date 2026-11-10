@@ -723,7 +723,7 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 | E | 供应链门槛 | ✅ | 未新增运行时依赖（新增脚本只用 Node 内置模块 + `gh` / `git`） |
 | F | 历史与合规门槛 | 🔴 | **R-01 维持 DEFERRED**，见 §9.4 |
 | G | 文档门槛 | ✅ | README / CHANGELOG / FEATURE_MATRIX / BUG_REGISTER / RISK_REGISTER / 交接文档全部同步 |
-| H | 发布流程门槛 | ✅ | 新增 `release-dryrun.yml` 预演（6/6 job 全 success，run `42738334901`）；Tag 白名单未含 `v0.0.15` |
+| H | 发布流程门槛 | ✅ | **最终 SHA `1041782`** 上跑 `release-dryrun.yml` run `42763176816` —— **6/6 job 全 success**（静态链路 / 输入缺失负向 / Notes 渲染 / 部署包 N2 / Release 冲突 / 汇总传播）；Tag 白名单已含 `v0.0.15`（**就绪 ≠ 已授权 ≠ 已发布**） |
 | I | v0.0.15 专项（四条 P0 + 两条 P1） | ✅ | 见 §9.2 |
 | J | 发布授权 | ⏳ | **未取得 v0.0.15 的专项授权**，见 §9.5 |
 
