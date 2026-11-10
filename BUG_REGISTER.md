@@ -464,6 +464,17 @@
 
 | **V15-11** | **严重（发行缺陷：生产镜像带进测试凭据字面量与发布机工具）** | `.dockerignore` **没有任何 scripts 规则**，而 `Dockerfile` 的 runner 阶段写的是 `COPY --from=builder /app/scripts ./scripts`（**整目录**）⇒ 整个 `scripts/`（**45 个文件**）全部进生产镜像。其中 **8 个含测试凭据字面量**：`scripts/ci/eperm-trigger-test2.sh`、`quick-dev-and-run.sh`、`quick-serve-and-run.sh`、`run-e2e-locally.sh`、`run-visual-regression.sh`、`scripts/release/verify-upgrade-v00{10,05,08}.sh`（内容形如 `ci-only-session-secret-0123…`、`v2ex_test_password_local_only`、`ci-postgres-password-not-real`）。⚠️ **不是真实凭据泄漏** —— `deploy/install.sh` 用 `gen_random_hex 24` 随机生成 `SESSION_SECRET` 与口令；但会①误导审计（无法分辨真假）②触发镜像扫描器告警③把发布机工具（打包/校验/升级演练）细节放进公开镜像 | 按任务书第三阶段第 9 项「生产镜像不存在测试密钥」核查时，**用确定性推导枚举**会进镜像的文件（`.dockerignore` 规则 × Dockerfile COPY 链），而不是只看 Dockerfile 注释里声明的依赖。同时发现 `docker-verify.yml` 的 9d 只查**文件名**（`.env` / `*CREDENTIAL*`），对「凭据写在普通源码里」完全无感 | ① `Dockerfile` 改为**逐文件白名单** COPY 容器内真实执行的 5 个（`docker-entrypoint.sh` / `seed.ts` / `wait-for-db.mjs` / `admin-cli.ts` / `db-admin.mjs`）；② `.dockerignore` 加 `scripts/*` + 5 条 `!` 反向包含（**两边必须一起改**：`.dockerignore` 管上下文、Dockerfile 管最终层，只改一边要么构建失败要么白带进缓存）；③ 选白名单而非黑名单 —— 黑名单默认「新脚本进镜像」，白名单默认「不进」，失效方向更安全；④ `docker-verify.yml` 新增 9d-b（容器内 `grep` 内容）与 9d-c（镜像内 scripts 必须恰为 5 个），并给 9d-b 加 **fail-closed**：待扫描目录不存在 / 文件数异常 / 对照探测（`next start` 必须命中）失败 ⇒ 判红，而不是「没扫到任何东西」当成「没检出凭据」 | ① 静态护栏 `tests/static/v015-image-hygiene.spec.ts` **5/5**（解析两边清单断言**集合相等**，A⊆B 防构建失败、B⊆A 防白带进上下文）；② **三条负向对照全部实测判红**：Dockerfile 改回整目录 COPY ⇒ 3 条红、删掉 `.dockerignore` 的 `scripts/*` ⇒ 2 条红、Dockerfile 漏 `seed.ts` ⇒ 2 条红；③ **CI 容器内实测**（run `42794383612`）：待扫描文件数 **18**、对照探测命中 **1**、`✓ 镜像内无测试凭据字面量`、`✓ 镜像内 scripts 恰为 5 个`、镜像层日志可见 5 条逐文件 COPY；④ 静态套件 **22 文件 / 316 用例**全通过，`tsc` 0 |
 
+| **V15-12** | 一般（**负向对照的靶子随文案改名漂移 ⇒ 对照退化成空操作，还报「判据假绿」**） | `scripts/release/preflight-dryrun.mjs` 的 ⑥ 项负向对照原本锚在一行**具体文案**上：`tpl.replace('| **后续仍需单独处置历史问题**', '| 待主人裁决 | …')`。本轮为强化 R-01 披露把这行改名为「保留与披露不等于风险消失」后，`replace` 找不到目标 ⇒ **返回原串（空操作）** ⇒ 输入根本没被破坏 ⇒ 判据照常通过 ⇒ 对照报「输入已破坏，判据却仍判通过 —— 该判据是假绿」。**报出的是错误结论**：判据本身是好的，坏的是对照没真正注入。这类缺陷的危险在于它是**静默**的（不报错、只多一行红字，容易被当成噪音忽略），与 V14-03「扫全文被自己的黑名单误伤」、V13-17「反向断言被注释满足」同源：**负向对照必须先证明「注入真的改变了输入」** | 静态预演 `--mode=static` 出现 1 项失败：`负向对照「在模板里注入「待主人裁决」」失败`，而正向判据 `✓ 模板正文不含待定态措辞` 同时成立 —— 两者并存正是「对照空转」的指纹 | 靶子改为锚在**结构**（模板首行主标题）而非文案：`tpl.slice(0, firstLineEnd) + '\n待主人裁决\n' + tpl.slice(firstLineEnd)`；文案怎么改名都不影响注入点 | 复跑 `--mode=static`：**21 项通过 / 0 失败**，负向对照正确判红「模板含待定态措辞：待主人裁决」；`--mode=notes` **16/16**；静态套件 **25 文件 / 320 用例**全通过；`tsc` 0；发行一致性 **PASS=20 / FAIL=0** |
+
+- 新增 `tests/static/v015-release-decision.spec.ts`（4 条）把「授权声明必须自洽」钉死：
+  ① `README` 声明「已获本版公开发布授权」时，`docs/RISK_DECISION_v<版本>.md` 必须存在；
+  ② 该文件必须写明 A3（保留 + 披露）与 B1（授权发布）；
+  ③ 该文件必须写 DEFERRED，且**不得以肯定式**声称 R-01 已修复；
+  ④ `README` 不得同时出现「已获…授权」与「无本版发布授权」。
+  **负向对照**：删掉裁决文件 ⇒ ①判红；追加一行「R-01 已修复，风险已消除」⇒ ③判红；
+  均验证后恢复原文件、复跑 4/4 绿。⚠️ ③ 的第一版写法是 `not.toMatch(/R-01…(已修复|FIXED)/)`，
+  被本文件里**正确的否定句**「**不是**把 R-01 标为 FIXED」误伤 —— 已改为**逐行 + 否定语境跳过**。
+
 ### v0.0.15 环境限制（非产品缺陷，不计入缺陷数）
 
 | 项 | 事实 | 处理 |

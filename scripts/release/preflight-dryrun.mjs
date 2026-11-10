@@ -485,11 +485,19 @@ function runStatic() {
       if (tpl === null) return null;
       const idx = workflow.indexOf(tpl);
       if (idx < 0) return null;
-      return (
-        workflow.slice(0, idx) +
-        tpl.replace('| **后续仍需单独处置历史问题**', '| 待主人裁决 | **后续仍需单独处置历史问题**') +
-        workflow.slice(idx + tpl.length)
-      );
+      // ⚠️ 注入点不能锚在某一行的**具体措辞**上。
+      //
+      //    第一版锚的是 `| **后续仍需单独处置历史问题**` —— 而 v0.0.15 把这行
+      //    改名为「保留与披露不等于风险消失」后，`replace` 变成**空操作**，
+      //    输入根本没被破坏，判据自然仍判通过 ⇒ 负向对照报「假绿」。
+      //    这不是判据失效，而是**对照的靶子随文档改名一起漂了**。
+      //    靶子必须锚在**结构**上（模板首行必是主标题），与文案无关。
+      const firstLineEnd = tpl.indexOf('\n');
+      const broken =
+        firstLineEnd < 0
+          ? tpl + '\n待主人裁决\n'
+          : tpl.slice(0, firstLineEnd) + '\n待主人裁决\n' + tpl.slice(firstLineEnd);
+      return workflow.slice(0, idx) + broken + workflow.slice(idx + tpl.length);
     },
     (src) => notesHasNoPendingWord(src),
   );
