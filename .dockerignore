@@ -66,6 +66,35 @@ docs/evidence/assets/
 docs/evidence/screenshots/
 docs/evidence/visual/
 
+# ---------------------------------------------------------------------------
+# scripts —— 只保留容器内**真实执行**的脚本（v0.0.15）
+#
+# ## 为什么必须在这里排除，而不是只靠 Dockerfile 的白名单 COPY
+#
+# `runner` 阶段用的是**逐文件 COPY**（见 Dockerfile），所以严格说
+# 这里不排除也不会进最终镜像。但**构建上下文**仍然会带上它们：
+#   · 45 个 scripts 文件全部上传给 docker 守护进程（含 CI / 发布机工具）；
+#   · `scripts/ci/*.sh` 与 `scripts/release/verify-upgrade-*.sh` 里
+#     **明文写着测试专用凭据** —— 它们会出现在构建上下文、构建缓存与
+#     任何 `--build-arg` 调试输出里。
+# 在 `.dockerignore` 里排除，等于让这些字面量**根本不进入构建环境**，
+# 比「进了上下文但没拷进最终层」强一个数量级。
+#
+# ## 白名单必须与 Dockerfile 的 COPY 清单**逐条一致**
+#
+# 反过来说：这里排除掉的文件，builder 阶段 `COPY . .` 就**看不到**它们，
+# 于是 Dockerfile 里任何指向被排除文件的 COPY 都会直接失败。
+# 两者是**双向耦合**的 —— `tests/static/v015-image-hygiene.spec.ts`
+# 会解析两边的清单并断言集合相等，改一边漏另一边会立刻判红。
+scripts/*
+# 容器内真实执行的（顺序无关，仅需存在）
+!scripts/docker-entrypoint.sh
+!scripts/seed.ts
+!scripts/wait-for-db.mjs
+!scripts/admin-cli.ts
+!scripts/db-admin.mjs
+
+
 # 编辑器与系统
 .vscode
 .idea
