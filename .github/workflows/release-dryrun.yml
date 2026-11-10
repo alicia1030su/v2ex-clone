@@ -276,11 +276,24 @@ jobs:
           grep -E "权限|0o|中央目录" /tmp/perm.log | tail -5 || tail -5 /tmp/perm.log
           # 同时确认失败原因**只**是权限 —— 版本一条都没报错
           # （否则这个负向对照证明不了"权限判据本身有效"）
-          if grep -qE "包内 VERSION|compose 未引用|APP_VERSION" /tmp/perm.log; then
+          #
+          # ⚠️ 必须只看 `✗` 开头的**失败行**。
+          #    第一版直接 grep「包内 VERSION」，结果把脚本正常输出的
+          #    `✓ 包内 VERSION = 0.0.14` 也命中了 —— 判据自己制造了假红
+          #    （CI run 42737231938 就是这么红的）。
+          FAIL_LINES="$(grep '✗' /tmp/perm.log || true)"
+          if printf '%s\n' "$FAIL_LINES" | grep -qE "包内 VERSION|compose 未引用|APP_VERSION"; then
             echo "::error::权限负向对照的失败原因里混入了版本类错误 —— 这次对照不成立"
+            echo "--- 失败行 ---"
+            printf '%s\n' "$FAIL_LINES"
+            exit 1
+          fi
+          if [ -z "$FAIL_LINES" ]; then
+            echo "::error::N2 判红但没有任何失败行 —— 无法确认它是因为权限而红"
             cat /tmp/perm.log
             exit 1
           fi
+          echo "  （已确认失败行仅涉及权限，不涉版本）"
 
       - name: 正确产物必须通过完整一致性门禁
         run: |
