@@ -45,7 +45,42 @@ COPY --from=builder --chown=nextjs:nodejs /app/public/ /app/public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# ---------------------------------------------------------------------------
+# scripts —— 只拷**运行时真正要执行的**那些（v0.0.15 收窄）
+#
+# 修复前是 `COPY --from=builder /app/scripts ./scripts`（整目录）。
+# 而 `.dockerignore` 里**没有任何 scripts 规则** ⇒ 整个 scripts/（45 个文件）
+# 全部进入构建上下文，再被这条整目录 COPY 搬进生产镜像。后果：
+#
+#   · `scripts/ci/*.sh` 与 `scripts/release/verify-upgrade-*.sh` 里
+#     **明文写着测试专用凭据**（`ci-only-session-secret-…`、
+#     `v2ex_test_password_local_only`、`ci-postgres-password-not-real`）
+#     ⇒ 生产镜像里带着一份「看起来像真密钥」的字面量。
+#     它们不是生产凭据（安装器会随机生成），但会误导审计、也会被扫描器报警。
+#   · `fake-smtp-server.ts` / `reset-test-credentials.ts` / `ui-verify.cjs`
+#     是**测试与 CI 专用**的，运行时一个都不执行。
+#   · `scripts/release/*` 是**发布机**上的工具（打包 / 校验 / 升级演练），
+#     在容器里跑没有意义，还会把发布流程细节暴露进镜像。
+#
+# 因此改为**显式白名单**：只拷容器内真实执行的四个脚本 + 一个目录。
+# 白名单的好处是「新增脚本默认不进镜像」——漏掉必须靠加白名单才会坏，
+# 而整目录 COPY 是「新增脚本默认进镜像」，两种默认值的安全方向相反。
+#
+# 容器内真实执行的（证据：scripts/docker-entrypoint.sh 与 deploy/INSTALL.md）：
+#   · docker-entrypoint.sh  ← ENTRYPOINT（阶段 1 迁移 / 阶段 2 初始化 / 启动）
+#   · seed.ts               ← entrypoint 阶段 2（node tsx scripts/seed.ts）
+#   · wait-for-db.mjs       ← entrypoint 阶段 1 就绪探测
+#   · admin-cli.ts          ← INSTALL.md:493 指导用户在容器内重置口令
+#   · db-admin.mjs          ← 运维脚本（Dockerfile 下方注释已声明）
+#
+# ⚠️ 改这里必须同步 `.dockerignore` 的白名单，否则 builder 阶段
+#    `COPY . .` 会把被排除的文件从上下文里剔掉，这里的 COPY 直接失败。
+#    `tests/static/v015-image-hygiene.spec.ts` 钉死了两者的双向一致。
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/seed.ts ./scripts/seed.ts
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/wait-for-db.mjs ./scripts/wait-for-db.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/admin-cli.ts ./scripts/admin-cli.ts
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/db-admin.mjs ./scripts/db-admin.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 # seed.ts 与 admin-cli.ts 需要 src/db（schema 与客户端），必须一并拷入。
