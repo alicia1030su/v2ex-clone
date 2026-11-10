@@ -247,11 +247,38 @@ jobs:
           # -------------------------------------------------------------------
           echo "===== 9d-b. 镜像文件内容不得含测试凭据字面量 ====="
           CRED_PATTERN='ci-only-session-secret|v2ex_test_password_local_only|ci-postgres-password-not-real|ci-redis-password-not-real|ci-only-session'
-          if docker run --rm --entrypoint sh v2ex-clone:dv -c \
-               "grep -rlE '${CRED_PATTERN}' /app/scripts /app/drizzle /app/src 2>/dev/null | head -20" \
-               > /tmp/cred_hits.txt; then
-            :
+
+          # ⚠️ 先证明「扫描确实扫到了东西」，否则这条判据会**静默假绿**：
+          #    若 /app/scripts 或 /app/src 不存在，grep 会报错并返回空输出，
+          #    于是「没检出凭据」通过 —— 而实际是「什么都没扫」。
+          #    这正是本轮反复出现的同一类缺陷：**判据在输入缺失时不说真话**。
+          for d in /app/scripts /app/drizzle /app/src; do
+            if ! docker run --rm --entrypoint sh v2ex-clone:dv -c "test -d $d"; then
+              echo "  ✗ 待扫描目录不存在：$d —— 无法证明「无凭据」，按 fail-closed 中止"
+              exit 1
+            fi
+          done
+          SCANNED=$(docker run --rm --entrypoint sh v2ex-clone:dv -c \
+            "find /app/scripts /app/drizzle /app/src -type f 2>/dev/null | wc -l" | tr -d ' \r')
+          echo "  待扫描文件数 = ${SCANNED}"
+          if [ -z "${SCANNED}" ] || [ "${SCANNED}" -lt 10 ] 2>/dev/null; then
+            echo "  ✗ 扫描到的文件数异常（${SCANNED}）—— 判据可能没真正扫到内容，按 fail-closed 中止"
+            exit 1
           fi
+
+          # 反向自证：先确认 grep 能在这个镜像里命中一个**必然存在**的串。
+          # 若连这个都命中不了，说明 grep/路径有问题，后面的「无凭据」不可信。
+          CANARY=$(docker run --rm --entrypoint sh v2ex-clone:dv -c \
+            "grep -rl 'next start' /app/scripts 2>/dev/null | wc -l" | tr -d ' \r')
+          if [ "${CANARY}" -lt 1 ] 2>/dev/null; then
+            echo "  ✗ 对照探测失败：连 entrypoint 里的 'next start' 都没命中 —— grep 判据不可信"
+            exit 1
+          fi
+          echo "  ✓ 对照探测命中 ${CANARY} 个文件（证明 grep 真的在扫）"
+
+          docker run --rm --entrypoint sh v2ex-clone:dv -c \
+            "grep -rlE '${CRED_PATTERN}' /app/scripts /app/drizzle /app/src 2>/dev/null | head -20" \
+            > /tmp/cred_hits.txt || true
           if [ -s /tmp/cred_hits.txt ]; then
             echo "  ✗ 镜像内检出含测试凭据字面量的文件（只列路径，不打印内容）:"
             sed 's/^/    /' /tmp/cred_hits.txt
