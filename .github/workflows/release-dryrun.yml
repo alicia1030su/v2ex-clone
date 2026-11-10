@@ -320,70 +320,119 @@ jobs:
     name: Release 冲突检测（只读，不创建任何 Release）
     runs-on: ubuntu-latest
     needs: package-check
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: 目标版本不得已有 Release（已存在则拒绝，不覆盖）
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # -----------------------------------------------------------------------
+      # 这一组步骤的判据全部来自 scripts/release/release-decision.mjs
+      #
+      # ⚠️ 第一版这里是「目标版本必须没有 Release，否则判红」——
+      #    它在开发态**必然红**，因为版本载体按 G-VER-01 刻意停在上一个
+      #    **已发布**版本。那会把「正常的开发态」报成「发布链路故障」，
+      #    而一个正常开发态必红的检查，下场只有被删或被改松。
+      #
+      #    正确的不变量是「**决策必须与观测到的状态一致**」，
+      #    不是「状态必须是我期望的那一种」。
+      # -----------------------------------------------------------------------
+      - name: 记录只读基线（Release 数量，供最后一步自证）
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/releases?per_page=100" --jq 'length' \
+            > "$RUNNER_TEMP/releases-baseline.txt"
+          echo "基线 Release 数：$(cat "$RUNNER_TEMP/releases-baseline.txt")"
+
+      - name: 决策判据自测（穷举 4 种状态组合）
+        run: node scripts/release/release-decision.mjs --selftest
+
+      - name: 真实状态探测（决策自洽，不要求是某一种）
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${INPUT_VERSION}"
-          if [ -z "$VERSION" ]; then
-            VERSION="v$(node -p "require('./package.json').version")"
-          fi
-          echo "预演版本：$VERSION"
-          # 只读查询（列表接口能读到 draft；按 tag 查询端点读不到 draft）
-          if ! gh api "repos/$REPO/releases?per_page=100" > /tmp/rel.json; then
-            echo "::error::查询 Release 列表失败 —— 无法判定冲突，按 fail-closed 中止"
-            exit 1
-          fi
-          python3 - "$VERSION" <<'PY'
-          import json, sys
-          version = sys.argv[1]
-          lst = json.load(open('/tmp/rel.json', encoding='utf-8'))
-          if not isinstance(lst, list):
-              print('::error::Release 列表不是数组'); sys.exit(1)
-          hit = [r for r in lst if r.get('tag_name') == version]
-          if hit:
-              d = hit[0]
-              print('::warning::该版本已存在 Release（id=%s，draft=%s）' % (d.get('id'), d.get('draft')))
-              print('::error::预演**拒绝继续**：已有 Release 不得被覆盖。请换版本号或人工处理。')
-              sys.exit(1)
-          print('✓ Release 冲突检测通过：%s 尚无 Release' % version)
-          PY
+          # 没给版本就用版本载体 —— 但**不要求**它是"未发布"。
+          # 开发态里它就是上一个已发布版本，此时正确决策是 refuse。
+          node scripts/release/release-decision.mjs \
+            --repo "$REPO" \
+            --version "${INPUT_VERSION:-v$(node -p "require('./package.json').version")}"
 
-      - name: 负向：已存在的版本必须被拒绝
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+      - name: 负向 ①：已发布版本必须判 refuse（不覆盖）
         run: |
           set -euo pipefail
-          # 用一个**已知已发布**的版本触发冲突检测 —— 必须判红。
-          # 这不是"造一个假 Release"，而是拿真实的已发布版本验证判据确实生效。
-          PUBLISHED="$(gh api "repos/$REPO/releases?per_page=100" --jq '[.[] | select(.draft==false)][0].tag_name')"
+          # 取真实已发布版本（非 draft）—— 不造假 Release
+          PUBLISHED="$(gh api "repos/$REPO/releases?per_page=100" \
+            --jq '[.[] | select(.draft==false)][0].tag_name')"
           if [ -z "$PUBLISHED" ] || [ "$PUBLISHED" = "null" ]; then
-            echo "::warning::仓库尚无已发布 Release，跳过本项负向对照（如实披露，不计为通过）"
-            exit 0
+            echo "::error::仓库尚无已发布 Release，无法做冲突负向对照"
+            exit 1
           fi
-          echo "用已发布版本 $PUBLISHED 做冲突检测负向对照"
-          if gh api "repos/$REPO/releases?per_page=100" > /tmp/rel2.json 2>/dev/null; then :; else exit 1; fi
-          python3 - "$PUBLISHED" <<'PY'
-          import json, sys
-          version = sys.argv[1]
-          lst = json.load(open('/tmp/rel2.json', encoding='utf-8'))
-          hit = [r for r in lst if r.get('tag_name') == version]
-          assert hit, '已发布版本应能在列表里找到'
-          d = hit[0]
-          print('命中：id=%s draft=%s' % (d.get('id'), d.get('draft')))
-          # 冲突判据：已存在即拒绝（这正是上面正向检查的反面）
-          if hit:
-              print('✓ 冲突判据生效：该版本已有 Release，预演会拒绝继续')
-              sys.exit(0)
-          print('::error::冲突判据失效'); sys.exit(1)
-          PY
+          echo "用真实已发布版本 $PUBLISHED 验证「拒绝覆盖」"
+          node scripts/release/release-decision.mjs --repo "$REPO" \
+            --version "$PUBLISHED" --expect refuse
+
+      - name: 负向 ②：Tag 有 / Release 无 必须判 resume（幂等恢复，不是重建）
+        run: |
+          set -euo pipefail
+          # 这个状态在真实仓库里**确实存在过**：v0.0.14 首次发布时
+          # publish-release 缺 checkout 导致 Release 没建成，Tag 已经推上去了。
+          # 若判成 create 会重复建 Tag（Tag 不可移动），若判成 refuse 则版本永久卡死。
+          FOUND=0
+          for v in $(git ls-remote --tags origin 2>/dev/null | grep -v '\^{}' \
+                     | awk '{print $2}' | sed 's|refs/tags/||' | sort -V); do
+            R="$(gh api "repos/$REPO/releases?per_page=100" \
+                 --jq "[.[] | select(.tag_name==\"$v\")] | length")"
+            if [ "$R" = "0" ]; then
+              echo "找到真实样本：$v（Tag 存在、Release 不存在）⇒ 必须判 resume"
+              node scripts/release/release-decision.mjs --repo "$REPO" \
+                --version "$v" --expect resume
+              FOUND=1
+              break
+            fi
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::仓库里找不到「Tag 有 / Release 无」的真实样本，无法验证 resume 路径"
+            exit 1
+          fi
+
+      - name: 负向 ③：未发布版本必须判 create（不误拦）
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # 用本次预演的目标版本：它**不该**已经发布。
+          TARGET="${INPUT_VERSION:-v0.0.15}"
+          node scripts/release/release-decision.mjs --repo "$REPO" \
+            --version "$TARGET" --expect create
+
+      - name: 全程只读自证（本 job 未创建任何东西）
+        run: |
+          set -euo pipefail
+          # 反向自证：预演开始前先记下 Release 数，结束时必须还是同一个数。
+          # 这不是"相信脚本没写东西"，而是**用可观测状态证明**它没写。
+          #
+          # ⚠️ 第一版写成 `[ "${BASELINE_COUNT:-}" != "" ] && ...` ——
+          #    BASELINE_COUNT 从未被赋值，条件恒假 ⇒ 这段检查**永远通过**。
+          #    又是一个「写了断言但永远不会失败」。现在改成读真实基线文件，
+          #    且基线文件缺失时**判红**（不能因为"没记基线"就跳过自证）。
+          BASELINE_FILE="$RUNNER_TEMP/releases-baseline.txt"
+          if [ ! -f "$BASELINE_FILE" ]; then
+            echo "::error::基线文件缺失 —— 无法自证只读，判红（不接受"没记基线"作为通过理由）"
+            exit 1
+          fi
+          BASELINE="$(cat "$BASELINE_FILE")"
+          NOW_COUNT="$(gh api "repos/$REPO/releases?per_page=100" --jq 'length')"
+          echo "基线：$BASELINE ⇒ 现在：$NOW_COUNT"
+          if [ "$NOW_COUNT" != "$BASELINE" ]; then
+            echo "::error::Release 数量从 $BASELINE 变成 $NOW_COUNT —— 预演写了远端"
+            exit 1
+          fi
+          echo "✓ Release 数量未变（$BASELINE），预演全程只读"
 
   # ===========================================================================
   # 6. 汇总（任何一项失败都必须传播）
