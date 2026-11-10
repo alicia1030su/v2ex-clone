@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { guardCommunityAction } from '@/lib/community-rate-limit';
+import { listNotificationsForUser } from '@/server/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,54 +21,29 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const rawLimit = Number(url.searchParams.get('limit') ?? 30);
-  const limit = Math.min(
-    Math.max(Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 30, 1),
-    100,
-  );
-  const offset = Math.max(Number(url.searchParams.get('offset') ?? 0) || 0, 0);
+  const limit = Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 30;
+  const offset = Number(url.searchParams.get('offset') ?? 0) || 0;
   const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
 
-  const where = unreadOnly
-    ? and(eq(schema.notifications.userId, user.id), eq(schema.notifications.read, false))
-    : eq(schema.notifications.userId, user.id);
-
-  const items = await db
-    .select({
-      id: schema.notifications.id,
-      type: schema.notifications.type,
-      actorId: schema.notifications.actorId,
-      topicId: schema.notifications.topicId,
-      replyId: schema.notifications.replyId,
-      message: schema.notifications.message,
-      read: schema.notifications.read,
-      createdAt: schema.notifications.createdAt,
-    })
-    .from(schema.notifications)
-    .where(where)
-    .orderBy(desc(schema.notifications.id))
-    .limit(limit)
-    .offset(offset);
-
-  const [totalRows, unreadRows] = await Promise.all([
-    db
-      .select({ id: schema.notifications.id })
-      .from(schema.notifications)
-      .where(eq(schema.notifications.userId, user.id)),
-    db
-      .select({ id: schema.notifications.id })
-      .from(schema.notifications)
-      .where(
-        and(
-          eq(schema.notifications.userId, user.id),
-          eq(schema.notifications.read, false),
-        ),
-      ),
-  ]);
+  // v0.0.15 P0-1：可见性判据收敛在 `src/server/notifications.ts`。
+  //
+  // 修复前这里没有任何 join —— 通知的 message 是在**写入时**拼好的，
+  // 里面嵌了主题标题；于是节点被 hidden / 主题被软删除之后，
+  // 公共页面已经 404，通知收件箱却照常返回那条标题。
+  // 「提及通知」的收件人还是**任意被 @ 的第三方**，属于真实的跨用户泄露。
+  //
+  // ⚠️ total / unread 与 items **同口径**：三者都从同一个带 join 的基座出发，
+  //    否则会出现「列表 0 条、角标 5 条」的分页错位。
+  const { items, total, unread } = await listNotificationsForUser(user.id, {
+    limit,
+    offset,
+    unreadOnly,
+  });
 
   return NextResponse.json({
     ok: true,
-    total: totalRows.length,
-    unread: unreadRows.length,
+    total,
+    unread,
     notifications: items,
   });
 }

@@ -1,7 +1,8 @@
 # FEATURE_MATRIX — 功能矩阵与验证状态
 
-> 本版（v0.0.14）的当前测试基线、门禁结果与授权边界见
-> [`docs/SESSION_HANDOFF_v0.0.14.md`](SESSION_HANDOFF_v0.0.14.md)；
+> 本版（v0.0.15）的当前测试基线、门禁结果与授权边界见
+> [`docs/SESSION_HANDOFF_v0.0.15.md`](SESSION_HANDOFF_v0.0.15.md)；
+> v0.0.14 的发布记录见 [`docs/SESSION_HANDOFF_v0.0.14.md`](SESSION_HANDOFF_v0.0.14.md)；
 > 下文「验证方式」列出的测试文件即可复现这些结论。
 >
 > 验证方式：每个功能都通过**实际运行**验证（HTTP 响应码 / 数据库查询 / Playwright 交互）。
@@ -105,11 +106,15 @@
 
 | 功能 | 原站证据 | 本地实现 | 验证方式 | 状态 |
 |---|---|---|---|---|
-| 回复通知 | 原站 `/notifications` | `POST /api/replies` 自动写入 | E2E：A 回复 B，B 收到通知 | ✅ |
-| 通知列表 | — | `/notifications` | HTTP 200（登录态） | ✅ |
-| 未读计数 | — | `getUnreadNotificationCount` + 导航栏角标 | DB + E2E | ✅ |
-| 通知已读标记 | — | `NotificationsList.tsx` → `POST /api/notifications`（给 id 标单条，不给则全部已读） | E2E（v004 账号套件） | ✅ |
-| @ 提及通知 | 原站 `@username` | `POST /api/replies` 解析提及 | E2E：被提及者收到、不给自己发、邮箱不误判、重复去重、上限 10 | ✅ |
+| 回复通知 | 原站 `/notifications` | `POST /api/replies` 自动写入 | 真库 + E2E：**真实双用户**（两个独立 `BrowserContext`，A 发主题 / B 回复 / A 收到） | ✅（**v0.0.15 补齐双用户真实验收**） |
+| 通知列表 | — | `/notifications` + `GET /api/notifications` | 静态 200（登录态）+ 真库 20 条 + E2E 8 条 | ✅ |
+| **通知可见性（hidden 节点 / 软删主题不得泄露标题）** | — | `src/server/notifications.ts` 的 `visibleNotificationCondition()`；`list / total / unread` **同一带 join 基座**（`count(*) FILTER` 一次聚合） | 真库 `tests/v015-notifications-db.spec.ts` 20 条 + 静态护栏；**负向对照**：条件改恒真 ⇒ 6 条判红 | ✅（**v0.0.15 补齐**：修复前 `message` 内嵌的标题在节点 hidden / 主题软删后仍照常返回，且提及通知的收件人是**任意第三方** ⇒ 真实跨用户泄露） |
+| 未读计数 | — | 与列表**同口径**（`count(*) FILTER`） | 真库（「列表已过滤但总数没过滤」的分页错位已被结构性排除） | ✅ |
+| 通知已读标记 | — | `NotificationsList.tsx` → `POST /api/notifications`（给 id 标单条，不给则全部已读） | E2E（v004 账号套件 + v015 刷新后状态保留） | ✅ |
+| @ 提及通知 | 原站 `@username` | `POST /api/replies` 解析提及 | E2E：被提及者收到、不给自己发、邮箱不误判、重复去重、上限 10；**v0.0.15 加双用户真实验收** | ✅ |
+| **系统通知（举报处理结果）** | — | `/api/admin/reports/[id]/handle` 写 `type='system'` | 真库 3 条：`topicId=null` / 指向已删主题 / 指向 hidden 节点，**三者都必须可见** | ✅（**v0.0.15 修掉一个回归**：`accept` 会先软删被举报主题再写通知，若按主题可见性过滤则**举报人永远收不到结果**） |
+| 收藏触发通知 | ❌ **产品未设计** | `/api/collections` 从不写通知 | 断言「确实不产生」（**不凭空新增**） | ⬜ **不适用** |
+| 节点感谢通知（`node_thanks`） | ❌ **产品未设计** | 枚举有，全仓**零写入点** | 断言「从未出现」（**不凭空新增**） | ⬜ **不适用** |
 
 ## 6. 收藏
 

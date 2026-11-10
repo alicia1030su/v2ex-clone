@@ -1,0 +1,480 @@
+name: 发布预演（不推 Tag / 不推镜像 / 不发 Release）
+
+# ---------------------------------------------------------------------------
+# v0.0.15 P0-3 —— **发布系统预演机制**
+#
+# ## 为什么需要它
+#
+# v0.0.14 的首次真实发布暴露了三个缺陷，**每一个都不会让任何既有门禁变红**：
+#
+#   1. `release.yml` 的 `on.push.tags` 白名单硬编码版本列表，新版本不在里面
+#      ⇒ 推 Tag **不触发任何 job**（没有报错、没有红叉、什么都不会发生），
+#      而 Tag 推上去就不可移动 ⇒ 版本直接卡死；
+#   2. `publish-release` 是全仓唯一**没有 checkout** 的 job，而它要读
+#      `CHANGELOG.md` 生成 Release Notes ⇒ 发布时 `ENOENT`；
+#      首次发布就这么死的（run `42661344826`）；
+#   3. Release Notes 模板把「待主人裁决」写死 ⇒ 发布成功后公开说明自证未授权。
+#
+# ## 这三个缺陷的共同形态
+#
+# 「**配置里少一行 / 文件读不到 / 文案过期，而这些只在真实触发时才被读取**」。
+# `ci.yml` 跑的是分支与 PR，从不跑 `release.yml` 的 job；
+# 静态套件断言的是「代码里有某句字符串」，不追问「运行时输入是否存在」。
+#
+# ## 本工作流做什么
+#
+# 在**不创建正式 Tag、不推送公开镜像、不创建 Release** 的前提下，
+# 把发布链路的**可离线验证部分**整体跑一遍，并对每一环做**负向测试**：
+#
+# | # | 检查 | 正向 | 负向（必须真实失败） |
+# |---|---|---|---|
+# | 1 | Tag 白名单含目标版本 | 通过 | 抹掉该行 ⇒ 判红 |
+# | 2 | 白名单不含通配 | 通过 | 插入 `v*` ⇒ 判红 |
+# | 3 | `publish-release` 有 checkout 且在 download-artifact 之前 | 通过 | 删 checkout ⇒ 判红 |
+# | 4 | 凡读仓库文件的 job 都有 checkout | 通过 | 删任一 ⇒ 判红 |
+# | 5 | Release Notes 模板无待定态措辞 | 通过 | 注入「待主人裁决」⇒ 判红 |
+# | 6 | CHANGELOG 能生成目标版本段落 | 通过 | 换成不存在的版本 ⇒ 判红 |
+# | 7 | 部署包能构建 + 包内版本一致（N2） | 通过 | 篡改 VERSION ⇒ 判红 |
+# | 8 | Release 冲突检测（已存在时不得覆盖） | 通过 | 伪造已存在的 Release ⇒ 判红 |
+#
+# 「负向测试」的实现方式是**在 runner 的临时副本里改文件再跑同一个检查脚本**，
+# 不是在仓库里改文件 —— 仓库工作树始终干净，不会把负向改动推上去。
+#
+# ## 明确不做的事（边界）
+#
+# · **不创建任何 Tag**（正式或临时）；
+# · **不推送任何镜像到 GHCR**；
+# · **不创建 / 修改任何 Release**（包括 Draft）；
+# · 不改写历史、不移动任何旧 Tag。
+#
+# 因此本工作流的权限只有 `contents: read` —— 从权限上就**不可能**做上述动作。
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要预演的版本号，例如 v0.0.15（留空则用 package.json 的版本）'
+        required: false
+        default: ''
+  push:
+    branches:
+      - 'feat/v0015-*'
+      - 'release/v*'
+      - 'fix/**'
+    paths:
+      - '.github/workflows/release-dryrun.yml'
+      - '.github/workflows/release.yml'
+      - 'scripts/release/preflight-dryrun.mjs'
+      - 'scripts/release/package-deploy-zip.mjs'
+      - 'package.json'
+      - 'deploy/VERSION'
+
+concurrency:
+  group: release-dryrun-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.23.4'
+
+jobs:
+  # ===========================================================================
+  # 1. 静态链路检查（含 5 项负向对照）
+  # ===========================================================================
+  chain-static:
+    name: 发布链路静态检查 + 负向对照
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 静态链检查 + 负向对照（每一项都必须真的判红）
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: node scripts/release/preflight-dryrun.mjs --mode=static
+
+  # ===========================================================================
+  # 2. 发布输入缺失的负向测试（工作流级）
+  # ===========================================================================
+  input-negative:
+    name: 发布输入缺失的负向测试
+    runs-on: ubuntu-latest
+    needs: chain-static
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 缺版本号时必须失败（不得默认成某个版本）
+        run: |
+          set -euo pipefail
+          # release.yml 的 workflow_dispatch 要求 version 必填；这里模拟
+          # 「版本为空」被下游接受的情形 —— 必须判红。
+          if node scripts/release/preflight-dryrun.mjs --mode=static --version='' >/tmp/empty.log 2>&1; then
+            echo "::error::空版本号被接受了 —— 说明校验缺失（会默认成某个版本继续发布）"
+            cat /tmp/empty.log
+            exit 1
+          fi
+          echo "✓ 空版本号被正确拒绝："
+          tail -3 /tmp/empty.log
+
+      - name: 版本号格式非法时必须失败
+        run: |
+          set -euo pipefail
+          for bad in '0.0.15' 'v0.0' 'v0.0.15.1' 'vv0.0.15' 'v0.0.15-rc1'; do
+            if node scripts/release/preflight-dryrun.mjs --mode=static --version="$bad" >/tmp/bad.log 2>&1; then
+              echo "::error::非法版本号 '${bad}' 被接受了"
+              cat /tmp/bad.log
+              exit 1
+            fi
+            echo "✓ 拒绝 '${bad}'"
+          done
+
+  # ===========================================================================
+  # 3. CHANGELOG 抽取 + Release Notes 生成（真实执行，不建 Release）
+  # ===========================================================================
+  notes-render:
+    name: CHANGELOG 段落抽取与 Notes 渲染
+    runs-on: ubuntu-latest
+    needs: chain-static
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 抽出目标版本段落并渲染 Notes（不创建 Release）
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: node scripts/release/preflight-dryrun.mjs --mode=notes
+
+      - name: 负向：不存在的版本必须失败
+        run: |
+          set -euo pipefail
+          if node scripts/release/preflight-dryrun.mjs --mode=notes --version='v9.9.9' >/tmp/nx.log 2>&1; then
+            echo "::error::不存在的版本 v9.9.9 竟然抽出了 CHANGELOG 段落"
+            cat /tmp/nx.log
+            exit 1
+          fi
+          echo "✓ 不存在的版本被拒绝："
+          tail -3 /tmp/nx.log
+
+      - name: 上传渲染后的 Notes（作为证据保留）
+        uses: actions/upload-artifact@v7
+        with:
+          name: dryrun-release-notes
+          path: |
+            dryrun-out/release-notes.md
+            dryrun-out/changelog-section.md
+          if-no-files-found: error
+          retention-days: 14
+
+  # ===========================================================================
+  # 4. 部署包构建 + N2 + 错误 artifact 校验失败
+  # ===========================================================================
+  package-check:
+    name: 部署包构建与包内一致性（含篡改负向对照）
+    runs-on: ubuntu-latest
+    needs: notes-render
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 构建部署包（与真实打包器同一个脚本）
+        run: node scripts/release/package-deploy-zip.mjs --version "$(node -p "require('./package.json').version")" --out dryrun-out
+
+      - name: 正确产物必须通过 N2（包内版本一致性）
+        env:
+          EXPECT: ''
+        run: |
+          set -euo pipefail
+          EXPECT="$(node -p "require('./package.json').version")"
+          ZIP="dryrun-out/v2ex-clone-v${EXPECT}-deploy.zip"
+          test -f "$ZIP" || { echo "::error::部署包未生成：$ZIP"; exit 1; }
+          bash scripts/release/verify-deploy-zip-n2.sh "$ZIP" "$EXPECT"
+
+      - name: 负向：篡改包内 VERSION 后 N2 必须判红
+        run: |
+          set -euo pipefail
+          EXPECT="$(node -p "require('./package.json').version")"
+          SRC="dryrun-out/v2ex-clone-v${EXPECT}-deploy.zip"
+          # ⚠️ 用 python 造坏包而不是 `unzip` + `zip`：
+          #    ① runner 上未必装了 zip 命令；
+          #    ② 更重要的是，重新打包会**丢掉 ZIP 中央目录里的 Unix mode**，
+          #       于是「权限检查」也一起判红 —— 那样就分不清究竟是
+          #       「版本被篡改」还是「权限被降级」触发了失败。
+          #       用 zipfile 逐条复制并保留 external_attr，才能做到**只改版本**。
+          python3 - "$SRC" /tmp/tampered.zip <<'PY'
+          import sys, zipfile
+          src, dst = sys.argv[1], sys.argv[2]
+          with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zout:
+              for n in zin.namelist():
+                  data = zin.read(n)
+                  if n.endswith('deploy/VERSION'):
+                      data = b'0.0.999\n'
+                  orig = zin.getinfo(n)
+                  item = zipfile.ZipInfo(n)
+                  item.external_attr = orig.external_attr
+                  item.date_time = orig.date_time
+                  item.compress_type = zipfile.ZIP_DEFLATED
+                  zout.writestr(item, data)
+          print('已生成「仅篡改 VERSION」的坏包')
+          PY
+          if bash scripts/release/verify-deploy-zip-n2.sh /tmp/tampered.zip "$EXPECT" >/tmp/n2bad.log 2>&1; then
+            echo "::error::包内 VERSION 被篡改成 0.0.999，N2 竟然通过了"
+            cat /tmp/n2bad.log
+            exit 1
+          fi
+          echo "✓ 篡改包被 N2 正确拒绝（失败原因必须是版本不一致）："
+          grep -E "VERSION" /tmp/n2bad.log | head -3
+
+      - name: 负向：包内脚本权限被降级后必须判红
+        run: |
+          set -euo pipefail
+          EXPECT="$(node -p "require('./package.json').version")"
+          SRC="dryrun-out/v2ex-clone-v${EXPECT}-deploy.zip"
+          # 用 python 重写一个把 .sh 权限改成 0644 的包（模拟 V9-09 事故）
+          python3 - "$SRC" /tmp/badperm.zip <<'PY'
+          import sys, zipfile
+          src, dst = sys.argv[1], sys.argv[2]
+          with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zout:
+              for item in zin.infolist():
+                  data = zin.read(item.filename)
+                  if item.filename.endswith('.sh'):
+                      # 0644，且丢掉 exec 位
+                      item.external_attr = (0o100644 << 16)
+                  zout.writestr(item, data)
+          print('已生成权限被降级的包')
+          PY
+          # 权限判据在 verify-release-consistency.sh 里（--zip），这里复用它的核心断言
+          if bash scripts/release/verify-deploy-zip-n2.sh /tmp/badperm.zip "$EXPECT" >/tmp/perm.log 2>&1; then
+            echo "::error::脚本权限被改成 0644，N2 竟然通过了（V9-09 会复发）"
+            tail -20 /tmp/perm.log
+            exit 1
+          fi
+          echo "✓ 权限被降级的包被正确拒绝："
+          grep -E "权限|0o|中央目录" /tmp/perm.log | tail -5 || tail -5 /tmp/perm.log
+          # 同时确认失败原因**只**是权限 —— 版本一条都没报错
+          # （否则这个负向对照证明不了"权限判据本身有效"）
+          #
+          # ⚠️ 必须只看 `✗` 开头的**失败行**。
+          #    第一版直接 grep「包内 VERSION」，结果把脚本正常输出的
+          #    `✓ 包内 VERSION = 0.0.14` 也命中了 —— 判据自己制造了假红
+          #    （CI run 42737231938 就是这么红的）。
+          FAIL_LINES="$(grep '✗' /tmp/perm.log || true)"
+          if printf '%s\n' "$FAIL_LINES" | grep -qE "包内 VERSION|compose 未引用|APP_VERSION"; then
+            echo "::error::权限负向对照的失败原因里混入了版本类错误 —— 这次对照不成立"
+            echo "--- 失败行 ---"
+            printf '%s\n' "$FAIL_LINES"
+            exit 1
+          fi
+          if [ -z "$FAIL_LINES" ]; then
+            echo "::error::N2 判红但没有任何失败行 —— 无法确认它是因为权限而红"
+            cat /tmp/perm.log
+            exit 1
+          fi
+          echo "  （已确认失败行仅涉及权限，不涉版本）"
+
+      - name: 正确产物必须通过完整一致性门禁
+        run: |
+          set -euo pipefail
+          EXPECT="$(node -p "require('./package.json').version")"
+          bash scripts/release/verify-release-consistency.sh \
+            --expect "$EXPECT" \
+            --zip "dryrun-out/v2ex-clone-v${EXPECT}-deploy.zip"
+
+      - name: 上传部署包（证据）
+        uses: actions/upload-artifact@v7
+        with:
+          name: dryrun-deploy-zip
+          path: |
+            dryrun-out/v2ex-clone-*-deploy.zip
+            dryrun-out/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+
+  # ===========================================================================
+  # 5. Release 冲突检测（只读，绝不创建）
+  # ===========================================================================
+  release-conflict:
+    name: Release 冲突检测（只读，不创建任何 Release）
+    runs-on: ubuntu-latest
+    needs: package-check
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # -----------------------------------------------------------------------
+      # 这一组步骤的判据全部来自 scripts/release/release-decision.mjs
+      #
+      # ⚠️ 第一版这里是「目标版本必须没有 Release，否则判红」——
+      #    它在开发态**必然红**，因为版本载体按 G-VER-01 刻意停在上一个
+      #    **已发布**版本。那会把「正常的开发态」报成「发布链路故障」，
+      #    而一个正常开发态必红的检查，下场只有被删或被改松。
+      #
+      #    正确的不变量是「**决策必须与观测到的状态一致**」，
+      #    不是「状态必须是我期望的那一种」。
+      # -----------------------------------------------------------------------
+      - name: 记录只读基线（Release 数量，供最后一步自证）
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/releases?per_page=100" --jq 'length' \
+            > "$RUNNER_TEMP/releases-baseline.txt"
+          echo "基线 Release 数：$(cat "$RUNNER_TEMP/releases-baseline.txt")"
+
+      - name: 决策判据自测（穷举 4 种状态组合）
+        run: node scripts/release/release-decision.mjs --selftest
+
+      - name: 真实状态探测（决策自洽，不要求是某一种）
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # 没给版本就用版本载体 —— 但**不要求**它是"未发布"。
+          # 开发态里它就是上一个已发布版本，此时正确决策是 refuse。
+          node scripts/release/release-decision.mjs \
+            --repo "$REPO" \
+            --version "${INPUT_VERSION:-v$(node -p "require('./package.json').version")}"
+
+      - name: 负向 ①：已发布版本必须判 refuse（不覆盖）
+        run: |
+          set -euo pipefail
+          # 取真实已发布版本（非 draft）—— 不造假 Release
+          PUBLISHED="$(gh api "repos/$REPO/releases?per_page=100" \
+            --jq '[.[] | select(.draft==false)][0].tag_name')"
+          if [ -z "$PUBLISHED" ] || [ "$PUBLISHED" = "null" ]; then
+            echo "::error::仓库尚无已发布 Release，无法做冲突负向对照"
+            exit 1
+          fi
+          echo "用真实已发布版本 $PUBLISHED 验证「拒绝覆盖」"
+          node scripts/release/release-decision.mjs --repo "$REPO" \
+            --version "$PUBLISHED" --expect refuse
+
+      - name: 负向 ②：Tag 有 / Release 无 必须判 resume（幂等恢复，不是重建）
+        run: |
+          set -euo pipefail
+          # 这个状态在真实仓库里**确实存在过**：v0.0.14 首次发布时
+          # publish-release 缺 checkout 导致 Release 没建成，Tag 已经推上去了。
+          # 若判成 create 会重复建 Tag（Tag 不可移动），若判成 refuse 则版本永久卡死。
+          FOUND=0
+          for v in $(git ls-remote --tags origin 2>/dev/null | grep -v '\^{}' \
+                     | awk '{print $2}' | sed 's|refs/tags/||' | sort -V); do
+            R="$(gh api "repos/$REPO/releases?per_page=100" \
+                 --jq "[.[] | select(.tag_name==\"$v\")] | length")"
+            if [ "$R" = "0" ]; then
+              echo "找到真实样本：$v（Tag 存在、Release 不存在）⇒ 必须判 resume"
+              node scripts/release/release-decision.mjs --repo "$REPO" \
+                --version "$v" --expect resume
+              FOUND=1
+              break
+            fi
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::仓库里找不到「Tag 有 / Release 无」的真实样本，无法验证 resume 路径"
+            exit 1
+          fi
+
+      - name: 负向 ③：未发布版本必须判 create（不误拦）
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # 用本次预演的目标版本：它**不该**已经发布。
+          TARGET="${INPUT_VERSION:-v0.0.15}"
+          node scripts/release/release-decision.mjs --repo "$REPO" \
+            --version "$TARGET" --expect create
+
+      - name: 全程只读自证（本 job 未创建任何东西）
+        run: |
+          set -euo pipefail
+          # 反向自证：预演开始前先记下 Release 数，结束时必须还是同一个数。
+          # 这不是"相信脚本没写东西"，而是**用可观测状态证明**它没写。
+          #
+          # ⚠️ 第一版写成 `[ "${BASELINE_COUNT:-}" != "" ] && ...` ——
+          #    BASELINE_COUNT 从未被赋值，条件恒假 ⇒ 这段检查**永远通过**。
+          #    又是一个「写了断言但永远不会失败」。现在改成读真实基线文件，
+          #    且基线文件缺失时**判红**（不能因为"没记基线"就跳过自证）。
+          BASELINE_FILE="$RUNNER_TEMP/releases-baseline.txt"
+          if [ ! -f "$BASELINE_FILE" ]; then
+            echo "::error::基线文件缺失 —— 无法自证只读，判红（不接受"没记基线"作为通过理由）"
+            exit 1
+          fi
+          BASELINE="$(cat "$BASELINE_FILE")"
+          NOW_COUNT="$(gh api "repos/$REPO/releases?per_page=100" --jq 'length')"
+          echo "基线：$BASELINE ⇒ 现在：$NOW_COUNT"
+          if [ "$NOW_COUNT" != "$BASELINE" ]; then
+            echo "::error::Release 数量从 $BASELINE 变成 $NOW_COUNT —— 预演写了远端"
+            exit 1
+          fi
+          echo "✓ Release 数量未变（$BASELINE），预演全程只读"
+
+  # ===========================================================================
+  # 6. 汇总（任何一项失败都必须传播）
+  # ===========================================================================
+  summary:
+    name: 预演汇总（失败必须传播）
+    runs-on: ubuntu-latest
+    needs: [chain-static, input-negative, notes-render, package-check, release-conflict]
+    if: always()
+    steps:
+      - name: 汇总各环节结论
+        env:
+          R_STATIC: ${{ needs.chain-static.result }}
+          R_INPUT: ${{ needs.input-negative.result }}
+          R_NOTES: ${{ needs.notes-render.result }}
+          R_PKG: ${{ needs.package-check.result }}
+          R_CONFLICT: ${{ needs.release-conflict.result }}
+        run: |
+          set -euo pipefail
+          FAIL=0
+          for pair in "静态链路:$R_STATIC" "输入负向:$R_INPUT" "Notes 渲染:$R_NOTES" "部署包:$R_PKG" "Release 冲突:$R_CONFLICT"; do
+            name="${pair%%:*}"
+            res="${pair#*:}"
+            if [ "$res" != "success" ]; then
+              echo "::error::环节「$name」结论 = $res（应为 success）"
+              FAIL=1
+            else
+              echo "✓ 环节「$name」= success"
+            fi
+          done
+          echo ""
+          echo "### 发布预演结果"
+          echo ""
+          echo "| 环节 | 结论 |"
+          echo "|---|---|"
+          echo "| 静态链路（含 3 项负向） | $R_STATIC |"
+          echo "| 输入缺失负向 | $R_INPUT |"
+          echo "| CHANGELOG / Notes 渲染 | $R_NOTES |"
+          echo "| 部署包 N2（含 2 项负向） | $R_PKG |"
+          echo "| Release 冲突（含 1 项负向） | $R_CONFLICT |"
+          echo ""
+          echo "> 本预演**未**创建 Tag、**未**推送镜像、**未**创建 Release。"
+          echo "> 只验证「发布链路能否被正确执行、错误输入能否被正确拒绝」。"
+          [ "$FAIL" -eq 0 ] || exit 1
+          echo "✓ 全部环节通过（含全部负向对照）"

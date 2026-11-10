@@ -174,3 +174,6 @@ next.config.cisim.mjs
 
 # 临时运行时验证脚本（不入库）
 scripts/ui-runtime-verify.cjs
+
+# v0.0.15：发布预演的临时产物（脚本落盘用，不进仓库）
+dryrun-out/

@@ -208,7 +208,26 @@ test.describe('v0.0.4 主题编辑 / 软删除 / 恢复', () => {
 
     const newContent = '编辑后的内容 v0.0.4，用于验证编辑功能的展示效果。';
     await editArea.fill(newContent);
+
+    // ⚠️ v0.0.15（V15-09）：**点击之前**先挂上 PUT 的响应等待。
+    //
+    // 原写法点完直接断言正文，靠 `toContainText` 的轮询去「撞」保存结果。
+    // 组件在成功后立刻 `window.location.reload()`，于是断言很容易跑在
+    // **导航过程中**：此时 `#Main` 还是旧文档（截图里就是原始内容），
+    // 而新文档要等导航完成才挂上去。轮询 30s 也未必撞得上，
+    // 本机实测 6 次里失败 3 次（详见 BUG_REGISTER 的 V15-09）。
+    //
+    // 改成**先等到 PUT 的真实响应**再断言：既去掉与导航的竞争，
+    // 又把「保存是否真的成功」变成显式断言（原来只断言最终渲染结果，
+    // 保存失败与渲染慢在报错上无法区分）。**未放宽任何断言**：
+    // 新增了状态码 === 200 的强断言，且原有正文断言原样保留。
+    const saveResp = page.waitForResponse(
+      (r) => r.url().includes(`/api/topics/${topicId}`) && r.request().method() === 'PUT',
+      { timeout: 30_000 },
+    );
     await page.getByRole('button', { name: '保存修改' }).click();
+    const saveRes = await saveResp;
+    expect(saveRes.status(), `保存接口应返回 200，实际 ${saveRes.status()}`).toBe(200);
 
     // 页面展示真实结果
     // （保存成功后组件会自行 window.location.reload()，
