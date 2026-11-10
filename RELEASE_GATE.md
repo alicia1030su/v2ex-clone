@@ -718,12 +718,12 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 |---|---|---|---|
 | A | 缺陷门槛 | ✅ | v0.0.15 新发现 8 项（V15-01~08）**全部已修**并有负向对照，见 `BUG_REGISTER.md` |
 | B | 测试门槛 | ✅ | `tsc` 0；静态 21 文件 / 311 用例；真库通知 20/20；通知 E2E 8/8 |
-| C | 安装验证门槛 | ✅ | `candidate-verify` run `42762218196`（SHA `2bc65b6`）**success**：候选构建 + 隔离安装全链路，14 个步骤全绿，**未执行 `docker push`** |
-| D | 容器与部署门槛 | ✅ | 同 run：`docker load` → `compose` → 全流程安装验证；另 CI 的 Docker 构建/启动、Linux 真实 Docker 安装、Docker/Redis 隔离验证均 success |
+| C | 安装验证门槛 | ✅ | `candidate-verify` run **`42799071919`**（SHA **`33ba59f`** = 最终 master）**success**：14 个步骤全绿，**未执行 `docker push`**。⚠️ 早前 run `42762218196` 对应 `2bc65b6`，与最终 master 之间的 `scripts/` 改动**会被 COPY 进镜像**（Dockerfile runner 阶段），故已作废并重建 |
+| D | 容器与部署门槛 | ✅ | 同 run：`docker load` → `compose` → 全流程隔离安装；另 CI 的 Docker 构建/启动、Linux 真实 Docker 安装、Docker/Redis 隔离验证均 success |
 | E | 供应链门槛 | ✅ | 未新增运行时依赖（新增脚本只用 Node 内置模块 + `gh` / `git`） |
 | F | 历史与合规门槛 | 🔴 | **R-01 维持 DEFERRED**，见 §9.4 |
 | G | 文档门槛 | ✅ | README / CHANGELOG / FEATURE_MATRIX / BUG_REGISTER / RISK_REGISTER / 交接文档全部同步 |
-| H | 发布流程门槛 | ✅ | **最终 SHA `1041782`** 上跑 `release-dryrun.yml` run `42763176816` —— **6/6 job 全 success**（静态链路 / 输入缺失负向 / Notes 渲染 / 部署包 N2 / Release 冲突 / 汇总传播）；Tag 白名单已含 `v0.0.15`（**就绪 ≠ 已授权 ≠ 已发布**） |
+| H | 发布流程门槛 | ✅ | **最终 SHA `33ba59f`** 上跑 `release-dryrun.yml` run **`42799099915`** —— **6/6 job 全 success**（静态链路 / 输入缺失负向 / Notes 渲染 / 部署包 N2 / Release 冲突 / 汇总传播）；Tag 白名单已含 `v0.0.15`（**就绪 ≠ 已授权 ≠ 已发布**） |
 | I | v0.0.15 专项（四条 P0 + 两条 P1） | ✅ | 见 §9.2 |
 | J | 发布授权 | ⏳ | **未取得 v0.0.15 的专项授权**，见 §9.5 |
 
@@ -741,7 +741,7 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 
 | # | 状态 | 当前 |
 |---|---|---|
-| 1 | **候选构建成功** | ✅ run `42762218196`（SHA `2bc65b6`）：候选 ZIP `160175e3…d38e`、镜像 tar `bd091490…4c89`，`sha256sum -c SHA256SUMS` 通过；候选镜像 ID `sha256:c6b2a83a…2e2b` |
+| 1 | **候选构建成功** | ✅ run **`42799071919`**（SHA **`33ba59f`**）：候选 ZIP `5fa308ea…f70f`、镜像 tar `3f242a2a…b0ad`，`sha256sum -c SHA256SUMS` 通过；候选镜像 ID `sha256:a09c47aa…50e3` |
 | 2 | **候选环境安装成功** | ✅ 同一 run：`docker load` → `compose up` → 全流程隔离安装验证通过 |
 | 3 | **正式公开发布成功** | ❌ **未执行，也不得执行**（无 v0.0.15 Tag / Release / 镜像；无本版授权）。匿名核验：`releases/tags/v0.0.15` = **404**、`git/ref/tags/v0.0.15` = **404**、`ghcr …:v0.0.15` = **404** |
 
