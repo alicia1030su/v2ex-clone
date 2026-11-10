@@ -227,6 +227,65 @@ jobs:
           fi
           echo "  ✓ 无凭据文件"
 
+          # -------------------------------------------------------------------
+          # 9d-b. 镜像内**文件内容**不得含测试凭据字面量（v0.0.15 新增）
+          #
+          # ⚠️ 上面 9d 只查**文件名**（.env / *CREDENTIAL*），
+          #    查不到「脚本源码里明文写着一串看起来像密钥的字符串」。
+          #    v0.0.15 发布前核查就栽在这里：
+          #      `.dockerignore` 无 scripts 规则 + runner 阶段整目录 COPY
+          #      ⇒ scripts/ 45 个文件全进镜像，其中 8 个含
+          #        `ci-only-session-secret-…` / `v2ex_test_password_local_only`
+          #        / `ci-postgres-password-not-real` / `ci-redis-password-not-real`。
+          #    它们不是生产凭据（install.sh 随机生成），但会误导审计、
+          #    触发镜像扫描告警 —— 属于必须修的发行缺陷（BUG_REGISTER V15-11）。
+          #
+          #    这条是**容器内实测**，不是读源码字符串：
+          #    直接在镜像里 grep，能证明「最终层真的没有」，而不只是
+          #    「我改了 Dockerfile 所以应该没有」。
+          #    只打印**文件名与命中数**，绝不打印内容（避免日志泄露）。
+          # -------------------------------------------------------------------
+          echo "===== 9d-b. 镜像文件内容不得含测试凭据字面量 ====="
+          CRED_PATTERN='ci-only-session-secret|v2ex_test_password_local_only|ci-postgres-password-not-real|ci-redis-password-not-real|ci-only-session'
+          if docker run --rm --entrypoint sh v2ex-clone:dv -c \
+               "grep -rlE '${CRED_PATTERN}' /app/scripts /app/drizzle /app/src 2>/dev/null | head -20" \
+               > /tmp/cred_hits.txt; then
+            :
+          fi
+          if [ -s /tmp/cred_hits.txt ]; then
+            echo "  ✗ 镜像内检出含测试凭据字面量的文件（只列路径，不打印内容）:"
+            sed 's/^/    /' /tmp/cred_hits.txt
+            echo "  ⇒ 这些文件只应在 CI / 发布机使用，必须从镜像中排除"
+            exit 1
+          fi
+          echo "  ✓ 镜像内无测试凭据字面量"
+
+          # -------------------------------------------------------------------
+          # 9d-c. 镜像内 scripts 必须只有运行时白名单里的那几个
+          #
+          # 与 9d-b 互补：9d-b 查「有没有凭据」，这条查「有没有多余文件」。
+          # 只查凭据的话，一个不含凭据的开发脚本仍会悄悄进镜像；
+          # 只查白名单的话，白名单里的文件若被人加进凭据也查不出来。
+          # 两条一起才闭合。
+          # -------------------------------------------------------------------
+          echo "===== 9d-c. 镜像内 scripts 必须是运行时白名单 ====="
+          docker run --rm --entrypoint sh v2ex-clone:dv -c \
+            'find /app/scripts -type f | sort' > /tmp/img_scripts.txt
+          echo "  镜像内 scripts 文件清单："
+          sed 's/^/    /' /tmp/img_scripts.txt
+          EXPECTED_SCRIPTS='/app/scripts/admin-cli.ts
+          /app/scripts/db-admin.mjs
+          /app/scripts/docker-entrypoint.sh
+          /app/scripts/seed.ts
+          /app/scripts/wait-for-db.mjs'
+          ACTUAL_COUNT=$(wc -l < /tmp/img_scripts.txt | tr -d ' ')
+          if [ "${ACTUAL_COUNT}" != "5" ]; then
+            echo "  ✗ 镜像内 scripts 文件数为 ${ACTUAL_COUNT}，期望 5"
+            echo "  ⇒ 多余文件说明 .dockerignore 或 Dockerfile 白名单被放宽了"
+            exit 1
+          fi
+          echo "  ✓ 镜像内 scripts 恰为 5 个运行时脚本"
+
           echo "===== 9e. 镜像内迁移物完整性 ====="
           docker run --rm --entrypoint sh v2ex-clone:dv -c 'ls -la /app/drizzle/ /app/drizzle/meta/'
           # ⚠️ 路径勘误（2026-11-04，CI 实测）：
