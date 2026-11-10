@@ -84,7 +84,7 @@ describe('发布授权一致性（v0.0.15）', () => {
      *   判据改为：**逐行**判定，且该行含否定标记（不是 / 不得 / 未 / 非 /
      *   不等于 / 严禁 / 禁止）时跳过 —— 只抓「肯定式声称已修复」。
      */
-    const NEGATION = /不是|不得|不能|未|非|不等于|严禁|禁止|绝不/;
+    const NEGATION = /不是|不得|不能|不会|不再|不等于|不把|未|非|严禁|禁止|绝不|不/;
     const AFFIRMATIVE = /R-01[^\n]{0,60}(已修复|已消除|已解决|已关闭|FIXED|RESOLVED|MITIGATED)/;
     const offenders = text
       .split('\n')

@@ -301,7 +301,7 @@ R-01 维持 **DEFERRED**，本轮完成 12 项调查与隔离清理演练，**�
 
 | 项 | 值 |
 |---|---|
-| 最终 master HEAD | **`78d4575ab4c29edd83e626a02d3cda948573ddab`** |
+| 最终 master HEAD（发布 TAG 指向） | **`66c5ab4802d98fe40d432eb14acab7d9562e4ad9`** |
 | 工作区 | clean（0 项改动） |
 | 版本载体 | `package.json` / `deploy/VERSION` / `docs/release-facts.json` = **0.0.15** |
 | 候选构建 run | **`42799071919`**（`workflow_dispatch`，`ref=33ba59f`）**success**，14 步全绿，**未 push** |
@@ -315,7 +315,8 @@ R-01 维持 **DEFERRED**，本轮完成 12 项调查与隔离清理演练，**�
 > **产物有效性判据**：`git diff --name-only 33ba59f HEAD -- deploy/ Dockerfile .dockerignore
 > package.json package-lock.json drizzle/ next.config.mjs public/ tsconfig.json src/ scripts/`
 > **为空** ⇒ 候选产物对最终 HEAD 仍然有效。
-> `33ba59f → 78d4575` 只改了 `RELEASE_GATE.md` 与本文档，**不参与构建**。
+> `33ba59f → 66c5ab4` 只改了文档、静态护栏与 `scripts/release/preflight-dryrun.mjs`（**不进镜像构建上下文**：`.dockerignore` 只放行 5 个运行期脚本；**不进部署 ZIP**：打包范围只有 `deploy/`）。
+> **实证**：候选包与发布包 SHA256 **完全相同**（`61a53e27…96a3`），不是口头推理。
 
 ### 9.2 最终 SHA 上的测试实测
 
@@ -339,7 +340,7 @@ R-01 维持 **DEFERRED**，本轮完成 12 项调查与隔离清理演练，**�
 | **24 小时单实例连续运行** | ❌ **未完成**。GitHub-hosted runner 单 job 上限 6 小时，本机无持久运行环境。`docs/release-facts.json` 的 `soak.twentyFourHour` 仍为 `not-completed`。v0.0.15 只完成了**口径修正**（区分分段累计与单实例连续）与可执行部分 |
 | **R-01 历史清理** | ❌ **未执行**，维持 **DEFERRED**（主人裁决 A3：保留 + 披露）。见 §9.5 |
 | **v0.0.14 已发布 Notes 的勘误** | ❌ **未执行**（修改已发布 Release 属不可逆操作，且不在本轮授权范围）。方案见 `docs/RELEASE_NOTES_ERRATA_v0.0.14.md` |
-| **v0.0.15 公开发布** | ⏳ **授权已取得（B1），执行中**：Tag push → 发布流水线 → 发布后独立验收 → 结果回填。**完成前不得写成已发布** |
+| **v0.0.15 公开发布** | ✅ **已完成（2026-11-10）**：Tag `v0.0.15` → `66c5ab4`；发布 run `42818077339`（11/11）、发布后独立验收 run `42820522582`（13 PASS / 0 FAIL / 1 WARN）。明细见 `RELEASE_GATE.md` §9.6 与本文 §10 |
 
 ### 9.4 基础设施偶发失败（如实登记，未用重跑抹去）
 
@@ -379,3 +380,51 @@ Release Notes 的 R-01 精确口径强化（68 个第三方素材 / 可达面 6-
 **仍然禁止（本轮授权不含）**：改写远端历史、force push、移动 / 删除 / 重建任何既有 Tag、
 修改已发布 Release（含 v0.0.14 的勘误）、变更仓库可见性、删除真实用户数据、
 提交 GitHub Support 工单、把 R-01 标为 FIXED。**仓库保持 Public。**
+
+---
+
+## 10. v0.0.15 公开发布执行结果（2026-11-10）
+
+> 本节在发布**完成后**以独立提交回填；`v0.0.15` Tag 始终指向 `66c5ab4`，
+> **未删除、未重建、未移动**。
+
+### 10.1 授权与执行
+
+| 项 | 值 |
+|---|---|
+| 主人裁决 | 2026-11-10「**1.保留+披露 2.授权**」⇒ A3 + B1 |
+| 裁决记录 | `docs/RISK_DECISION_v0.0.15.md` |
+| Tag | annotated `v0.0.15` → tag 对象 `bc3465a8…056b` → commit `66c5ab4` |
+| 发布流水线 | run **`42818077339`**，**11/11 job success** |
+| 发布后独立验收 | run **`42820522582`**，**13 项 PASS / 0 FAIL / 1 WARN / 0 XFAIL** |
+
+### 10.2 发布事实
+
+| 项 | 值 |
+|---|---|
+| Release | id `440363070`，`v0.0.15 — 开发预览版`，`draft=false` / `prerelease=true` / `latest=false`，2026-11-10T12:55:06Z |
+| 安装包 | `v2ex-clone-v0.0.15-deploy.zip`，143,361 B，SHA256 `61a53e279d48d520a14a5b846fa1d37c6f1149218c6e78190b993934a28296a3` |
+| SHA256SUMS | 96 B，`sha256sum -c` → OK |
+| 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.15`，匿名 manifest **200**，digest `sha256:1fbef73ca5716f404ee3e94135a5458a15194485f84582c1bfd3e58c53b2f719` |
+
+> **发布包与候选包哈希完全相同** —— 说明「最终提交相对候选 SHA 只在非构建输入上变化」
+> 这一判断是**实证**而非推理。
+
+### 10.3 发布后独立验收的 13 项（全新 runner、全程匿名）
+
+Release 匿名可达 200 → 安装包匿名下载 + SHA256 → 包内容与安全（15 文件 / 无凭据）
+→ 脚本执行位 → 三方版本一致 → Notes 安装路径可达 → 匿名镜像 + Registry V2 digest 一致
+→ 官方 `install.sh` 全新安装（13 项断言 / 迁移 5 条）→ 通知端点结构 → 备份与恢复（含损坏备份被拒）
+→ Docker 重启后数据保留 → 汇总无 FAIL。
+
+唯一 **WARN**：「通知写入路径未在本环境自动化（强验证码 + 需第二用户）」——
+本版已在仓库内用双 `BrowserContext` + 真库补齐，但发布后验收是单用户匿名视角，**如实记 WARN**。
+
+### 10.4 发布后仍未闭环（不得写成已完成）
+
+| 项 | 状态 |
+|---|---|
+| R-01 历史清理 | **未执行**（A3 保留 + 披露），风险持续存在 |
+| v0.0.14 已发布 Notes 勘误 | **未执行**（不修改已发布 Release） |
+| 24 小时单实例连续运行 | **未完成**，`soak.twentyFourHour = not-completed` |
+| 发布后验收的「通知写入路径」 | **WARN**（环境限制，非产品缺陷；仓库内已覆盖） |

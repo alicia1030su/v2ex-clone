@@ -38,7 +38,7 @@
 
 ---
 
-## 当前版本状态（v0.0.14 已发布；v0.0.15 开发中）
+## 当前版本状态（v0.0.15 已发布；2026-11-10 公开 Pre-release）
 
 > **版本载体**：`0.0.15`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
@@ -46,14 +46,14 @@
 
 | 项 | 值 |
 |---|---|
-| **当前实际公开版本** | **`v0.0.14`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-09 发布） |
-| **本版候选** | **`v0.0.15`**（版本载体已固定、候选产物与发布链路已验证；**已获本版公开发布授权**，Tag / Release / 镜像由本次发布流水线产出。发布完成前本页仍以 v0.0.14 为最新可下载版本） |
-| **上一已发布版本** | `v0.0.12`（Pre-release，2026-11-08） |
+| **当前实际公开版本** | **`v0.0.15`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-10 发布） |
+| **上一已发布版本** | `v0.0.14`（Pre-release，2026-11-09） |
+| 再上一版 | `v0.0.12`（Pre-release，2026-11-08） |
 | 版本载体 | `0.0.15`（已由 `sync-version.mjs` 全量同步并通过 20/20 复验） |
 | 发布形态 | 开发预览版（Pre-release），**不是稳定版** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.14` |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.15` |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -74,7 +74,7 @@
 >   功能矩阵与证据见 [`docs/FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md)；
 >   交接与门禁见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)。
 >
-> **v0.0.15（发行候选，已获本版发布授权）**：本轮不新增功能，只做「把上一版声称做过、但没真做的事做一遍」。
+> **v0.0.15（2026-11-10 已发布：公开 Pre-release）**：本轮不新增功能，只做「把上一版声称做过、但没真做的事做一遍」。
 > 修复**通知收件箱在节点隐藏后仍显示原主题标题**的跨用户泄露；补齐通知的**真实双用户**验收；
 > 修正长期稳定性「24 小时」的口径（分段累计 ≠ 单实例连续）；建立**发布预演**机制
 > （不推 Tag / 不推镜像即可演练整条链路）；完成 R-01 的 12 项调查与隔离清理演练。
@@ -121,7 +121,7 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 
 | 版本 | 主要内容 |
 |---|---|
-| **v0.0.15**（开发中，未发布） | **运营稳定性 + 测试可信度 + 发布工程**：修复通知收件箱在节点 hidden / 内容软删后仍展示原主题标题的跨用户泄露（通知 `message` 是写入时拼的，读取侧原先完全不 join 可见性）；建立真实双用户通知验收（回复 / @提及 / 感谢 / 未读 / 已读 / 并发 / 封禁边界，全部真实浏览器 + 真实库）；修正长期稳定性验证的口径（分段累计 ≠ 单实例连续，新增单段最长指标与硬披露闸门）；建立发布预演机制（不推 Tag / 不推镜像即可演练整条发布链路，含 5 项负向对照）；R-01 完整调查与隔离清理演练 |
+| **v0.0.15**（已发布：2026-11-10 公开 Pre-release） | **运营稳定性 + 测试可信度 + 发布工程**：修复通知收件箱在节点 hidden / 内容软删后仍展示原主题标题的跨用户泄露（通知 `message` 是写入时拼的，读取侧原先完全不 join 可见性）；建立真实双用户通知验收（回复 / @提及 / 感谢 / 未读 / 已读 / 并发 / 封禁边界，全部真实浏览器 + 真实库）；修正长期稳定性验证的口径（分段累计 ≠ 单实例连续，新增单段最长指标与硬披露闸门）；建立发布预演机制（不推 Tag / 不推镜像即可演练整条发布链路，含 5 项负向对照）；R-01 完整调查与隔离清理演练 |
 | **v0.0.14**（已发布：2026-11-09 公开 Pre-release） | **安全收口 + 链路补齐**：修复隐藏节点跨页面泄露（站内页面 / API / 搜索 / 标签 / 关注 / 收藏 / 会员页全部收敛到单一可见性判据）；修复标签总量上限在追加语义下失效（事务内行锁 + 剩余额度）并补齐移除语义；修复「标签写入早于鉴权」导致 403 请求也能改数据；补齐分类管理全链路（迁移 0004 + advisory lock + 权限 + 审计 + 后台 UI）；补齐 `/hot` `/recent` 孤儿页入口；统一公共列表 `page` 参数校验（拒绝 `1.5` / `Infinity`，上限 1000）；修复 `editTopic()` 空改动写入空编辑快照与审计文案按请求形状误报。**v0.0.13 从未发布，其成果由本版一次性包含** |
 | **v0.0.13**（从未发布） | **旧版 API 兼容收口 + 真实性治理 + 登录稳定性**：补齐 `hot.json` / `replies/show.json` / `nodes/list.json` 三个实测仍返回 200 的旧版端点；建立 15 项兼容矩阵并披露未验证项；统一旧版端点的 member/node 装配器（修复 `nodes/show.json` 不限制 active 的跨接口偏差）；Feed 增加严格 XML 转义、ETag/304 与真实阅读器订阅验证；`clickUntilRequest` 加三道闸门防止非幂等写操作重复提交；功能矩阵改为六类状态并加文档真实性护栏；修正 README / CHANGELOG 的过时版本说明 |
 | **v0.0.12** | **v0.0.11 的正式发行载体**：代码与 v0.0.11 完全一致，仅补齐 `deploy/` 下 12 个文件的版本标注（此前只有 7 个被 `sync-version.mjs` 覆盖，导致 v0.0.10 / v0.0.11 的 Tag 内容被发布流水线的 N2 判据正确拦截、两轮 Tag 均未发布）。同时把 N2 判据复刻进本地门禁，发版前即可拦住同类问题 |
@@ -288,10 +288,10 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
 > 的规约保持原样 —— **建议使用 v0.0.14，不要用 v0.0.9**。
 
-下载 `v2ex-clone-v0.0.14-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.15-deploy.zip` 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.14-deploy.zip -d v2ex-clone-v0.0.14-deploy && cd v2ex-clone-v0.0.14-deploy/deploy`
+> `unzip v2ex-clone-v0.0.15-deploy.zip -d v2ex-clone-v0.0.15-deploy && cd v2ex-clone-v0.0.15-deploy/deploy`
 >
 > ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
@@ -353,13 +353,15 @@ docker compose up -d
 | 内容 | 位置 |
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
-| **最新已发布版本（v0.0.14）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
-| 一键部署安装包 | `v2ex-clone-v0.0.14-deploy.zip`（在 v0.0.14 Release 资产中，含 `SHA256SUMS`） |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.14` |
-| 上一版本（v0.0.12） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |
+| **最新已发布版本（v0.0.15）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.15> |
+| 一键部署安装包 | `v2ex-clone-v0.0.15-deploy.zip`（在 v0.0.15 Release 资产中，含 `SHA256SUMS`） |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.15` |
+| 上一版本（v0.0.14） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
+| 更早版本（v0.0.12） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |
 | 历史版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9>（含已知缺陷，不建议新装） |
 | v0.0.13 | **从未发布**：无 Tag、无 Release、无镜像标签；其成果已由 v0.0.14 一次性包含 |
 | v0.0.14 | **已发布**（Pre-release，2026-11-09）；发布证据与匿名复验结果见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md) |
+| v0.0.15 | **已发布**（Pre-release，2026-11-10）；发布 run `42818077339`、发布后独立验收 run `42820522582`，证据见 [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md) |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
 > 镜像拉取需要 GHCR 包为 **public** 才能匿名 `docker pull`。
