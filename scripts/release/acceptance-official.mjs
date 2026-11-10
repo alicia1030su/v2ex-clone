@@ -133,6 +133,41 @@ async function gotoStable(page, url, opts = {}) {
   throw lastErr;
 }
 
+/**
+ * 点击，并**确认这一次点击真的发出了目标请求**；没发出就重试。
+ *
+ * ## 为什么需要它（真实失败现场）
+ *
+ * 第六次运行（run 42920672781）：**29 PASS / 1 FAIL**，唯一失败是
+ * 「用户 A 收藏主题 —— 数据库 0 行」。同一份代码前一次运行是通过的 ——
+ * 典型的**时序抖动**，不是功能缺陷。
+ *
+ * 根因：`CollectButton` 的 `onClick` 是 React 绑定的。若点击发生在
+ * **水合完成之前**，这次点击**不会发出任何请求**，而脚本只等
+ * `waitForLoadState('networkidle')`（没有请求时它立刻返回）⇒
+ * 读库得到 0 行 ⇒ 判「收藏失败」。
+ *
+ * ⚠️ 这是本仓历史上**反复出现**的真实缺陷类（V10-21：Firefox 偶发点击丢失）。
+ * 正确做法不是「加 sleep」，而是**把点击与真实请求绑定**：
+ * 点一次没请求 → 重试；有请求 → 才进入断言。
+ *
+ * @param page       Playwright Page
+ * @param locator    要点击的元素
+ * @param predicate  判定「这是目标请求」的函数
+ * @param attempts   最多点几次（默认 3）
+ */
+async function clickUntilRequest(page, locator, predicate, attempts = 3) {
+  for (let i = 1; i <= attempts; i += 1) {
+    const wait = page.waitForRequest(predicate, { timeout: 8_000 }).catch(() => null);
+    await locator.click({ timeout: 8_000 }).catch(() => {});
+    const req = await wait;
+    if (req) return req;
+    // 没发出请求：等一小会儿让水合完成，再重试
+    await page.waitForTimeout(400);
+  }
+  return null;
+}
+
 /** 建一个真实会话：注册新用户（注册接口不要求验证码） */
 async function signUp(context, user) {
   const page = await context.newPage();
@@ -314,14 +349,45 @@ async function main() {
         Number(cnt) >= 1 ? pass('用户 A 回复写入数据库', `${cnt} 条回复`) : fail('用户 A 回复写入数据库', `0 条`);
       } else fail('用户 A 回复', '回复框不可见（登录态可能丢失）');
 
-      // 收藏
-      const collectBtn = pageA.locator('button:has-text("收藏")').first();
+      /*
+       * 收藏：点击必须与**真实请求**绑定。
+       *
+       * 只看 `waitForLoadState('networkidle')` 是不够的 —— 没有请求时它
+       * 立刻返回，于是「水合未完成、点击没生效」会被读成「收藏失败」。
+       * 实测证据：同一份代码两次运行，前一次 PASS、后一次 FAIL 且库 0 行。
+       */
+      const collectBtn = pageA.locator('button', { hasText: /^收藏$/ }).first();
       if (await collectBtn.count()) {
-        await collectBtn.click().catch(() => {});
-        await pageA.waitForLoadState('networkidle').catch(() => {});
-        const fav = sql(`select count(*) from collections c join users u on u.id=c.user_id where u.username='${U.a.username}' and c.topic_id=${topicA};`);
-        Number(fav) >= 1 ? pass('用户 A 收藏主题', '数据库 1 行') : fail('用户 A 收藏主题', '数据库 0 行');
-      } else fail('用户 A 收藏主题', '没有收藏按钮');
+        const req = await clickUntilRequest(
+          pageA,
+          collectBtn,
+          (r) => r.url().includes('/api/collections') && r.method() === 'POST',
+        );
+        if (!req) {
+          fail('用户 A 收藏主题', '点击后没有发出 POST /api/collections（水合未完成）');
+        } else {
+          // 轮询真实终态（服务端写库与 UI 更新都异步）
+          let fav = '0';
+          for (let i = 0; i < 20; i += 1) {
+            fav = sql(
+              `select count(*) from collections c join users u on u.id=c.user_id where u.username='${U.a.username}' and c.topic_id=${topicA};`,
+            );
+            if (Number(fav) >= 1) break;
+            await pageA.waitForTimeout(400);
+          }
+          if (Number(fav) >= 1) {
+            pass('用户 A 收藏主题', '数据库 1 行（请求已确认发出）');
+          } else {
+            const resp = await req.response().catch(() => null);
+            fail(
+              '用户 A 收藏主题',
+              `POST 已发出但库仍 0 行（HTTP ${resp ? resp.status() : 'n/a'}）`,
+            );
+          }
+        }
+      } else {
+        fail('用户 A 收藏主题', '没有「收藏」按钮（按钮可能已显示为「已收藏」）');
+      }
     }
 
     // ── ③ 用户 B：回复 A → @提及 A → 两条通知都落库 ──
