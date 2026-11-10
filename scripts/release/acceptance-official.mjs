@@ -253,7 +253,17 @@ async function main() {
       await pageA.goto(`${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
       // ⚠️ 必须限定在回复表单内：编辑表单的 textarea 也叫 name="content"，
       //    编辑框打开时全页有 2 个同名控件，`.first()` 会填进编辑框。
-      const replyBox = pageA.locator('#reply-content').first();
+      /*
+       * ⚠️ 选择器必须**跨版本兼容**：本脚本验收的是**已发布**的安装包。
+       * `#reply-content` 是 v0.0.16 才加的唯一 id；在 v0.0.15 的包里，
+       * 回复框只有 `name="content"`（且与编辑表单的 textarea 同名）。
+       * 用 `#reply-content` 单条件会在旧包上直接判「回复框不可见」——
+       * 那不是包坏了，是**脚本用未来的选择器验过去的产物**。
+       * 因此：优先唯一 id，回退到「回复表单内的 textarea」。
+       */
+      const replyBox = pageA
+        .locator('#reply-content, form[action="/api/replies"] textarea[name="content"]')
+        .first();
       if (await replyBox.count()) {
         await replyBox.fill(`用户 A 的自回复 ${stamp}`);
         await pageA.locator('button:has-text("提交回复")').first().click().catch(() => {});
@@ -280,7 +290,9 @@ async function main() {
 
     if (topicA) {
       await pageB.goto(`${APP_URL}/t/${topicA}`, { waitUntil: 'networkidle' });
-      const replyBoxB = pageB.locator('#reply-content').first();
+      const replyBoxB = pageB
+        .locator('#reply-content, form[action="/api/replies"] textarea[name="content"]')
+        .first();
       if (await replyBoxB.count()) {
         await replyBoxB.fill(`@${U.a.username} 用户 B 回复并提及，时间戳 ${stamp}`);
         await pageB.locator('button:has-text("提交回复")').first().click().catch(() => {});
@@ -358,23 +370,66 @@ async function main() {
       Number(reportRow) >= 1 ? info(`举报数据就绪（${reportRow} 条 pending）`) : info('举报数据未写入（可能已有唯一约束）');
 
       await pageM.goto(`${APP_URL}/admin`, { waitUntil: 'networkidle' });
+
+      /*
+       * 处理入口用 `window.prompt` 收「处理说明」—— 必须在点击**之前**挂
+       * dialog handler，否则 Playwright 会按默认行为**自动 dismiss**，
+       * `prompt` 返回 `null`，`handleReport()` 里的 `if (note === null) return;`
+       * 直接退出 ⇒ **点击成功但什么都没发生**。
+       *
+       * ⚠️ 这与「按钮没找到」的表现完全不同：两者都会让状态停在 pending，
+       * 但前者说明链路是通的、只是对话框被拒；后者说明入口缺失。
+       */
+      pageM.on('dialog', (d) => d.accept('验收处理说明').catch(() => {}));
+
+      // 切到「举报」tab —— tab 内容由客户端异步加载，点完立刻找按钮会找不到
       await pageM.locator('.tab-alt:has-text("举报"), button:has-text("举报")').first().click().catch(() => {});
-      await pageM.waitForLoadState('networkidle').catch(() => {});
-      // 处理入口用 window.prompt 收「处理说明」—— 必须先挂 dialog handler，
-      // 否则点击会**永久挂起**（Playwright 默认自动 dismiss，会当成取消）。
-      pageM.on('dialog', (d) => d.accept('验收处理说明'));
-      const handled = pageM.locator('button:has-text("接受"), button:has-text("受理")').first();
+
+      // 等「举报列表本身」渲染出来（出现 pending 的举报卡片或空态文案）
+      await pageM
+        .locator('text=/举报 #\d+/')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .catch(() => undefined);
+
+      const handled = pageM.locator('button:has-text("接受")').first();
       if (await handled.count()) {
-        await handled.click().catch(() => {});
-        await pageM.waitForLoadState('networkidle').catch(() => {});
-        const done = sql(`select count(*) from reports where target_type='topic' and target_id=${reported} and status <> 'pending';`);
-        Number(done) >= 1 ? pass('管理员处理举报', '状态已变更') : fail('管理员处理举报', '状态仍为 pending');
-        const sysNotify = sql(
-          `select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.b.username}' and n.type='system';`,
-        );
-        Number(sysNotify) >= 1 ? pass('举报处理结果通知落库', `${sysNotify} 条 system 通知`) : fail('举报处理结果通知落库', '没有 system 通知');
+        /*
+         * ⚠️ 点击必须在 React 水合之后。刚 `goto` + 点 tab 就点按钮，
+         * 有概率命中「水合未完成 ⇒ onClick 还没绑上 ⇒ 点了没反应」——
+         * 这是本仓历史上反复出现的真实缺陷类（不是本脚本特有）。
+         * 判据：按钮 `disabled` 属性由 React 管理，能读到即说明已接管；
+         * 再叠加「点击后轮询真实终态」，不靠固定 sleep。
+         */
+        await handled.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => undefined);
+        await handled.click({ timeout: 15_000 }).catch(() => {});
+
+        // 轮询真实终态（服务端写库是异步的，单次读取会读到中间态）
+        let done = '0';
+        for (let i = 0; i < 20; i += 1) {
+          done = sql(
+            `select count(*) from reports where target_type='topic' and target_id=${reported} and status <> 'pending';`,
+          );
+          if (Number(done) >= 1) break;
+          await pageM.waitForTimeout(500);
+        }
+        Number(done) >= 1
+          ? pass('管理员处理举报', '状态已变更（轮询确认）')
+          : fail('管理员处理举报', '状态仍为 pending（点击后 10 秒内未变更）');
+
+        let sysNotify = '0';
+        for (let i = 0; i < 10; i += 1) {
+          sysNotify = sql(
+            `select count(*) from notifications n join users u on u.id=n.user_id where u.username='${U.b.username}' and n.type='system';`,
+          );
+          if (Number(sysNotify) >= 1) break;
+          await pageM.waitForTimeout(300);
+        }
+        Number(sysNotify) >= 1
+          ? pass('举报处理结果通知落库', `${sysNotify} 条 system 通知`)
+          : fail('举报处理结果通知落库', '没有 system 通知');
       } else {
-        fail('管理员处理举报', '举报页没有处理按钮');
+        fail('管理员处理举报', '举报页没有「接受」按钮（tab 内容可能未加载完）');
       }
     }
 
