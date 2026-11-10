@@ -47,7 +47,7 @@ export default function SignUpForm({ error }: { error?: string }) {
           {msg}
         </div>
       ) : null}
-      <form onSubmit={submit}>
+      <form onSubmit={submit} className="auth-form">
         <table cellPadding={5} cellSpacing={0} border={0} width="100%">
           <tbody>
             <tr>

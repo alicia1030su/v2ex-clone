@@ -840,25 +840,48 @@ textarea {
   color: #fff;
 }
 
+/* 第三方登录（v0.0.16 修订）
+ *
+ * ## 修的是什么
+ *
+ * 参考站是**整行横向**按钮：左侧图标、右侧文案、宽度撑满侧栏、行间 8px。
+ * 修复前本站是 `inline-block` + 图标居中在上、文案在下的小方块，
+ * 两个并排 ⇒ 视觉上像「两张卡」而不是「登录方式列表」，
+ * 与参考站在**信息层级与可点击区域**上都不同。
+ *
+ * 修复后：`flex` 横向、`width: 100%`、图标固定 28px 槽位、文案左对齐。
+ * 可点击区域从「约 145×92 的两个方块」变成「整行 250×44」，
+ * 移动端也更容易点中（这是 B 类「样式实现差异」，同时改善了可用性）。
+ */
+.sign_in_methods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .sign_in_with {
-  display: inline-block;
-  padding: 10px 20px;
-  margin: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--box-border-color);
   border-radius: var(--box-border-radius);
+  background-color: #fff;
   cursor: pointer;
-  text-align: center;
+  text-align: left;
 }
 .sign_in_with:hover {
   background-color: var(--box-background-hover-color);
 }
 .sign_in_with img {
   display: block;
-  margin: 0 auto 6px auto;
+  margin: 0;
+  flex: 0 0 auto;
 }
 .sign_in_with_label {
-  font-size: 12px;
-  color: var(--color-gray);
+  font-size: 13px;
+  color: var(--link-color);
+  white-space: nowrap;
 }
 
 /* ------------------------------ Markdown body ------------------------------ */
@@ -1531,4 +1554,26 @@ textarea {
   .topic_edit_modal .topic_edit_panel {
     padding: 14px;
   }
+}
+
+/* ------------------------------ Auth forms (v0.0.16) ------------------------------ */
+/*
+ * 参考站的登录 / 注册输入框**不是撑满主栏**，而是固定约 320px 宽。
+ *
+ * 实测（1280×900，参考截图 ref-signin.png）：
+ *   标签列 110..254（约 145px），输入框 256..573（约 318px），
+ *   右侧留白一直到 879 —— 也就是说表单只占主栏左侧一半左右。
+ *
+ * 修复前本站输入框是 `width: 100%`（约 616px），
+ * 视觉上是「一大片输入框」，与参考站的紧凑排版明显不同（B 类差异）。
+ * 同时它还有一个体验副作用：超长输入框会让用户误以为可以填很长内容。
+ *
+ * 只作用于 `.auth-form` —— 不改全局 input，避免影响发帖 / 回复等
+ * 本就该占满宽度的表单。
+ */
+.auth-form input[type='text'],
+.auth-form input[type='password'],
+.auth-form input[type='email'] {
+  width: 320px;
+  max-width: 100%;
 }

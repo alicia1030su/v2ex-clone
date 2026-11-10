@@ -187,11 +187,51 @@ export default async function TopicPage({
             <ReportButton target="topic" id={topicId} />
           ) : null}
         </div>
+
+        {/*
+         * v0.0.16：主题操作栏（投票 / 编辑 / 删除 / 锁定 / 置顶）
+         *
+         * ⚠️ 这里修掉一个**结构缺陷**（不是样式问题）：
+         *    修复前这段 `<TopicActions>` 被写在了**回复区头部 cell 的内部**，
+         *    于是形成 `.box > .cell > .cell` 的嵌套。
+         *    后果：
+         *      ① 匿名访客（`TopicActions` 对未登录返回 null）会看到一个
+         *         **空的 21px 高 cell**，把回复头从一行拆成三段；
+         *      ② 回复计数被挤到嵌套 cell 之后，与参考站的「计数 + 时间」单行头不符；
+         *      ③ 登录用户则看到操作按钮长在「N 条回复」的区域里，语义错位。
+         *    这类问题 HTTP 200、无控制台错误、截图肉眼也容易忽略，
+         *    只有结构断言（tools/visual/probe-pages.mjs 的 badNesting）能抓到。
+         */}
+        <div className="cell">
+          <TopicActions
+            topic={{
+              topicId: topic.id,
+              locked: topic.locked,
+              pinned: topic.pinned,
+              deleted: topic.deletedAt !== null,
+              edited: topic.editCount > 0,
+              editCount: topic.editCount,
+              votes: topic.votes,
+              myVote: myVoteRows[0]?.direction ?? null,
+              canEdit: canModifyOwnContent(user, topic.authorId),
+              canDelete: canModifyOwnContent(user, topic.authorId),
+              canModerate: user?.role === 'moderator' || user?.role === 'admin',
+            }}
+            user={user ? { id: user.id, role: user.role } : null}
+            initialContent={topic.content}
+            initialTitle={topic.title}
+            // v0.0.14：编辑表单需要**当前标签**才能提供「移除」入口。
+            // 不传的后果不是崩溃，而是「标签只能加、不能减」——
+            // 一个看起来正常、但用户无法纠正自己输入的体验缺陷。
+            initialTags={tags.map((t) => t.name)}
+          />
+        </div>
       </div>
 
       <div className="sep20" />
       <div id="topic-replies">
         <div className="box">
+          {/* 回复区头：与参考站一致 —— 左「N 条回复 • 时间」，右标签（floated） */}
           <div className="cell">
             <div className="fr" style={{ margin: '-3px -5px 0px 0px' }}>
               {tags.map((t) => (
@@ -200,33 +240,6 @@ export default async function TopicPage({
                 </Link>
               ))}
             </div>
-
-          {/* v0.0.3：主题操作栏（投票 / 编辑 / 删除 / 锁定 / 置顶） */}
-          <div className="cell">
-            <TopicActions
-              topic={{
-                topicId: topic.id,
-                locked: topic.locked,
-                pinned: topic.pinned,
-                deleted: topic.deletedAt !== null,
-                edited: topic.editCount > 0,
-                editCount: topic.editCount,
-                votes: topic.votes,
-                myVote: myVoteRows[0]?.direction ?? null,
-                canEdit: canModifyOwnContent(user, topic.authorId),
-                canDelete: canModifyOwnContent(user, topic.authorId),
-                canModerate:
-                  user?.role === 'moderator' || user?.role === 'admin',
-              }}
-              user={user ? { id: user.id, role: user.role } : null}
-              initialContent={topic.content}
-              initialTitle={topic.title}
-              // v0.0.14：编辑表单需要**当前标签**才能提供「移除」入口。
-              // 不传的后果不是崩溃，而是「标签只能加、不能减」——
-              // 一个看起来正常、但用户无法纠正自己输入的体验缺陷。
-              initialTags={tags.map((t) => t.name)}
-            />
-          </div>
             <span className="gray">
               {replyTotal} 条回复 &nbsp;<strong className="snow">•</strong> &nbsp;
               {fullTimestamp(topic.lastReplyAt)}
