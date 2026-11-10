@@ -718,8 +718,8 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 |---|---|---|---|
 | A | 缺陷门槛 | ✅ | v0.0.15 新发现 8 项（V15-01~08）**全部已修**并有负向对照，见 `BUG_REGISTER.md` |
 | B | 测试门槛 | ✅ | `tsc` 0；静态 21 文件 / 311 用例；真库通知 20/20；通知 E2E 8/8 |
-| C | 安装验证门槛 | ⏳ | 待最终 SHA 上跑 `candidate-verify`（真 Docker + 隔离安装） |
-| D | 容器与部署门槛 | ⏳ | 同上；本机 Docker 不可用，必须走 GitHub Actions ubuntu runner |
+| C | 安装验证门槛 | ✅ | `candidate-verify` run `42762218196`（SHA `2bc65b6`）**success**：候选构建 + 隔离安装全链路，14 个步骤全绿，**未执行 `docker push`** |
+| D | 容器与部署门槛 | ✅ | 同 run：`docker load` → `compose` → 全流程安装验证；另 CI 的 Docker 构建/启动、Linux 真实 Docker 安装、Docker/Redis 隔离验证均 success |
 | E | 供应链门槛 | ✅ | 未新增运行时依赖（新增脚本只用 Node 内置模块 + `gh` / `git`） |
 | F | 历史与合规门槛 | 🔴 | **R-01 维持 DEFERRED**，见 §9.4 |
 | G | 文档门槛 | ✅ | README / CHANGELOG / FEATURE_MATRIX / BUG_REGISTER / RISK_REGISTER / 交接文档全部同步 |
@@ -741,13 +741,17 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 
 | # | 状态 | 当前 |
 |---|---|---|
-| 1 | **候选构建成功** | ✅ 已达成（分支 CI + 预演全绿） |
-| 2 | **候选环境安装成功** | ⏳ 未执行（待最终 SHA 上跑 `candidate-verify`） |
-| 3 | **正式公开发布成功** | ❌ **未执行，也不得执行**（无 v0.0.15 Tag / Release / 镜像；无本版授权） |
+| 1 | **候选构建成功** | ✅ run `42762218196`（SHA `2bc65b6`）：候选 ZIP `160175e3…d38e`、镜像 tar `bd091490…4c89`，`sha256sum -c SHA256SUMS` 通过；候选镜像 ID `sha256:c6b2a83a…2e2b` |
+| 2 | **候选环境安装成功** | ✅ 同一 run：`docker load` → `compose up` → 全流程隔离安装验证通过 |
+| 3 | **正式公开发布成功** | ❌ **未执行，也不得执行**（无 v0.0.15 Tag / Release / 镜像；无本版授权）。匿名核验：`releases/tags/v0.0.15` = **404**、`git/ref/tags/v0.0.15` = **404**、`ghcr …:v0.0.15` = **404** |
 
 > **1、2 成功不代表 3 已完成。** 本版**未创建** `v0.0.15` Tag，
 > **未推送** `:v0.0.15` 镜像，**未创建**任何 Release。
-> 已核验：`https://ghcr.io/v2/alicia1030su/v2ex-clone/manifests/v0.0.15` = **404**。
+> 已核验（2026-11-10，匿名、无凭据）：
+> `https://ghcr.io/v2/alicia1030su/v2ex-clone/manifests/v0.0.15` = **404**；
+> `api.github.com/.../releases/tags/v0.0.15` = **404**；
+> `api.github.com/.../git/ref/tags/v0.0.15` = **404**。
+> 作为对照，`:v0.0.14` 的三项均为 **200** —— 说明核验路径本身有效，不是「查不到」。
 
 ## 9.4 F 组：R-01（唯一阻断项）
 

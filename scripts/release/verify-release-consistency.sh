@@ -337,10 +337,36 @@ else
   fi
 fi
 
+# ⚠️ v0.0.15：这条也必须**按发布状态**判定。
+#
+#    原实现在 `--zip`（校验某个具体产物）时无条件要求 README 指向本版包名。
+#    但候选态下本版包**还不存在**（Release 未建、资产未上传），
+#    README 指向它就是指向一个 404 —— 这条与下面的「残留旧包名」是**同一处矛盾的两条**，
+#    只修一条会在 CI 上继续红（run `42762789931` 实测就是红在这里）。
+#
+#    正确语义：
+#      · 已发布 ⇒ README 必须指向本版包名（否则用户下不到最新版）；
+#      · 候选态 ⇒ README **不应**指向本版包名（该资产尚不存在），
+#        但仍需保证它指向的是**真实可下载**的上一版。
+RELEASED_STATE=0
+if git rev-parse -q --verify "refs/tags/v${EXPECT}" >/dev/null 2>&1; then
+  RELEASED_STATE=1
+fi
+PUBLIC_NOW="$(grep '当前实际公开版本' README.md 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+[ "$PUBLIC_NOW" = "v${EXPECT}" ] && RELEASED_STATE=1
+
 if [ -n "$ZIP" ]; then
-  grep -q "v2ex-clone-v${EXPECT}-deploy.zip" README.md \
-    && ok "README 的安装包名指向 v${EXPECT}" \
-    || bad "README 的安装包名不是 v2ex-clone-v${EXPECT}-deploy.zip"
+  if [ "$RELEASED_STATE" -eq 1 ]; then
+    grep -q "v2ex-clone-v${EXPECT}-deploy.zip" README.md \
+      && ok "README 的安装包名指向 v${EXPECT}（已发布态）" \
+      || bad "README 的安装包名不是 v2ex-clone-v${EXPECT}-deploy.zip（已发布态必须指向本版）"
+  else
+    if grep -q "v2ex-clone-v${EXPECT}-deploy.zip" README.md 2>/dev/null; then
+      bad "候选态下 README 指向尚不存在的 v${EXPECT} 安装包"
+    else
+      info "候选态：README 未指向 v${EXPECT} 的安装包（发布后必须改）"
+    fi
+  fi
 fi
 
 # 反向断言：不得把**旧的**安装包名当作当前版本
