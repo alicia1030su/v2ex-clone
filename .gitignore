@@ -177,3 +177,6 @@ scripts/ui-runtime-verify.cjs
 
 # v0.0.15：发布预演的临时产物（脚本落盘用，不进仓库）
 dryrun-out/
+
+# v0.0.16：本地临时探测脚本（不进仓库）
+_scratch/

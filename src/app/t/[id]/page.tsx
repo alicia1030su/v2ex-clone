@@ -345,8 +345,22 @@ export default async function TopicPage({
                   <input type="hidden" name="redirect" value={`/t/${topicId}`} />
                   {/* 原生表单无法自动加请求头，必须通过隐藏字段传递 CSRF token */}
                   <input type="hidden" name="csrfToken" value={csrfToken} />
+                  {/*
+                   * v0.0.16：给回复框一个**唯一 id**。
+                   *
+                   * 编辑表单里的 textarea 也叫 `name="content"`，于是编辑框打开时
+                   * 全页有 2 个同名控件。这对用户没影响（两个在不同 form 里），
+                   * 但它让任何按 `textarea[name=content]` 定位的自动化都可能
+                   * 命中**错误的那个** —— 验收脚本就踩过：点「编辑」后填「回复」，
+                   * 内容实际进了编辑框，测试还以为通过了。
+                   *
+                   * 加 id 是最小的改动：不影响提交字段名（仍叫 content），
+                   * 同时给测试与无障碍一个明确锚点。
+                   */}
                   <textarea
+                    id="reply-content"
                     name="content"
+                    aria-label="回复内容"
                     placeholder="回复内容"
                     required
                     minLength={2}

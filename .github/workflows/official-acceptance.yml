@@ -1,0 +1,184 @@
+name: 官方包四角色真实用户验收
+
+# ---------------------------------------------------------------------------
+# v0.0.16 P0：用**已公开发布**的 v0.0.15 安装包做真实用户验收
+#
+# ## 为什么单独一个工作流
+#
+# `post-release-verify.yml` 已经覆盖「匿名下载 → SHA256 → 官方 install.sh 全新安装
+# → 备份恢复 → 重启持久化」，但它对**用户流程**只做了 API 探针：
+#
+#   · 只有单用户（注册一个 walk-in 账号）；
+#   · 通知写入路径因为「需要第二个用户 + 管理员登录有强制验证码」被记为 WARN；
+#   · 四角色（游客 / 用户 A / 用户 B / 版主管理员）从未在**真实安装包**上
+#     用真实浏览器跑过一遍。
+#
+# 本工作流补的就是这一段，并且**不改动已发布的 v0.0.15 资产**。
+#
+# ## 验证码怎么处理（如实说明）
+#
+# 官方包是 production 模式 ⇒ 登录强制验证码。脚本**不破解**，走的是
+# 产品自身的公开路径：`/signup` 注册（该接口不要求验证码）拿到真实会话；
+# 需要 moderator/admin 时，在**隔离测试库**里改角色（等价于管理员在后台
+# 提升某人），然后沿用该用户已有的真实会话。
+# 全程不修改应用鉴权代码、不注入 cookie、不绕过 CSRF。
+#
+# ## 触发
+#
+# 只挂 workflow_dispatch：它要下载 release 资产并起完整 docker compose，
+# 挂在每次 push 上既慢又没意义（发布资产不会随 push 变化）。
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要验收的**已发布**版本号，例如 v0.0.15'
+        required: true
+        default: 'v0.0.15'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-acceptance-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+  REPO: ${{ github.repository }}
+  WORK: /tmp/official-acceptance
+  NODE_VERSION: '22.23.4'
+
+jobs:
+  acceptance:
+    name: 官方包 · 四角色真实用户验收
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 准备：版本号校验与运行环境
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::版本号非法：$VERSION"
+            exit 1
+          fi
+          mkdir -p "$WORK"
+          docker --version
+          docker compose version
+          docker info >/dev/null 2>&1 || { echo "::error::Docker 不可用，拒绝静态核验冒充真实安装"; exit 1; }
+          echo "版本=$VERSION 仓库=$REPO"
+
+      - name: ① 匿名下载已发布安装包并校验 SHA256
+        run: |
+          set -euo pipefail
+          ZIP="v2ex-clone-${VERSION}-deploy.zip"
+          BASE="https://github.com/$REPO/releases/download/$VERSION"
+          curl -fsSL --retry 3 --max-time 300 -o "$WORK/$ZIP" "$BASE/$ZIP"
+          curl -fsSL --retry 3 --max-time 60 -o "$WORK/SHA256SUMS" "$BASE/SHA256SUMS"
+          ( cd "$WORK" && sha256sum -c SHA256SUMS )
+          SIZE="$(stat -c%s "$WORK/$ZIP")"
+          [ "$SIZE" -gt 1000 ] || { echo "::error::安装包过小（$SIZE 字节）"; exit 1; }
+          echo "安装包 $ZIP / ${SIZE} 字节 / SHA256=$(sha256sum "$WORK/$ZIP" | awk '{print $1}')"
+          rm -rf "$WORK/pkg" && mkdir -p "$WORK/pkg"
+          unzip -q "$WORK/$ZIP" -d "$WORK/pkg"
+          test -f "$WORK/pkg/deploy/install.sh"
+
+      - name: ② 检出验收工具（不参与安装）
+        uses: actions/checkout@v7
+        with:
+          # 工具跟本次提交走；被验证的产物只来自 Release 资产
+          ref: ${{ github.sha }}
+          path: verify-tools
+          fetch-depth: 1
+
+      - name: ③ 用官方包 install.sh 安装（原样执行，不改包）
+        run: |
+          set -euo pipefail
+          cd "$WORK/pkg/deploy"
+          # 隔离测试环境：独立端口 + 随机口令，避免与 runner 上任何默认值冲突
+          export APP_PORT=3000
+          chmod +x install.sh
+          set +e
+          ./install.sh > "$WORK/install.log" 2>&1
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            tail -80 "$WORK/install.log"
+            docker ps -a || true
+            docker logs v2ex-app --tail 80 2>&1 || true
+            echo "::error::官方包 install.sh 失败（退出码 $RC）"
+            exit 1
+          fi
+          tail -20 "$WORK/install.log"
+          # 等应用就绪
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null --max-time 5 http://localhost:3000/; then echo "应用就绪（第 ${i} 次）"; break; fi
+            sleep 3
+          done
+          curl -fsS -o /dev/null http://localhost:3000/ || { echo "::error::应用未就绪"; exit 1; }
+          echo "INST_DIR=$WORK/pkg/deploy" >> "$GITHUB_ENV"
+
+      - name: ④ 安装 Node 与 Playwright（仅用于驱动真实浏览器）
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: verify-tools/package-lock.json
+
+      - name: ⑤ 准备 Playwright 浏览器
+        working-directory: verify-tools
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: ⑥ 四角色真实用户验收（真实浏览器 + 真实数据库断言）
+        working-directory: verify-tools
+        env:
+          APP_URL: http://localhost:3000
+          COMPOSE_FILE: ${{ env.INST_DIR }}/docker-compose.yml
+          ENV_FILE: ${{ env.INST_DIR }}/.env
+          ARTIFACT_DIR: ${{ github.workspace }}/acceptance-out
+          BROWSER_CHANNEL: chromium
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          node scripts/release/acceptance-official.mjs 2>&1 | tee "$ARTIFACT_DIR/acceptance.log"
+
+      - name: ⑦ 输出结构化结果
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "## 官方包四角色真实用户验收 · ${VERSION}"
+            echo ""
+            echo "安装来源：GitHub Release 资产（匿名下载 + SHA256 校验）"
+            echo "运行环境：全新 ubuntu runner + 真实 Docker Compose"
+            echo ""
+            if [ -f "$ARTIFACT_DIR/results.tsv" ]; then
+              echo "| 检查项 | 结果 | 真实值 |"
+              echo "|---|---|---|"
+              awk -F'\t' 'NR>1 {printf "| %s | %s | %s |\n", $1, $2, $3}' "$ARTIFACT_DIR/results.tsv"
+            else
+              echo "（未产出 results.tsv —— 验收脚本可能在早期失败）"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ⑧ 上传证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: official-acceptance-${{ env.VERSION }}
+          path: |
+            acceptance-out/
+            /tmp/official-acceptance/install.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: 清理验收实例
+        if: always()
+        run: |
+          cd "$WORK/pkg/deploy" 2>/dev/null || exit 0
+          docker compose --env-file .env down -v >/dev/null 2>&1 || true
