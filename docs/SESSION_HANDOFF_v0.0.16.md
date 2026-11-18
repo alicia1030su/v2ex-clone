@@ -359,8 +359,9 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 | 候选镜像标签 | `v2ex-clone-candidate:v0.0.16`（**仅 runner 本地，未推送 GHCR**） |
 | 候选验收运行 | **`44351720335`**（master @ `4bbf75e`）—— **30 PASS / 0 FAIL** |
 | 发布预演运行 | **`44351767492`**（master @ `4bbf75e`）—— 全部环节 success（含全部负向对照） |
-| **最终 HEAD** | **`be6a7eec062910b5cebcba14a384ecb32bc29454`**（文档收口末提交；构建输入交集为空 ⇒ 候选产物仍有效） |
-| 最终 HEAD 的门禁 | CI / Docker·Redis / SMTP / 安全审计 / 视觉回归 **全部 success** |
+| **权威「最终 HEAD」的取值方式** | **`git rev-parse HEAD`** —— 不在此处写死。原因见下：文档每改一次就会产生新提交，写死必然立刻过时 |
+| 已核验过的文档收口链 | `67282db` → `a65c69a` → `be6a7ee` → `afa9454`（只改 5 个文档） |
+| 该链上的门禁 | 每个提交的 CI / Docker·Redis / SMTP / 安全审计 / 视觉回归 **均 success** |
 
 ### 源码树等价性（为什么这份候选产物可以代表最终 master）
 
@@ -372,6 +373,19 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 ```
 
 squash 合并只改提交历史、不改内容 ⇒ 候选产物**没有失效**。
+
+**为什么不写死「最终 HEAD」**：
+文档要写「最终 SHA」，而写完这份文档本身又产生新提交 —— 这是个自指问题。
+写死一个值，它**在提交的那一刻就已经过时**。
+所以本文件只承诺两件可核验的事：
+① **代码冻结 SHA = `4bbf75e`**（候选产物由它构建并验收）；
+② 冻结之后的每一次提交都满足「与构建输入集交集为 0」，可用一条命令复核：
+
+```bash
+git diff --name-only 4bbf75e HEAD \
+  | grep -E '^(src/|deploy/|Dockerfile$|package\.json$|package-lock\.json$|drizzle/|next\.config|public/)' \
+  || echo "空 ⇒ 候选产物仍有效"
+```
 
 **为什么最后还有一个只改文档的提交**：文档必须写「最终 SHA」，而写完这份文档
 本身又会产生新提交 —— 这是个自指问题。处理方式是**分开记录**：
