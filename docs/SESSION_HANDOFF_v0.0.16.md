@@ -219,6 +219,8 @@ v0.0.15 的发布链路已验证可用（11/11 + 13 项匿名验收）。
 | 安全审计（Host Header 攻击矩阵） | pass | `44351589166` |
 | 候选包四角色验收 | **30 PASS / 0 FAIL** | `44351720335` |
 | 发布预演 | 全部环节 success（含全部负向对照） | `44351767492` |
+| 文档收口后的 master CI | **success**（单元 900 / 静态 352 / 双基线升级 PASS=20 FAIL=0 ×2） | `44357829127` |
+| 文档收口后的其它门禁 | Docker/Redis、SMTP、安全审计、视觉回归 **全部 success** | `44357830162` / `44357829144` / `44357829249` / `44357829095` |
 | **PR #57 CI（合并前最后一轮）** | **30 pass / 0 fail / 1 skipping**（唯一 skip 是诊断用工作流，非门禁） |
 | └ 跨浏览器 × 视口矩阵 | chromium / firefox / webkit × 5 视口（375/390/768/1280/1920）**15/15 pass** |
 | └ Docker 真实安装 / Docker 构建启动 | **pass** |
@@ -331,7 +333,8 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 
 | 项 | 值 |
 |---|---|
-| **最终完整 SHA（HEAD）** | **`4bbf75e61d2e7af61e2b2b966dbc279ee0dbe432`** |
+| **代码冻结 SHA（候选产物来源）** | **`4bbf75e61d2e7af61e2b2b966dbc279ee0dbe432`** |
+| 文档收口提交 | 紧随其后，**仅修改 5 个文档**（`BUG_REGISTER.md` / `CHANGELOG.md` / `RELEASE_GATE.md` / `RISK_REGISTER.md` / 本文件），**未触及任何构建输入** |
 | PR | **#58**（squash 合并到 master，源分支 `release/v0.0.16` 已删除） |
 | 版本载体 | `0.0.16`（`sync-version.mjs --verify` 通过；三处一致：`deploy/VERSION` / `package.json` / `docs/release-facts.json`） |
 | 候选 ZIP | **`v2ex-clone-v0.0.16-candidate.zip`**（**59,383 B**） |
@@ -352,6 +355,21 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 ```
 
 squash 合并只改提交历史、不改内容 ⇒ 候选产物**没有失效**。
+
+**为什么最后还有一个只改文档的提交**：文档必须写「最终 SHA」，而写完这份文档
+本身又会产生新提交 —— 这是个自指问题。处理方式是**分开记录**：
+候选产物永远对应「代码冻结 SHA」，文档收口提交只在其后追加，
+且**逐文件核对过构建输入**：
+
+```
+git diff --name-only 4bbf75e HEAD    # 只有 5 个 .md
+# 与构建输入的交集：
+git diff --name-only 4bbf75e HEAD | grep -E '^(src/|deploy/|Dockerfile$|package\.json$|package-lock\.json$|drizzle/|next.config|public/)'
+# → 空
+```
+
+构建输入集为空 ⇒ **候选产物无需重建**（这是任务书允许的「源码树对照证明」路径，
+不是我口头声称「应该没影响」）。
 即便如此，仍**在 master 上重新跑了一遍**候选验收与发布预演（见上表两个 run），
 没有用 PR head 的结果冒充最终结果。
 
