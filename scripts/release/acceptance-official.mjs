@@ -83,9 +83,26 @@ function info(msg) {
 }
 
 /** 在安装实例的 PostgreSQL 里执行 SQL（只用于测试数据与断言） */
+/**
+ * 在安装实例的数据库里执行 SQL。
+ *
+ * ## ⚠️ `COMPOSE_PROJECT_NAME` 必须支持（v0.0.16 候选验收的硬要求）
+ *
+ * 本项目 `deploy/docker-compose.yml` **写死了 `container_name`**（v0.0.14 已记录），
+ * 因此候选验收用具名项目（`-p v2ex-cand-<run_id>`）与正式安装并存时，
+ * 若这里**不传 `-p`**，`docker compose exec postgres` 会按**默认项目名**去找容器
+ * ⇒ 找不到 / 或者命中另一个环境的容器 ⇒ 读到**别人的数据库**。
+ *
+ * 那种错误不会报「找不到容器」，而是**断言结果悄悄变成另一个环境的事实** ——
+ * 属于「测量对象错了」的假结论，比直接失败危险得多。
+ */
+const COMPOSE_PROJECT = process.env.COMPOSE_PROJECT_NAME ?? '';
+
 function sql(query) {
   if (!COMPOSE_FILE) throw new Error('缺少 COMPOSE_FILE，无法访问安装实例的数据库');
-  const args = ['compose', '-f', COMPOSE_FILE];
+  const args = ['compose'];
+  if (COMPOSE_PROJECT) args.push('-p', COMPOSE_PROJECT);
+  args.push('-f', COMPOSE_FILE);
   if (ENV_FILE) args.push('--env-file', ENV_FILE);
   args.push('exec', '-T', 'postgres', 'psql', '-U', 'v2ex', '-d', 'v2ex', '-t', '-A', '-F', '|', '-c', query);
   return execFileSync('docker', args, { encoding: 'utf8', timeout: 30_000 }).trim();

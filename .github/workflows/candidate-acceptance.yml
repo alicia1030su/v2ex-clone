@@ -1,0 +1,314 @@
+name: 候选包四角色验收
+
+# ---------------------------------------------------------------------------
+# v0.0.16 —— **候选包**的真实用户验收（不是「源码能跑」验收）
+#
+# ## 为什么必须有这条工作流
+#
+# `candidate-verify.yml` 证明的是「候选 ZIP + 候选镜像能装起来、能启、健康检查过」；
+# `official-acceptance.yml` 证明的是「**已发布**的包装起来之后，四类真实用户
+# 能不能顺畅走完浏览 → 注册 → 发帖 → 回复 → 收通知 → 管理内容」。
+#
+# 两者之间有一个**真实且危险的缺口**：
+#
+#     候选包（还没发布）从来没有被四角色跑过。
+#
+# 于是「发布之后才发现装起来能用、但用户用不了」这类问题，只能在发布当天暴露。
+# 本工作流把这个缺口补上：**用候选产物本身**（ZIP + 候选镜像）走一遍
+# 与已发布包**完全相同**的四角色断言。
+#
+# ## 关键纪律（每条都有过真实事故）
+#
+# 1. **绝不推送 GHCR** —— 本工作流 `permissions` 只有 `contents: read`，
+#    构建脚本只做 `docker save`，不存在 push 路径。
+# 2. **不复制业务断言** —— 直接复用 `scripts/release/acceptance-official.mjs`。
+#    两套断言必然漂移：改了一套忘了另一套，最后谁都不知道哪套是真的。
+# 3. **候选环境必须是隔离的** —— 用 `-p v2ex-cand-<run_id>` 具名项目，
+#    并把该项目名传给验收脚本（`COMPOSE_PROJECT_NAME`）。
+#    否则 `docker compose exec` 会按默认项目名找容器，
+#    **读到另一个环境（或正式安装）的数据库** —— 那种错误不会失败，
+#    只会让断言结果变成「别人家的事实」。
+# 4. **ZIP / 镜像 / 源码三处版本必须一致** —— 只改 ZIP 文件名冒充版本，
+#    是本仓明令禁止的做法（`sync-version.mjs` 头注释）。
+#
+# ## 三种状态必须分开（本仓反复强调）
+#
+#   · 候选构建成功       —— 本工作流 ✅
+#   · 候选环境安装成功   —— 本工作流 ✅
+#   · **正式公开发布成功** —— ⬜ 本工作流**不涉及**（需 Tag + GHCR + Release + 单独授权）
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要验收的源码引用（留空则用触发时的提交）'
+        required: false
+        default: ''
+      port:
+        description: '应用端口'
+        required: false
+        default: '3409'
+  push:
+    branches:
+      - 'release/v*'
+    paths:
+      - 'scripts/release/build-candidate.sh'
+      - 'scripts/release/verify-candidate-install.sh'
+      - 'scripts/release/acceptance-official.mjs'
+      - 'deploy/**'
+      - 'Dockerfile'
+      - '.github/workflows/candidate-acceptance.yml'
+
+concurrency:
+  group: candidate-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-acceptance:
+    name: 候选包 · 隔离安装 + 四角色真实用户验收
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NODE_VERSION: '22.23.4'
+      # ⚠️ 从源码载体读取，不写死版本（v0.0.10 教训：写死会在下次同步时假红）
+      #    步骤内通过 GITHUB_ENV 注入 CANDIDATE_VERSION
+      BROWSER_CHANNEL: chromium
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - name: 读取并交叉核对版本载体（唯一事实来源）
+        run: |
+          set -euo pipefail
+          V="$(tr -d ' \r\n' < deploy/VERSION)"
+          P="$(node -e "process.stdout.write(require('./package.json').version)")"
+          F="$(node -e "process.stdout.write(require('./docs/release-facts.json').version)")"
+          echo "  deploy/VERSION          = $V"
+          echo "  package.json            = $P"
+          echo "  docs/release-facts.json = $F"
+          if [ "$V" != "$P" ] || [ "$V" != "$F" ]; then
+            echo "::error::版本载体不一致（V=$V P=$P F=$F）—— 先跑 sync-version.mjs"
+            exit 1
+          fi
+          echo "CANDIDATE_VERSION=v$V" >> "$GITHUB_ENV"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "✓ 三处版本载体一致：v$V"
+
+      - name: 确定应用端口（push 触发时没有 inputs）
+        run: |
+          set -euo pipefail
+          # ⚠️ 不要在 run 里直接写 `${{ inputs.port || '3409' }}`：
+          #    非 workflow_dispatch 触发时 `inputs` 上下文求值行为依 GitHub 版本而异，
+          #    稳妥做法是在 bash 里兜底（空值 ⇒ 3409）。
+          P="${{ inputs.port }}"
+          [ -n "$P" ] || P=3409
+          echo "APP_PORT=${P}" >> "$GITHUB_ENV"
+          echo "  应用端口：${P}"
+
+      - name: 环境信息
+        run: |
+          set -euo pipefail
+          echo "  HEAD:    ${CANDIDATE_SHA}"
+          echo "  Docker:  $(docker --version)"
+          echo "  Compose: $(docker compose version)"
+          echo "  磁盘:    $(df -h / | tail -1 | awk '{print $4}') 可用"
+
+      - name: 安装 Node 与依赖
+        run: |
+          set -euo pipefail
+          node --version
+          npm ci --no-audit --no-fund
+
+      - name: 构建候选产物（镜像 save + 部署 ZIP，**不推送**）
+        id: build
+        run: |
+          set -euo pipefail
+          mkdir -p candidate-out
+          bash scripts/release/build-candidate.sh \
+            --version "${CANDIDATE_VERSION}" \
+            --sha "${CANDIDATE_SHA}" \
+            --out candidate-out \
+            --image-tag "v2ex-clone-candidate:${CANDIDATE_VERSION}"
+          echo "--- 产物 ---"
+          ls -la candidate-out/
+
+      - name: 核验产物：SHA256 可复算 + 版本三处一致
+        run: |
+          set -euo pipefail
+          cd candidate-out
+          sha256sum -c SHA256SUMS
+          ZIP="v2ex-clone-${CANDIDATE_VERSION}-candidate.zip"
+          TAR="v2ex-clone-${CANDIDATE_VERSION}-candidate-image.tar"
+          test -f "$ZIP" || { echo "::error::缺少候选 ZIP"; exit 1; }
+          test -f "$TAR" || { echo "::error::缺少候选镜像 tar"; exit 1; }
+
+          # ZIP 内的 deploy/VERSION 必须与源码一致（不能只改文件名冒充版本）
+          rm -rf /tmp/zipcheck && mkdir -p /tmp/zipcheck
+          unzip -q "$ZIP" -d /tmp/zipcheck
+          ZDIR="/tmp/zipcheck/deploy"
+          [ -d "$ZDIR" ] || ZDIR="/tmp/zipcheck"
+          ZV="$(tr -d ' \r\n' < "$ZDIR/VERSION")"
+          echo "  ZIP 内 VERSION = $ZV ；源码 = ${CANDIDATE_VERSION#v}"
+          [ "$ZV" = "${CANDIDATE_VERSION#v}" ] || {
+            echo "::error::ZIP 内版本 $ZV 与源码 ${CANDIDATE_VERSION#v} 不一致"; exit 1; }
+
+          # 候选包必须指向候选镜像标签（而不是尚不存在的远端标签）
+          grep -q "v2ex-clone-candidate:${CANDIDATE_VERSION}" "$ZDIR/docker-compose.yml" || {
+            echo "::error::候选包未指向候选镜像标签"; exit 1; }
+
+          # 镜像 tar 里的镜像标签也必须一致
+          echo "--- 镜像 tar 清单（前 5 行）---"
+          tar -tf "$TAR" 2>/dev/null | head -5 || true
+          echo "✓ ZIP / 镜像 / 源码 三处版本一致"
+
+      - name: 隔离安装候选包并保留环境（--keep）
+        id: install
+        run: |
+          set -euo pipefail
+          PROJ="v2ex-cand-acc-${{ github.run_id }}"
+          echo "CANDIDATE_PROJECT=${PROJ}" >> "$GITHUB_ENV"
+          bash scripts/release/verify-candidate-install.sh \
+            --out candidate-out \
+            --project-name "$PROJ" \
+            --port "${APP_PORT}" \
+            --keep
+          WORK_DIR="${PWD}/candidate-out/.verify-${PROJ}"
+          echo "CANDIDATE_WORK=${WORK_DIR}" >> "$GITHUB_ENV"
+          test -f "${WORK_DIR}/deploy/docker-compose.yml" || {
+            echo "::error::--keep 未保留环境（找不到 ${WORK_DIR}/deploy/docker-compose.yml）"; exit 1; }
+          echo "✓ 候选环境保留在 ${WORK_DIR}"
+
+      - name: 四角色真实用户验收（复用已发布包同一套断言）
+        run: |
+          set -euo pipefail
+          mkdir -p acceptance-out
+          APP_URL="http://localhost:${APP_PORT}" \
+          COMPOSE_FILE="${CANDIDATE_WORK}/deploy/docker-compose.yml" \
+          ENV_FILE="${CANDIDATE_WORK}/deploy/.env" \
+          COMPOSE_PROJECT_NAME="${CANDIDATE_PROJECT}" \
+          ARTIFACT_DIR="${PWD}/acceptance-out" \
+          BROWSER_CHANNEL="${BROWSER_CHANNEL}" \
+          node scripts/release/acceptance-official.mjs 2>&1 | tee acceptance-out/acceptance.log
+
+      - name: 备份 → 恢复 → 重启持久化（候选环境）
+        run: |
+          set -euo pipefail
+          cd "${CANDIDATE_WORK}/deploy"
+          # ⚠️ `backup.sh` / `restore.sh` 内部只写 `docker compose`，
+          #    不带 `-p`。在候选环境里必须用 `COMPOSE_PROJECT_NAME` 告诉
+          #    compose 该操作**哪个项目** —— 否则它会按默认项目名去找容器，
+          #    要么找不到、要么命中另一个安装的容器（读到别人的库）。
+          #    这不是空想：本 compose 写死了 `container_name`（v0.0.14 记录），
+          #    项目名与容器名的耦合关系更容易让人误判。
+          export COMPOSE_PROJECT_NAME="${CANDIDATE_PROJECT}"
+          echo "  compose 项目：${COMPOSE_PROJECT_NAME}"
+          echo "--- 当前数据量 ---"
+          docker compose -p "${CANDIDATE_PROJECT}" exec -T postgres \
+            psql -U v2ex -d v2ex -t -A -c \
+            "select 'users='||count(*) from users; select 'topics='||count(*) from topics; select 'replies='||count(*) from replies;" \
+            | tee /tmp/before.txt
+
+          echo "--- 执行备份 ---"
+          bash backup.sh 2>&1 | tail -8
+          BK="$(ls -t backups/*.sql.gz 2>/dev/null | head -1 || true)"
+          [ -n "$BK" ] || { echo "::error::备份未产出文件"; exit 1; }
+          echo "  备份文件：$BK（$(stat -c%s "$BK") 字节）"
+
+          echo "--- 破坏性变更（仅隔离环境）：删掉一条回复 ---"
+          docker compose -p "${CANDIDATE_PROJECT}" exec -T postgres \
+            psql -U v2ex -d v2ex -c \
+            "delete from replies where id = (select max(id) from replies);" >/dev/null
+
+          echo "--- 从备份恢复 ---"
+          bash restore.sh "$BK" 2>&1 | tail -8
+
+          echo "--- 恢复后比对数据量 ---"
+          docker compose -p "${CANDIDATE_PROJECT}" exec -T postgres \
+            psql -U v2ex -d v2ex -t -A -c \
+            "select 'users='||count(*) from users; select 'topics='||count(*) from topics; select 'replies='||count(*) from replies;" \
+            > /tmp/after.txt
+          cat /tmp/after.txt
+          if ! diff -u /tmp/before.txt /tmp/after.txt; then
+            echo "::error::备份恢复后数据量与恢复前不一致"
+            exit 1
+          fi
+          echo "✓ 备份恢复后业务数据量一致"
+
+          echo "--- 重启后持久化 ---"
+          docker compose -p "${CANDIDATE_PROJECT}" restart >/dev/null 2>&1 || true
+          sleep 12
+          for i in $(seq 1 20); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${APP_PORT}/" || echo 000)"
+            if [ "$code" = "200" ]; then break; fi
+            sleep 3
+          done
+          [ "$code" = "200" ] || { echo "::error::重启后首页不可访问（HTTP $code）"; exit 1; }
+          docker compose -p "${CANDIDATE_PROJECT}" exec -T postgres \
+            psql -U v2ex -d v2ex -t -A -c \
+            "select 'users='||count(*) from users; select 'topics='||count(*) from topics; select 'replies='||count(*) from replies;" \
+            > /tmp/restart.txt
+          cat /tmp/restart.txt
+          if ! diff -u /tmp/after.txt /tmp/restart.txt; then
+            echo "::error::重启后数据量发生变化"
+            exit 1
+          fi
+          echo "✓ 重启后数据未丢失"
+
+      - name: 汇总（区分三种状态）
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "## 候选包四角色验收 · ${CANDIDATE_VERSION}"
+            echo ""
+            echo "- 源码 SHA：\`${CANDIDATE_SHA}\`"
+            echo "- 安装来源：**候选产物**（构建自上述 SHA，非 GitHub Release）"
+            echo "- 镜像：\`v2ex-clone-candidate:${CANDIDATE_VERSION}\`（**未推送 GHCR**）"
+            echo ""
+            if [ -f acceptance-out/results.tsv ]; then
+              echo "| 检查项 | 结果 | 真实值 |"
+              echo "|---|---|---|"
+              awk -F'\t' 'NR>1 {printf "| %s | %s | %s |\n", $1, $2, $3}' acceptance-out/results.tsv
+              echo ""
+              P=$(awk -F'\t' 'NR>1 && $2=="PASS"' acceptance-out/results.tsv | wc -l)
+              F=$(awk -F'\t' 'NR>1 && $2=="FAIL"' acceptance-out/results.tsv | wc -l)
+              echo "**汇总：$P PASS / $F FAIL**"
+            else
+              echo "（未产出 results.tsv —— 验收可能在早期失败）"
+            fi
+            echo ""
+            echo "---"
+            echo "  · 候选构建成功     ：✅"
+            echo "  · 候选环境安装成功 ：见上方安装与验收步骤"
+            echo "  · **正式公开发布成功**：⬜ 本工作流**不涉及**（需 Tag + GHCR + Release + 单独授权）"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传证据与候选产物
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: candidate-acceptance-${{ github.run_id }}
+          path: |
+            candidate-out/
+            acceptance-out/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: 清理候选环境（不触碰其它 compose 项目）
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -n "${CANDIDATE_WORK:-}" ] && [ -f "${CANDIDATE_WORK}/deploy/docker-compose.yml" ]; then
+            cd "${CANDIDATE_WORK}/deploy"
+            docker compose -p "${CANDIDATE_PROJECT}" down -v >/dev/null 2>&1 || true
+            echo "已清理候选项目 ${CANDIDATE_PROJECT}"
+          else
+            echo "无候选环境需要清理"
+          fi
