@@ -126,6 +126,18 @@ jobs:
           node --version
           npm ci --no-audit --no-fund
 
+      - name: 准备真实浏览器（四角色验收需要）
+        run: |
+          set -euo pipefail
+          # ⚠️ 必须显式装浏览器。
+          #    第一次真实运行（run 44330058285）就是死在这里：
+          #      browserType.launch: Executable doesn't exist at
+          #      /home/runner/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome
+          #    而 npm ci **不会**自动下载浏览器二进制（那是独立的 CLI 步骤）。
+          #    这类失败信息很直白，但如果只在报告里写「验收失败」，
+          #    读的人会以为产品坏了 —— 所以必须把「缺什么」写在这里。
+          npx playwright install --with-deps chromium
+
       - name: 构建候选产物（镜像 save + 部署 ZIP，**不推送**）
         id: build
         run: |

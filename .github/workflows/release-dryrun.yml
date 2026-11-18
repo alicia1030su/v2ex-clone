@@ -406,7 +406,19 @@ jobs:
         run: |
           set -euo pipefail
           # 用本次预演的目标版本：它**不该**已经发布。
-          TARGET="${INPUT_VERSION:-v0.0.15}"
+          #
+          # ⚠️ 兜底值**必须从源码载体读**，不能写死一个版本号。
+          #    这里原先写 `v0.0.15` —— 而 v0.0.15 已经发布过，
+          #    于是 sync 到 0.0.16 之后这条负向对照必然判红：
+          #      ##[error]期望决策为 "create"，实际为 "refuse"
+          #    这不是产品问题，是「把会变的事实硬编码进了判据」。
+          #    与本仓 V15-10（升级脚本硬编码基线迁移数）同一类。
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            TARGET="$INPUT_VERSION"
+          else
+            TARGET="v$(tr -d ' \r\n' < deploy/VERSION)"
+          fi
+          echo "  目标版本（源码载体）：$TARGET"
           node scripts/release/release-decision.mjs --repo "$REPO" \
             --version "$TARGET" --expect create
 
