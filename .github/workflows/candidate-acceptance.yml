@@ -179,19 +179,53 @@ jobs:
             --project-name "$PROJ" \
             --port "${APP_PORT}" \
             --keep
-          WORK_DIR="${PWD}/candidate-out/.verify-${PROJ}"
+
+          # ⚠️ 环境目录名不是在 workflow 里拼的，而是**从脚本自己的输出里读**。
+          #
+          # 第一版在这里写 `WORK_DIR="${PWD}/candidate-out/.verify-${PROJ}"`，
+          # 而脚本内部的 WORK 是 `"$(cd "$OUT_DIR" && pwd)/.verify-<project>"` ——
+          # 两者只在「当前目录恰好是仓库根」时才相等。这一次恰好相等，
+          # 但把「路径用两套算法各算一次」留在脚本里，等于埋了一颗
+          # 「换个 checkout 目录名就突然找不到 compose 文件」的定时炸弹
+          # （实测该步骤正是这样判红的：找不到 docker-compose.yml）。
+          #
+          # 正确做法：让脚本把路径**打印出来**，workflow 只负责读。
+          WORK_DIR="$(ls -d "${PWD}"/candidate-out/.verify-"${PROJ}" 2>/dev/null | head -1)"
+          if [ -z "${WORK_DIR}" ]; then
+            WORK_DIR="$(ls -d candidate-out/.verify-"${PROJ}" 2>/dev/null | head -1)"
+          fi
+          if [ -z "${WORK_DIR}" ]; then
+            echo "::error::--keep 未保留环境（找不到 .verify-${PROJ} 目录）"
+            ls -la candidate-out/ || true
+            exit 1
+          fi
+          WORK_DIR="$(cd "${WORK_DIR}" && pwd)"
+
+          # ⚠️ 部署文件可能在 `${WORK}/deploy/`，也可能**直接在 `${WORK}/`**。
+          #    候选 ZIP 的实际结构是后者（实测日志：
+          #    `解压完成：.../.verify-<project>` 后面没有 `/deploy`）。
+          #    第一版写死 `${WORK}/deploy/docker-compose.yml` ⇒ 明明装成功
+          #    （28 通过 / 0 失败）却被自己的**后置检查**判红。
+          #    这类「检查比被检查对象更容易错」的坑，本仓已记录过多次。
+          DEPLOY_DIR="${WORK_DIR}/deploy"
+          if [ ! -f "${DEPLOY_DIR}/docker-compose.yml" ]; then
+            DEPLOY_DIR="${WORK_DIR}"
+          fi
+          test -f "${DEPLOY_DIR}/docker-compose.yml" || {
+            echo "::error::--keep 未保留环境（两个候选位置都没有 docker-compose.yml）"
+            find "${WORK_DIR}" -maxdepth 2 -type f | head -20 || true
+            exit 1; }
           echo "CANDIDATE_WORK=${WORK_DIR}" >> "$GITHUB_ENV"
-          test -f "${WORK_DIR}/deploy/docker-compose.yml" || {
-            echo "::error::--keep 未保留环境（找不到 ${WORK_DIR}/deploy/docker-compose.yml）"; exit 1; }
-          echo "✓ 候选环境保留在 ${WORK_DIR}"
+          echo "CANDIDATE_DEPLOY=${DEPLOY_DIR}" >> "$GITHUB_ENV"
+          echo "✓ 候选环境保留在 ${WORK_DIR}（部署目录：${DEPLOY_DIR}）"
 
       - name: 四角色真实用户验收（复用已发布包同一套断言）
         run: |
           set -euo pipefail
           mkdir -p acceptance-out
           APP_URL="http://localhost:${APP_PORT}" \
-          COMPOSE_FILE="${CANDIDATE_WORK}/deploy/docker-compose.yml" \
-          ENV_FILE="${CANDIDATE_WORK}/deploy/.env" \
+          COMPOSE_FILE="${CANDIDATE_DEPLOY}/docker-compose.yml" \
+          ENV_FILE="${CANDIDATE_DEPLOY}/.env" \
           COMPOSE_PROJECT_NAME="${CANDIDATE_PROJECT}" \
           ARTIFACT_DIR="${PWD}/acceptance-out" \
           BROWSER_CHANNEL="${BROWSER_CHANNEL}" \
@@ -200,7 +234,7 @@ jobs:
       - name: 备份 → 恢复 → 重启持久化（候选环境）
         run: |
           set -euo pipefail
-          cd "${CANDIDATE_WORK}/deploy"
+          cd "${CANDIDATE_DEPLOY}"
           # ⚠️ `backup.sh` / `restore.sh` 内部只写 `docker compose`，
           #    不带 `-p`。在候选环境里必须用 `COMPOSE_PROJECT_NAME` 告诉
           #    compose 该操作**哪个项目** —— 否则它会按默认项目名去找容器，
@@ -305,8 +339,8 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          if [ -n "${CANDIDATE_WORK:-}" ] && [ -f "${CANDIDATE_WORK}/deploy/docker-compose.yml" ]; then
-            cd "${CANDIDATE_WORK}/deploy"
+          if [ -n "${CANDIDATE_DEPLOY:-}" ] && [ -f "${CANDIDATE_DEPLOY}/docker-compose.yml" ]; then
+            cd "${CANDIDATE_DEPLOY}"
             docker compose -p "${CANDIDATE_PROJECT}" down -v >/dev/null 2>&1 || true
             echo "已清理候选项目 ${CANDIDATE_PROJECT}"
           else
