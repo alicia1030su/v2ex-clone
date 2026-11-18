@@ -158,6 +158,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.16：必须取**完整历史 + tags**。
+          #
+          # 本 job 里的「双基线升级验证」要用 `git archive v0.0.4` /
+          # `git archive v0.0.15` 把**历史迁移集**取出来当基线库。
+          # 默认 `fetch-depth: 1` 是浅克隆、且**不取 tag** ⇒ 那两条命令会报
+          #   fatal: Not a valid object name: v0.0.4
+          # 而报错位置在 `set -euo pipefail` 的管道里，日志里只剩
+          # 「step failed」，看不出是「拿不到 tag」。
+          # 实测：run 44340574886 的该步骤就是这样判红的。
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/setup-node@v7
         with:
@@ -233,6 +245,19 @@ jobs:
           PGPASSWORD: ci-postgres-password-not-real
         run: |
           set -euo pipefail
+
+          # 先证明 tag 真的可见。若 checkout 是浅克隆且未取 tag，
+          # `git archive` 只会给一句 `Not a valid object name`，
+          # 在管道里看不出根因 —— 这里把判据提前并写清修法。
+          for t in v0.0.4 v0.0.15; do
+            if ! git rev-parse --verify --quiet "refs/tags/$t" >/dev/null; then
+              echo "::error::取不到 tag $t —— checkout 必须是 fetch-depth: 0 + fetch-tags: true"
+              git tag -l | tail -5 || true
+              exit 1
+            fi
+          done
+          echo "  ✓ 两个基线 tag 均可解析"
+
           rm -rf /tmp/mig-v004 /tmp/mig-v015
           mkdir -p /tmp/mig-v004 /tmp/mig-v015
           git archive v0.0.4 drizzle | tar -x -C /tmp/mig-v004 --strip-components=1
