@@ -349,7 +349,7 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 | 项 | 值 |
 |---|---|
 | **代码冻结 SHA（候选产物来源）** | **`4bbf75e61d2e7af61e2b2b966dbc279ee0dbe432`** |
-| 文档收口提交 | 紧随其后，**仅修改 5 个文档**（`BUG_REGISTER.md` / `CHANGELOG.md` / `RELEASE_GATE.md` / `RISK_REGISTER.md` / 本文件），**未触及任何构建输入** |
+| 文档收口链 | `67282db` → `a65c69a` → `be6a7ee`，**只修改 5 个文档**（`BUG_REGISTER.md` / `CHANGELOG.md` / `RELEASE_GATE.md` / `RISK_REGISTER.md` / 本文件），**未触及任何构建输入** |
 | PR | **#58**（squash 合并到 master，源分支 `release/v0.0.16` 已删除） |
 | 版本载体 | `0.0.16`（`sync-version.mjs --verify` 通过；三处一致：`deploy/VERSION` / `package.json` / `docs/release-facts.json`） |
 | 候选 ZIP | **`v2ex-clone-v0.0.16-candidate.zip`**（**59,383 B**） |
@@ -359,6 +359,8 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 | 候选镜像标签 | `v2ex-clone-candidate:v0.0.16`（**仅 runner 本地，未推送 GHCR**） |
 | 候选验收运行 | **`44351720335`**（master @ `4bbf75e`）—— **30 PASS / 0 FAIL** |
 | 发布预演运行 | **`44351767492`**（master @ `4bbf75e`）—— 全部环节 success（含全部负向对照） |
+| **最终 HEAD** | **`be6a7eec062910b5cebcba14a384ecb32bc29454`**（文档收口末提交；构建输入交集为空 ⇒ 候选产物仍有效） |
+| 最终 HEAD 的门禁 | CI / Docker·Redis / SMTP / 安全审计 / 视觉回归 **全部 success** |
 
 ### 源码树等价性（为什么这份候选产物可以代表最终 master）
 
