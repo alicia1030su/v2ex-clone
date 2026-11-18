@@ -309,6 +309,32 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 
 ---
 
+## 9.5 最终提交与 Go/No-Go（收口时回填）
+
+> 本小节是发行门禁的锚点：**HEAD / 当前测试基线 / 授权边界 / Go-No-Go** 四项
+> 必须在此可查。收口提交后回填真实值，禁止留占位。
+
+| 项 | 值 |
+|---|---|
+| **最终完整 SHA（HEAD）** | `__FINAL_SHA__`（收口时回填） |
+| 版本载体 | `0.0.16`（`sync-version.mjs --verify` 通过） |
+| 候选 ZIP | `__ZIP_NAME__` |
+| 候选 ZIP SHA256 | `__ZIP_SHA__` |
+| 候选镜像 | `v2ex-clone-candidate:v0.0.16`（本地构建，**未推送 GHCR**） |
+
+### Go/No-Go 判断
+
+| 维度 | 结论 |
+|---|---|
+| 代码冻结 | __FREEZE__ |
+| 版本载体一致 | __CARRIER__ |
+| 候选包真实安装 | __CANDIDATE__ |
+| 升级与备份恢复 | __UPGRADE__ |
+| 发行流水线预演 | __REHEARSAL__ |
+| **综合 Go/No-Go** | __GONOGO__ |
+
+---
+
 ## 10. 未完成 / 明确不做的
 
 | 项 | 状态 |
