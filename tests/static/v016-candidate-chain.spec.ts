@@ -72,20 +72,27 @@ function stripComments(src: string): string {
  * 这正是本仓 V15-06 记录过的错：**反向断言必须先剥掉不该算数的部分**。
  * 判据必须落在「验收步骤」这一段，而不是整份文件。
  */
-function acceptanceStepBlock(src: string): string {
-  /*
-   * ⚠️ 必须锚在**步骤标记**（`- name:`）上，不能只搜中文标题。
-   * 第一版用 `indexOf('四角色真实用户验收')`，结果命中的是**job 名**
-   * （`name: 候选包 · 隔离安装 + 四角色真实用户验收`）⇒ 切出来的是 job 头
-   * 到第一个步骤之间的空段 ⇒ 两条判据同时假红。
-   * 这是「字符串在文件里出现两次、你锚了错的那一次」的典型。
-   */
-  const marker = '- name: 四角色真实用户验收';
+/**
+ * 取某个 step 的正文（按 `- name:` 步骤标记切块）。
+ *
+ * ⚠️ 必须锚在**步骤标记**上，不能只搜中文标题。
+ * 第一版用 `indexOf('四角色真实用户验收')`，结果命中的是 **job 名**
+ * （`name: 候选包 · 隔离安装 + 四角色真实用户验收`）⇒ 切出来的是 job 头
+ * 到第一个步骤之间的空段 ⇒ 两条判据同时假红。
+ * 这是「字符串在文件里出现两次、你锚了错的那一次」的典型。
+ */
+function stepBlock(src: string, name: string): string {
+  const marker = `- name: ${name}`;
   const i = src.indexOf(marker);
   if (i < 0) return '';
   const rest = src.slice(i);
   const next = rest.indexOf('\n      - name:', 1);
   return next < 0 ? rest : rest.slice(0, next);
+}
+
+/** 四角色验收那一步 */
+function acceptanceStepBlock(src: string): string {
+  return stepBlock(src, '四角色真实用户验收');
 }
 
 const RAW = existsSync(path.join(ROOT, WF)) ? read(WF) : '';
@@ -195,6 +202,35 @@ describe('v0.0.16 候选包四角色验收：链路结构', () => {
     expect(SRC, '缺少端口默认值兜底（P=3409）').toMatch(/P=3409/);
     expect(SRC, '缺少 APP_PORT 注入 GITHUB_ENV').toContain('APP_PORT=${P}');
     expect(SRC, '缺少空值判断').toMatch(/\[\s*-n\s+"\$P"\s*\]/);
+  });
+
+  it('恢复脚本必须被喂入确认输入，且不得截断失败输出', () => {
+    /*
+     * `restore.sh` 开头有交互式确认（`read -r reply`）。CI 非交互 ⇒ 读到 EOF
+     * ⇒ 回落到 N ⇒ `die "已取消。"` ⇒ 退出码 1。
+     * 实测 run 44334123573 就是这样判红的，且因为用了 `| tail -8`，
+     * 真实的「已取消」被截掉，日志里只剩一句 exit code 1 ——
+     * 看起来像「恢复功能坏了」。
+     */
+    const block = stepBlock(SRC, '备份 → 恢复 → 重启持久化');
+    expect(block, '找不到备份恢复步骤 —— 结构已变，本用例需重写').not.toBe('');
+    const restoreLine = block
+      .split('\n')
+      .find((l) => l.includes('restore.sh')) ?? '';
+    expect(restoreLine, '找不到调用 restore.sh 的行').not.toBe('');
+    /*
+     * ⚠️ 正则要匹配**字面**的反斜杠 + n（源码里就是 `printf 'y\n'`），
+     * 不是真的换行。写成 `/printf\s+'y\n'/` 会去找换行符 ⇒ 恒假。
+     * （这类「转义层级数错一层」的错误，本仓已出现过多次。）
+     */
+    expect(
+      restoreLine.includes("printf 'y") || /echo\s+y\s*\|/.test(restoreLine),
+      'restore.sh 必须被显式喂入 y —— 它有交互式确认，CI 里没人回答就会取消',
+    ).toBe(true);
+    expect(
+      /restore\.sh[^\n]*\|\s*tail/.test(restoreLine),
+      '恢复输出不得用 `| tail` 截断 —— 那会把「已取消」这类真实原因吞掉',
+    ).toBe(false);
   });
 
   it('清理只针对本次候选项目，不含全局 down -v', () => {

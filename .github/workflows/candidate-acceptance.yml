@@ -273,7 +273,21 @@ jobs:
             "delete from replies where id = (select max(id) from replies);" >/dev/null
 
           echo "--- 从备份恢复 ---"
-          bash restore.sh "$BK" 2>&1 | tail -8
+          # ⚠️ `restore.sh` 是**面向人工**的脚本，开头有交互式确认：
+          #      printf '该操作会覆盖现有数据。确认继续？[y/N] '
+          #      read -r reply
+          #    在 CI 的非交互 shell 里 `read` 立刻读到 EOF ⇒ 回落到 N
+          #    ⇒ `die "已取消。"` ⇒ 退出码 1。
+          #
+          #    第一次真实运行（run 44334123573）就是死在这里，
+          #    而由于上一行用了 `| tail -8`，真实的取消信息被截掉了，
+          #    日志里只剩一句 `Process completed with exit code 1` ——
+          #    看起来像「恢复功能坏了」，实际是「没有人回答确认」。
+          #
+          #    修法：显式喂 `y`（这是**测试替人回答**，不是绕过校验；
+          #    脚本的核心保障 —— gzip 校验、SHA256 核对、非空检查 —— 全部照常执行）。
+          #    同时**不再截断输出**：`tail` 会吞掉失败原因，那正是上一轮踩的坑。
+          printf 'y\n' | bash restore.sh "$BK"
 
           echo "--- 恢复后比对数据量 ---"
           docker compose -p "${CANDIDATE_PROJECT}" exec -T postgres \
