@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.15 — 备份脚本
+# V2EX Clone v0.0.16 — 备份脚本
 #
 # 用法：./backup.sh
 #
@@ -49,6 +49,25 @@ mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR" 2>/dev/null || true
 
 # --- 1. 数据库逻辑备份 -----------------------------------------------------
+#
+# ⚠️ v0.0.16：`pg_dump` **必须带 `--clean --if-exists`**。
+#
+# 这是一处**会让人在灾难恢复时才发现**的缺陷（V16-11）：
+# 不带 `--clean` 时，dump 里只有 `CREATE TABLE` / `CREATE SCHEMA`，
+# 而恢复的目标库**本来就有这些对象** ⇒ 恢复时报
+#
+#     ERROR:  schema "drizzle" already exists
+#     ERROR:  current transaction is aborted, commands ignored until end of transaction block
+#
+# 后果取决于 `psql` 参数（见 restore.sh）：若是 `--single-transaction`
+# 且**没有** `ON_ERROR_STOP`，psql 会一路报错、最后仍然退出 0 ⇒
+# 脚本打印「恢复完成」，**而数据一条都没回来**。
+# 实测（候选验收 run 44336440087）：删掉 1 条回复后恢复，
+# `replies=35 → 34`，数据没恢复，脚本却判定成功。
+#
+# 带 `--clean --if-exists` 后，dump 先 `DROP ... IF EXISTS` 再 `CREATE`，
+# 恢复到**已有的**库上才是真正可用的 —— 这也符合「备份就是为了覆盖式恢复」。
+
 DB_FILE="$BACKUP_DIR/v2ex-${TIMESTAMP}.sql.gz"
 info "备份 PostgreSQL 数据库（${POSTGRES_USER}@${POSTGRES_DB}）..."
 
@@ -57,6 +76,7 @@ if docker compose exec -T postgres pg_dump \
       --username="$POSTGRES_USER" \
       --dbname="$POSTGRES_DB" \
       --no-owner --no-acl \
+      --clean --if-exists \
     | gzip -9 > "$DB_FILE"; then
   ok "数据库备份完成：${DB_FILE}"
 else

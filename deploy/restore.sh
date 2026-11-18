@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.15 — 恢复脚本
+# V2EX Clone v0.0.16 — 恢复脚本
 #
 # 用法：
 #   ./restore.sh                                  # 恢复最新一次备份
@@ -111,13 +111,31 @@ if [ "$DUMP_HAS_HEADER" != "1" ]; then
 fi
 ok "备份完整性校验通过（解压后 ${DECOMPRESSED_BYTES} 字节）"
 
-# psql 默认在事务中执行，单条 --single-transaction 保证要么全成功要么全回滚。
+# ⚠️ v0.0.16：必须带 `-v ON_ERROR_STOP=1`（V16-11 的第二半）。
+#
+# `--single-transaction` 只保证「全部成功或全部回滚」，它**不**让 psql 因
+# 单条语句失败而中止。实测（候选验收 run 44336440087）：
+#
+#     ERROR:  schema "drizzle" already exists
+#     ERROR:  current transaction is aborted, commands ignored until end of transaction block
+#     …（后续所有语句都被跳过）
+#     [成功] 恢复完成                       ← **退出码 0**
+#
+# 也就是说：**报了一堆错，脚本却说成功，数据一条没回来**。
+# 这是比「报错并失败」危险得多的形态 —— 它会让运维以为恢复可用。
+#
+# 有了 `ON_ERROR_STOP=1` 后，第一条错误就会中止 psql 并返回非零，
+# 脚本走 `die` 分支，不会出现「假成功」。
+#
+# 另外备份侧已改为 `pg_dump --clean --if-exists`（见 backup.sh），
+# 两者合起来：dump 会先 DROP 再 CREATE，恢复到一个**已有对象**的库上才成立。
 if gzip -dc "$DUMP_FILE" \
     | docker compose exec -T postgres psql \
         --username="$POSTGRES_USER" \
         --dbname="$POSTGRES_DB" \
         --single-transaction \
-        --quiet; then
+        --quiet \
+        -v ON_ERROR_STOP=1; then
   ok "恢复完成"
   printf '\n'
   info "重启应用以加载恢复后的数据：./start.sh"

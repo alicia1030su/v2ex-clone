@@ -610,9 +610,26 @@ function runNotes() {
   } else {
     bad(publishable.why);
   }
+  /*
+   * ⚠️ 注入靶子必须锚**结构**，不能锚具体文案。
+   *
+   * 历史：这里原先写 `replace('### A.', ...)` —— 靶子是早期 CHANGELOG 的
+   * 小标题「### A.」。后来本仓的 CHANGELOG 改用中文小标题
+   * （`### 修掉的真实现象…` / `### 性能…`），`replace` 找不到目标
+   * ⇒ 返回原串（**空操作**）⇒ 输入根本没被破坏 ⇒ 判据照常通过
+   * ⇒ 对照报「输入已破坏，判据却仍判通过 —— 该判据是假绿」。
+   *
+   * 报出来的是**错误结论**：判据本身是好的，坏的是对照没真正注入。
+   * 这与 V15-12 / V13-17 完全同类 —— 负向对照必须锚在**结构位置**上，
+   * 且必须先确认「注入真的改变了输入」，否则它只会制造噪音。
+   */
   negativeControl(
     '在段落正文里注入「当前实际公开版本」',
-    () => extracted.section.replace('### A.', '当前实际公开版本：v0.0.1\n\n### A.'),
+    () => {
+      const firstHeading = extracted.section.search(/^#{2,4}\s/m);
+      const at = firstHeading < 0 ? 0 : firstHeading;
+      return `${extracted.section.slice(0, at)}当前实际公开版本：v0.0.1\n\n${extracted.section.slice(at)}`;
+    },
     (s) => notesSectionIsPublishable(s),
   );
 

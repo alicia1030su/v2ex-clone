@@ -158,6 +158,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # ⚠️ v0.0.16：必须取**完整历史 + tags**。
+          #
+          # 本 job 里的「双基线升级验证」要用 `git archive v0.0.4` /
+          # `git archive v0.0.15` 把**历史迁移集**取出来当基线库。
+          # 默认 `fetch-depth: 1` 是浅克隆、且**不取 tag** ⇒ 那两条命令会报
+          #   fatal: Not a valid object name: v0.0.4
+          # 而报错位置在 `set -euo pipefail` 的管道里，日志里只剩
+          # 「step failed」，看不出是「拿不到 tag」。
+          # 实测：run 44340574886 的该步骤就是这样判红的。
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/setup-node@v7
         with:
@@ -214,6 +226,47 @@ jobs:
           set -o pipefail
           bash scripts/release/verify-upgrade-v008.sh 2>&1 | tee /tmp/v008-upgrade.log
 
+      - name: 双基线升级验证（v0.0.4 → v0.0.16 与 v0.0.15 → v0.0.16）
+        # v0.0.16 新增。与上一条（v008 脚本）的分工：
+        #   · v008：单基线 + 迁移幂等，覆盖「结构变更」路径；
+        #   · 本条：**双基线**（最早的 v0.0.4 与上一版的 v0.0.15），
+        #     覆盖「从很远的老版本升上来」与「从上一版升上来」两种真实场景，
+        #     并做备份 → 恢复到**独立库** → 指纹比对（回滚路径）。
+        #
+        # 版本依据：v0.0.16 **没有新增迁移**（drizzle/ 仍是 5 个 SQL），
+        # 因此本项证明的是「数据在升级过程中不被破坏、迁移可安全重放」，
+        # **不**证明「本版引入了需要升级的新结构」—— 结论不得过度解读。
+        #
+        # ⚠️ 基线迁移集从 **tag** 里导出，不是用当前工作区复制一份冒充。
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: v2ex
+          PGPASSWORD: ci-postgres-password-not-real
+        run: |
+          set -euo pipefail
+
+          # 先证明 tag 真的可见。若 checkout 是浅克隆且未取 tag，
+          # `git archive` 只会给一句 `Not a valid object name`，
+          # 在管道里看不出根因 —— 这里把判据提前并写清修法。
+          for t in v0.0.4 v0.0.15; do
+            if ! git rev-parse --verify --quiet "refs/tags/$t" >/dev/null; then
+              echo "::error::取不到 tag $t —— checkout 必须是 fetch-depth: 0 + fetch-tags: true"
+              git tag -l | tail -5 || true
+              exit 1
+            fi
+          done
+          echo "  ✓ 两个基线 tag 均可解析"
+
+          rm -rf /tmp/mig-v004 /tmp/mig-v015
+          mkdir -p /tmp/mig-v004 /tmp/mig-v015
+          git archive v0.0.4 drizzle | tar -x -C /tmp/mig-v004 --strip-components=1
+          git archive v0.0.15 drizzle | tar -x -C /tmp/mig-v015 --strip-components=1
+          echo "  基线迁移文件数：v0.0.4 = $(ls /tmp/mig-v004/*.sql | wc -l)，v0.0.15 = $(ls /tmp/mig-v015/*.sql | wc -l)"
+          bash scripts/release/verify-upgrade-v0016.sh \
+            --v004-migrations /tmp/mig-v004 \
+            --v015-migrations /tmp/mig-v015 2>&1 | tee /tmp/v0016-upgrade.log
+
       - name: 上传升级验证日志
         if: always()
         uses: actions/upload-artifact@v7
@@ -222,6 +275,8 @@ jobs:
           path: |
             /tmp/v008-upgrade.log
             /tmp/v008-migrate*.log
+            /tmp/v0016-upgrade.log
+            /tmp/v0016-migrate*.log
           retention-days: 7
           if-no-files-found: warn
 
