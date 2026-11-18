@@ -296,7 +296,7 @@ SQL
 printf '%s═══ v0.0.16 升级验证（双基线）═══%s\n' "$C_BLD" "$C_RST"
 printf '  PG: %s:%s\n' "$PGHOST" "$PGPORT"
 printf '  v0.0.4 迁移集: %s\n' "$V004_MIG"
-printf '  v0.0.9 迁移集: %s\n' "$V015_MIG"
+printf '  v0.0.15 迁移集: %s\n' "$V015_MIG"
 
 # ── 基线迁移数**从各自的 journal 派生**，不硬编码 ─────────────────────
 #
