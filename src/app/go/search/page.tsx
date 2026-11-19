@@ -72,7 +72,19 @@ export default async function SearchPage({
             ),
           ),
         )
-        .orderBy(desc(schema.topics.lastReplyAt))
+        /*
+         * ⚠️ v0.0.17 P1-1：**必须带 id 兜底**，否则分页会重/漏。
+         *
+         * 只按 `lastReplyAt DESC` 排序时，并列（同一秒回复、或都没回复）
+         * 的行在 PostgreSQL 里**顺序不确定**——同一份数据两次同参数查询，
+         * 第 1 页与第 2 页之间可能出现同一行（重复）或漏掉一行。
+         * 这不是理论问题：`OFFSET/LIMIT` 分页在非确定性排序下必然出现，
+         * 且**只在数据量超过一页时**才会暴露（种子数据下看不出来）。
+         *
+         * 加上 `id DESC` 后，排序键 `(lastReplyAt, id)` 唯一 ⇒ 顺序稳定。
+         * 总序仍然是「按最后回复时间倒序」，用户观感不变。
+         */
+        .orderBy(desc(schema.topics.lastReplyAt), desc(schema.topics.id))
         .limit(TOPICS_PER_PAGE)
         .offset((page - 1) * TOPICS_PER_PAGE)
     : [];
@@ -99,7 +111,14 @@ export default async function SearchPage({
   // 节点与会员匹配
   // v0.0.14 P0-1：节点匹配同样不得列出隐藏 / 待审节点 ——
   // 节点名 + 节点标题本身就是一条泄漏（且指向 404 的死链）。
-  const nodeRows = q
+  //
+  // ⚠️ v0.0.17 P1-1：**只在第 1 页展示**。
+  //    这两组结果原本不带分页，却在每一页都渲染 ⇒ 用户翻到第 5 页
+  //    仍然看到同样 20 个节点、同样 20 个会员，会误以为「结果没有变化」，
+  //    也挤压了主题结果的可视区域。搜索的**主体结果是主题**，
+  //    节点/会员属于「相关入口」，放在首页一次即可。
+  const showSideMatches = q.length > 0 && page === 1;
+  const nodeRows = showSideMatches
     ? await db
         .select()
         .from(schema.nodes)
@@ -112,7 +131,7 @@ export default async function SearchPage({
         .limit(20)
     : [];
 
-  const memberRows = q
+  const memberRows = showSideMatches
     ? await db
         .select({ id: schema.users.id, username: schema.users.username, avatar: schema.users.avatar })
         .from(schema.users)

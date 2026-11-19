@@ -321,6 +321,22 @@ jobs:
           fi
           echo "✓ 重启后数据未丢失"
 
+      - name: 恢复失败**原子性**验证（P0-2：失败后数据库必须一点没变）
+        run: |
+          set -euo pipefail
+          # 上一步验证的是「退出码非零」；这一步验证**更硬的**性质：
+          # 失败之后数据库必须与恢复前**逐字节一致**。
+          #
+          # 两者是不同的：
+          #   · 退出码非零 ⇒ 脚本报告失败
+          #   · 原子性     ⇒ 真的全部回滚，而不是「恢复了前 200 条」
+          # 一个中途失败但已提交部分 INSERT 的恢复，退出码同样非零 ——
+          # 运维会以为「失败了重试即可」，实际库里已是半截数据。
+          bash scripts/release/verify-restore-atomicity.sh \
+            --deploy-dir "${CANDIDATE_DEPLOY}" \
+            --project "${CANDIDATE_PROJECT}" \
+            --port "${APP_PORT}"
+
       - name: 负向：恢复出错必须返回**非零退出码**（不得假成功）
         run: |
           set -euo pipefail

@@ -26,6 +26,8 @@
  * ## 用法
  *
  *   node scripts/release/package-deploy-zip.mjs --version 0.0.10 --out dist/
+ *   node scripts/release/package-deploy-zip.mjs --version 0.0.10 --out out \
+ *        --src /path/to/staged-deploy --name candidate   # 候选包（同一套规则）
  *
  * 退出码非 0 ⇒ 产物不可用于发布。
  */
@@ -56,7 +58,23 @@ const get = (n, d = null) => {
 const ROOT = path.resolve(get('root', process.cwd()));
 const VERSION = get('version');
 const OUT_DIR = path.resolve(get('out', path.join(ROOT, 'dist')));
-const SRC_DIR = get('src', 'deploy');
+/** `--src` 的**原始**形式（相对 / 绝对）—— 决定 ZIP 内条目是否带前缀，见 main() */
+const SRC_ARG = get('src', 'deploy');
+const SRC_DIR = SRC_ARG;
+/**
+ * 产物文件名前缀（v0.0.17 新增）
+ *
+ * 默认 `deploy` ⇒ `v2ex-clone-v<ver>-deploy.zip`（正式发布包）；
+ * 候选构建传 `candidate` ⇒ `v2ex-clone-v<ver>-candidate.zip`。
+ *
+ * ⚠️ 为什么候选包也要走本脚本：v0.0.16 的候选包用 `zip -qr` 打包，
+ * ZIP 里嵌入的是**文件 mtime** ⇒ 同一源码连续构建三次得到三个不同
+ * SHA256（实测 `0b8242b2…` / `b6f76667…` / `5b52c17d…`）。
+ * 那让「候选包是否同一份」无法用哈希判断，只能靠人肉比对。
+ * 现在两者共用**同一套**打包规则（固定时间戳 / 固定顺序 / 固定权限 /
+ * store 模式），候选包也变成可复现的。
+ */
+const NAME_KIND = get('name', 'deploy');
 
 if (!VERSION) {
   console.error('✗ 缺少 --version');
@@ -206,7 +224,19 @@ function walk(dir, base) {
 }
 
 function main() {
-  const srcAbs = path.join(ROOT, SRC_DIR);
+  /*
+   * ⚠️ v0.0.17：`--src` 现在允许**绝对路径**。
+   *
+   * 候选构建把 deploy/ 复制到临时 stage 目录再改写镜像引用，那里传进来的是
+   * 绝对路径。原实现写 `path.join(ROOT, SRC_DIR)` —— 在 POSIX 上
+   * `path.join('/repo', '/tmp/x')` = `/repo/tmp/x`（把绝对路径**接在了后面**），
+   * 于是报「源目录不存在：/repo//tmp/x」。
+   *
+   * 改用 `path.resolve`：绝对路径原样，相对路径相对 ROOT。
+   * 同时把「条目名基准」换成一个显式变量 —— `walk` 的第二个参数是
+   * **ZIP 内的相对前缀**，绝对路径不能直接当它用。
+   */
+  const srcAbs = path.resolve(ROOT, SRC_DIR);
   try {
     statSync(srcAbs);
   } catch {
@@ -215,7 +245,23 @@ function main() {
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
-  const files = walk(srcAbs, SRC_DIR);
+  /*
+   * ZIP 内条目前缀 —— 规则只有两条，避免「源目录在哪」影响产物结构：
+   *
+   *   · `--src` 是**相对路径**（默认 `deploy`）⇒ 前缀 = 该相对路径
+   *     ⇒ 正式包是 `deploy/xxx`，与历史行为逐字节一致；
+   *   · `--src` 是**绝对路径**（候选构建的临时 stage）⇒ 前缀 = 空
+   *     ⇒ 条目**平铺**，`install.sh` 在包根，与 v0.0.16 的候选包结构一致。
+   *
+   * ⚠️ 这里踩过两次，都是「用位置猜意图」：
+   *   ① 用 `path.relative(ROOT, srcAbs)` 判断 ⇒ stage 恰在仓库内时前缀变成
+   *      `candidate-out/.verify-xxx`，解压后多一层，与已有候选包不兼容；
+   *   ② 绝对路径在 Windows 上参与 `path.join(tmp, entryBase)` 时不会被重置，
+   *      拼出 `...zipc-xxx\C:/Users/...` ⇒ `ENOENT`。
+   * 用「是否绝对路径」一个判据，两条规则互斥且可预测。
+   */
+  const entryBase = path.isAbsolute(SRC_ARG) ? '' : SRC_DIR.split(path.sep).join('/');
+  const files = walk(srcAbs, entryBase);
 
   /*
    * ⚠️ v0.0.10：**必须归一化换行为 LF**。
@@ -268,7 +314,7 @@ function main() {
     process.exit(1);
   }
 
-  const zipName = `v2ex-clone-v${VERSION}-deploy.zip`;
+  const zipName = `v2ex-clone-v${VERSION}-${NAME_KIND}.zip`;
   const zipPath = path.join(OUT_DIR, zipName);
 
   writeFileSync(zipPath, buildZip(entries));
@@ -324,7 +370,7 @@ function main() {
     const tmp = mkdtempSync(path.join(tmpdir(), 'v0010-zip-'));
     try {
       execFileSync('unzip', ['-q', zipPath, '-d', tmp]);
-      const exDir = path.join(tmp, SRC_DIR);
+      const exDir = path.join(tmp, entryBase);
       const onDisk = readdirSync(exDir).filter((n) => n.endsWith('.sh'));
       const notExec = onDisk.filter((n) => (statSync(path.join(exDir, n)).mode & 0o111) === 0);
       if (notExec.length) {
@@ -343,7 +389,7 @@ function main() {
   const tmp2 = mkdtempSync(path.join(tmpdir(), 'v0010-zipc-'));
   try {
     execFileSync('unzip', ['-q', zipPath, '-d', tmp2]);
-    const exDir = path.join(tmp2, SRC_DIR);
+    const exDir = path.join(tmp2, entryBase);
 
     const vFile = readFileSync(path.join(exDir, 'VERSION'), 'utf8').trim();
     if (vFile !== VERSION) {

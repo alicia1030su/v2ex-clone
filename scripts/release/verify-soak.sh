@@ -261,9 +261,40 @@ while :; do
   # 每 10 次采样记录一次资源占用
   if [ $((SAMPLES % 10)) -eq 0 ]; then
     MEM_MB=""; CPU_PCT=""
+    # ⚠️ v0.0.17 P0-4：原来的 `ps -o rss= -C node` **测不到任何东西**。
+    #
+    # 实测证据（run 44296152975 的 perf-samples.csv）：
+    #     ts,elapsed_s,mem_mb,cpu_pct,...
+    #     2026-11-18T11:46:04Z,541,0.0,0.0,,,00,4
+    # 每一行都是 0.0 —— 而 `awk` 对**空输入**执行 `printf "%.1f", s/1024`
+    # 时，`s` 为空 ⇒ `0/1024` ⇒ 输出 `0.0`。
+    # 也就是说：**「取不到」被记成了「测到 0」**。
+    #
+    # 这比「没有这项数据」更糟：`峰值内存：0 MB` 看起来像一个结论
+    # （「这服务几乎不占内存」），实际是**采集失败**。
+    #
+    # 两个原因：
+    #   ① `ps -C node` 按**命令名精确匹配** `node`；而实际进程是
+    #      `next-server (v15.5.28)`（v0.0.9 的日志里就出现过这个进程名）
+    #      ⇒ 匹配不到；
+    #   ② 即使匹配到，`awk` 空输入仍输出 `0.0`，把「没有」伪装成「零」。
+    #
+    # 修法：`pgrep -f` 按命令行匹配（不依赖进程名），取不到就**留空**，
+    # 由下游把空值渲染成「未采集」，而不是 0。
     if command -v ps >/dev/null 2>&1; then
-      MEM_MB="$(ps -o rss= -C node 2>/dev/null | awk '{s+=$1} END {printf "%.1f", s/1024}')"
-      CPU_PCT="$(ps -o %cpu= -C node 2>/dev/null | awk '{s+=$1} END {printf "%.1f", s}')"
+      NODE_PIDS="$(pgrep -f 'next-server|next start' 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
+      if [ -z "$NODE_PIDS" ]; then
+        # 退路：按命令行里含 node 的进程匹配（不同版本 next 的进程名不一致）
+        NODE_PIDS="$(ps -eo pid=,comm=,args= 2>/dev/null \
+          | awk '$0 ~ /node|next/ && $0 !~ /awk|grep/ {print $1}' | tr '\n' ',' | sed 's/,$//')"
+      fi
+      if [ -n "$NODE_PIDS" ]; then
+        # ⚠️ 只有**真的取到进程**时才计算；否则留空
+        MEM_MB="$(ps -o rss= -p "$NODE_PIDS" 2>/dev/null \
+          | awk 'NF { s += $1; n++ } END { if (n > 0) printf "%.1f", s/1024 }')"
+        CPU_PCT="$(ps -o %cpu= -p "$NODE_PIDS" 2>/dev/null \
+          | awk 'NF { s += $1; n++ } END { if (n > 0) printf "%.1f", s }')"
+      fi
     fi
     CONN_USED=""; CONN_MAX=""
     if [ -n "$PG_BIN" ]; then
@@ -347,8 +378,17 @@ echo "实际运行时长：${ACTUAL_SECONDS} 秒（${ACTUAL_H} 小时）" >> "${
 echo "累计运行时长：${TOTAL_CUMULATIVE} 秒" >> "${EVIDENCE}/baseline.txt"
 echo "单段最长连续运行：${MAX_SEGMENT_SECONDS_NEW} 秒" >> "${EVIDENCE}/baseline.txt"
 echo "已完成段数（= 实例重建次数）：${SEGMENTS_TOTAL}" >> "${EVIDENCE}/baseline.txt"
-echo "峰值内存：${LONGEST_MEM_MB_NEW} MB" >> "${EVIDENCE}/baseline.txt"
-echo "峰值PG连接：${MAX_CONN_USED_NEW}" >> "${EVIDENCE}/baseline.txt"
+# ⚠️ 未采集时必须写「未采集」，不能写 0 —— 否则读证据的人会当成结论
+if [ -n "${LONGEST_MEM_MB_NEW}" ] && [ "${LONGEST_MEM_MB_NEW}" != "0" ] && [ "${LONGEST_MEM_MB_NEW}" != "0.0" ]; then
+  echo "峰值内存：${LONGEST_MEM_MB_NEW} MB" >> "${EVIDENCE}/baseline.txt"
+else
+  echo "峰值内存：未采集（采集失败不是 0）" >> "${EVIDENCE}/baseline.txt"
+fi
+if [ -n "${MAX_CONN_USED_NEW}" ] && [ "${MAX_CONN_USED_NEW}" != "0" ]; then
+  echo "峰值PG连接：${MAX_CONN_USED_NEW}" >> "${EVIDENCE}/baseline.txt"
+else
+  echo "峰值PG连接：未采集（未提供 --pg-bin 或采集失败，不是 0）" >> "${EVIDENCE}/baseline.txt"
+fi
 echo "samples=${TOTAL_SAMPLES}" >> "${EVIDENCE}/baseline.txt"
 echo "health_fails=${TOTAL_HEALTH_FAILS}" >> "${EVIDENCE}/baseline.txt"
 echo "ready_fails=${TOTAL_READY_FAILS}" >> "${EVIDENCE}/baseline.txt"
