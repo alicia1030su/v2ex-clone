@@ -321,6 +321,46 @@ jobs:
           fi
           echo "✓ 重启后数据未丢失"
 
+      - name: 负向：恢复出错必须返回**非零退出码**（不得假成功）
+        run: |
+          set -euo pipefail
+          cd "${CANDIDATE_DEPLOY}"
+          export COMPOSE_PROJECT_NAME="${CANDIDATE_PROJECT}"
+
+          echo "--- 用例 ①：截断的 gzip（结构损坏）---"
+          BAD1="/tmp/bad-truncated.sql.gz"
+          gzip -c <<< "SELECT 1;" | head -c 40 > "$BAD1"
+          if printf 'y\n' | bash restore.sh "$BAD1" >/tmp/r1.log 2>&1; then
+            echo "::error::恢复损坏 gzip 竟然返回 0 —— 假成功"
+            tail -5 /tmp/r1.log
+            exit 1
+          fi
+          echo "  ✓ 截断 gzip ⇒ 非零退出（脚本拒绝恢复）"
+          grep -aiE "损坏|拒绝|gzip" /tmp/r1.log | head -2 | sed 's/^/    /' || true
+
+          echo "--- 用例 ②：合法 gzip，但 SQL 会报错 ---"
+          # 这是**关键**用例：gzip 完整、能解压、有 pg_dump 头，
+          # 只是其中一条语句必然失败。若 psql 缺 `-v ON_ERROR_STOP=1`，
+          # 它会一路报错却仍退出 0 ⇒ 脚本打印「恢复完成」⇒ **假成功**。
+          BAD2="/tmp/bad-sql.sql.gz"
+          {
+            printf -- '-- PostgreSQL database dump\n'
+            printf 'SET statement_timeout = 0;\n'
+            printf 'SELECT * FROM table_that_does_not_exist_xyz;\n'
+          } | gzip -c > "$BAD2"
+          if printf 'y\n' | bash restore.sh "$BAD2" >/tmp/r2.log 2>&1; then
+            echo "::error::恢复含错误 SQL 的备份竟然返回 0 —— ON_ERROR_STOP 失效（假成功）"
+            tail -8 /tmp/r2.log
+            exit 1
+          fi
+          echo "  ✓ 含错误 SQL ⇒ 非零退出（ON_ERROR_STOP 生效）"
+          grep -aiE "ERROR|错误|失败|does not exist" /tmp/r2.log | head -2 | sed 's/^/    /' || true
+
+          # 反向自证：两次失败之后，数据库仍可用（失败没有把库写坏）
+          code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${APP_PORT}/" || echo 000)"
+          [ "$code" = "200" ] || { echo "::error::负向用例之后首页不可访问（HTTP $code）"; exit 1; }
+          echo "  ✓ 负向用例之后应用仍正常（HTTP 200）"
+
       - name: 汇总（区分三种状态）
         if: always()
         run: |
