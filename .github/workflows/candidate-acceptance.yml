@@ -328,8 +328,17 @@ jobs:
           export COMPOSE_PROJECT_NAME="${CANDIDATE_PROJECT}"
 
           echo "--- 用例 ①：截断的 gzip（结构损坏）---"
+          #
+          # ⚠️ 必须**按实际大小取一半**，不能写死字节数。
+          #    第一版写 `head -c 40`，而 `gzip -c <<< "SELECT 1;"` 的完整产物
+          #    恰好约 40 字节 ⇒ **根本没有截断** ⇒ gzip 校验通过、恢复成功、
+          #    用例反而判「假成功」。这是**测试构造错误**，不是产品缺陷
+          #    （实测日志：`(1 row)` + `[成功] 恢复完成` —— 它真的执行了 SELECT 1）。
           BAD1="/tmp/bad-truncated.sql.gz"
-          gzip -c <<< "SELECT 1;" | head -c 40 > "$BAD1"
+          gzip -c <<< "SELECT 1; SELECT generate_series(1, 5000);" > /tmp/full1.sql.gz
+          FULL_SIZE="$(stat -c%s /tmp/full1.sql.gz)"
+          head -c "$((FULL_SIZE / 2))" /tmp/full1.sql.gz > "$BAD1"
+          echo "    完整 ${FULL_SIZE} 字节 → 截断为 $(stat -c%s "$BAD1") 字节"
           if printf 'y\n' | bash restore.sh "$BAD1" >/tmp/r1.log 2>&1; then
             echo "::error::恢复损坏 gzip 竟然返回 0 —— 假成功"
             tail -5 /tmp/r1.log
