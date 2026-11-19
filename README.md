@@ -38,9 +38,9 @@
 
 ---
 
-## 当前版本状态（v0.0.16 已发布；2026-11-19 公开 Pre-release）
+## 当前版本状态（已公开 v0.0.16；本版候选 v0.0.17）
 
-> **版本载体**：`0.0.16`
+> **版本载体**：`0.0.17`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
 > 开发态停留在**上一个已发布版本**，只在最终 SHA 固定后才同步 —— G-VER-01。
 > 本版已进入**发行候选**阶段，故载体已同步到 `0.0.16`。）
@@ -57,13 +57,13 @@
 | **当前实际公开版本** | **`v0.0.16`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-19 发布） |
 | **上一已发布版本** | `v0.0.15`（Pre-release，2026-11-10） |
 | 再上一版 | `v0.0.14`（Pre-release，2026-11-09） |
-| 版本载体 | `0.0.16`（已发布态，已由 `sync-version.mjs` 全量同步并复验） |
-| **本版** | **`v0.0.16`**（已公开发布：Pre-release，2026-11-19；证据见 [`docs/SESSION_HANDOFF_v0.0.16.md`](docs/SESSION_HANDOFF_v0.0.16.md)） |
-| 本版发布授权 | **已获本版公开发布授权并已执行**（仅限 `v0.0.16`，一次性）—— 决策 A = **A3 保留 + 披露**，决策 B = **B1 授权发布**；裁决记录见 [`docs/RISK_DECISION_v0.0.16.md`](docs/RISK_DECISION_v0.0.16.md)。⚠️ 该授权**不延续**到 v0.0.17 及以后 |
+| 版本载体 | `0.0.17`（**候选态**，已由 `sync-version.mjs` 全量同步并复验） |
+| **本版候选** | **`v0.0.17`**（**未打 Tag、未发布 Release、未推送镜像标签**）—— 交接文档与测试基线见 [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md) |
+| 本版发布授权 | **尚未获得本版公开发布授权**。`v0.0.16` 的一次性 A3/B1 授权**不延续**到本版；需项目所有者对本版单独裁决。当前 `docs/RISK_DECISION_v0.0.17.md` **不存在**，preflight 授权闸门会直接中止 |
 | 发布形态 | 开发预览版（Pre-release），**不是稳定版** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16`（匿名可拉；digest 见 v0.0.16 交接文档） |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16`（**只有 v0.0.16**；v0.0.17 镜像未推送） |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -451,13 +451,15 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > 裸跑 vitest 会连默认的 5432 而失败（`ECONNREFUSED`）。CI 与本地全量复验均须注入：
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
-> ⚠️ **上表是 v0.0.12 的历史记录，不是 v0.0.16 的当前结论。**
-> v0.0.16（发行候选）的**当前测试基线**（单元 / 静态 / E2E / 跨浏览器 / 视觉 /
+> ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
+> **v0.0.17（本版候选）的当前测试基线**（单元 / 静态 / E2E / 跨浏览器 / 视觉 /
 > 安装 / 升级的真实通过数与对应 SHA）以
-> [`docs/SESSION_HANDOFF_v0.0.16.md`](docs/SESSION_HANDOFF_v0.0.16.md)
-> 「当前测试基线」小节和 `docs/release-facts.json` 为唯一口径；
+> [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md)
+> 的「当前测试基线」与「Go / No-Go」两节、以及 `docs/release-facts.json` 为唯一口径；
 > 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。
 >
+> v0.0.16 的历史基线见
+> [`docs/SESSION_HANDOFF_v0.0.16.md`](docs/SESSION_HANDOFF_v0.0.16.md)；
 > v0.0.15 的历史基线见
 > [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)；
 > v0.0.14 的历史基线见
