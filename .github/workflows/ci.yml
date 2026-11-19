@@ -226,7 +226,7 @@ jobs:
           set -o pipefail
           bash scripts/release/verify-upgrade-v008.sh 2>&1 | tee /tmp/v008-upgrade.log
 
-      - name: 双基线升级验证（v0.0.4 → v0.0.16 与 v0.0.15 → v0.0.16）
+      - name: 双基线升级验证（v0.0.4 → v0.0.17 与 v0.0.16 → v0.0.17）
         # v0.0.16 新增。与上一条（v008 脚本）的分工：
         #   · v008：单基线 + 迁移幂等，覆盖「结构变更」路径；
         #   · 本条：**双基线**（最早的 v0.0.4 与上一版的 v0.0.15），
@@ -249,7 +249,7 @@ jobs:
           # 先证明 tag 真的可见。若 checkout 是浅克隆且未取 tag，
           # `git archive` 只会给一句 `Not a valid object name`，
           # 在管道里看不出根因 —— 这里把判据提前并写清修法。
-          for t in v0.0.4 v0.0.15; do
+          for t in v0.0.4 v0.0.16; do
             if ! git rev-parse --verify --quiet "refs/tags/$t" >/dev/null; then
               echo "::error::取不到 tag $t —— checkout 必须是 fetch-depth: 0 + fetch-tags: true"
               git tag -l | tail -5 || true
@@ -258,14 +258,15 @@ jobs:
           done
           echo "  ✓ 两个基线 tag 均可解析"
 
-          rm -rf /tmp/mig-v004 /tmp/mig-v015
-          mkdir -p /tmp/mig-v004 /tmp/mig-v015
+          rm -rf /tmp/mig-v004 /tmp/mig-v016
+          mkdir -p /tmp/mig-v004 /tmp/mig-v016
           git archive v0.0.4 drizzle | tar -x -C /tmp/mig-v004 --strip-components=1
-          git archive v0.0.15 drizzle | tar -x -C /tmp/mig-v015 --strip-components=1
-          echo "  基线迁移文件数：v0.0.4 = $(ls /tmp/mig-v004/*.sql | wc -l)，v0.0.15 = $(ls /tmp/mig-v015/*.sql | wc -l)"
-          bash scripts/release/verify-upgrade-v0016.sh \
+          # ⚠️ v0.0.17：基线从 v0.0.15 改为 **v0.0.16**（上一已发布版本）。
+          git archive v0.0.16 drizzle | tar -x -C /tmp/mig-v016 --strip-components=1
+          echo "  基线迁移文件数：v0.0.4 = $(ls /tmp/mig-v004/*.sql | wc -l)，v0.0.16 = $(ls /tmp/mig-v016/*.sql | wc -l)"
+          bash scripts/release/verify-upgrade-v0017.sh \
             --v004-migrations /tmp/mig-v004 \
-            --v015-migrations /tmp/mig-v015 2>&1 | tee /tmp/v0016-upgrade.log
+            --v016-migrations /tmp/mig-v016 2>&1 | tee /tmp/v0017-upgrade.log
 
       - name: 上传升级验证日志
         if: always()
@@ -275,8 +276,8 @@ jobs:
           path: |
             /tmp/v008-upgrade.log
             /tmp/v008-migrate*.log
-            /tmp/v0016-upgrade.log
-            /tmp/v0016-migrate*.log
+            /tmp/v0017-upgrade.log
+            /tmp/v0017-migrate*.log
           retention-days: 7
           if-no-files-found: warn
 
