@@ -415,14 +415,65 @@ jobs:
           #    正式发布路径将永远停在 Draft。
           #    workflow_dispatch ⇒ 完全按输入执行，publish=false 时保持 Draft；
           #    publish=true 时还承担 B2 的「幂等转公开」补救路径（见文件头）。
+          #
+          # ═══════════════════════════════════════════════════════════════
+          # v0.0.17：发布形态从「0.0.x 一律 Pre-release」改为**按版本白名单**
+          # ═══════════════════════════════════════════════════════════════
+          #
+          # 原实现（v0.0.9 ~ v0.0.16）在 tag push 路径**硬编码** prerelease=true，
+          # 并在 publish-release 阶段 `exit 1` 拦住任何稳定版：
+          #
+          #     if [ "$PRERELEASE" != "true" ]; then
+          #       echo "::error::本项目 0.0.x 全部是早期开发预览版，不得发布为稳定版。"
+          #       exit 1
+          #     fi
+          #
+          # 政策的初衷是对的（防止用户误以为可长期依赖），但它是**硬编码**的：
+          # 即使项目所有者明确决定某一版本已达到生产就绪，也只能改代码；
+          # 而「改代码」本身没有任何审计痕迹，也容易被下一次改动悄悄恢复。
+          #
+          # 现在改为读 `docs/STABLE_RELEASES.json` 的**逐版本白名单**：
+          #   · 版本在 stable 数组里 ⇒ prerelease=false（稳定版）
+          #   · 不在 ⇒ 默认仍 prerelease=true（Pre-release），与历史行为一致
+          #   · 白名单只认**精确版本号**，不支持前缀通配 ⇒ 「0.0.x 从此都稳定」不可能
+          #   · 新增一个稳定版必须走 PR 改这个文件 ⇒ diff 即审计记录
+          #
+          # ⚠️ 白名单 ≠ 授权：公开发布仍需 docs/RISK_DECISION_v<版本>.md，
+          #    由 preflight 的授权闸门独立校验（两道闸门缺一不可）。
+          #
+          # ⚠️ 读不到白名单文件时**不回退**：宁可让发布失败，也不能因为
+          #    「文件没读到」而把预发布误当稳定版发出去。
+          STABLE_WHITELIST="docs/STABLE_RELEASES.json"
+          IS_STABLE="false"
+          if [ -f "$STABLE_WHITELIST" ]; then
+            if node -e "
+              const fs = require('fs');
+              const d = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+              const list = Array.isArray(d.stable) ? d.stable : [];
+              process.exit(list.includes(process.argv[2]) ? 0 : 1);
+            " "$STABLE_WHITELIST" "$VERSION"; then
+              IS_STABLE="true"
+            fi
+          else
+            echo "::warning::$STABLE_WHITELIST 不存在 —— 本次按 Pre-release 处理（不回退成稳定版）"
+          fi
+          echo "  发布形态判定：version=$VERSION stable=$IS_STABLE"
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "dry_run=${INPUT_DRY_RUN}" >> "$GITHUB_OUTPUT"
             echo "publish=${INPUT_PUBLISH}" >> "$GITHUB_OUTPUT"
+            # dispatch 路径允许显式指定 prerelease，但仍受白名单约束：
+            # 想发稳定版而版本未登记 ⇒ 后面 publish-release 的守卫会拦下。
             echo "prerelease=${INPUT_PRERELEASE}" >> "$GITHUB_OUTPUT"
           else
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
             echo "publish=true" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            # tag push：由白名单决定，而不是无脑 true
+            if [ "$IS_STABLE" = "true" ]; then
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: 读取远端 Release 状态（B3 fail-closed）
@@ -2224,11 +2275,9 @@ jobs:
             exit 1
           fi
           cat > release-notes.md <<'NOTES'
-          ## __VERSION__ — 开发预览版（Pre-release）
+          ## __VERSION____FORM_SUFFIX__
 
-          > ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**
-          > 功能尚未完备，**不保证与 V2EX 完全一致**，**不建议直接用于生产环境**。
-          > 本项目 `0.0.x` 全部为早期开发预览版，不承诺 API 稳定性。
+          __FORM_NOTICE__
 
           ### 关于本项目
 
@@ -2483,6 +2532,38 @@ jobs:
           fs.writeFileSync('release-notes.md', notes.replace('__CHANGELOG_SECTION__', () => indented));
           console.log('已从 CHANGELOG.md 注入 ' + version + ' 段落（' + indented.length + ' 字符，归属校验通过）');
           NODE
+          # ⚠️ v0.0.17：标题与警示语必须随发布形态，不能在稳定版里写「开发预览版」，
+          #    也不能在 Pre-release 里写「稳定版」。两段都用占位符注入。
+          #
+          # 为什么要做成占位符而不是在模板里写两份：写两份就要维护两条分支，
+          # 迟早漂移；占位符只有一个真相来源（PRERELEASE）。
+          # ⚠️ 多行文本一律用 `printf '%s\n'` 拼接，**不要**在 YAML block scalar
+          #    里写裸多行字符串 —— 续行会掉到第 0 列，把 YAML 结构直接撑坏
+          #    （本轮实测：`ScannerError: expected a comment or a line break,
+          #     but found '功'`）。这是「内容里的换行」和「YAML 的缩进」两件事
+          #    被混在一起，属于最容易犯又最难看出的一类错误。
+          if [ "$PRERELEASE" = "true" ]; then
+            FORM_SUFFIX=" — 开发预览版（Pre-release）"
+            FORM_NOTICE="$(printf '%s\n' \
+              '> ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**' \
+              '> 功能尚未完备，**不保证与 V2EX 完全一致**，**不建议直接用于生产环境**。' \
+              '> 本项目 `0.0.x` 全部为早期开发预览版，不承诺 API 稳定性。')"
+          else
+            FORM_SUFFIX=" — 稳定版"
+            FORM_NOTICE="$(printf '%s\n' \
+              '> ✅ **这是正式稳定版（Stable Release）。**' \
+              '> 数据库迁移幂等、升级路径与备份恢复均已验证；安装与升级步骤见下方。' \
+              '> ⚠️ 仍请阅读「已知限制」与「R-01 风险披露」两节后再用于生产环境。')"
+          fi
+          # 用 python 做替换：多行内容 + 反引号 + 中文，sed 容易踩转义问题
+          python3 - "$FORM_SUFFIX" "$FORM_NOTICE" <<'PYSUB'
+          import io, sys
+          suffix, notice = sys.argv[1], sys.argv[2]
+          p = 'release-notes.md'
+          t = io.open(p, encoding='utf-8').read()
+          t = t.replace('__FORM_SUFFIX__', suffix).replace('__FORM_NOTICE__', notice)
+          io.open(p, 'w', encoding='utf-8', newline='\n').write(t)
+          PYSUB
           sed -i "s|__VERSION__|${VERSION}|g" release-notes.md
           sed -i "s|__DIGEST__|${IMAGE_DIGEST}|g" release-notes.md
           # 版本说明真实性闸门：占位符必须清空、标题必须指向**本版本**
@@ -2491,8 +2572,19 @@ jobs:
             echo "::error::Release Notes 仍有未替换的占位符"
             NOTES_FAIL=1
           fi
-          if ! grep -qF "## ${VERSION} — 开发预览版" release-notes.md; then
-            echo "::error::Release Notes 主标题版本不是 ${VERSION}"
+          # 标题必须指向本版本，且形态后缀要与 PRERELEASE 一致
+          if [ "$PRERELEASE" = "true" ]; then
+            EXPECT_TITLE="## ${VERSION} — 开发预览版（Pre-release）"
+          else
+            EXPECT_TITLE="## ${VERSION} — 稳定版"
+          fi
+          if ! grep -qF "$EXPECT_TITLE" release-notes.md; then
+            echo "::error::Release Notes 主标题不符（期望：$EXPECT_TITLE）"
+            NOTES_FAIL=1
+          fi
+          # 反向断言：稳定版里不得出现「不是稳定版」这类自相矛盾的措辞
+          if [ "$PRERELEASE" != "true" ] && grep -q "不是稳定版" release-notes.md; then
+            echo "::error::稳定版 Notes 里出现「不是稳定版」—— 形态自相矛盾"
             NOTES_FAIL=1
           fi
           if ! grep -qF "### ${VERSION} 更新内容" release-notes.md; then
@@ -2614,9 +2706,17 @@ jobs:
           #
           # 实测：本写法（不传 `target_commitish`）已在 run `41985412431`
           # 的诊断步骤中成功执行（创建出 id `434887371` 的 Draft）。
+          # ⚠️ v0.0.17：标题必须随发布形态，不能在稳定版里写「开发预览版」。
+          if [ "$PRERELEASE" = "true" ]; then
+            RELEASE_TITLE="$VERSION — 开发预览版"
+          else
+            RELEASE_TITLE="$VERSION — 稳定版"
+          fi
+          echo "  Release 标题：$RELEASE_TITLE"
+
           RELEASE_ID="$(gh api --method POST "repos/${REPO}/releases" \
             -f tag_name="$VERSION" \
-            -f name="$VERSION — 开发预览版" \
+            -f name="$RELEASE_TITLE" \
             -F draft=true \
             -F prerelease=true \
             -F body=@../release-notes.md \
@@ -2686,22 +2786,55 @@ jobs:
           PUBLISH="${{ needs.preflight.outputs.publish }}"
           PRERELEASE="${{ needs.preflight.outputs.prerelease }}"
           if [ "$PUBLISH" = "true" ]; then
-            # ⚠️ v0.0.9：**0.0.x 一律不得作为稳定版发布**。
-            #   本项目 README 明示「0.0.x 全部为早期开发预览版」，
-            #   发稳定版会让用户误以为可长期依赖。
-            #   ⇒ 强制 Pre-release；只有显式 prerelease=false 才允许稳定版，
-            #     且需要二次确认开关（见下方 guard）。
+            # ═══════════════════════════════════════════════════════════
+            # v0.0.17：守卫从「一律禁止稳定版」改为「白名单 + 授权双闸门」
+            # ═══════════════════════════════════════════════════════════
+            #
+            # 稳定性要求（三条同时满足才放行稳定版）：
+            #   ① 版本在 docs/STABLE_RELEASES.json 的 stable 数组里（逐版本登记）
+            #   ② 本版本的裁决记录 docs/RISK_DECISION_v<版本>.md 存在（已有闸门保证）
+            #   ③ 版本号形如 vX.Y.Z
+            #
+            # ⚠️ 仍然**不得**把「0.0.x」当成「都可以稳定」：
+            #    白名单是精确匹配，未登记的版本一律回到 Pre-release。
             if [ "$PRERELEASE" != "true" ]; then
-              echo "::error::本项目 0.0.x 全部为早期开发预览版，不得发布为稳定版。"
-              echo "        请保持 prerelease=true（发布形态为公开 Pre-release）。"
-              exit 1
+              STABLE_OK="false"
+              if [ -f docs/STABLE_RELEASES.json ] && node -e "
+                const fs = require('fs');
+                const d = JSON.parse(fs.readFileSync('docs/STABLE_RELEASES.json', 'utf8'));
+                const list = Array.isArray(d.stable) ? d.stable : [];
+                process.exit(list.includes(process.argv[1]) ? 0 : 1);
+              " "$VERSION"; then
+                STABLE_OK="true"
+              fi
+              if [ "$STABLE_OK" != "true" ]; then
+                echo "::error::$VERSION 未登记为稳定版（docs/STABLE_RELEASES.json 的 stable 数组里没有它）。"
+                echo "        若确实要发稳定版，须走 PR 把该版本加入白名单（diff 即审计记录）；"
+                echo "        否则请保持 prerelease=true。"
+                exit 1
+              fi
+              echo "  稳定版放行：$VERSION 已登记在白名单中"
             fi
-            gh release edit "$VERSION" \
-              --repo "${{ github.repository }}" \
-              --draft=false \
-              --prerelease=true \
-              --latest=false
-            echo "Release 已公开发布（Pre-release，publish=true + prerelease=true）"
+            # ⚠️ v0.0.17：形态与 `--latest` 都必须跟随 PRERELEASE。
+            #
+            # `--latest=false` 对 Pre-release 是正确行为（GitHub 的 Latest
+            # 应指向稳定版）；但对**稳定版**而言 `--latest=false` 会让它
+            # 不成为 Latest Release —— 那与「正式稳定版发布」的语义矛盾。
+            if [ "$PRERELEASE" = "true" ]; then
+              gh release edit "$VERSION" \
+                --repo "${{ github.repository }}" \
+                --draft=false \
+                --prerelease=true \
+                --latest=false
+              echo "Release 已公开发布（Pre-release，publish=true + prerelease=true）"
+            else
+              gh release edit "$VERSION" \
+                --repo "${{ github.repository }}" \
+                --draft=false \
+                --prerelease=false \
+                --latest
+              echo "Release 已公开发布（**稳定版**，publish=true + prerelease=false + latest=true）"
+            fi
           else
             echo "Release 保持 Draft 状态（publish=false）。"
             echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过。"
