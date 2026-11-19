@@ -120,15 +120,42 @@ test.describe('主题与回复', () => {
     await login(page, USER_B.username, USER_B.password);
     let sawRateLimit = false;
 
+    /*
+     * ⚠️ v0.0.16：失败信息必须**自解释**。
+     *
+     * 原实现只断言「30 次里应出现 429」。实测在 chromium/375x812 分片上
+     * 偶发失败时，日志里只有一句「连续回复应触发 429 限流」——
+     * **完全看不出那 30 次请求究竟返回了什么**：
+     *   · 全是 200  ⇒ 限流确实没触发（产品问题，必须查）
+     *   · 全是 404  ⇒ 主题 1 不可见（限流根本没被走到，主题被前置用例删了）
+     *   · 全是 401  ⇒ 会话失效（压根没登录上）
+     *   · 混着 500  ⇒ 限流存储（Redis/PgKV）出错
+     * 三种原因的排查方向完全不同，却共用同一句话。
+     *
+     * 因此这里**收集每一次的状态码**并把分布写进失败信息。
+     * 断言强度**不变**（仍然要求出现 429），只是让失败可诊断。
+     */
+    const statuses: number[] = [];
     for (let i = 0; i < 30; i++) {
       const res = await apiPost(page, '/api/replies', { topicId: 1, content: `限流测试回复 ${i}` });
+      statuses.push(res.status());
       if (res.status() === 429) {
         sawRateLimit = true;
         break;
       }
     }
 
-    expect(sawRateLimit, '连续回复应触发 429 限流').toBe(true);
+    const dist = statuses.reduce<Record<string, number>>((acc, s) => {
+      acc[String(s)] = (acc[String(s)] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    expect(
+      sawRateLimit,
+      `连续回复应触发 429 限流。实际返回状态分布：${JSON.stringify(dist)}（共 ${statuses.length} 次）` +
+        '\n排查方向：全 200 ⇒ 限流未生效；全 404 ⇒ 主题 1 不可见（前置用例可能已删除）；' +
+        '全 401 ⇒ 会话失效；含 5xx ⇒ 限流存储异常。',
+    ).toBe(true);
   });
 
   test('并发回复不会产生重复楼层号', async ({ page }) => {
