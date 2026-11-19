@@ -276,6 +276,14 @@ ts,elapsed_s,mem_mb,cpu_pct,conn_used,conn_max,home_ms,db_ms
 
 | 项 | 值 |
 |---|---|
-| 代码冻结 SHA（候选产物来源） | **`__FROZEN_SHA__`**（收口时由 `git rev-parse` 取得并回填） |
+| 代码冻结 SHA（候选产物来源） | **`50be70e64ccdc0250ab5472b21719f746fcd2b81`** |
+| 候选 ZIP | `v2ex-clone-v0.0.17-candidate.zip`（59,383 B） |
+| 候选 ZIP SHA256 | **`506c05409dc0c85b6db478ad124893507737dcb8af16662214f466144ed1cb13`** |
+| 候选镜像 tar | `v2ex-clone-v0.0.17-candidate-image.tar` |
+| 候选镜像 tar SHA256 | `14e0f4abc240b466f274b53d84487d8835c44a0917a6d21167078547bb016258` |
+| 候选镜像标签 | `v2ex-clone-candidate:v0.0.17`（**未推送 GHCR**） |
+| 候选验收运行 | **`44514911694`** —— 四角色 **30 PASS / 0 FAIL** + 恢复原子性 **19 PASS / 0 FAIL** |
+| 正式包（本地构建，可复现） | `v2ex-clone-v0.0.17-deploy.zip`（145,353 B） |
+| 正式包 SHA256 | **`e6068b9bfb74157cdf50a31733900daa82b35b48c2836e0ffbad1f5c60344918`**（三次构建一致） |
 | 候选 ZIP / 镜像 | 由该 SHA 构建，SHA256 见候选 run |
 | 复核命令 | `git diff --name-only <冻结SHA> HEAD \| grep -E '^(src/\|deploy/\|Dockerfile$\|package\.json$\|package-lock\.json$\|drizzle/\|next\.config\|public/)'` ⇒ 空则候选产物仍有效 |
