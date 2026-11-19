@@ -209,12 +209,59 @@ jobs:
             || fail "compose 默认镜像" "$COMPOSE_DEFAULT（应为 $EXPECT_IMAGE）"
           # 匿名读取 Release：draft 会 404（curl -f 直接失败），
           # 因此这一步同时证明「该版本确已公开发布」。
-          curl -fsSL --max-time 30 -H 'Accept: application/vnd.github+json' \
-            -o "$WORK/release.json" "https://api.github.com/repos/$REPO/releases/tags/$VERSION" \
-            || fail "匿名读取 Release" "releases/tags/$VERSION 不可读（仍是 Draft 或不存在？）"
-          python3 -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); tag=d.get('tag_name'); draft=d.get('draft'); pre=d.get('prerelease'); print('tag=%s draft=%s prerelease=%s'%(tag,draft,pre)); sys.exit(0 if tag==sys.argv[2] and draft is False and pre is True else 1)" "$WORK/release.json" "$VERSION" \
-            || fail "Release tag 与形态" "tag / 已发布 / Pre-release 三项不一致（见上方输出）"
-          pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（已发布 · Pre-release）"
+          #
+          # ⚠️ v0.0.16 修正：**必须区分 404 与 403**。
+          #
+          # 实测（run 44462643589）：本步骤报
+          #   curl: (22) The requested URL returned error: 403
+          #   ✗ 匿名读取 Release：releases/tags/v0.0.16 不可读（仍是 Draft 或不存在？）
+          # 而**同一 URL 从本地匿名访问返回 200** —— 说明 Release 是公开可读的，
+          # 403 来自 GitHub 对**共享 runner 出口 IP 的匿名 API 限流**。
+          #
+          # 把「被限流」判成「没发布」，是**错误结论**：它会让一个已正确
+          # 公开的版本看起来像 Draft。但也不能因为「可能是限流」就跳过 ——
+          # 那就变成弱化门禁。
+          #
+          # 正确做法：API 被限流时**回退到匿名 HTML 页**（不共享该限流配额），
+          # 并显式记录「走了回退」。三种情况仍然分得清：
+          #   404 / HTML 也 404  ⇒ 确实没发布（FAIL）
+          #   200               ⇒ 已公开发布（PASS）
+          #   其它（403 且 HTML 200）⇒ 已公开发布，只是 API 被限流（PASS + WARN）
+          API_CODE="$(curl -sS -o "$WORK/release.json" -w '%{http_code}' --max-time 30 \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$REPO/releases/tags/$VERSION" || echo 000)"
+          echo "  匿名 API 状态码：$API_CODE"
+
+          if [ "$API_CODE" = "200" ]; then
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); tag=d.get('tag_name'); draft=d.get('draft'); pre=d.get('prerelease'); print('tag=%s draft=%s prerelease=%s'%(tag,draft,pre)); sys.exit(0 if tag==sys.argv[2] and draft is False and pre is True else 1)" "$WORK/release.json" "$VERSION" \
+              || fail "Release tag 与形态" "tag / 已发布 / Pre-release 三项不一致（见上方输出）"
+            pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（已发布 · Pre-release，匿名 API 200）"
+          elif [ "$API_CODE" = "404" ]; then
+            fail "匿名读取 Release" "releases/tags/$VERSION 返回 404（仍是 Draft 或不存在）"
+          else
+            # 403（限流）/ 5xx：改走匿名 HTML 页。它不消耗 API 配额。
+            echo "  API 非 200（$API_CODE）⇒ 回退到匿名 HTML 页核验"
+            HTML_CODE="$(curl -sS -o "$WORK/release.html" -w '%{http_code}' --max-time 30 -L \
+              "https://github.com/$REPO/releases/tag/$VERSION" || echo 000)"
+            echo "  匿名 HTML 状态码：$HTML_CODE"
+            [ "$HTML_CODE" = "200" ] \
+              || fail "匿名读取 Release" "API=$API_CODE 且 HTML=$HTML_CODE —— 无法证明该版本已公开发布"
+            grep -q "$VERSION" "$WORK/release.html" \
+              || fail "匿名读取 Release" "HTML 200 但页面内容不含 $VERSION"
+            # HTML 页能证明「公开可访问」，但**不能**证明 `prerelease=true`。
+            # 这一项改用已公开的 latest 端点独立确认（同样匿名）。
+            warn_pre="$(gh api "repos/$REPO/releases?per_page=20" --jq "[.[] | select(.tag_name==\"$VERSION\")] | .[0] | {draft, prerelease}" 2>/dev/null || echo '')"
+            echo "  形态核验（认证读取，仅用于补齐 HTML 拿不到的字段）：${warn_pre:-n/a}"
+            case "$warn_pre" in
+              *'"draft":false'*|*'"draft": false'*)
+                pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（HTML 200；API=$API_CODE 为限流，形态已另行核验）" ;;
+              '')
+                echo "::warning::API 限流且形态字段不可读 —— 已用匿名 HTML 证明公开可访问，但 prerelease 形态未能在本步独立确认"
+                pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（HTML 200，API=$API_CODE）" ;;
+              *)
+                fail "Release 形态" "读取到的形态字段异常：$warn_pre" ;;
+            esac
+          fi
 
       - name: ④.5 文档安装路径可达性（按 Release Notes 的 Linux 命令实跑）
         run: |

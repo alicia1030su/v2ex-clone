@@ -348,7 +348,8 @@ CODEBUDDY_SAFE_DELETE_ENABLED=0 npx playwright test e2e/topic.spec.ts
 
 | 项 | 值 |
 |---|---|
-| **代码冻结 SHA（候选产物来源）** | **`4bbf75e61d2e7af61e2b2b966dbc279ee0dbe432`** |
+| **代码冻结 SHA（候选产物来源）** | `4bbf75e61d2e7af61e2b2b966dbc279ee0dbe432`（候选阶段） |
+| **正式 Tag 指向的 commit** | **`ceb5734e961cc5b39b4486e7dd108c62dc1c63ba`** |
 | 文档收口链 | `67282db` → `a65c69a` → `be6a7ee`，**只修改 5 个文档**（`BUG_REGISTER.md` / `CHANGELOG.md` / `RELEASE_GATE.md` / `RISK_REGISTER.md` / 本文件），**未触及任何构建输入** |
 | PR | **#58**（squash 合并到 master，源分支 `release/v0.0.16` 已删除） |
 | 版本载体 | `0.0.16`（`sync-version.mjs --verify` 通过；三处一致：`deploy/VERSION` / `package.json` / `docs/release-facts.json`） |
@@ -404,6 +405,45 @@ git diff --name-only 4bbf75e HEAD | grep -E '^(src/|deploy/|Dockerfile$|package\
 即便如此，仍**在 master 上重新跑了一遍**候选验收与发布预演（见上表两个 run），
 没有用 PR head 的结果冒充最终结果。
 
+### 正式发布结果（2026-11-19）
+
+| 项 | 值 |
+|---|---|
+| **正式 Tag** | `v0.0.16`（annotated，tag 对象 `3d15c0f549eed7d94e80bdf4923d83d66521d831`） |
+| **Tag 指向 commit** | **`ceb5734e961cc5b39b4486e7dd108c62dc1c63ba`** |
+| Release | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.16>（Pre-release，非 Draft） |
+| 发布流水线 | run **`44459897540`** —— **11/11 job success** |
+| GHCR 镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16` |
+| **镜像 Digest** | **`sha256:10482d101c8b512a42b7b328845642ff86a0876bfce9f01a49eb1b726e23adef`**（OCI image index，匿名拉取核对） |
+| 资产 | `v2ex-clone-v0.0.16-deploy.zip`（**145,353 B**）+ `SHA256SUMS`（96 B） |
+| **ZIP SHA256** | **`09700425d9c0bc25b25154702509fd9902dd93dd5fdd26cfb0c85b771bcdd274`** |
+| 发布后独立验收 | run **`44461780644`** —— 全新 runner、匿名下载 + 官方 `install.sh` + 四角色 **30/30 PASS** |
+
+### 关于「候选 ZIP 与正式 ZIP 是否一致」（必须说清，不能糊）
+
+**不一致，而且这是设计使然**，有两个原因：
+
+1. **文件名与用途不同**：候选包是 `v2ex-clone-v0.0.16-candidate.zip`（59,383 B，
+   内含**候选**镜像标签 `v2ex-clone-candidate:v0.0.16`）；正式包是
+   `v2ex-clone-v0.0.16-deploy.zip`（145,353 B，指向 `ghcr.io/...:v0.0.16`）。
+2. **打包方式不同**：候选包用 `zip -qr`（**嵌入文件 mtime**，两次构建字节不同，
+   实测同一 SHA 两次构建：`0b8242b2…` / `b6f76667…` / `5b52c17d…`），
+   正式包用 `package-deploy-zip.mjs`（**固定时间戳**，可复现）。
+
+**能证明的是**（这才是可复核的结论）：
+
+```
+本地从 ceb5734 构建正式包 → 09700425d9c0bc25b25154702509fd9902dd93dd5fdd26cfb0c85b771bcdd274
+Release 资产      ZIP → 09700425d9c0bc25b25154702509fd9902dd93dd5fdd26cfb0c85b771bcdd274
+                                        ↑ 逐字节相同
+```
+
+即：**正式发布包可复现，且确实来自该源码树**。候选包与正式包**不是同一个文件**，
+不得声称「完全一致」。
+
+> 候选包的 mtime 不可复现性已登记为 v0.0.17 待办（改用固定时间戳打包），
+> 本版不修 —— 它不影响发布物的可复现性，只影响候选包的重复构建比对。
+
 ### Go/No-Go 判断
 
 | 维度 | 结论 | 依据 |
@@ -419,6 +459,18 @@ git diff --name-only 4bbf75e HEAD | grep -E '^(src/|deploy/|Dockerfile$|package\
 > 「候选产物可交付」= Go；「现在可以公开发布」= **No-Go**（未获本版授权）。
 > 授权闸门是**机器判定**的，不是我口头说的：`release.yml` 的 preflight 会检查
 > 该版本裁决文件是否存在（docs/RISK_DECISION 系列按版本号命名），缺失即 `::error` 并 exit 1。
+
+---
+
+## 9.7 发布后验收与升级回填（2026-11-19）
+
+| 项 | 结果 |
+|---|---|
+| 发布后独立验收（匿名下载 + 官方 install.sh + 四角色） | run **`44461780644`** —— **30/30 PASS** |
+| 该验收里验证过的环节 | 匿名下载 ZIP + SHA256 校验 / 包内 `install.sh` 原样执行 / 健康检查 / 四角色 / 通知写入读取 / 举报处理 / 跨用户隔离 / 零横向溢出 |
+| 该验收里**未**单独成步的两项 | 「v0.0.15 原地升级」与「备份恢复」—— 由 **CI 的双基线升级**（run `44457599375`）与**候选验收**（run `44457693065`）覆盖。⚠️ 口径不同，**不得**把它们记成发布后验收的结论 |
+| 升级验证口径 | v0.0.4 → 与 v0.0.15 → 双基线各 **PASS=20 / FAIL=0**，业务指纹 **46 项逐字节一致**，迁移幂等 3 次 |
+| 备份恢复口径（含负向） | 候选环境内：备份 → 删 1 条 → 恢复 → 数据量一致 ✅；**恢复出错必须非零退出** 2 个负向用例 ✅ |
 
 ---
 

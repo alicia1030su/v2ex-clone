@@ -38,7 +38,7 @@
 
 ---
 
-## 当前版本状态（已公开 v0.0.15；开发候选 v0.0.16）
+## 当前版本状态（v0.0.16 已发布；2026-11-19 公开 Pre-release）
 
 > **版本载体**：`0.0.16`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
@@ -49,21 +49,21 @@
 >
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **已公开发布**（可下载、可拉镜像） | `v0.0.15` | GitHub Pre-release，2026-11-10 |
-> | **开发候选**（本仓当前源码） | `v0.0.16` | **发行候选，尚未发布** —— 无 Tag / 无 Release / 无可拉取镜像 |
+> | **已公开发布**（可下载、可拉镜像） | `v0.0.16` | GitHub Pre-release，2026-11-19 |
+> | 上一已发布版本 | `v0.0.15` | GitHub Pre-release，2026-11-10 |
 
 | 项 | 值 |
 |---|---|
-| **当前实际公开版本** | **`v0.0.15`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-10 发布） |
-| **上一已发布版本** | `v0.0.14`（Pre-release，2026-11-09） |
-| 再上一版 | `v0.0.12`（Pre-release，2026-11-08） |
-| 版本载体 | `0.0.16`（**发行候选**，已由 `sync-version.mjs` 全量同步并复验） |
-| **本版候选** | **`v0.0.16`**（发行候选：**未打 Tag、未发布 Release、未推送镜像标签** —— 候选包验收结果见 [`docs/SESSION_HANDOFF_v0.0.16.md`](docs/SESSION_HANDOFF_v0.0.16.md)） |
-| 本版发布授权 | **已获本版公开发布授权**（仅限 `v0.0.16`，一次性）—— 决策 A = **A3 保留 + 披露**，决策 B = **B1 授权发布**；裁决记录见 [`docs/RISK_DECISION_v0.0.16.md`](docs/RISK_DECISION_v0.0.16.md)。⚠️ 该授权**不延续**到 v0.0.17 及以后 |
+| **当前实际公开版本** | **`v0.0.16`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-19 发布） |
+| **上一已发布版本** | `v0.0.15`（Pre-release，2026-11-10） |
+| 再上一版 | `v0.0.14`（Pre-release，2026-11-09） |
+| 版本载体 | `0.0.16`（已发布态，已由 `sync-version.mjs` 全量同步并复验） |
+| **本版** | **`v0.0.16`**（已公开发布：Pre-release，2026-11-19；证据见 [`docs/SESSION_HANDOFF_v0.0.16.md`](docs/SESSION_HANDOFF_v0.0.16.md)） |
+| 本版发布授权 | **已获本版公开发布授权并已执行**（仅限 `v0.0.16`，一次性）—— 决策 A = **A3 保留 + 披露**，决策 B = **B1 授权发布**；裁决记录见 [`docs/RISK_DECISION_v0.0.16.md`](docs/RISK_DECISION_v0.0.16.md)。⚠️ 该授权**不延续**到 v0.0.17 及以后 |
 | 发布形态 | 开发预览版（Pre-release），**不是稳定版** |
 | 语义化版本位置 | `0.0.x` —— 早期阶段，**不承诺 API 稳定性** |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.15`（**只有 v0.0.15**；v0.0.16 镜像未推送） |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16`（匿名可拉；digest 见 v0.0.16 交接文档） |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -298,10 +298,10 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
 > 的规约保持原样 —— **建议使用 v0.0.14，不要用 v0.0.9**。
 
-下载 `v2ex-clone-v0.0.15-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.16-deploy.zip` 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.15-deploy.zip -d v2ex-clone-v0.0.15-deploy && cd v2ex-clone-v0.0.15-deploy/deploy`
+> `unzip v2ex-clone-v0.0.16-deploy.zip -d v2ex-clone-v0.0.16-deploy && cd v2ex-clone-v0.0.16-deploy/deploy`
 >
 > ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
@@ -363,15 +363,17 @@ docker compose up -d
 | 内容 | 位置 |
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
-| **最新已发布版本（v0.0.15）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.15> |
-| 一键部署安装包 | `v2ex-clone-v0.0.15-deploy.zip`（在 v0.0.15 Release 资产中，含 `SHA256SUMS`） |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.15` |
-| 上一版本（v0.0.14） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
+| **最新已发布版本（v0.0.16）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.16> |
+| 一键部署安装包 | `v2ex-clone-v0.0.16-deploy.zip`（在 v0.0.16 Release 资产中，含 `SHA256SUMS`） |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16` |
+| 上一版本（v0.0.15） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.15> |
+| 更早版本（v0.0.14） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
 | 更早版本（v0.0.12） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |
 | 历史版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9>（含已知缺陷，不建议新装） |
 | v0.0.13 | **从未发布**：无 Tag、无 Release、无镜像标签；其成果已由 v0.0.14 一次性包含 |
 | v0.0.14 | **已发布**（Pre-release，2026-11-09）；发布证据与匿名复验结果见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md) |
 | v0.0.15 | **已发布**（Pre-release，2026-11-10）；发布 run `42818077339`、发布后独立验收 run `42820522582`，证据见 [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md) |
+| v0.0.16 | **已发布**（Pre-release，2026-11-19）；发布 run `44459897540`、发布后独立验收见 v0.0.16 交接文档 |
 | 源码 | <https://github.com/alicia1030su/v2ex-clone> |
 
 > 镜像拉取需要 GHCR 包为 **public** 才能匿名 `docker pull`。
