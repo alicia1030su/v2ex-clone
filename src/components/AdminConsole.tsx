@@ -104,6 +104,60 @@ type Stats = {
   recent: { newUsers24h: number; newTopics24h: number };
 };
 
+
+/**
+ * 运维总览（v0.0.17 P0-1）
+ *
+ * ## ⚠️ 类型里刻意保留 `scope` 与 `warnings`
+ *
+ * 后端返回的计数是**进程内**的（`globalThis`）。若前端只渲染数字，
+ * 运维人员会把它读成「全站总量」。因此：
+ *   · `scope.metrics === 'process'` 必须被渲染成可见文案「本进程」；
+ *   · `scope.window === 'since-start'` 必须被渲染成「进程启动至今」；
+ *   · `warnings` 必须原样展示，不允许前端自行省略。
+ * 这两条由 `tests/static/v017-ops-console.spec.ts` 断言（前端忽略即判红）。
+ */
+type OpsScope = {
+  metrics: 'process';
+  window: 'since-start';
+  instanceId: string;
+  pid: number;
+  startedAt: string;
+  uptimeSeconds: number;
+  nodeVersion: string;
+  replicasDeclared: number | null;
+};
+
+type OpsPayload = {
+  ok: boolean;
+  generatedAt: string;
+  scope: OpsScope;
+  warnings: string[];
+  dependencies: {
+    db: { ok: boolean; latencyMs: number };
+    redis: { ok: boolean; latencyMs: number; configured: boolean };
+    postgres:
+      | { ok: true; total: number; active: number; idle: number; idleInTransaction: number; maxConnections: number }
+      | { ok: false; reason: string };
+  };
+  /** ⚠️ 无真实数据源时 `available:false`；界面必须显示「无数据源」而非假状态 */
+  backup: { available: false; reason: string; detail: string };
+  disk: { ok: boolean; freeRatio: number | null } | null;
+  mail: { delivered: number; failed: number; byPurpose: { ok: Record<string, number>; failed: Record<string, number> } };
+  rateLimit: { checks: number; blocked: number; byScope: Record<string, number> };
+  events: Record<string, number>;
+  errors: Record<string, number>;
+  api: {
+    requests: number;
+    byStatus: Record<string, number>;
+    errors5xx: number;
+    errors4xx: number;
+    error5xxByRoute: Record<string, number>;
+    error4xxByRoute: Record<string, number>;
+  };
+  slowRequests: { route: string; durationMs: number; ts: string }[];
+};
+
 type Config = {
   app: { nodeEnv: string; runtimeEnv: string; publicBaseUrl: string | null };
   database: { host?: string; port?: string; database?: string; password: string | null };
@@ -169,7 +223,8 @@ type TabKey =
   | 'nodemgmt'
   | 'categories'
   | 'logs'
-  | 'config';
+  | 'config'
+  | 'ops';
 
 /**
  * 全部 tab 定义。
@@ -195,6 +250,8 @@ const ALL_TABS: { key: TabKey; label: string; visibleTo?: Array<'admin' | 'staff
   { key: 'categories', label: '分类' },
   { key: 'logs', label: '操作日志' },
   { key: 'config', label: '系统配置' },
+  // v0.0.17（P0-1）：运维总览 —— **仅 admin**（`ops.view`）
+  { key: 'ops', label: '运维', visibleTo: ['admin'] },
 ];
 
 /** 按当前用户的权限过滤 tab（moderator 看不到「积分」） */
@@ -204,6 +261,16 @@ function tabsFor(canAdjustCredits: boolean): Array<{ key: TabKey; label: string 
     if (t.visibleTo.includes('admin')) return canAdjustCredits;
     return true; // 'staff' —— 后台本就只有 staff 能进
   }).map((t) => ({ key: t.key, label: t.label }));
+}
+
+/** 把秒数格式化为「N 天 N 小时 N 分」——运维看板上比纯秒数可读 */
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d} 天 ${h} 小时 ${m} 分`;
+  if (h > 0) return `${h} 小时 ${m} 分`;
+  return `${m} 分 ${seconds % 60} 秒`;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -305,6 +372,11 @@ export default function AdminConsole({
 
   // 配置
   const [config, setConfig] = useState<Config | null>(null);
+
+  // 运维（v0.0.17 P0-1）
+  const [ops, setOps] = useState<OpsPayload | null>(null);
+  const [opsLoading, setOpsLoading] = useState(false);
+  const [opsError, setOpsError] = useState<string | null>(null);
 
   /** 节点管理 tab 的过滤结果（按名称或标题模糊匹配） */
   const filteredNodes = useMemo(() => {
@@ -491,6 +563,31 @@ export default function AdminConsole({
     }
   }, []);
 
+  // ---- 加载：运维总览（v0.0.17 P0-1）----
+  const loadOps = useCallback(async () => {
+    setOpsLoading(true);
+    setOpsError(null);
+    try {
+      const res = await fetch('/api/admin/ops', { cache: 'no-store' });
+      const data = (await res.json()) as { ok?: boolean; error?: string } & Partial<OpsPayload>;
+      if (!res.ok || !data.ok) {
+        // 403 是「权限不足」而非「加载失败」—— 文案必须区分，
+        // 否则版主看到「加载失败」会以为系统坏了。
+        setOpsError(
+          res.status === 403 ? '权限不足：运维总览仅管理员可访问' : (data.error ?? '运维数据加载失败'),
+        );
+        setOps(null);
+        return;
+      }
+      setOps(data as OpsPayload);
+    } catch {
+      setOpsError('网络错误，请稍后重试');
+      setOps(null);
+    } finally {
+      setOpsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadOverview();
   }, [loadOverview]);
@@ -504,6 +601,7 @@ export default function AdminConsole({
     else if (tab === 'categories') void loadCategories();
     else if (tab === 'logs') void loadLogs(logFilter.action, logFilter.targetType);
     else if (tab === 'config') void loadConfig();
+    else if (tab === 'ops') void loadOps();
   }, [
     tab,
     loadUsers,
@@ -518,6 +616,7 @@ export default function AdminConsole({
     logFilter.action,
     logFilter.targetType,
     loadConfig,
+    loadOps,
   ]);
 
   // ---- 写操作 ----
@@ -1715,6 +1814,247 @@ export default function AdminConsole({
               </div>
             </>
           )}
+        </>
+      ) : null}
+
+      {/* ---------------- 运维（v0.0.17 P0-1，仅 admin） ---------------- */}
+      {tab === 'ops' ? (
+        <>
+          {opsLoading && !ops ? (
+            <div className="cell">
+              <span className="fade">正在加载运维数据…</span>
+            </div>
+          ) : null}
+
+          {opsError ? (
+            <div className="cell">
+              <div className="problem" role="alert">
+                {opsError}
+              </div>
+            </div>
+          ) : null}
+
+          {ops ? (
+            <>
+              {/*
+                ⚠️ 口径横幅必须**始终可见**，不是折叠说明。
+                计数来自进程内 globalThis；多副本部署时每实例各自计数。
+                把它藏起来等于诱导误读。
+              */}
+              <div className="cell" data-testid="ops-scope-banner">
+                <strong>指标口径</strong>
+                <div className="sep5" />
+                <span className="f12 gray">
+                  <strong>本进程</strong>（不是集群总量）· 累加窗口：<strong>进程启动至今</strong>
+                  （重启归零）
+                </span>
+                <div className="sep5" />
+                <span className="f12 gray">
+                  实例 {ops.scope.instanceId} · PID {ops.scope.pid} · Node {ops.scope.nodeVersion} ·
+                  已运行 {formatUptime(ops.scope.uptimeSeconds)} · 启动于{' '}
+                  {new Date(ops.scope.startedAt).toLocaleString('zh-CN')}
+                  {ops.scope.replicasDeclared && ops.scope.replicasDeclared > 1
+                    ? ` · ⚠️ 声明了 ${ops.scope.replicasDeclared} 个副本，以下数字只代表本实例`
+                    : ''}
+                </span>
+                <div className="sep5" />
+                <ul className="f12 gray" style={{ margin: 0, paddingLeft: 18 }}>
+                  {ops.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="cell">
+                <strong>应用运行状态</strong>
+                <div className="sep10" />
+                <table cellPadding={5} cellSpacing={0} border={0} width="100%" data-testid="ops-runtime">
+                  <tbody>
+                    <tr>
+                      <td width={200}>进程启动时间</td>
+                      <td>{new Date(ops.scope.startedAt).toLocaleString('zh-CN')}</td>
+                    </tr>
+                    <tr>
+                      <td>已连续运行</td>
+                      <td>{formatUptime(ops.scope.uptimeSeconds)}</td>
+                    </tr>
+                    <tr>
+                      <td>数据生成时间</td>
+                      <td>{new Date(ops.generatedAt).toLocaleString('zh-CN')}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="cell">
+                <strong>依赖健康</strong>
+                <div className="sep10" />
+                <table cellPadding={5} cellSpacing={0} border={0} width="100%" data-testid="ops-deps">
+                  <tbody>
+                    <tr>
+                      <td width={200}>PostgreSQL</td>
+                      <td>
+                        {ops.dependencies.db.ok ? '正常' : '不可用'} ·{' '}
+                        {ops.dependencies.db.latencyMs} ms
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>数据库连接</td>
+                      <td>
+                        {ops.dependencies.postgres.ok ? (
+                          <>
+                            总 {ops.dependencies.postgres.total} / 活跃{' '}
+                            {ops.dependencies.postgres.active} / 空闲{' '}
+                            {ops.dependencies.postgres.idle}
+                            {ops.dependencies.postgres.idleInTransaction > 0 ? (
+                              <span className="f12 gray">
+                                {' '}
+                                · 事务中空闲 {ops.dependencies.postgres.idleInTransaction}
+                              </span>
+                            ) : null}
+                            <span className="f12 gray">
+                              {' '}
+                              · 上限 {ops.dependencies.postgres.maxConnections}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="gray">不可读取（{ops.dependencies.postgres.reason}）</span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Redis</td>
+                      <td>
+                        {!ops.dependencies.redis.configured
+                          ? '未配置（使用 PgKV 降级路径）'
+                          : `${ops.dependencies.redis.ok ? '正常' : '不可用'} · ${ops.dependencies.redis.latencyMs} ms`}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>磁盘可用</td>
+                      <td>
+                        {ops.disk?.freeRatio === null || ops.disk === null
+                          ? '不可读取'
+                          : `${(ops.disk.freeRatio * 100).toFixed(1)}%` +
+                            (ops.disk.freeRatio < 0.1 ? ' · ⚠️ 低于 10%' : '')}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="cell">
+                <strong>HTTP 请求（本进程）</strong>
+                <div className="sep10" />
+                <table cellPadding={5} cellSpacing={0} border={0} width="100%" data-testid="ops-api">
+                  <tbody>
+                    <tr>
+                      <td width={200}>请求总数</td>
+                      <td>{ops.api.requests}</td>
+                      <td width={160}>4xx</td>
+                      <td>{ops.api.errors4xx}</td>
+                    </tr>
+                    <tr>
+                      <td>5xx</td>
+                      <td>{ops.api.errors5xx}</td>
+                      <td>限流拦截</td>
+                      <td>{ops.rateLimit.blocked}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="sep10" />
+                {Object.keys(ops.api.byStatus).length > 0 ? (
+                  <div className="f12 gray" data-testid="ops-status-dist">
+                    状态码分布：
+                    {Object.entries(ops.api.byStatus)
+                      .sort((a, b) => Number(a[0]) - Number(b[0]))
+                      .map(([code, n]) => `${code}×${n}`)
+                      .join(' · ')}
+                  </div>
+                ) : (
+                  <div className="f12 gray">尚无请求记录</div>
+                )}
+              </div>
+
+              <div className="cell">
+                <strong>最近错误与告警（本进程累计）</strong>
+                <div className="sep10" />
+                {Object.keys(ops.errors).length > 0 || Object.keys(ops.api.error5xxByRoute).length > 0 ? (
+                  <>
+                    {Object.keys(ops.api.error5xxByRoute).length > 0 ? (
+                      <div className="f12" data-testid="ops-5xx-routes">
+                        5xx 按路由：
+                        {Object.entries(ops.api.error5xxByRoute)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([r, n]) => `${r} ×${n}`)
+                          .join(' · ')}
+                      </div>
+                    ) : null}
+                    {Object.keys(ops.api.error4xxByRoute).length > 0 ? (
+                      <div className="f12 gray" data-testid="ops-4xx-routes">
+                        4xx 按路由：
+                        {Object.entries(ops.api.error4xxByRoute)
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 10)
+                          .map(([r, n]) => `${r} ×${n}`)
+                          .join(' · ')}
+                      </div>
+                    ) : null}
+                    {Object.keys(ops.errors).length > 0 ? (
+                      <div className="f12 gray">
+                        日志级别计数：
+                        {Object.entries(ops.errors)
+                          .map(([k, n]) => `${k || 'error'} ×${n}`)
+                          .join(' · ')}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="f12 gray">未记录到错误</div>
+                )}
+                {ops.slowRequests.length > 0 ? (
+                  <>
+                    <div className="sep10" />
+                    <div className="f12" data-testid="ops-slow">
+                      慢请求（≥2000ms，最近 {ops.slowRequests.length} 条）：
+                      <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                        {ops.slowRequests
+                          .slice(-10)
+                          .reverse()
+                          .map((r, i) => (
+                            <li key={`${r.ts}-${i}`} className="gray">
+                              {r.route} · {r.durationMs}ms · {new Date(r.ts).toLocaleTimeString('zh-CN')}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="cell">
+                <strong>备份验证状态</strong>
+                <div className="sep10" />
+                {/* ⚠️ 没有真实数据源时**必须**显示「无数据源」，不得编造上次成功时间 */}
+                {ops.backup.available ? null : (
+                  <div className="f12 gray" data-testid="ops-backup-unavailable">
+                    无数据源，本面板不展示备份状态。
+                    <div className="sep5" />
+                    {ops.backup.detail}
+                  </div>
+                )}
+              </div>
+
+              <div className="cell">
+                <button type="button" className="btn" onClick={() => void loadOps()}>
+                  刷新
+                </button>
+                <span className="f12 gray" style={{ marginLeft: 10 }}>
+                  数据为请求时刻的即时快照，非时间序列。
+                </span>
+              </div>
+            </>
+          ) : null}
         </>
       ) : null}
     </>

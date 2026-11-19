@@ -83,6 +83,8 @@ const EXPECTED: Record<Permission, Record<Role, boolean>> = {
   'credits.adjust': { user: false, moderator: false, admin: true },
   'logs.view': { user: false, moderator: true, admin: true },
   'config.view': { user: false, moderator: true, admin: true },
+  // v0.0.17：运维总览仅 admin（基础设施面，版主不需要看错误路由分布/磁盘）
+  'ops.view': { user: false, moderator: false, admin: true },
 };
 
 beforeAll(async () => {

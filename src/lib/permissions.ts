@@ -45,7 +45,17 @@ export type Permission =
   | 'categories.manage'
   | 'credits.adjust'
   | 'logs.view'
-  | 'config.view';
+  | 'config.view'
+  // v0.0.17：运维总览（P0-1）
+  //
+  // 为什么单开一个权限而不是复用 `config.view`：
+  //  - `config.view` 对**版主**开放（看站点配置，判断行为是否符合预期）；
+  //  - 运维总览含**进程内指标、依赖健康、磁盘容量、错误路由分布**
+  //    —— 这是基础设施面，不是内容治理面，版主不需要也不应看到
+  //    「哪个 API 路由在报 5xx」「磁盘剩余比例」这类信息
+  //    （它可被用来试探系统边界）。
+  //  ⇒ 新增 `ops.view`，**仅 admin**。
+  | 'ops.view';
 
 const MATRIX: Record<Permission, readonly SessionUser['role'][]> = {
   'users.view': ['moderator', 'admin'],
@@ -61,6 +71,8 @@ const MATRIX: Record<Permission, readonly SessionUser['role'][]> = {
   'credits.adjust': ['admin'],
   'logs.view': ['moderator', 'admin'],
   'config.view': ['moderator', 'admin'],
+  // v0.0.17：运维总览仅 admin（见 Permissions 声明处的理由）
+  'ops.view': ['admin'],
 };
 
 /** 该权限是否允许给定角色 */
