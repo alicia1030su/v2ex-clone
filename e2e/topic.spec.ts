@@ -117,26 +117,54 @@ test.describe('主题与回复', () => {
   });
 
   test('回复限流生效', async ({ page }) => {
+    /*
+     * ⚠️ v0.0.17：**必须在窗口起点之后开始**，否则会被「窗口边界」假失败。
+     *
+     * ## 真实失败（run 44487297292，webkit/1920x1080）
+     *
+     *     连续回复应触发 429 限流。实际返回状态分布：{"200":30}（共 30 次）
+     *
+     * 30 次全是 200 —— 看起来像「限流没生效」，但产品侧的窗口实现是：
+     *
+     *   PgKV.incrWindow：windowStart = floor(now / window) * window
+     *   ⇒ 窗口**对齐到绝对时间边界**（如 120s 窗口 = 00:00 / 00:02 / 00:04…）
+     *
+     * 如果这 30 次请求恰好**跨越了一个窗口边界**，计数会在中途归零：
+     * 前 18 次落在旧窗口、后 12 次落在新窗口 ⇒ 两个窗口都到不了 20
+     * ⇒ **永远不会 429**。概率约 (请求总耗时 / 窗口长度)，30 次约 1.6s
+     * ⇒ 每次约 1.3%，但 15 个分片 × 多轮 = 迟早撞上。
+     *
+     * Redis 实现的窗口是「首次 incr 起算 + EXPIRE」，不存在这个问题；
+     * 但**两种后端都必须让这条用例成立**，所以按「最保守的那一种」写。
+     *
+     * ## 修法
+     * 先等到刚跨过窗口边界（通常无需等待；只有临近边界时才睡几秒），
+     * 保证整串请求落在**同一个窗口内**。等待上限 = 一个窗口，且
+     * 只在剩余时间不足 3 秒时才等，避免拖慢整个分片。
+     */
+    const limit = Number(process.env.RATE_LIMIT_REPLY_MAX ?? 20);
+    const windowMs = Number(process.env.RATE_LIMIT_REPLY_WINDOW_SECONDS ?? 120) * 1000;
+
+    const msToBoundary = windowMs - (Date.now() % windowMs);
+    if (msToBoundary <= 3000) {
+      // 剩余时间不够跑完这一串 ⇒ 等到新窗口开始
+      await page.waitForTimeout(msToBoundary + 120);
+    }
+
     await login(page, USER_B.username, USER_B.password);
     let sawRateLimit = false;
 
     /*
-     * ⚠️ v0.0.16：失败信息必须**自解释**。
-     *
-     * 原实现只断言「30 次里应出现 429」。实测在 chromium/375x812 分片上
-     * 偶发失败时，日志里只有一句「连续回复应触发 429 限流」——
-     * **完全看不出那 30 次请求究竟返回了什么**：
+     * 失败信息必须**自解释**（v0.0.16 起）：
      *   · 全是 200  ⇒ 限流确实没触发（产品问题，必须查）
-     *   · 全是 404  ⇒ 主题 1 不可见（限流根本没被走到，主题被前置用例删了）
+     *   · 全是 404  ⇒ 主题 1 不可见（限流根本没被走到）
      *   · 全是 401  ⇒ 会话失效（压根没登录上）
      *   · 混着 500  ⇒ 限流存储（Redis/PgKV）出错
-     * 三种原因的排查方向完全不同，却共用同一句话。
-     *
-     * 因此这里**收集每一次的状态码**并把分布写进失败信息。
-     * 断言强度**不变**（仍然要求出现 429），只是让失败可诊断。
+     * 四种原因的排查方向完全不同，不能共用同一句话。
      */
     const statuses: number[] = [];
-    for (let i = 0; i < 30; i++) {
+    // 多打几次余量：limit + 5（同一窗口内必定越过阈值）
+    for (let i = 0; i < limit + 5; i++) {
       const res = await apiPost(page, '/api/replies', { topicId: 1, content: `限流测试回复 ${i}` });
       statuses.push(res.status());
       if (res.status() === 429) {
@@ -152,8 +180,9 @@ test.describe('主题与回复', () => {
 
     expect(
       sawRateLimit,
-      `连续回复应触发 429 限流。实际返回状态分布：${JSON.stringify(dist)}（共 ${statuses.length} 次）` +
-        '\n排查方向：全 200 ⇒ 限流未生效；全 404 ⇒ 主题 1 不可见（前置用例可能已删除）；' +
+      `连续回复应触发 429 限流（阈值 ${limit} 次 / ${windowMs / 1000}s 窗口）。` +
+        `实际返回状态分布：${JSON.stringify(dist)}（共 ${statuses.length} 次）` +
+        '\n排查方向：全 200 ⇒ 限流未生效或恰跨窗口边界；全 404 ⇒ 主题 1 不可见；' +
         '全 401 ⇒ 会话失效；含 5xx ⇒ 限流存储异常。',
     ).toBe(true);
   });
