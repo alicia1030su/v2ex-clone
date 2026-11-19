@@ -220,7 +220,27 @@ export function extractNotesTemplate(source) {
   const bodyStart = source.indexOf('\n', start) + 1;
   const end = source.indexOf('\n          NOTES', bodyStart);
   if (end < 0) return null;
-  return source.slice(bodyStart, end);
+  const raw = source.slice(bodyStart, end);
+
+  /*
+   * ⚠️ v0.0.17：必须**去掉 YAML 块标量的公共缩进**。
+   *
+   * `run: |` 里的内容在 YAML 解析时由 GitHub Actions 统一剥掉块缩进
+   * （本文件是 10 个空格），运行时写进 `release-notes.md` 的文本**没有**缩进。
+   * 而这里是从**源码文本**里切片的，切出来的每一行都带着那 10 个空格
+   * ⇒ 本地预演的产物第一行是 `          ## v0.0.17 — 稳定版`，
+   * 那不是 Markdown 标题，GitHub 会渲染成缩进代码块。
+   *
+   * 换句话说：预演的产物与真实发布的产物**不是同一份文本** ——
+   * 这正是本仓反复记录的「预演验证的不是同一条路径」。
+   * 在抽取处统一去缩进，两边才一致。
+   */
+  const lines = raw.split('\n');
+  const indents = lines
+    .filter((l) => l.trim() !== '')
+    .map((l) => l.match(/^ */)[0].length);
+  const common = indents.length > 0 ? Math.min(...indents) : 0;
+  return lines.map((l) => l.slice(common)).join('\n');
 }
 
 /** 判据 5：模板不得含待定态措辞（发布成功即证明已授权） */
@@ -652,12 +672,38 @@ function runNotes() {
   }
   // 把 CHANGELOG 的 ### 降一级为 ####（与 workflow 的 indented 逻辑一致）
   const indented = extracted.section.replace(/^(#{2,4})\s/gm, '#$1 ');
+
+  /*
+   * ⚠️ v0.0.17：模板新增两个**形态占位符** `__FORM_SUFFIX__` / `__FORM_NOTICE__`。
+   *
+   * 它们不能在本地预演里被忽略 —— 否则预演渲染出的标题永远是
+   * `## vX.Y.Z — `（后缀为空），而真实流水线会填「稳定版」或「开发预览版」，
+   * 预演与真实路径就**脱节**了。这类脱节正是本仓反复记录的
+   * 「预演验证的不是同一条路径」。
+   *
+   * 形态判定必须与 release.yml **同一套规则**：读 docs/STABLE_RELEASES.json。
+   */
+  let isStable = false;
+  try {
+    const wl = JSON.parse(read('docs/STABLE_RELEASES.json'));
+    isStable = Array.isArray(wl.stable) && wl.stable.includes(VERSION);
+  } catch {
+    isStable = false;
+  }
+  const formSuffix = isStable ? ' — 稳定版' : ' — 开发预览版（Pre-release）';
+  const formNotice = isStable
+    ? '> ✅ **这是正式稳定版（Stable Release）。**'
+    : '> ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**';
+  ok(`发布形态判定：${isStable ? '稳定版（白名单已登记）' : 'Pre-release（未登记）'}`);
+
   const notes = tpl
     .replace(/__CHANGELOG_SECTION__/g, () => indented)
+    .replace(/__FORM_SUFFIX__/g, formSuffix)
+    .replace(/__FORM_NOTICE__/g, formNotice)
     .replace(/__VERSION__/g, VERSION)
     .replace(/__DIGEST__/g, 'sha256:dryrun-no-image-pushed');
 
-  const leftovers = ['__CHANGELOG_SECTION__', '__VERSION__', '__DIGEST__'].filter((p) =>
+  const leftovers = ['__CHANGELOG_SECTION__', '__VERSION__', '__DIGEST__', '__FORM_SUFFIX__', '__FORM_NOTICE__'].filter((p) =>
     notes.includes(p),
   );
   if (leftovers.length > 0) {
@@ -670,10 +716,16 @@ function runNotes() {
   } else {
     bad(`渲染后的 Notes 缺少「### ${VERSION} 更新内容」`);
   }
-  if (notes.includes(`## ${VERSION} — 开发预览版`)) {
-    ok(`主标题正确：## ${VERSION} — 开发预览版`);
+  // 主标题必须与**形态**一致，不能写死「开发预览版」
+  const expectTitle = `## ${VERSION}${formSuffix}`;
+  if (notes.includes(expectTitle)) {
+    ok(`主标题正确：${expectTitle}`);
   } else {
-    bad(`主标题不是 ${VERSION}`);
+    bad(`主标题不是 ${VERSION}（期望：${expectTitle}）`);
+  }
+  // 反向断言：稳定版里不得出现「不是稳定版」
+  if (isStable && notes.includes('不是稳定版')) {
+    bad('稳定版 Notes 出现「不是稳定版」—— 形态自相矛盾');
   }
   // R-01 披露必须在场（发布说明的核心合规要求）
   for (const marker of ['R-01', 'DEFERRED', '不构成']) {
