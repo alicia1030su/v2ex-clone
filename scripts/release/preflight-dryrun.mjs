@@ -214,6 +214,28 @@ export function allRepoReadingJobsCheckout(source) {
 }
 
 /** 抽出 Release Notes 模板正文（`cat > release-notes.md <<'NOTES'` 到 `NOTES`） */
+/**
+ * 抽出模板的**原始**文本（保留 `run: |` 的块缩进）。
+ *
+ * ⚠️ 为什么需要两个函数：v0.0.17 给 `extractNotesTemplate` 加了「去掉公共缩进」，
+ * 于是它返回的文本**不再与源码逐字相同** ⇒ 负向对照用
+ * `workflow.indexOf(tpl)` 定位注入点时得到 -1、用 `replace(tpl, ...)` 变成空操作
+ * ⇒ 报「无法构造 / 假绿」。
+ *
+ * 这不是判据失效，是**两个用途被混在一个返回值上**：
+ *   · **判定**（比较标题、查待定词）需要「运行时看到的那份文本」⇒ 去缩进
+ *   · **注入**（在源码里改坏一段）需要「源码里的那份文本」⇒ 保留缩进
+ * 分开之后两边都对。
+ */
+export function extractNotesTemplateRaw(source) {
+  const start = source.indexOf("cat > release-notes.md <<'NOTES'");
+  if (start < 0) return null;
+  const bodyStart = source.indexOf('\n', start) + 1;
+  const end = source.indexOf('\n          NOTES', bodyStart);
+  if (end < 0) return null;
+  return source.slice(bodyStart, end);
+}
+
 export function extractNotesTemplate(source) {
   const start = source.indexOf("cat > release-notes.md <<'NOTES'");
   if (start < 0) return null;
@@ -501,7 +523,8 @@ function runStatic() {
   negativeControl(
     '在模板里注入「待主人裁决」',
     () => {
-      const tpl = extractNotesTemplate(workflow);
+      // ⚠️ 注入必须用**原始文本**（带块缩进），否则 workflow.indexOf(tpl) = -1
+      const tpl = extractNotesTemplateRaw(workflow);
       if (tpl === null) return null;
       const idx = workflow.indexOf(tpl);
       if (idx < 0) return null;
@@ -533,7 +556,8 @@ function runStatic() {
   negativeControl(
     '删掉 __CHANGELOG_SECTION__ 占位符',
     () => {
-      const tpl = extractNotesTemplate(workflow);
+      // 同上：注入用原始文本
+      const tpl = extractNotesTemplateRaw(workflow);
       if (tpl === null) return null;
       const idx = workflow.indexOf(tpl);
       return (
