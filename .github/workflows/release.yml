@@ -642,8 +642,25 @@ jobs:
           set -euo pipefail
           DECISION="docs/RISK_DECISION_${VERSION}.md"
           echo "  待检查：$DECISION"
-          # 已发布的版本（补救路径）允许沿用其发布当时的裁决文件；
-          # 但若连文件都没有，同样判红 —— 不接受「它以前发过所以不用查」。
+
+          # ⚠️ v0.0.16：**不再用 grep 找 A3/B1/R-01 三个词**。
+          #
+          # 关键词存在 ≠ 拿到了授权。真实存在的反例：
+          #   · 「本次**不**授权 B1 公开发布」—— 含 B1，意思相反；
+          #   · 「上一版是 A3 + B1，本版沿用」—— 是**别的版本**的裁决；
+          #   · 「待补，先写 A3/B1 占位」—— 三个词都在，一个字不是裁决；
+          #   · 把 v0.0.15 的裁决文件复制成 v0.0.16 —— 文件名对、内容旧。
+          # 这些都能让纯 grep 判据显示「绿」。
+          #
+          # 现在改由 `verify-risk-decision.mjs` 校验**结构化字段的语义**：
+          #   版本必须等于目标版本、decision_a 必须是 A3、decision_b 必须是 B1、
+          #   public_release_authorized 必须是布尔 true、scope 必须 single-version、
+          #   one_time 必须 true、R-01 必须 DEFERRED、
+          #   authorized_by 不得含自动化身份词（机器不能自己授权自己）、
+          #   authorized_at 必须是合法且非未来的日期、
+          #   允许 / 禁止操作清单必须显式覆盖关键项。
+          #
+          # 该脚本**不生成、不补齐、不推断**任何字段 —— 缺字段即无授权。
           if [ ! -f "$DECISION" ]; then
             echo "::error::缺少 $DECISION —— 本版本没有走过公开发布授权流程，终止发布"
             echo "  说明：v0.0.15 的一次性授权**不自动延续**到新版本。"
@@ -652,14 +669,11 @@ jobs:
             ls -1 docs/RISK_DECISION_*.md 2>/dev/null | tail -5 || true
             exit 1
           fi
-          # 文件必须真的写了 A3 / B1（防止放一个空文件蒙过去）
-          for token in 'A3' 'B1' 'R-01'; do
-            grep -q "$token" "$DECISION" || {
-              echo "::error::$DECISION 未包含授权要件「$token」—— 疑似占位文件"
-              exit 1
-            }
-          done
-          echo "✓ 授权文件存在且含 A3 / B1 / R-01 要件：$DECISION"
+          node scripts/release/verify-risk-decision.mjs --version "$VERSION" || {
+            echo "::error::授权校验未通过 —— 终止发布（详见上方逐项原因）"
+            exit 1
+          }
+          echo "✓ 授权有效（结构化字段校验通过）：$DECISION"
 
       - name: 复核远端 Release 状态（B3 fail-closed）
         env:
