@@ -223,11 +223,36 @@ if ! grep -q "$IMAGE_TAG" "$DEPLOY_STAGE/docker-compose.yml" 2>/dev/null; then
 fi
 ok "候选包镜像引用已指向：${IMAGE_TAG}"
 
-# 打包
-( cd "$DEPLOY_STAGE" && zip -qr "$ZIP_PATH" . )
+# 打包 —— **必须走与正式包同一套规则**
+#
+# ⚠️ v0.0.17 P0-3：这里原先是 `zip -qr "$ZIP_PATH" .`。
+#    `zip` 把每个文件的**实际 mtime** 写进 ZIP 头 ⇒ 同一源码、同一工具链
+#    连续构建会得到不同字节。实测 v0.0.16：同一 SHA 三次构建
+#      0b8242b217… / b6f766671e… / 5b52c17d38…
+#    后果是「候选包是不是同一份」只能靠人肉比，哈希完全失去意义。
+#
+# 现在改用 `package-deploy-zip.mjs`（正式包用的同一个打包器）：
+#   · 固定时间戳（2026-11-08 12:00:00）
+#   · 固定条目顺序（按路径排序）
+#   · 固定权限（Unix mode 显式写入）
+#   · store 模式（不压缩 ⇒ 内容逐字节可校验）
+# ⇒ 候选包也可复现，同时**不要求**它与正式包字节相同
+#   （两者的镜像引用与文件名不同，本来就不是同一个产物）。
+node "${REPO_ROOT}/scripts/release/package-deploy-zip.mjs" \
+  --version "${VERSION#v}" \
+  --out "$OUT_DIR" \
+  --src "$DEPLOY_STAGE" \
+  --name candidate >/tmp/v0017-package-candidate.log 2>&1 \
+  || { tail -20 /tmp/v0017-package-candidate.log; die "候选 ZIP 打包失败（package-deploy-zip.mjs）"; }
+
+# 打包器按 <version>-<name>.zip 命名，这里做一次对齐校验：
+# 名字不对说明参数传错，宁可失败也不要产出一个名字与内容不符的包。
+if [ ! -f "$ZIP_PATH" ]; then
+  die "打包器没有产出预期文件：$ZIP_PATH（实际产物见 /tmp/v0017-package-candidate.log）"
+fi
 [ -s "$ZIP_PATH" ] || die "候选 ZIP 生成失败：${ZIP_PATH}"
 ZIP_SIZE="$(wc -c < "$ZIP_PATH" | tr -d ' ')"
-ok "候选 ZIP 已生成：${ZIP_NAME}（${ZIP_SIZE} 字节）"
+ok "候选 ZIP 已生成（确定性打包）：${ZIP_NAME}（${ZIP_SIZE} 字节）"
 
 # --- 步骤 4：SHA256SUMS ---------------------------------------------------
 step "生成 SHA256SUMS"
