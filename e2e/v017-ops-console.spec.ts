@@ -96,15 +96,29 @@ test.describe('v0.0.17 运维后台（管理员）', () => {
     const res = await page.request.get('/api/admin/ops');
     const text = await res.text();
 
-    for (const pat of [
-      /postgres(ql)?:\/\//i,
-      /redis://///i,
-      /SESSION_SECRET/i,
-      /POSTGRES_PASSWORD/i,
-      /REDIS_PASSWORD/i,
-      /v2_session/i,
-      /@[a-z0-9.-]+\.[a-z]{2,}/i, // 邮箱
-    ]) {
+    /*
+     * ⚠️ 这里**必须**用 `new RegExp` 而不是字面量 `/redis:\/\//`。
+     *
+     * 原因：这个文件由 shell heredoc 生成过一次，反斜杠被吃掉，
+     * `\/` 变成 `/` ⇒ 字面量 `/redis://///i` 里的 `//` 被当成**行注释**
+     * ⇒ 后续 `/SESSION_SECRET/i` 被解析成标识符 ⇒
+     * `ReferenceError: SESSION_SECRET is not defined`，
+     * 而报错位置与「泄露敏感信息」毫无关系，排查方向被完全带偏。
+     *
+     * 用 `new RegExp('redis://')` 后，斜杠不再需要转义，这种工具链事故不会再出现。
+     */
+    const patterns: RegExp[] = [
+      new RegExp('postgres(ql)?://', 'i'),
+      new RegExp('redis://', 'i'),
+      new RegExp('SESSION_SECRET', 'i'),
+      new RegExp('POSTGRES_PASSWORD', 'i'),
+      new RegExp('REDIS_PASSWORD', 'i'),
+      new RegExp('v2_session', 'i'),
+      // 邮箱：本地部分@域名.顶级域
+      new RegExp('[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}'),
+    ];
+
+    for (const pat of patterns) {
       expect(text, `运维接口泄露敏感信息：${pat}`).not.toMatch(pat);
     }
   });
@@ -116,7 +130,12 @@ test.describe('v0.0.17 运维后台（管理员）', () => {
     await page.waitForTimeout(1500);
 
     const body = await page.locator('body').innerText();
-    for (const pat of [/postgres(ql)?:\/\//i, /SESSION_SECRET/i, /v2_session/i]) {
+    const patterns: RegExp[] = [
+      new RegExp('postgres(ql)?://', 'i'),
+      new RegExp('SESSION_SECRET', 'i'),
+      new RegExp('v2_session', 'i'),
+    ];
+    for (const pat of patterns) {
       expect(body, `运维页面文本泄露敏感信息：${pat}`).not.toMatch(pat);
     }
   });
