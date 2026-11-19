@@ -165,8 +165,40 @@ export default function SettingsForm({ user }: { user: User }) {
   }
 
   // ---- 修改密码 ----
+  /**
+   * 显式校验必填字段并给出**可见提示**（v0.0.17 P1-2）
+   *
+   * ## 修的是什么
+   *
+   * 表单三个输入框都带 `required`，浏览器会拦截提交 —— 但那是**静默**的：
+   * 用户点了「修改密码」，页面没有任何反应，只能靠自己发现某个框没填满。
+   * 部分浏览器只在聚焦时才画出气泡提示，而点击按钮并不会自动聚焦到
+   * 第一个空字段；移动端软键盘还可能把提示挡在视口外。
+   *
+   * ⇒ 三条要求：
+   *   1. 给表单加 `noValidate`，**不让浏览器替代我们做校验**；
+   *   2. 在提交处理里逐项检查，并把「哪一项没填」写进消息区；
+   *   3. 让消息区**可被读屏软件播报**（role="alert"），不只是视觉提示。
+   *
+   * 保留 `required` 属性本身：它仍是正确的语义标注（辅助技术会念「必填」），
+   * 只是不再由它来「阻止提交」。
+   */
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
+
+    // 逐项检查 —— 报错必须**指出是哪一项**，不能只说「请填写完整」
+    if (!pwd.current.trim()) {
+      setMsg({ kind: 'err', text: '请填写「当前密码」' });
+      return;
+    }
+    if (!pwd.next) {
+      setMsg({ kind: 'err', text: '请填写「新密码」' });
+      return;
+    }
+    if (!pwd.confirm) {
+      setMsg({ kind: 'err', text: '请填写「确认新密码」' });
+      return;
+    }
     if (pwd.next !== pwd.confirm) {
       setMsg({ kind: 'err', text: '两次输入的新密码不一致' });
       return;
@@ -455,7 +487,7 @@ export default function SettingsForm({ user }: { user: User }) {
       <div className="cell">
         <strong>修改密码</strong>
         <div className="sep10" />
-        <form onSubmit={changePassword}>
+        <form onSubmit={changePassword} noValidate>
           <table cellPadding={5} cellSpacing={0} border={0} width="100%">
             <tbody>
               <tr>
