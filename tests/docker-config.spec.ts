@@ -84,6 +84,23 @@ function serviceBlock(yaml: string, service: string): string {
   return out.join('\n');
 }
 
+describe('Docker 镜像安全扫描门禁（v0.0.18）', () => {
+  const workflow = read('.github/workflows/docker-verify.yml');
+
+  it('真实构建后必须运行 Trivy，并阻断 CRITICAL / HIGH', () => {
+    expect(workflow).toContain('aquasecurity/trivy-action@v0.36.0');
+    expect(workflow).toContain('image-ref: v2ex-clone:dv');
+    expect(workflow).toContain("severity: CRITICAL,HIGH");
+    expect(workflow).toContain("exit-code: '1'");
+    expect(workflow).toContain('ignore-unfixed: true');
+  });
+
+  it('扫描报告必须进入验证 artifact', () => {
+    expect(workflow).toContain('output: trivy-image.txt');
+    expect(workflow).toContain('            trivy-image.txt');
+  });
+});
+
 describe('Dockerfile 启动阶段分离（P0-2）', () => {
   const dockerfile = read('Dockerfile');
 

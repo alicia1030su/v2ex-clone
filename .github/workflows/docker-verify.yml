@@ -107,6 +107,20 @@ jobs:
           echo "IMAGE_SIZE_BYTES=$(docker image inspect v2ex-clone:dv --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
           echo "IMAGE_ID=$(docker image inspect v2ex-clone:dv --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
 
+      - name: '[安全] Trivy 镜像高危漏洞扫描'
+        id: trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: v2ex-clone:dv
+          format: table
+          output: trivy-image.txt
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          timeout: 10m
+
       # ---------------------------------------------------------------------
       # 校验项 9/9 —— 镜像内容与权限检查
       #   · 非 root 用户运行
@@ -848,6 +862,7 @@ jobs:
             echo "| # | 校验项 | 结果 |"
             echo "|---|--------|------|"
             echo "| 1 | 镜像真实构建 | $([ '${{ steps.build.outcome }}' = 'success' ] && echo PASS || echo FAIL) |"
+            echo "| 安全 | Trivy 高危漏洞扫描 | $([ '${{ steps.trivy.outcome }}' = 'success' ] && echo PASS || echo FAIL) |"
             echo "| 2 | Compose 启动 | $([ "${{ job.status }}" = 'success' ] && echo PASS || echo FAIL) |"
             echo "| 3 | PG / Redis 健康检查 | 同上 |"
             echo "| 4 | 数据卷持久化 | 同上 |"
@@ -868,6 +883,7 @@ jobs:
             /tmp/summary.md
             /tmp/install.log
             /tmp/compose-rendered.yml
+            trivy-image.txt
           retention-days: 14
 
       - name: compose 日志
