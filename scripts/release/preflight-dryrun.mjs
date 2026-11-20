@@ -35,6 +35,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = process.cwd();
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -707,13 +708,12 @@ function runNotes() {
    *
    * 形态判定必须与 release.yml **同一套规则**：读 docs/STABLE_RELEASES.json。
    */
-  let isStable = false;
-  try {
-    const wl = JSON.parse(read('docs/STABLE_RELEASES.json'));
-    isStable = Array.isArray(wl.stable) && wl.stable.includes(VERSION);
-  } catch {
-    isStable = false;
-  }
+  const channelResult = JSON.parse(execFileSync(
+    process.execPath,
+    [path.join(ROOT, 'scripts/release/resolve-release-channel.mjs'), '--version', VERSION, '--format', 'json'],
+    { cwd: ROOT, encoding: 'utf8' },
+  ));
+  const isStable = channelResult.channel === 'stable';
   const formSuffix = isStable ? ' — 稳定版' : ' — 开发预览版（Pre-release）';
   const formNotice = isStable
     ? '> ✅ **这是正式稳定版（Stable Release）。**'

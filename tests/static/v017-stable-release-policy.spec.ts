@@ -106,57 +106,32 @@ describe('v0.0.17 发布形态：稳定版白名单', () => {
   });
 });
 
-describe('v0.0.17 发布形态：闸门必须真实存在（不是把闸门删掉）', () => {
-  it('tag push 路径不得再无脑写 prerelease=true', () => {
-    /*
-     * 关键反向断言：原实现是
-     *     echo "prerelease=true" >> "$GITHUB_OUTPUT"
-     * 无条件执行。改成白名单后，这一行必须被条件分支包住。
-     */
+describe('v0.0.17 发布形态：闸门必须真实存在（v0.0.18 起统一解析器）', () => {
+  it('tag push 与 dispatch 都必须由统一解析器给出形态', () => {
     const metaBlock = WF.slice(WF.indexOf('记录三态标志'), WF.indexOf('读取远端 Release 状态'));
     expect(metaBlock, '找不到三态标志步骤').not.toBe('');
-
-    // 必须读白名单
-    expect(metaBlock).toContain('docs/STABLE_RELEASES.json');
-    expect(metaBlock).toMatch(/IS_STABLE/);
-    // 必须**同时**保留两条分支（true 与 false）
-    expect(metaBlock).toMatch(/prerelease=false/);
-    expect(metaBlock).toMatch(/prerelease=true/);
-
-    // 反向：不得出现「无条件」的 prerelease=true（即没有 if 包着）
-    const lines = metaBlock.split('\n').map((l) => l.trim());
-    const idx = lines.findIndex((l) => l === 'echo "prerelease=true" >> "$GITHUB_OUTPUT"');
-    expect(idx, '找不到 prerelease=true 的赋值行（结构已变，本用例需重写）').toBeGreaterThan(0);
-    // 上一行的有效语句必须是 else（而不是 fi 或空行）
-    const prevNonEmpty = lines.slice(0, idx).filter((l) => l && !l.startsWith('#')).pop();
-    expect(
-      prevNonEmpty,
-      `prerelease=true 没有被 else 分支包住（上一行是 ${JSON.stringify(prevNonEmpty)}）—— 又变成无条件了`,
-    ).toBe('else');
+    expect(metaBlock).toContain('resolve-release-channel.mjs');
+    expect(metaBlock).toContain('--format github-output');
+    // 不再提供可覆盖清单的 prerelease 输入
+    const inputs = WF.slice(WF.indexOf('workflow_dispatch:'), WF.indexOf('concurrency:'));
+    expect(inputs, '仍存在独立的 prerelease 输入 —— 会形成第二真相来源').not.toMatch(/^      prerelease:/m);
   });
 
-  it('publish-release 阶段必须**仍有**稳定版守卫（不能整段删除）', () => {
-    /*
-     * 改成白名单 ≠ 取消守卫。若有人为了发稳定版把 `if [ "$PRERELEASE" != "true" ]`
-     * 整段删掉，那么任何版本（包括未登记的 0.0.18）都能发稳定版。
-     */
-    expect(WF, '稳定版守卫被删除了 —— 未登记版本将可以直接发稳定版').toMatch(
-      /if\s*\[\s*"\$PRERELEASE"\s*!=\s*"true"\s*\]\s*;?\s*then/,
-    );
-    // 守卫里必须**再次**校验白名单（不能只信 preflight 的 output）
-    const guard = WF.slice(WF.indexOf('if [ "$PRERELEASE" != "true" ]; then'));
-    expect(guard).toMatch(/STABLE_RELEASES\.json/);
-    expect(guard, '守卫里没有再判 STABLE_OK').toMatch(/STABLE_OK/);
-    // 未登记时必须 exit 1
-    expect(guard.slice(0, 1500)).toMatch(/exit 1/);
+  it('publish-release 必须防御性复算并与 preflight 比对', () => {
+    expect(WF).toContain('release-channel-recheck.out');
+    expect(WF).toMatch(/RECHECK_PRERELEASE/);
+    expect(WF).toMatch(/发布形态不一致：preflight=\$PRERELEASE/);
+    // 未登记版本由解析器默认 prerelease；若 output 被篡改成 stable，这里必须失败
+    const guard = WF.slice(WF.indexOf('release-channel-recheck.out') - 400, WF.indexOf('release-channel-recheck.out') + 900);
+    expect(guard).toMatch(/exit 1/);
   });
 
-  it('白名单读不到时**不得**回退成稳定版', () => {
-    // 正向要求：文件不存在 ⇒ warning + 按 Pre-release
-    // ⚠️ 文案里用的是变量 `$STABLE_WHITELIST`，不是字面路径 ——
-    //    第一版写 `/STABLE_RELEASES\.json 不存在/` 恒不匹配（判据假红）。
-    expect(WF).toMatch(/\$STABLE_WHITELIST 不存在/);
-    expect(WF, '文件缺失时没有回退到 Pre-release 的显式说明').toMatch(/按 Pre-release 处理/);
+  it('清单缺失或无效时解析器必须失败，不得回退成稳定版', () => {
+    const resolver = readFileSync(path.join(ROOT, 'scripts/release/resolve-release-channel.mjs'), 'utf8');
+    expect(resolver).toMatch(/无法读取/);
+    expect(resolver).toMatch(/process\.exit\(1\)/);
+    // 解析器不捕获清单错误后继续输出 channel
+    expect(resolver).not.toMatch(/catch[\s\S]{0,100}manifest\.default/);
   });
 });
 

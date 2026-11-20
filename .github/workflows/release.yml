@@ -161,15 +161,6 @@ on:
         required: false
         type: boolean
         default: false
-      prerelease:
-        description: |
-          公开后的 Release 类型。
-          · true  = Pre-release（公开可下载，但标记为「非稳定版」）—— v0.0.9 用这个
-          · false = 稳定版（**本项目 0.0.x 全部是早期开发预览版，不应发稳定版**）
-          仅在 publish=true 时生效。
-        required: false
-        type: boolean
-        default: true
 
 concurrency:
   # ⚠️ v0.0.9：**版本号必须进 group**。
@@ -315,6 +306,8 @@ jobs:
       #   导致「只建 Draft + 跳过匿名核验」，且没有可用的公开发布入口。
       #   现在由 meta step 按事件类型统一算好，下游只读这两个 output。
       publish: ${{ steps.meta.outputs.publish }}
+      # v0.0.18 P0-1：渠道由 docs/RELEASE_CHANNELS.json 单一事实来源解析。
+      channel: ${{ steps.meta.outputs.channel }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
       # v0.0.4：Release 的 target commit。
       # tag 触发时 = tag 指向的 commit（= github.sha）；
@@ -396,89 +389,29 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "待发布版本：$VERSION"
 
-      - name: 记录三态标志（dry-run / publish / prerelease）
+      - name: 记录三态标志（dry-run / publish / channel）
         id: meta
         env:
-          # ⚠️ N1：boolean inputs 也走 env，避免字符串插值与大小写歧义。
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
           INPUT_PUBLISH: ${{ inputs.publish }}
-          INPUT_PRERELEASE: ${{ inputs.prerelease }}
           EVENT_NAME: ${{ github.event_name }}
-          # ⚠️ v0.0.17：白名单判定需要版本号。**必须显式传入** ——
-          #    这个 step 只继承 workflow 级 env，看不到上一步的 output。
-          #    漏了它 ⇒ `VERSION: unbound variable`（在 `set -u` 下直接 exit 1），
-          #    而报错发生在第 42 行的判断语句里，看不出是「少传了一个变量」。
           VERSION: ${{ steps.v.outputs.version }}
         run: |
           set -euo pipefail
-          # ⚠️ v0.0.9：本 step 是 publish / prerelease / dry_run 的
-          #    **单一事实来源**；publish-release 与 verify-release 一律通过
-          #    `needs.preflight.outputs.*` 读取，禁止再各自引用 inputs.publish。
-          #
-          #    tag push ⇒ publish=true：Tag 白名单是人工确认「该版本允许
-          #    公开发布」的摩擦点，tag 推上来即代表确认；若这里给 false，
-          #    正式发布路径将永远停在 Draft。
-          #    workflow_dispatch ⇒ 完全按输入执行，publish=false 时保持 Draft；
-          #    publish=true 时还承担 B2 的「幂等转公开」补救路径（见文件头）。
-          #
-          # ═══════════════════════════════════════════════════════════════
-          # v0.0.17：发布形态从「0.0.x 一律 Pre-release」改为**按版本白名单**
-          # ═══════════════════════════════════════════════════════════════
-          #
-          # 原实现（v0.0.9 ~ v0.0.16）在 tag push 路径**硬编码** prerelease=true，
-          # 并在 publish-release 阶段 `exit 1` 拦住任何稳定版：
-          #
-          #     if [ "$PRERELEASE" != "true" ]; then
-          #       echo "::error::本项目 0.0.x 全部是早期开发预览版，不得发布为稳定版。"
-          #       exit 1
-          #     fi
-          #
-          # 政策的初衷是对的（防止用户误以为可长期依赖），但它是**硬编码**的：
-          # 即使项目所有者明确决定某一版本已达到生产就绪，也只能改代码；
-          # 而「改代码」本身没有任何审计痕迹，也容易被下一次改动悄悄恢复。
-          #
-          # 现在改为读 `docs/STABLE_RELEASES.json` 的**逐版本白名单**：
-          #   · 版本在 stable 数组里 ⇒ prerelease=false（稳定版）
-          #   · 不在 ⇒ 默认仍 prerelease=true（Pre-release），与历史行为一致
-          #   · 白名单只认**精确版本号**，不支持前缀通配 ⇒ 「0.0.x 从此都稳定」不可能
-          #   · 新增一个稳定版必须走 PR 改这个文件 ⇒ diff 即审计记录
-          #
-          # ⚠️ 白名单 ≠ 授权：公开发布仍需 docs/RISK_DECISION_v<版本>.md，
-          #    由 preflight 的授权闸门独立校验（两道闸门缺一不可）。
-          #
-          # ⚠️ 读不到白名单文件时**不回退**：宁可让发布失败，也不能因为
-          #    「文件没读到」而把预发布误当稳定版发出去。
-          STABLE_WHITELIST="docs/STABLE_RELEASES.json"
-          IS_STABLE="false"
-          if [ -f "$STABLE_WHITELIST" ]; then
-            if node -e "
-              const fs = require('fs');
-              const d = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
-              const list = Array.isArray(d.stable) ? d.stable : [];
-              process.exit(list.includes(process.argv[2]) ? 0 : 1);
-            " "$STABLE_WHITELIST" "$VERSION"; then
-              IS_STABLE="true"
-            fi
-          else
-            echo "::warning::$STABLE_WHITELIST 不存在 —— 本次按 Pre-release 处理（不回退成稳定版）"
-          fi
-          echo "  发布形态判定：version=$VERSION stable=$IS_STABLE"
+          # 发布形态只由统一解析器决定；workflow_dispatch 不再提供可覆盖的
+          # prerelease 开关，避免“输入一份、清单一份、判据又一份”漂移。
+          node scripts/release/resolve-release-channel.mjs \
+            --version "$VERSION" --format github-output \
+            > "$RUNNER_TEMP/release-channel.out"
+          cat "$RUNNER_TEMP/release-channel.out"
+          cat "$RUNNER_TEMP/release-channel.out" >> "$GITHUB_OUTPUT"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "dry_run=${INPUT_DRY_RUN}" >> "$GITHUB_OUTPUT"
             echo "publish=${INPUT_PUBLISH}" >> "$GITHUB_OUTPUT"
-            # dispatch 路径允许显式指定 prerelease，但仍受白名单约束：
-            # 想发稳定版而版本未登记 ⇒ 后面 publish-release 的守卫会拦下。
-            echo "prerelease=${INPUT_PRERELEASE}" >> "$GITHUB_OUTPUT"
           else
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
             echo "publish=true" >> "$GITHUB_OUTPUT"
-            # tag push：由白名单决定，而不是无脑 true
-            if [ "$IS_STABLE" = "true" ]; then
-              echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            fi
           fi
 
       - name: 读取远端 Release 状态（B3 fail-closed）
@@ -2804,37 +2737,18 @@ jobs:
           # （如 Git 历史合规风险）需要停在 Draft —— 那只适用于
           # workflow_dispatch 且显式 publish=false 的情形。
           PUBLISH="${{ needs.preflight.outputs.publish }}"
-          PRERELEASE="${{ needs.preflight.outputs.prerelease }}"
-          if [ "$PUBLISH" = "true" ]; then
-            # ═══════════════════════════════════════════════════════════
-            # v0.0.17：守卫从「一律禁止稳定版」改为「白名单 + 授权双闸门」
-            # ═══════════════════════════════════════════════════════════
-            #
-            # 稳定性要求（三条同时满足才放行稳定版）：
-            #   ① 版本在 docs/STABLE_RELEASES.json 的 stable 数组里（逐版本登记）
-            #   ② 本版本的裁决记录 docs/RISK_DECISION_v<版本>.md 存在（已有闸门保证）
-            #   ③ 版本号形如 vX.Y.Z
-            #
-            # ⚠️ 仍然**不得**把「0.0.x」当成「都可以稳定」：
-            #    白名单是精确匹配，未登记的版本一律回到 Pre-release。
-            if [ "$PRERELEASE" != "true" ]; then
-              STABLE_OK="false"
-              if [ -f docs/STABLE_RELEASES.json ] && node -e "
-                const fs = require('fs');
-                const d = JSON.parse(fs.readFileSync('docs/STABLE_RELEASES.json', 'utf8'));
-                const list = Array.isArray(d.stable) ? d.stable : [];
-                process.exit(list.includes(process.argv[1]) ? 0 : 1);
-              " "$VERSION"; then
-                STABLE_OK="true"
-              fi
-              if [ "$STABLE_OK" != "true" ]; then
-                echo "::error::$VERSION 未登记为稳定版（docs/STABLE_RELEASES.json 的 stable 数组里没有它）。"
-                echo "        若确实要发稳定版，须走 PR 把该版本加入白名单（diff 即审计记录）；"
-                echo "        否则请保持 prerelease=true。"
-                exit 1
-              fi
-              echo "  稳定版放行：$VERSION 已登记在白名单中"
+            # v0.0.18 P0-1：防御性复核也调用同一个解析器，
+            # 不再在这里复制一份白名单读取逻辑。preflight 的 output 是正常路径，
+            # 这里再解析一次并比对，能抓住 output 被错误传递/工作流被改动。
+            node scripts/release/resolve-release-channel.mjs \
+              --version "$VERSION" --format github-output \
+              > "$RUNNER_TEMP/release-channel-recheck.out"
+            RECHECK_PRERELEASE="$(awk -F= '$1=="prerelease" {print $2}' "$RUNNER_TEMP/release-channel-recheck.out")"
+            if [ "$RECHECK_PRERELEASE" != "$PRERELEASE" ]; then
+              echo "::error::发布形态不一致：preflight=$PRERELEASE，清单复算=$RECHECK_PRERELEASE"
+              exit 1
             fi
+            echo "  发布形态复核通过：$VERSION prerelease=$PRERELEASE"
             # ⚠️ v0.0.17：形态与 `--latest` 都必须跟随 PRERELEASE。
             #
             # `--latest=false` 对 Pre-release 是正确行为（GitHub 的 Latest

@@ -57,12 +57,19 @@ function readDeployVersion() {
   }
 }
 
-/** 允许的操作：公开授权必须显式覆盖这四项，缺一不可 */
+/**
+ * 允许的操作：公开授权必须显式覆盖这四项，缺一不可。
+ *
+ * v0.0.18 P0-1：`create-public-prerelease` 是渠道硬编码。
+ * 新裁决统一使用渠道无关的 `create-public-release`；
+ * 为兼容**已经落盘、不得回写**的 v0.0.16/v0.0.17 历史裁决，接受旧字段
+ * `create-public-prerelease` 或 `create-public-stable-release`。
+ * 渠道本身由 RELEASE_CHANNELS.json 独立判定，不靠授权字段推断。
+ */
 const REQUIRED_ALLOWED = [
   'create-annotated-tag',
   'push-tag',
   'push-ghcr-image',
-  'create-public-prerelease',
 ];
 /** 禁止的操作：必须显式列出，防止「只写允许、不写禁止」的宽松裁决 */
 const REQUIRED_FORBIDDEN = [
@@ -196,6 +203,15 @@ for (const op of REQUIRED_ALLOWED) {
   if (!allowed.includes(op)) {
     problems.push(`allowed_operations 缺少 "${op}" —— 授权未覆盖该发布动作`);
   }
+}
+const hasGenericReleasePermission = allowed.includes('create-public-release');
+const hasLegacyReleasePermission =
+  allowed.includes('create-public-prerelease') || allowed.includes('create-public-stable-release');
+if (!hasGenericReleasePermission && !hasLegacyReleasePermission) {
+  problems.push(
+    'allowed_operations 缺少 "create-public-release" —— 授权未明确覆盖公开发布动作' +
+    '（历史裁决可用 create-public-prerelease 或 create-public-stable-release 兼容）',
+  );
 }
 for (const op of REQUIRED_FORBIDDEN) {
   if (!forbidden.includes(op)) {

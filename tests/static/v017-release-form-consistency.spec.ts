@@ -147,8 +147,8 @@ describe('v0.0.17 发布形态：产出侧与核验侧必须同源', () => {
 describe('v0.0.17 发布形态：本地预演与远端核验口径一致', () => {
   it('预演脚本也按白名单判形态（不是写死预览版）', () => {
     const dry = readFileSync(path.join(ROOT, 'scripts/release/preflight-dryrun.mjs'), 'utf8');
-    expect(dry).toMatch(/STABLE_RELEASES\.json/);
-    expect(dry).toMatch(/isStable/);
+    expect(dry).toContain('resolve-release-channel.mjs');
+    expect(dry).toMatch(/channelResult/);
     // 主标题期望值必须随形态，不写死
     expect(dry).toMatch(/expectTitle\s*=\s*`## \$\{VERSION\}\$\{formSuffix\}`/);
   });
@@ -172,8 +172,9 @@ describe('v0.0.17 发布后独立验收：形态判据同样不得写死', () =>
     ).toBe(false);
   });
 
-  it('形态期望必须来自 docs/STABLE_RELEASES.json（不写死）', () => {
-    expect(POST).toContain('STABLE_RELEASES.json');
+  it('形态期望必须来自统一解析器（不写死、不复制清单逻辑）', () => {
+    expect(POST).toContain('resolve-release-channel.mjs');
+    expect(POST).not.toContain('STABLE_RELEASES.json');
     expect(POST).toMatch(/EXPECT_PRE/);
     // 必须真的拿期望去比，而不是拿到不用
     expect(POST).toMatch(/pre\s+is\s+exp/);
