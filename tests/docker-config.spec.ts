@@ -95,9 +95,9 @@ describe('Docker 镜像安全扫描门禁（v0.0.18）', () => {
     expect(workflow).toContain('ignore-unfixed: true');
   });
 
-  it('扫描报告必须进入验证 artifact', () => {
-    expect(workflow).toContain('output: trivy-image.txt');
-    expect(workflow).toContain('            trivy-image.txt');
+  it('扫描报告必须直接进入 CI 日志', () => {
+    expect(workflow).toContain('format: table');
+    expect(workflow).not.toContain('output: trivy-image.txt');
   });
 });
 

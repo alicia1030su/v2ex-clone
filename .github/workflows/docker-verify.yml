@@ -114,7 +114,6 @@ jobs:
           scan-type: image
           image-ref: v2ex-clone:dv
           format: table
-          output: trivy-image.txt
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: os,library
@@ -883,7 +882,6 @@ jobs:
             /tmp/summary.md
             /tmp/install.log
             /tmp/compose-rendered.yml
-            trivy-image.txt
           retention-days: 14
 
       - name: compose 日志
