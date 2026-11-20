@@ -102,6 +102,9 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'Dockerfile'
+      - '.github/workflows/release.yml'
+      - '.github/release-notes-template.md'
+      - 'scripts/release/**'
       - 'scripts/release/verify-soak.sh'
       - '.github/workflows/soak-test.yml'
       # ⚠️ v0.0.9：**刻意不列** `.github/workflows/soak-segment.yml`。
