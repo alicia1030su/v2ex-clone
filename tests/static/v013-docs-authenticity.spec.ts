@@ -382,17 +382,19 @@ describe('发行文档真实性（v0.0.13）', () => {
 
   it('Release Notes 生成模板不得复用旧版本标题 / 旧版本更新内容', () => {
     const workflow = read('.github/workflows/release.yml');
+    const template = read('.github/release-notes-template.md');
+    const renderer = read('scripts/release/render-release-notes.mjs');
     // v0.0.12 的公开 Notes 标题写着「v0.0.9 更新内容」，正文整段是 v0.0.9 的更新条目。
     // 已发布 Release 不可改，但生成模板必须根治：更新内容由 CHANGELOG 注入。
-    expect(workflow).toContain('### __VERSION__ 更新内容');
-    expect(workflow).toContain('__CHANGELOG_SECTION__');
-    expect(workflow).toContain("readFileSync('CHANGELOG.md'");
-    expect(workflow).toContain('拒绝用旧模板生成 Release Notes');
-    expect(workflow).toContain('缺少本版本更新内容标题');
-    expect(workflow).not.toContain('### v0.0.9 更新内容');
-    expect(workflow).not.toContain('风险接受仅针对 v0.0.9');
+    expect(template).toContain('### __VERSION__ 更新内容');
+    expect(template).toContain('__CHANGELOG_SECTION__');
+    expect(renderer).toContain("abs(CHANGELOG)");
+    expect(renderer).toContain('拒绝用旧模板生成 Release Notes');
+    expect(renderer).toContain('缺少本版本更新内容标题');
+    expect(template).not.toContain('### v0.0.9 更新内容');
+    expect(template).not.toContain('风险接受仅针对 v0.0.9');
     // 已被实现否证的「主题编辑与删除未实现」不得再写进对外说明
-    expect(workflow).not.toContain('**主题编辑与删除**：未实现');
+    expect(template).not.toContain('**主题编辑与删除**：未实现');
     // 白名单就绪 ≠ 已发布；本版本链路必须存在
     expect(workflow).toContain("- 'v0.0.13'");
   });

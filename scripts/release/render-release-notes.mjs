@@ -8,8 +8,10 @@
  * 闸门移出工作流，既缩短表达式，也让这些判据可以在本地直接执行。
  */
 import fs from 'node:fs';
+import path from 'node:path';
 
 const ROOT = process.cwd();
+const abs = (file) => path.resolve(ROOT, file);
 const VERSION = process.env.VERSION ?? '';
 const PRERELEASE = process.env.PRERELEASE ?? '';
 const IMAGE_DIGEST_TEXT = process.env.IMAGE_DIGEST_TEXT ?? '';
@@ -33,11 +35,7 @@ if (!IMAGE_DIGEST_TEXT) {
 }
 
 for (const file of [TEMPLATE, CHANGELOG]) {
-  if (!fs.existsSync(pathJoin(ROOT, file))) fail(`缺少文件：${file}`);
-}
-
-function pathJoin(...parts) {
-  return parts.join('/').replace(/\/+/g, '/');
+  if (!fs.existsSync(abs(file))) fail(`缺少文件：${file}`);
 }
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -47,7 +45,7 @@ const headingVersion = (line) => {
   return matches ? matches[matches.length - 1].replace(/^v/, '') : null;
 };
 const want = VERSION.replace(/^v/, '');
-const lines = fs.readFileSync(pathJoin(ROOT, CHANGELOG), 'utf8').split(/\r?\n/);
+const lines = fs.readFileSync(abs(CHANGELOG), 'utf8').split(/\r?\n/);
 const start = lines.findIndex(
   (line) => /^##\s/.test(line) && versionToken.test(line) && headingVersion(line) === want,
 );
@@ -89,7 +87,7 @@ const formNotice = isPrerelease
       '> ⚠️ 稳定版表示发行工程经过稳定版验收，不等于已完成全部生产规模与 24 小时运行验证。',
     ].join('\n');
 
-let notes = fs.readFileSync(pathJoin(ROOT, TEMPLATE), 'utf8');
+let notes = fs.readFileSync(abs(TEMPLATE), 'utf8');
 for (const placeholder of ['__CHANGELOG_SECTION__', '__FORM_SUFFIX__', '__FORM_NOTICE__', '__VERSION__', '__DIGEST__']) {
   if (!notes.includes(placeholder)) fail(`Release Notes 模板缺少占位符 ${placeholder}`);
 }
@@ -132,7 +130,7 @@ if (/^unzip v2ex-clone-[^ ]+-deploy\.zip$/m.test(notes)) {
   fail('Release Notes 仍有「unzip 无 -d」与「cd 到版本目录」混用的错误写法');
 }
 
-fs.writeFileSync(pathJoin(ROOT, OUTPUT), notes);
+fs.writeFileSync(abs(OUTPUT), notes);
 console.log(`已从 CHANGELOG.md 注入 ${VERSION} 段落（${indented.length} 字符，归属校验通过）`);
 console.log(`发布形态：${isPrerelease ? 'Pre-release' : '稳定版'}（后缀：${JSON.stringify(formSuffix)}）`);
 console.log(`Release Notes 镜像 digest：${IMAGE_DIGEST_TEXT}`);

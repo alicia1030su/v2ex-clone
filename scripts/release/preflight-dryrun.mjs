@@ -701,54 +701,45 @@ function runNotes() {
     (s) => notesSectionIsPublishable(s),
   );
 
-  section('③ 与 release.yml 的抽取规则一致性');
-  // 确认 workflow 里仍然是「精确 token + headingVersion」这套逻辑，
-  // 否则本预演验证的就不是同一条路径。
-  for (const marker of [
-    "const versionToken = new RegExp('(?:^|[^0-9])' + esc + '(?![0-9.])')",
-    'headingVersion(l) === want',
-  ]) {
-    if (workflow.includes(marker)) ok(`workflow 保留判据：${marker.slice(0, 50)}…`);
-    else bad(`workflow 的抽取判据已变（找不到：${marker.slice(0, 50)}…）—— 预演与真实路径脱节`);
+  section('③ 与真实发布渲染路径一致性');
+  const renderer = read('scripts/release/render-release-notes.mjs');
+  const notesTemplate = read('.github/release-notes-template.md');
+  if (workflow.includes('node scripts/release/render-release-notes.mjs')) {
+    ok('release.yml 调用独立渲染脚本');
+  } else {
+    bad('release.yml 未调用 render-release-notes.mjs —— 预演与真实路径脱节');
+  }
+  for (const marker of ['escapeRegExp(VERSION)', 'headingVersion(line)', '__CHANGELOG_SECTION__']) {
+    const source = marker === '__CHANGELOG_SECTION__' ? notesTemplate : renderer;
+    if (source.includes(marker)) ok(`真实渲染路径保留判据：${marker}`);
+    else bad(`真实渲染路径缺少判据：${marker}`);
   }
 
-  section('④ 渲染 Notes（用真实模板，但不创建 Release）');
-  const tpl = extractNotesTemplate(workflow);
-  if (tpl === null) {
-    bad('无法抽出模板正文');
-    return 1;
-  }
-  // 把 CHANGELOG 的 ### 降一级为 ####（与 workflow 的 indented 逻辑一致）
-  const indented = extracted.section.replace(/^(#{2,4})\s/gm, '#$1 ');
-
-  /*
-   * ⚠️ v0.0.17：模板新增两个**形态占位符** `__FORM_SUFFIX__` / `__FORM_NOTICE__`。
-   *
-   * 它们不能在本地预演里被忽略 —— 否则预演渲染出的标题永远是
-   * `## vX.Y.Z — `（后缀为空），而真实流水线会填「稳定版」或「开发预览版」，
-   * 预演与真实路径就**脱节**了。这类脱节正是本仓反复记录的
-   * 「预演验证的不是同一条路径」。
-   *
-   * 形态判定必须与 release.yml **同一套规则**：读 docs/STABLE_RELEASES.json。
-   */
+  section('④ 渲染 Notes（执行真实脚本，但不创建 Release）');
   const channelResult = JSON.parse(execFileSync(
     process.execPath,
     [path.join(ROOT, 'scripts/release/resolve-release-channel.mjs'), '--version', VERSION, '--format', 'json'],
     { cwd: ROOT, encoding: 'utf8' },
   ));
   const isStable = channelResult.channel === 'stable';
-  const formSuffix = isStable ? ' — 稳定版' : ' — 开发预览版（Pre-release）';
-  const formNotice = isStable
-    ? '> ✅ **这是正式稳定版（Stable Release）。**'
-    : '> ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**';
   ok(`发布形态判定：${isStable ? '稳定版（白名单已登记）' : 'Pre-release（未登记）'}`);
-
-  const notes = tpl
-    .replace(/__CHANGELOG_SECTION__/g, () => indented)
-    .replace(/__FORM_SUFFIX__/g, formSuffix)
-    .replace(/__FORM_NOTICE__/g, formNotice)
-    .replace(/__VERSION__/g, VERSION)
-    .replace(/__DIGEST__/g, 'sha256:dryrun-no-image-pushed');
+  const outDir = path.join(ROOT, 'dryrun-out');
+  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+  const renderedPath = path.join(outDir, 'release-notes.md');
+  execFileSync(process.execPath, [path.join(ROOT, 'scripts/release/render-release-notes.mjs')], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      VERSION,
+      PRERELEASE: isStable ? 'false' : 'true',
+      IMAGE_DIGEST_TEXT: 'sha256:dryrun-no-image-pushed',
+      OUTPUT: renderedPath,
+    },
+  });
+  const notes = readFileSync(renderedPath, 'utf8');
+  ok('真实渲染脚本执行成功');
 
   const leftovers = ['__CHANGELOG_SECTION__', '__VERSION__', '__DIGEST__', '__FORM_SUFFIX__', '__FORM_NOTICE__'].filter((p) =>
     notes.includes(p),
@@ -763,26 +754,22 @@ function runNotes() {
   } else {
     bad(`渲染后的 Notes 缺少「### ${VERSION} 更新内容」`);
   }
-  // 主标题必须与**形态**一致，不能写死「开发预览版」
+  const formSuffix = isStable ? ' — 稳定版' : ' — 开发预览版（Pre-release）';
   const expectTitle = `## ${VERSION}${formSuffix}`;
   if (notes.includes(expectTitle)) {
     ok(`主标题正确：${expectTitle}`);
   } else {
     bad(`主标题不是 ${VERSION}（期望：${expectTitle}）`);
   }
-  // 反向断言：稳定版里不得出现「不是稳定版」
   if (isStable && notes.includes('不是稳定版')) {
     bad('稳定版 Notes 出现「不是稳定版」—— 形态自相矛盾');
   }
-  // R-01 披露必须在场（发布说明的核心合规要求）
   for (const marker of ['R-01', 'DEFERRED', '不构成']) {
     if (notes.includes(marker)) ok(`R-01 披露含「${marker}」`);
     else bad(`R-01 披露缺少「${marker}」—— 合规披露不完整`);
   }
 
   section('⑤ 落盘（作为 CI artifact 证据）');
-  const outDir = path.join(ROOT, 'dryrun-out');
-  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
   writeFileSync(path.join(outDir, 'release-notes.md'), notes, 'utf8');
   writeFileSync(
     path.join(outDir, 'changelog-section.md'),
