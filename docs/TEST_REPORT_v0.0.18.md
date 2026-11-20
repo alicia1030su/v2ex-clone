@@ -9,8 +9,8 @@
 
 | 套件 | 命令 / 证据 | 结果 |
 |---|---|---|
-| 完整单元回归（含静态） | GitHub Actions CI run `44786766870` | **86 文件 / 1046 用例通过，0 failed / 0 skipped** |
-| 全量静态 | 同 CI run 的「静态测试」步骤 | **41 文件 / 475 用例通过** |
+| 完整单元回归（含静态） | GitHub Actions CI run `44786766870` + 官方升级护栏新增 9 条 | **87 文件 / 1055 用例；新增 9 条本地已通过，最终 SHA CI 复核中** |
+| 全量静态 | 同 CI run 的「静态测试」步骤 + 官方升级护栏 | **42 文件 / 484 用例；新增 9 条本地已通过** |
 | E2E（Chromium） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
 | 跨浏览器矩阵 | GitHub Actions run `44786767021` | Chromium / Firefox / WebKit × 5 视口；最终以 run 结论为准 |
 | Docker / Redis 隔离验证 | GitHub Actions run `44786766802` | 九项验证通过，含 Trivy CRITICAL / HIGH 阻断 |
@@ -27,6 +27,7 @@
 | 发布预演 static | `preflight-dryrun.mjs --mode=static` | **23/23 通过** |
 | 发布预演 notes | `preflight-dryrun.mjs --mode=notes` | **20/20 通过**，直接执行真实 Notes 渲染脚本 |
 | v0.0.18 发行一致性 | `verify-release-consistency.sh --expect 0.0.18` | **PASS=19 / FAIL=0** |
+| 官方公开资产升级 | `.github/workflows/official-upgrade.yml` | 发布后手动触发：匿名下载 v0.0.17 / v0.0.18 正式 ZIP → 官方 install.sh → 官方 update.sh → 指纹比对 |
 | 生产依赖审计 | `npm audit --omit=dev --audit-level=moderate` | **0 漏洞** |
 | 镜像漏洞扫描 | Trivy CRITICAL / HIGH | 通过；运行层已移除全局 npm/npx，esbuild 链升级到 0.28.2 |
 

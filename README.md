@@ -126,13 +126,18 @@
 >
 > ### 从旧版本升级
 >
-> 已实测升级基线为 **v0.0.4**（`docs/UPGRADE_VERIFICATION_v0.0.10.md`）；
-> v0.0.14 的官方升级路径是 **v0.0.12 → v0.0.14**，由该版门禁真实验证
-> （结果见 [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)）；
-> **v0.0.15 的升级路径 v0.0.14 → v0.0.15** 的验证结果见
-> [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
-> `./update.sh --version <目标版本>` 会改写 `.env` 里的 `V2EX_IMAGE` 并在失败时回滚；
-> **升级前务必先 `./backup.sh`**。详见 [`deploy/INSTALL.md`](deploy/INSTALL.md) §8。
+> v0.0.18 已实测 **v0.0.4 → v0.0.18** 与 **v0.0.17 → v0.0.18** 双基线升级；
+> 发布后还会用两个版本的**正式公开 Release 资产**在全新 runner 上复跑真实容器升级。
+> 在**现有安装目录**执行：
+>
+> ```bash
+> ./backup.sh
+> ./update.sh --version v0.0.18
+> ```
+>
+> `update.sh --version <目标版本>` 会改写 `.env` 里的 `V2EX_IMAGE`、保留数据卷并在失败时回滚；
+> **不要**进入刚解压的新发行包目录执行升级，因为那里没有现有 `.env`。
+> 详见 [`deploy/INSTALL.md`](deploy/INSTALL.md) §8。
 
 <details>
 <summary>历史：为什么 v0.0.10 的 Tag 从未发布（v0.0.10 ~ v0.0.12 的旧说明，仅供追溯）</summary>
@@ -491,8 +496,8 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 
 | 套件 | 用例数 | 证据 | 结果 |
 |---|---|---|---|
-| 单元测试（vitest，含静态） | **1046**（86 个 spec 文件） | GitHub Actions CI run `44786766870` | **1046 passed / 0 failed / 0 skipped** |
-| 全量静态 | **475**（41 个文件） | 同 CI run 的「静态测试」步骤 | **475 passed / 0 failed / 0 skipped** |
+| 单元测试（vitest，含静态） | **1055**（87 个 spec 文件） | GitHub Actions CI run `44786766870` | **1046 passed / 0 failed / 0 skipped**；新增官方升级护栏 9 条待最终 SHA CI 复核 |
+| 全量静态 | **484**（42 个文件） | 同 CI run 的「静态测试」步骤 | **475 passed / 0 failed / 0 skipped**；新增官方升级护栏 9 条本地已通过 |
 | E2E（Playwright / Chromium） | **283**（28 个 spec 文件） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
 | 跨浏览器矩阵 | 15 个分片 | GitHub Actions run `44786767021` | 14/15 已通过；`firefox / 768x1024` 异常超时，最终证据提交触发全套重跑 |
 | 候选包四角色验收 | **30** | GitHub Actions run `44777541811` | **30 passed / 0 failed** |

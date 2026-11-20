@@ -1,0 +1,112 @@
+name: 官方公开资产升级验收
+
+# ---------------------------------------------------------------------------
+# 用两个版本的正式 GitHub Release 资产验证真实容器升级。
+#
+# 与候选 CI 的迁移脚本分工：
+#   · CI verify-upgrade-v0018.sh：历史 tag 迁移集 + 业务指纹；
+#   · 本工作流：匿名下载 from/to 正式 ZIP → 旧版官方 install.sh 真装 →
+#     旧版包内 update.sh --version 升级 → 新版官方 GHCR 镜像 → 指纹比对。
+#
+# 全程不登录 GitHub / GHCR；产物只来自公开 Release 与 Public 包。
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      from_version:
+        description: '已发布的起始版本，例如 v0.0.17'
+        required: true
+        default: 'v0.0.17'
+        type: string
+      to_version:
+        description: '已发布的目标版本，例如 v0.0.18'
+        required: true
+        default: 'v0.0.18'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-upgrade-${{ inputs.from_version }}-${{ inputs.to_version }}
+  cancel-in-progress: false
+
+env:
+  REPO: ${{ github.repository }}
+  FROM_VERSION: ${{ inputs.from_version }}
+  TO_VERSION: ${{ inputs.to_version }}
+  WORK: /tmp/official-upgrade
+  RESULTS: /tmp/official-upgrade/upgrade-results.tsv
+
+jobs:
+  upgrade:
+    name: 官方包 ${{ inputs.from_version }} → ${{ inputs.to_version }} 真实升级
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 准备真实 Docker 环境
+        run: |
+          set -euo pipefail
+          docker --version
+          docker compose version
+          docker info >/dev/null 2>&1 || {
+            echo "::error::Docker 守护进程不可用；拒绝静态核验冒充真实升级"
+            exit 1
+          }
+
+      - name: 检出验收工具（不参与安装）
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: verify-tools
+          fetch-depth: 1
+
+      - name: 匿名下载双版本资产并执行真实升级
+        run: |
+          set -euo pipefail
+          bash verify-tools/scripts/release/verify-official-upgrade.sh \
+            --from "$FROM_VERSION" \
+            --to "$TO_VERSION" \
+            --results "$RESULTS"
+
+      - name: 输出结构化结果
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "## 官方公开资产升级验收 · ${FROM_VERSION} → ${TO_VERSION}"
+            echo ""
+            echo "安装来源：两个版本的 GitHub Release 资产（匿名下载 + SHA256 校验）"
+            echo "运行环境：全新 ubuntu runner + 真实 Docker Compose"
+            echo ""
+            if [ -f "$RESULTS" ]; then
+              echo "| 验收项 | 结果 | 真实值 |"
+              echo "|---|---|---|"
+              awk -F '\t' '{printf "| %s | %s | %s |\n", $1, $2, $3}' "$RESULTS"
+            else
+              echo "未产出结果文件；验收脚本可能在早期失败。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: official-upgrade-${{ inputs.from_version }}-${{ inputs.to_version }}
+          path: |
+            /tmp/official-upgrade/upgrade-results.tsv
+            /tmp/official-upgrade/install.log
+            /tmp/official-upgrade/update.log
+            /tmp/official-upgrade/fingerprint-before.txt
+            /tmp/official-upgrade/fingerprint-after.txt
+            /tmp/official-upgrade/fingerprint.diff
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: 清理验收实例
+        if: always()
+        run: |
+          set -euo pipefail
+          cd /tmp/official-upgrade/from/pkg/deploy 2>/dev/null || exit 0
+          docker compose --env-file .env down -v >/dev/null 2>&1 || true

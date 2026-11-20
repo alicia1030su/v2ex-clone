@@ -372,54 +372,36 @@ docker system prune -a   # 清理无用镜像与构建缓存（**不影响数据
 
 ## 8. 升级流程
 
+在**现有安装目录**执行（不要改到刚解压的新发行包目录；新目录没有现有 `.env`）：
+
 ```bash
-./backup.sh     # 建议先备份
-./update.sh
+./backup.sh
+./update.sh --version <目标版本>
 ```
 
 `update.sh` 的行为：
 
 1. 记录当前镜像的 `RepoDigest` 与 `Image ID`
-2. `docker compose pull` 拉取新镜像
-3. `docker compose up -d` 重建容器（**不删数据卷**）
-4. 打印升级前后的 digest 对比
-5. 等待健康检查通过
+2. 升级前自动备份数据库，并保留一份本次升级前的 `.env` 副本
+3. 自动把 `.env` 的 `V2EX_IMAGE` 改写为目标版本
+4. `docker compose pull` 拉取目标镜像
+5. `docker compose up -d` 重建容器（**不删数据卷**）
+6. 打印升级前后的 digest 对比，等待健康检查并校验数据卷 / 管理员账号
+7. 任一步失败时自动回滚镜像与 `.env`（不自动覆盖数据库）
 
-容器启动时会自动执行数据库迁移（幂等，可重复运行）。
+容器启动时会自动执行数据库迁移（幂等，可重复执行）。
 
-  **回滚**：把 `.env` 里的 `V2EX_IMAGE` 改回旧 tag，再跑 `./update.sh`。
+  **回滚**：先按需用 `./restore.sh <备份文件>` 恢复数据，再执行
+  `./update.sh --version <回滚目标版本>` 切回对应镜像。
 
-  > ⚠️ **升级到新版本前，必须先修改 `.env` 里的 `V2EX_IMAGE`**（已知限制，v0.0.4 标注）
-  >
-  > `update.sh` 从 `.env` 读取 `V2EX_IMAGE`，随后执行 `docker compose pull`。
-  > **不带 `--version` 时**它**不会自动把 tag 改成新版本** —— 如果 `.env` 里的
-  > `V2EX_IMAGE` 仍指向**旧版本**，直接跑 `./update.sh` 只会重新拉取**同一个旧镜像**，
-  > 看起来「升级成功」但版本根本没变。
-  > ✅ **v0.0.4 起可用 `./update.sh --version v0.0.4` 自动改写 `V2EX_IMAGE`**（见 §8）——
-  > 这正是 R-18 的修复内容（`update.sh` 已重写，含镜像 tag 自动同步与失败自动回滚；
-  > `bash scripts/release/verify-update-script.sh` → **87 项断言全 PASS / 0 FAIL**）。
-  >
-  > 正确做法：
-  >
-  > ```bash
-  > ./backup.sh                       # 1. 先备份（务必）
-  > # 2. 编辑 .env，把镜像 tag 改成目标版本，例如：
-  > #    V2EX_IMAGE=ghcr.io/alicia1030su/v2ex-clone:v0.0.18
-  > ./update.sh                       # 3. 再升级
-  > ```
-  >
-  > 升级后用 `docker image inspect` 的 digest 对比确认镜像确实变了
-  > （`update.sh` 会打印升级前后的 digest 与 Image ID）。
-  >
-  > **状态（v0.0.4）**：R-18 **已修复并验证** —— `deploy/update.sh` 已重写，
-  > 支持 `--version vX.Y.Z` 自动改写 `V2EX_IMAGE` + **失败自动回滚**（镜像与 `.env` 双恢复）
-  > + 备份失败即中止 + 非法版本号拒绝 + 镜像未变化时告警中止（退出码 3）；
+  > ✅ **`--version` 会改写 `.env` 的 `V2EX_IMAGE`**；不带 `--version` 时
+  > 它沿用 `.env` 中的当前镜像，可能只是重新拉取同一个旧版本。
   > `bash scripts/release/verify-update-script.sh` → **87 项断言全 PASS / 0 FAIL**。
-  > ⚠️ **残余边界**：真实**容器级**升级仍需在带 Docker 的环境复跑
-  > （并入 R-16 的重跑批次）—— 沙箱自检用 docker stub，**不执行任何真实 Docker 命令**。
-
-  > ⚠️ 预览版之间（0.0.x）的升级，**迁移脚本不保证向后兼容**，请务必先备份。
-  > 预览版本之间的升级请务必先备份。
+  >
+  > ⚠️ **残余边界**：脚本沙箱自检使用 docker stub，不执行真实 Docker 命令；
+  > 真实容器级升级由 GitHub Actions 的官方公开资产升级验收覆盖。
+  >
+  > ⚠️ 预览版之间（`0.0.x`）的升级，**迁移脚本不保证向后兼容**，请务必先备份。
 
 ---
 
