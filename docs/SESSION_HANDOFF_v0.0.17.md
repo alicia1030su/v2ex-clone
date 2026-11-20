@@ -6,9 +6,11 @@
 **HEAD（代码冻结 SHA）**：见 §12.1（固定后回填；不以本句为准）。
 > 权威取值方式：`git rev-parse HEAD` —— 文档自身不要写死自己的 SHA。
 
-> **状态**：**稳定版发布流程执行中**（Stable Release）。
+> **状态**：**正式稳定版（Stable Release）已公开发布**。
+> ✅ 已创建 annotated Tag、已发布 GitHub Release（`prerelease=false` / `draft=false` / `latest`）、
+>    已推送 GHCR 镜像、已上传部署 ZIP 与 `SHA256SUMS`。
 > ✅ 已获**本版单独**授权（A3 + B1，一次性，发布形态 = 稳定版）—— 裁决记录见 `docs/RISK_DECISION_v0.0.17.md`。
-> ⏳ Tag / Release / GHCR 镜像的实际值**在发布完成后**回填（本文件不预写未发生的事）。
+> ⚠️ **24 小时单实例连续运行仍未完成**（`not-completed`）—— 不因发布而改变。
 > ⚠️ 该授权**不延续**到 v0.0.18 及以后。
 > ⚠️ **24 小时单实例连续运行仍未完成**（`not-completed`）—— 不因发布而改变。
 
@@ -248,16 +250,16 @@ ts,elapsed_s,mem_mb,cpu_pct,conn_used,conn_max,home_ms,db_ms
 
 ---
 
-## 11. 授权边界（**已获授权，发布待执行**）
+## 11. 授权边界（**已获授权并已完成发布**）
 
 | 项 | 状态 |
 |---|---|
 | 本版裁决记录（docs/RISK_DECISION_v0.0.17.md） | **存在**（项目所有者 2026-11-19 作出，工程侧转录） |
 | preflight 授权闸门 | 通过（结构化字段语义校验，不是 grep 关键词） |
 | v0.0.16 的授权 | **不延续**到本版（本版单独裁决） |
-| `v0.0.17` Tag / Release / GHCR 标签 | **尚未创建**（发布执行时创建） |
+| `v0.0.17` Tag / Release / GHCR 标签 | **均已创建**（Tag `10644d7` / Stable Release / GHCR digest `1ec56dd5…`） |
 
-⇒ **授权已获得；公开发布待执行**。若门禁任一失败，发布必须停止。
+⇒ **公开发布已完成**（Stable Release）。发布过程中两次 fail 已修复并留档（见 §13）。
 
 ---
 
@@ -278,7 +280,17 @@ ts,elapsed_s,mem_mb,cpu_pct,conn_used,conn_max,home_ms,db_ms
 
 | 项 | 值 |
 |---|---|
-| 代码冻结 SHA（候选产物来源） | **`50be70e64ccdc0250ab5472b21719f746fcd2b81`** |
+| **正式 Tag** | **`v0.0.17`**（annotated；tag 对象 `0c092e758ef37022e5bd38b12ce0bf23e287ddac`） |
+| **Tag 指向 commit** | **`10644d72161d722904829e53b31ff4c5cbe013e6`** |
+| Release | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17>（**Stable**，非 Draft，**Latest**） |
+| GitHub Latest | **`v0.0.17`**（`/releases/latest` 实测） |
+| GHCR | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17` |
+| **镜像 Digest** | **`sha256:1ec56dd5a6059841cf3206afca92c1dbd28fd8e8db763eb63c1c15260db3b995`**（OCI image index） |
+| **ZIP SHA256** | **`e6068b9bfb74157cdf50a31733900daa82b35b48c2836e0ffbad1f5c60344918`**（145,353 B） |
+| 候选四角色验收 | run `44514911694`（30/0）+ 恢复原子性（19/0） |
+| **官方包四角色验收** | run `44673507996` —— **30 PASS / 0 FAIL**（全新 runner / 匿名下载 / install.sh 原样执行） |
+| **发布后独立验收** | run `44673122399` —— 全步骤 success |
+| 代码冻结 SHA（候选产物来源） | `50be70e64ccdc0250ab5472b21719f746fcd2b81` |
 | 候选 ZIP | `v2ex-clone-v0.0.17-candidate.zip`（59,383 B） |
 | 候选 ZIP SHA256 | **`506c05409dc0c85b6db478ad124893507737dcb8af16662214f466144ed1cb13`** |
 | 候选镜像 tar | `v2ex-clone-v0.0.17-candidate-image.tar` |
@@ -289,3 +301,20 @@ ts,elapsed_s,mem_mb,cpu_pct,conn_used,conn_max,home_ms,db_ms
 | 正式包 SHA256 | **`e6068b9bfb74157cdf50a31733900daa82b35b48c2836e0ffbad1f5c60344918`**（三次构建一致） |
 | 候选 ZIP / 镜像 | 由该 SHA 构建，SHA256 见候选 run |
 | 复核命令 | `git diff --name-only <冻结SHA> HEAD \| grep -E '^(src/\|deploy/\|Dockerfile$\|package\.json$\|package-lock\.json$\|drizzle/\|next\.config\|public/)'` ⇒ 空则候选产物仍有效 |
+
+## 13. 发布过程与失败记录（**不删除、不美化**）
+
+| # | 失败 | 真实原因 | 处理 |
+|---|---|---|---|
+| 1 | workflow 文件被 GitHub 拒绝（0 job 的失败运行） | 同一 block scalar 内「模板占位符 + 多行 shell printf + 嵌套 heredoc」触发解析器缺陷：`Exceeded max expression length 21000` | 形态判定整体移入 Node，shell 侧零新增（PR #66） |
+| 2 | `记录三态标志` 步骤 `VERSION: unbound variable` | step 只继承 workflow 级 env，看不到上一步 output | 显式传 `VERSION` |
+| 3 | 正式发布 `创建 Release` 失败（Release 未创建） | 同类：`PRERELEASE` 未在该 step 的 env 里 | 补 env + Draft 形态跟随（PR #68） |
+| 4 | 预演负向对照 `期望 create 实际 resume` | 靶子取「本次目标版本」并假设其未发布；v0.0.17 Tag 推上后假设失效 | 靶子改为 `v99.99.99`（PR #68） |
+| 5 | 远端核验 `Release 未标记 prerelease` | 判据写死「必须 prerelease」，而 Release **正确**是 Stable | 改为「声明 vs 实际」比对（PR #69） |
+| 6 | 「不得占用 latest」判据**从未生效** | 列表接口**没有** `latest` 字段 ⇒ `d.get('latest') is True` 恒假 | 改用 `/releases/latest`（PR #70） |
+| 7 | 发布后验收 `必须 Pre-release` | 第四处写死形态 | 期望改读白名单（PR #71） |
+| 8 | 发布后验收期望值算错（prerelease=true） | 读白名单用**相对路径**，而 step 已 `cd $WORK` ⇒ 读不到 ⇒ 回退成预发布 | 绝对路径 + 读不到即 FAIL（PR #72） |
+
+> **共同教训**：「0.0.x 一律 Pre-release」被当成**常量**写进了 8 处。
+> 改成白名单后，产出侧改对了、判据侧逐个在真实运行时才暴露。
+> 这类「同一假设散落多处」的改动，必须**先枚举所有消费点**再动手。

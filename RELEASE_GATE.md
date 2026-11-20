@@ -1072,3 +1072,48 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 | 候选产物可交付 | **Go** | 可安装、可验收、可追溯；候选包可复现 |
 | **现在可以公开发布** | **No-Go** | 缺本版裁决文件（机器判定），且 24h 长跑未完成 |
 | 24 小时单实例连续运行 | **No-Go（未完成）** | `docs/release-facts.json` 保持 `not-completed` |
+
+---
+
+# v0.0.17 正式发布结果（**已公开发布 · STABLE**）
+
+> 完成时间：**2026-11-20**
+> 授权：项目所有者对本版单独作出 **A3 + B1** 裁决（一次性、仅限本版，形态=稳定版）
+> 裁决记录：`docs/RISK_DECISION_v0.0.17.md`
+
+| 项 | 值 |
+|---|---|
+| 正式 Tag | `v0.0.17`（**annotated**；tag 对象 `0c092e758ef37022e5bd38b12ce0bf23e287ddac`） |
+| Tag 指向 commit | **`10644d72161d722904829e53b31ff4c5cbe013e6`** |
+| Release | **Stable**（`prerelease=false`、`draft=false`、**Latest**）<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17> |
+| GHCR | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17` |
+| 镜像 Digest | **`sha256:1ec56dd5a6059841cf3206afca92c1dbd28fd8e8db763eb63c1c15260db3b995`** |
+| 部署 ZIP | `v2ex-clone-v0.0.17-deploy.zip`（**145,353 B**） |
+| ZIP SHA256 | **`e6068b9bfb74157cdf50a31733900daa82b35b48c2836e0ffbad1f5c60344918`** |
+| 三次构建 | **同一哈希**（e6068b9b…） |
+| 发布流水线 | `44651226124`（9/11 成功，Release 创建失败）+ 补救 `44659056915`（10/11 成功，核验失败）+ 后续修复 |
+| 官方包四角色验收 | **`44673507996`：30 PASS / 0 FAIL** |
+| 发布后独立验收 | **`44673122399`：全步骤 success** |
+| 最终 master | 见仓库 HEAD（工作区 clean） |
+
+## 发布过程中修复的 8 个真实失败
+
+见 `docs/SESSION_HANDOFF_v0.0.17.md` §13。共同根因：
+**「0.0.x 一律 Pre-release」被当成常量写进了 8 处判据**，
+改成按版本白名单后，产出侧改对了、判据侧逐个在真实运行时才暴露。
+
+## 仍未完成（不因发布而改变）
+
+| 项 | 状态 |
+|---|---|
+| 24 小时**单实例连续**运行 | **`not-completed`**（GitHub runner 单 job 上限 6h；self-hosted 为 0） |
+| R-01 历史第三方素材 | **DEFERRED**（保留 + 披露；未改写、未 force push、未移动任何既有 Tag） |
+
+## 「稳定版」承诺边界（不可扩大解释）
+
+| 承诺 | 不承诺 |
+|---|---|
+| 安装包可复现（三次构建同哈希） | 对外 API / 数据库结构向后兼容 |
+| 升级路径经真实验证（v0.0.4 与 v0.0.16 → v0.0.17） | 长时间连续运行稳定性（24h 未完成） |
+| 备份 / 恢复 / 失败原子性经验证 | 与 V2EX 原站完全一致 |
+| 产物可追溯（Tag / Digest / SHA256） | 第三方素材授权（R-01 仍 DEFERRED） |
