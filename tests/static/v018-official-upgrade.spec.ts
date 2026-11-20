@@ -115,6 +115,9 @@ describe('v0.0.18 官方资产升级工作流', () => {
     expect(script).toContain('download_release "$TO_VERSION"');
     expect(script).not.toContain('docker login');
     expect(script).not.toContain('GH_TOKEN');
+    expect(script).not.toContain('rm -rf');
+    expect(script).toContain('WORK 必须是全新的空目录');
+    expect(script).toContain('非法 REPO');
   });
 
   it('必须用旧版官方 install.sh 与包内 update.sh 做真实容器升级', () => {
@@ -137,6 +140,7 @@ describe('v0.0.18 官方资产升级工作流', () => {
     expect(workflow).toContain('--from "$FROM_VERSION"');
     expect(workflow).toContain('--to "$TO_VERSION"');
     expect(workflow).not.toContain('--from "${{ inputs.from_version }}"');
+    expect(workflow).toContain('WORK: /tmp/official-upgrade-${{ github.run_id }}-${{ github.run_attempt }}');
     expect(workflow).not.toContain('docker login');
     expect(workflow).not.toContain('GHCR_USERNAME');
   });

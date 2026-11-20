@@ -36,8 +36,8 @@ env:
   REPO: ${{ github.repository }}
   FROM_VERSION: ${{ inputs.from_version }}
   TO_VERSION: ${{ inputs.to_version }}
-  WORK: /tmp/official-upgrade
-  RESULTS: /tmp/official-upgrade/upgrade-results.tsv
+  WORK: /tmp/official-upgrade-${{ github.run_id }}-${{ github.run_attempt }}
+  RESULTS: /tmp/official-upgrade-${{ github.run_id }}-${{ github.run_attempt }}/upgrade-results.tsv
 
 jobs:
   upgrade:
@@ -95,12 +95,12 @@ jobs:
         with:
           name: official-upgrade-${{ inputs.from_version }}-${{ inputs.to_version }}
           path: |
-            /tmp/official-upgrade/upgrade-results.tsv
-            /tmp/official-upgrade/install.log
-            /tmp/official-upgrade/update.log
-            /tmp/official-upgrade/fingerprint-before.txt
-            /tmp/official-upgrade/fingerprint-after.txt
-            /tmp/official-upgrade/fingerprint.diff
+            /tmp/official-upgrade-*/upgrade-results.tsv
+            /tmp/official-upgrade-*/install.log
+            /tmp/official-upgrade-*/update.log
+            /tmp/official-upgrade-*/fingerprint-before.txt
+            /tmp/official-upgrade-*/fingerprint-after.txt
+            /tmp/official-upgrade-*/fingerprint.diff
           if-no-files-found: warn
           retention-days: 7
 
@@ -108,5 +108,7 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          cd /tmp/official-upgrade/from/pkg/deploy 2>/dev/null || exit 0
-          docker compose --env-file .env down -v >/dev/null 2>&1 || true
+          for dir in /tmp/official-upgrade-*/from/pkg/deploy; do
+            [ -d "$dir" ] || continue
+            ( cd "$dir" && docker compose --env-file .env down -v >/dev/null 2>&1 ) || true
+          done

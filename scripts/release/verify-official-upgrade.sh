@@ -46,6 +46,9 @@ printf '%s' "$TO_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' || {
   echo "非法 --to：$TO_VERSION" >&2; exit 2;
 }
 [ "$FROM_VERSION" != "$TO_VERSION" ] || { echo "升级前后版本不能相同" >&2; exit 2; }
+printf '%s' "$REPO" | grep -qE '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' || {
+  echo "非法 REPO：$REPO（应形如 owner/repository）" >&2; exit 2;
+}
 
 command -v curl >/dev/null || { echo "缺少 curl" >&2; exit 2; }
 command -v unzip >/dev/null || { echo "缺少 unzip" >&2; exit 2; }
@@ -106,7 +109,10 @@ printf '仓库：%s\n工作目录：%s\n' "$REPO" "$WORK"
 
 FROM_DIR="$WORK/from"
 TO_DIR="$WORK/to"
-rm -rf "$FROM_DIR" "$TO_DIR"
+if [ -e "$FROM_DIR" ] || [ -e "$TO_DIR" ]; then
+  echo "WORK 必须是全新的空目录：$WORK（拒绝递归删除旧目录，避免误删或复用旧 .env 造成假绿）" >&2
+  exit 2
+fi
 download_release "$FROM_VERSION" "$FROM_DIR"
 download_release "$TO_VERSION" "$TO_DIR"
 
