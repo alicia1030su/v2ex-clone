@@ -21,8 +21,9 @@
 | 生产构建 | `next build`（隔离测试环境变量） | 通过；27 页面 + 91 后端路由正常产出 |
 | 发布预演 static | `node scripts/release/preflight-dryrun.mjs --mode static` | 21/21 通过 |
 | 发布预演 notes | `node scripts/release/preflight-dryrun.mjs --mode notes` | 17/17 通过 |
-| v0.0.17 一致性 | `bash scripts/release/verify-release-consistency.sh --expect 0.0.17` | PASS=21 / FAIL=0 |
-| 当前提交树路径 | `node scripts/git/check-staged-files.mjs --tree HEAD` | 716 个文件通过 |
+| v0.0.17 已发布一致性 | `bash scripts/release/verify-release-consistency.sh --expect 0.0.17` | PASS=21 / FAIL=0 |
+| v0.0.18 候选一致性 | `bash scripts/release/verify-release-consistency.sh --expect 0.0.18` | PASS=20 / FAIL=0 |
+| 最终提交树路径 | `node scripts/git/check-staged-files.mjs --tree HEAD` | 741 个文件通过 |
 
 ## 二、隐私修复回归
 
