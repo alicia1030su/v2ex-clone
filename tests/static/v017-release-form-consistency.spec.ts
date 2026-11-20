@@ -91,10 +91,33 @@ describe('v0.0.17 远端核验：形态判据必须按声明判真伪', () => {
 
   it('latest 判据必须双向：预发布不得占用，稳定版应当占用', () => {
     const job = verifyJob();
-    // 预发布占用 latest ⇒ 判红
-    expect(job).toMatch(/EXPECT_PRERELEASE\s+and\s+d\.get\('latest'\)\s+is\s+True/);
-    // 稳定版不是 latest ⇒ 判红
-    expect(job).toMatch(/\(not\s+EXPECT_PRERELEASE\)\s+and\s+d\.get\('latest'\)\s+is\s+not\s+True/);
+    expect(job).toMatch(/EXPECT_PRERELEASE\s+and\s+LATEST\s*==\s*VERSION/);
+    expect(job).toMatch(/\(not\s+EXPECT_PRERELEASE\)\s+and\s+LATEST\s*!=\s*VERSION/);
+  });
+
+  it('latest 必须从 /releases/latest 读 —— 列表接口**没有** latest 字段', () => {
+    /*
+     * 真实缺陷（v0.0.17 核对 Release 时发现）：
+     * Release **列表**接口返回的字段是
+     *   assets / draft / prerelease / tag_name / …
+     * **没有 `latest`**。所以原判据 `d.get('latest') is True` **恒为 False**
+     * ⇒ 「Pre-release 不得占用 latest」那条检查**从未生效过**，
+     * 是一个「写了断言但永远不会失败」的假绿。
+     *
+     * 修法：单独查 `/releases/latest`，它返回 GitHub 认定的 Latest Release。
+     */
+    const job = verifyJob();
+    expect(job, '没有查 /releases/latest').toContain('/releases/latest');
+    expect(
+      /d\.get\('latest'\)/.test(job),
+      '又读回了列表对象里的 latest 字段 —— 该字段不存在，判据会恒假',
+    ).toBe(false);
+  });
+
+  it('读不到 latest 时必须判红（不得静默放过）', () => {
+    const job = verifyJob();
+    expect(job).toMatch(/if not LATEST:/);
+    expect(job).toMatch(/无法读取 GitHub Latest Release/);
   });
 
   it('报错文案必须能区分两个方向（否则误导排查）', () => {

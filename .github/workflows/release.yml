@@ -2900,6 +2900,23 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/releases?per_page=100"
 
+          # ⚠️ v0.0.17：`latest` **不在** Release 列表对象里。
+          #
+          # 实测（本版真实核对）：列表接口返回的字段只有
+          #   assets / draft / prerelease / tag_name / …
+          # **没有** `latest`。因此原判据
+          #     if d.get('latest') is True:  →  永远是 False
+          # 那条「Pre-release 不得占用 latest」的检查**从未生效过** ——
+          # 是一个典型的「写了断言但永远不会失败」的假绿。
+          #
+          # 正确做法：单独查 `/releases/latest`，它返回 GitHub 认定的 Latest Release。
+          LATEST_TAG="$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/releases/latest" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tag_name',''))" 2>/dev/null || echo '')"
+          echo "  GitHub Latest Release：${LATEST_TAG:-（读取失败）}"
+          export LATEST_TAG
+
           # ⚠️ v0.0.17：核验必须知道**本版该是什么形态** ——
           #    原先这里写死「必须是 prerelease」，稳定版发布时必然判红
           #    （真实发布 run 44659056915 的「远端核验」就是这样红的：
@@ -2909,7 +2926,7 @@ jobs:
           PRERELEASE="${{ needs.preflight.outputs.prerelease }}"
 
           python3 - "$VERSION" "$PUBLISH" "$PRERELEASE" <<'PY'
-          import json, sys
+          import json, os, sys
           VERSION = sys.argv[1]
           PUBLISH = sys.argv[2]
           PRERELEASE = sys.argv[3]
@@ -2938,11 +2955,19 @@ jobs:
                   print('::error::publish=true 但 Release 仍是 draft'); sys.exit(1)
               # latest：稳定版**应当**是 latest（否则用户以为最新稳定版还是上一版）；
               #         预发布**不得**占用 latest（否则会误导用户）。
-              if EXPECT_PRERELEASE and d.get('latest') is True:
+              #
+              # ⚠️ 必须用 `/releases/latest` 的结论，不能用列表对象里的字段
+              #    （那里根本没有 latest 字段 ⇒ 原判据恒假、从未生效）。
+              LATEST = os.environ.get('LATEST_TAG', '')
+              if not LATEST:
+                  print('::error::无法读取 GitHub Latest Release —— 不能据此认定 latest 正确')
+                  sys.exit(1)
+              if EXPECT_PRERELEASE and LATEST == VERSION:
                   print('::error::Pre-release 被标记为 latest —— 会误导用户以为它是稳定版')
                   sys.exit(1)
-              if (not EXPECT_PRERELEASE) and d.get('latest') is not True:
-                  print('::error::稳定版未成为 latest —— 用户会以为最新稳定版还是上一版')
+              if (not EXPECT_PRERELEASE) and LATEST != VERSION:
+                  print('::error::稳定版未成为 latest（当前 latest =', LATEST,
+                        '）—— 用户会以为最新稳定版还是上一版')
                   sys.exit(1)
               print('公开形态核验通过：已发布 +',
                     'Pre-release + 非 latest ✓' if EXPECT_PRERELEASE else 'Stable + latest ✓')

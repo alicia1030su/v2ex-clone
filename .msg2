@@ -1,0 +1,32 @@
+fix(v0.0.17): 「不得占用 latest」判据**从未生效** —— 列表接口没有 latest 字段
+
+## 真实缺陷（核对已建好的 Release 时发现）
+`verify-release` 里的判据是：
+
+    if d.get('latest') is True:   # d 来自 /releases?per_page=100 的列表对象
+
+但 GitHub 的 Release **列表**对象字段只有：
+    assets / draft / prerelease / tag_name / html_url / id / ...
+**没有 `latest`**。所以 `d.get('latest')` 恒为 `None`，
+`is True` **永假** ⇒ 这条「Pre-release 不得占用 latest」的检查
+**从上线起就没有生效过**。
+
+这是本仓反复记录的那类缺陷：**写了断言，但永远不会失败**。
+与 v0.0.9 的 `BASELINE_COUNT` 恒空、v0.0.15 的 `[^|]*` 提取表格行同一类。
+
+## 修法
+- 单独查 `/releases/latest`（这才是 GitHub 认定的 Latest Release）
+- 读不到 ⇒ **判红**（不能因为「查不到」就当下一个不成立）
+- 稳定版要求 `LATEST_TAG == VERSION`；预发布要求 `LATEST_TAG != VERSION`
+
+## 顺带把形态判据做完（上一轮的遗漏）
+上一轮已把「必须 prerelease」改成「声明 vs 实际」，但 latest 那一半仍在用
+不存在的字段。现在两半都用**真实可读的状态**判定。
+
+## 验证
+- 用**真实 Release** 复刻新版逻辑：状态=已发布 / prerelease=False / latest=v0.0.17
+  / 资产齐全 ⇒ **PASS**
+- 护栏新增 2 条：必须查 `/releases/latest`；不得再读 `d.get('latest')`；
+  读不到 latest 必须判红
+- 负向对照：退回 `d.get('latest')` ⇒ 判红
+- 静态 **37 文件 / 438 用例**通过
