@@ -36,7 +36,7 @@
 ### 2.3 效果
 
 - v0.0.17 与 v0.0.18 均解析为 stable / Latest；未登记版本仍默认 prerelease。
-- 预演 static 21/21、notes 17/17；真实 v0.0.17 Release 一致性检查通过。
+- 预演 static 23/23、notes 20/20；真实 v0.0.18 发行一致性检查 PASS=19 / FAIL=0。
 - 不存在可执行的“0.0.x 必须 Pre-release”断言。
 
 ## 三、P0-2：Git 暂存与提交安全

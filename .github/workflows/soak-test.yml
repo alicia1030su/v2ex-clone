@@ -106,6 +106,9 @@ on:
       - '.github/release-notes-template.md'
       - 'scripts/release/**'
       - 'scripts/release/verify-soak.sh'
+      - 'docs/release-facts.json'
+      - 'docs/TEST_REPORT_v0.0.18.md'
+      - 'docs/SESSION_HANDOFF_v0.0.18.md'
       - '.github/workflows/soak-test.yml'
       # ⚠️ v0.0.9：**刻意不列** `.github/workflows/soak-segment.yml`。
       #

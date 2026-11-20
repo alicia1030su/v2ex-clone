@@ -51,7 +51,7 @@ API 37 public / 27 authenticated / 9 admin / 1 mixed。它用于发现漏守卫�
 
 | ID | 优先级 | 差距 | 代码证据 | 影响 | 本轮状态 / 建议 |
 |---|---|---|---|---|---|
-| G-01 | **P0** | 公共内容软删可见性不一致 | `member/[username]/page.tsx` 最近回复；`xna/page.tsx`；`bookmarks/page.tsx`；`api/collections`、`api/votes`、`api/thanks`、`api/reports` | 公众可读到已删正文/标题；可对不可见目标互动 | **本轮已修复**：统一 `PUBLIC_TOPIC_CONDITION` / `PUBLIC_REPLY_CONDITION`，真库 8/8、全量单元 1036/1036 通过 |
+| G-01 | **P0** | 公共内容软删可见性不一致 | `member/[username]/page.tsx` 最近回复；`xna/page.tsx`；`bookmarks/page.tsx`；`api/collections`、`api/votes`、`api/thanks`、`api/reports` | 公众可读到已删正文/标题；可对不可见目标互动 | **本轮已修复**：统一 `PUBLIC_TOPIC_CONDITION` / `PUBLIC_REPLY_CONDITION`，真库 8/8、完整单元 1046/1046 通过 |
 | G-02 | P1 | 通知角标与通知列表口径不同 | `SiteNav.tsx` 直接 `count(notifications)`；列表走 `listNotificationsForUser()` 的可见性 join | hidden 节点/软删主题已过滤，角标仍可能显示未读 | 改为复用 `listNotificationsForUser(..., { limit: 1 })` 的 `unread`，补“列表 0 / 角标 0”真库测试 |
 | G-03 | P1 | 回复锚点使用错误标识 | `member/[username]/page.tsx` 用 `#reply${r.id}`；`ReplyItem.tsx` 锚点是 `#reply${floor}`；列表用 `repliesCount` 近似最后楼层 | 删除楼层后深链跳到错误位置或不存在锚点 | 列表返回真实 `lastReplyFloor`；会员页 select `floor`；统一锚点生成函数并加 E2E |
 | G-04 | P1 | API 文档覆盖落后于源码 | 74 个 API 路由中大量 admin/auth/settings/reports 端点未在 `API_SPEC.md` 形成逐端点契约 | 集成方只能读源码；权限/错误码难审计 | 从路由清单生成待补清单，按模块补请求/响应/状态码/权限点；动态路由文档匹配需人工复核 |

@@ -487,6 +487,21 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)。
 > 更早的「单元 103 / E2E 67」「190 / 194」等均为当时快照，仅供追溯。
 
+### v0.0.18 当前实测
+
+| 套件 | 用例数 | 证据 | 结果 |
+|---|---|---|---|
+| 单元测试（vitest，含静态） | **1046**（86 个 spec 文件） | GitHub Actions CI run `44786766870` | **1046 passed / 0 failed / 0 skipped** |
+| 全量静态 | **470**（41 个文件） | 同 CI run 的「静态测试」步骤 | **470 passed / 0 failed / 0 skipped** |
+| E2E（Playwright / Chromium） | **283**（28 个 spec 文件） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
+| 跨浏览器矩阵 | 15 个分片 | GitHub Actions run `44786767021` | 14/15 已通过；`firefox / 768x1024` 异常超时，最终证据提交触发全套重跑 |
+| 候选包四角色验收 | **30** | GitHub Actions run `44777541811` | **30 passed / 0 failed** |
+| 双基线升级与恢复 | 20 项断言 × 2 基线 | 同 CI run 的升级 job | v0.0.4 / v0.0.17 → v0.0.18 全部通过，46 项业务指纹逐字节一致 |
+
+> 当前口径以 [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 与
+> [`docs/release-facts.json`](docs/release-facts.json) 为准；24 小时单实例连续运行仍为
+> **`not-completed`**，不得把 1 小时冒烟或分段累计写成 24 小时通过。
+
 > `scripts/verify.sh` 是**跨平台**的：数据库操作统一走 Node 脚本（不依赖 `psql` / `pg_dump`），
 > 进程管理区分 Windows 与 POSIX。它在**专用验证库**（默认 `v2ex_verify`）上操作，
 > 并拒绝在非验证库（库名必须匹配 `*_verify` / `*_test` / `*_ci`）上执行破坏性操作。
