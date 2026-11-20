@@ -1,7 +1,8 @@
 import 'server-only';
 import { db, schema } from '@/db';
-import { and, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { normalizeBaseUrl } from '@/lib/feed-builder';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { avatarUrl } from '@/components/Avatar';
 import { PUBLIC_NODE_CONDITION } from '@/server/legacy-assemblers';
 import {
@@ -41,8 +42,7 @@ export async function loadLegacyFeed(opts: {
 
   const conditions = [
     // 软删除主题不得出现在 Feed 里（与站内 /api/feed 同一口径）
-    isNull(schema.topics.deletedAt),
-    ne(schema.topics.status, 'deleted'),
+    PUBLIC_TOPIC_CONDITION,
   ];
 
   let channelTitle = 'V2EX Clone';

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { and, count, desc, eq, isNull, ne, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { buildSearchPatterns, buildAndSearchPatterns } from '@/lib/search-tokenize';
 
 export const dynamic = 'force-dynamic';
@@ -70,9 +71,8 @@ export async function GET(request: Request) {
   }
 
   const conditions: SQL[] = [
-    // 软删除的主题不出现（deleted_at 非空 或 status = 'deleted'）
-    isNull(schema.topics.deletedAt),
-    ne(schema.topics.status, 'deleted'),
+    // 只暴露 published 且未软删除的主题；两种删除信号缺一不可。
+    PUBLIC_TOPIC_CONDITION,
     // v0.0.14 P0-1：隐藏 / 待审节点下的主题同样不出现。
     // 两个查询（列表与 count）都已 join nodes，因此这里可以安全引用 `nodes.status`。
     PUBLIC_NODE_CONDITION,

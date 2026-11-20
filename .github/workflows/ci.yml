@@ -176,6 +176,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
+      - name: 提交树禁止路径门禁（P0-2）
+        # 本地 hook 可被漏装；CI 在干净克隆上复核 HEAD 的完整文件树。
+        # 内容级扫描由 pre-commit 对暂存新增行执行，此处只做路径级兜底。
+        run: node scripts/git/check-staged-files.mjs --tree HEAD
+
       - name: 安装依赖
         run: npm ci --no-audit --no-fund
 

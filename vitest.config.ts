@@ -70,4 +70,10 @@ export default defineConfig({
       'server-only': path.resolve(__dirname, './tests/stubs/server-only.ts'),
     },
   },
+  // v0.0.18：真库可见性测试需要直接渲染 Server Component 页面。
+  // Vite 8 / Vitest 5 默认使用 Oxc；显式选择 React automatic JSX runtime，
+  // 避免 tsconfig 的 jsx=preserve 让 Vite 把 JSX 原样交给 Node。
+  oxc: {
+    jsx: { runtime: 'automatic' },
+  },
 });

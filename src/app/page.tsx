@@ -4,6 +4,7 @@ import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
 import { getSessionUser } from '@/lib/auth';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { HOME_TABS, SECONDARY_TABS } from '@/lib/nav';
 import { listTopics, type TopicListItem } from '@/server/queries';
 import TopicItem from '@/components/TopicItem';
@@ -49,7 +50,7 @@ export default async function HomePage({
       .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
       .where(
         and(
-          eq(schema.topics.status, 'published'),
+          PUBLIC_TOPIC_CONDITION,
           // v0.0.14 P0-1：「节点排行」本身也是公共面 —— 隐藏节点不得上榜，
           // 否则榜单里会出现一个点进去 404 的节点名（既是泄漏也是坏链接）。
           PUBLIC_NODE_CONDITION,

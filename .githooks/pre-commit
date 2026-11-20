@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+const checker = path.join(root, 'scripts/git/check-staged-files.mjs');
+try {
+  execFileSync(process.execPath, [checker], { cwd: root, stdio: 'inherit' });
+} catch {
+  console.error('提交已中止：请修复暂存区问题后重试（不要用 --no-verify 绕过）。');
+  process.exit(1);
+}

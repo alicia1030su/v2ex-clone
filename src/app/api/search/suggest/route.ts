@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
       .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
       .where(
         and(
-          eq(schema.topics.status, 'published'),
+          PUBLIC_TOPIC_CONDITION,
           // v0.0.14 P0-1：联想框是**每个页面**都会出现的公共面 ——
           // 隐藏节点的主题标题从这里泄露得最广（首页搜索框输入两个字就能看到）。
           PUBLIC_NODE_CONDITION,

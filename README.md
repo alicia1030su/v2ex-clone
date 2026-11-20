@@ -38,29 +38,30 @@
 
 ---
 
-## 当前版本状态（v0.0.17 稳定版已发布）
+## 当前版本状态（v0.0.18 开发中，v0.0.17 稳定版已发布）
 
-> **版本载体**：`0.0.17`
+> **版本载体**：`0.0.18`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
-> 开发态停留在**上一个已发布版本**，只在最终 SHA 固定后才同步 —— G-VER-01。
-> 本版已进入**正式发布**阶段，故载体已同步到 `0.0.17`。）
+> 已同步到 `0.0.18` 候选态；候选态不等于发布授权。—— G-VER-01。）
 
 > ⚠️ **两个版本必须分开看，不要把候选写成已发布**
 >
 > | | 版本 | 状态 |
 > |---|---|---|
+> | **当前开发版本** | `v0.0.18` | 工程治理 + 产品体验升级；**未发布、无发布授权** |
 > | **已公开发布**（可下载、可拉镜像） | `v0.0.17` | GitHub **Stable Release** |
 > | 上一已发布版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
 
 | 项 | 值 |
 |---|---|
 | **当前实际公开版本** | **`v0.0.17`**（**Stable Release**，含部署 ZIP 与 GHCR 镜像） |
+| **当前开发版本** | **`v0.0.18`**（候选研发态，未发布） |
 | **上一已发布版本** | `v0.0.16`（Pre-release，2026-11-19） |
 | 再上一版 | `v0.0.15`（Pre-release，2026-11-10） |
-| 版本载体 | `0.0.17`（**已发布态**，已由 `sync-version.mjs` 全量同步并复验） |
-| **本版** | **`v0.0.17`**（**稳定版**）—— 交接文档与测试基线见 [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md) |
-| 本版发布授权 | **已获本版公开发布授权**（仅限 `v0.0.17`，一次性）—— 决策 A = **A3 保留 + 披露**，决策 B = **B1 授权发布**，发布形态 = **稳定版**；裁决记录见 [`docs/RISK_DECISION_v0.0.17.md`](docs/RISK_DECISION_v0.0.17.md)。⚠️ 该授权**不延续**到 v0.0.18 及以后 |
-| 发布形态 | **`v0.0.17` 起为稳定版（Stable Release）**；`v0.0.9` ~ `v0.0.16` 均为 Pre-release（历史形态，不可回改） |
+| 版本载体 | `0.0.18`（**候选态**，已由 `sync-version.mjs` 全量同步并复验；未发布） |
+| **本版** | **`v0.0.18` 研发分支** —— 路线图、实施与测试见 [`docs/ROADMAP_v0.0.18.md`](docs/ROADMAP_v0.0.18.md)、[`docs/IMPLEMENTATION_REPORT_v0.0.18.md`](docs/IMPLEMENTATION_REPORT_v0.0.18.md)、[`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) |
+| 本版发布授权 | **未授权**。v0.0.17 的一次性授权不延续到 v0.0.18 |
+| 发布形态 | v0.0.18 未登记稳定渠道，默认解析为 Pre-release；**这不是发布授权** |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
 | 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17`（匿名可拉） |
@@ -91,7 +92,9 @@
 > 当前测试基线、门禁结论与授权边界见
 > [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
 >
-> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。**v0.0.15 的公开发布已在完整披露 R-01 的
+> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。v0.0.18 候选态的完整交接见
+> [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)，授权边界与 Go/No-Go 以该文件为准。
+> **v0.0.15 的公开发布已在完整披露 R-01 的
 > 前提下由项目所有者单独授权**（2026-11-10，决策 A3「保留历史 + 强化披露」+ 决策 B1
 > 「授权发布」；一次性、仅限本版本，不构成后续版本先例）；该授权**不包含**历史改写，
 > R-01 状态不变。详见 [`RISK_REGISTER.md`](RISK_REGISTER.md)、
@@ -470,10 +473,11 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
-> **v0.0.17（本版候选）的当前测试基线**（单元 / 静态 / E2E / 跨浏览器 / 视觉 /
-> 安装 / 升级的真实通过数与对应 SHA）以
-> [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md)
-> 的「当前测试基线」与「Go / No-Go」两节、以及 `docs/release-facts.json` 为唯一口径；
+> **v0.0.18（当前候选）的当前测试基线**以
+> [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 为唯一口径；
+> 完整交接见 [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)；
+> v0.0.17 已发布基线见
+> [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md)。
 > 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。
 >
 > v0.0.16 的历史基线见
@@ -505,7 +509,7 @@ v2ex-clone/
 │   │   ├── nodes/  xna/        # 全部节点 / VXNA 聚合
 │   │   ├── about/ faq/ privacy/ forgot/ worldclock/   # 静态页
 │   │   ├── signin/ signup/ settings/ notifications/ bookmarks/ admin/
-│   │   └── api/                # 61 个 API 路由（含 admin 15 / debug 4）
+│   │   └── api/                # 74 个 API 路由（含 admin / debug / health）
 │   ├── components/             # 共享组件
 │   ├── db/                     # Drizzle schema（26 张表）与连接
 │   ├── lib/                    # 认证、CSRF、限流、KV、Markdown、验证码、运行时开关

@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+} from '@/lib/content-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { relativeTime } from '@/lib/time';
 import Wrapper from '@/components/Wrapper';
@@ -68,7 +73,12 @@ export default async function MyReportsPage() {
     const t = await db
       .select({ id: schema.topics.id, title: schema.topics.title })
       .from(schema.topics)
-      .where(inArray(schema.topics.id, topicIds));
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(
+        inArray(schema.topics.id, topicIds),
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ));
     for (const row of t) topicTitles.set(row.id, row.title);
   }
 
@@ -78,13 +88,25 @@ export default async function MyReportsPage() {
     const r = await db
       .select({ id: schema.replies.id, topicId: schema.replies.topicId })
       .from(schema.replies)
-      .where(inArray(schema.replies.id, replyIds));
+      .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(
+        inArray(schema.replies.id, replyIds),
+        PUBLIC_REPLY_CONDITION,
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ));
     const topicIdsOfReplies = [...new Set(r.map((x) => x.topicId))];
     if (topicIdsOfReplies.length > 0) {
       const t = await db
         .select({ id: schema.topics.id, title: schema.topics.title })
         .from(schema.topics)
-        .where(inArray(schema.topics.id, topicIdsOfReplies));
+        .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+        .where(and(
+          inArray(schema.topics.id, topicIdsOfReplies),
+          PUBLIC_TOPIC_CONDITION,
+          PUBLIC_NODE_CONDITION,
+        ));
       const byTopic = new Map(t.map((x) => [x.id, x.title]));
       for (const row of r) replyTopicTitles.set(row.id, byTopic.get(row.topicId) ?? '');
     }

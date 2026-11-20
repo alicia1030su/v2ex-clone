@@ -535,28 +535,37 @@ fi
 if [ "$CHECK_RELEASE" = "1" ]; then
   printf '\n%s⑥ Release 说明%s\n' "$C_BLD" "$C_RST"
   if command -v gh >/dev/null 2>&1; then
-    if gh release view "v${EXPECT}" --json tagName,isPrerelease,assets >/tmp/v0010-rel.json 2>/dev/null; then
-      node -e "
-        const r=require('/tmp/v0010-rel.json');
+    REL_JSON="$(mktemp)"
+    if gh release view "v${EXPECT}" --json tagName,isPrerelease,assets >"$REL_JSON" 2>/dev/null; then
+      REL_JSON="$REL_JSON" node -e "
+        const fs=require('node:fs');
+        const r=JSON.parse(fs.readFileSync(process.env.REL_JSON,'utf8'));
+        const {execFileSync}=require('node:child_process');
+        const path=require('node:path');
+        const channel=JSON.parse(execFileSync(process.execPath,
+          [path.join(process.cwd(),'scripts/release/resolve-release-channel.mjs'),
+           '--version','v${EXPECT}','--format','json'],{encoding:'utf8'}));
         const okTag = r.tagName === 'v${EXPECT}';
-        const okPre = r.isPrerelease === true;
+        const okPre = r.isPrerelease === channel.prerelease;
         const names = r.assets.map(a=>a.name);
         const okZip = names.includes('v2ex-clone-v${EXPECT}-deploy.zip');
         const okSha = names.includes('SHA256SUMS');
-        console.log(JSON.stringify({okTag,okPre,okZip,okSha,names}));
+        console.log(JSON.stringify({okTag,okPre,okZip,okSha,names,channel:channel.channel}));
       " | node -e "
         let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
           const r=JSON.parse(s);
           const G='\x1b[32m', R='\x1b[31m', X='\x1b[0m';
           const p=(c,m)=>console.log('  '+(c?'\x1b[32m✓\x1b[0m':'\x1b[31m✗\x1b[0m')+' '+m);
           p(r.okTag, 'tagName = v${EXPECT}');
-          p(r.okPre, '是 Pre-release（0.0.x 不应伪装稳定版）');
+          p(r.okPre, 'Release 形态与统一清单一致（'+r.channel+'）');
           p(r.okZip, '含安装包 v2ex-clone-v${EXPECT}-deploy.zip');
           p(r.okSha, '含 SHA256SUMS');
           if(!(r.okTag&&r.okPre&&r.okZip&&r.okSha)) process.exit(1);
         });
       " || bad "Release 资产/形态不符合要求"
+      rm -f "$REL_JSON"
     else
+      rm -f "$REL_JSON"
       bad "找不到 Release v${EXPECT}"
     fi
   else

@@ -1,7 +1,17 @@
 import 'server-only';
 import { db, schema } from '@/db';
-import { and, eq, isNull, sql, desc, asc } from 'drizzle-orm';
-import { canReviewHiddenNodes, isPublicNodeStatus } from '@/lib/node-visibility';
+import { and, count, eq, sql, desc, asc } from 'drizzle-orm';
+import {
+  PUBLIC_NODE_CONDITION,
+  canReviewHiddenNodes,
+  isPublicNodeStatus,
+} from '@/lib/node-visibility';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+  isPublicReplyState,
+  isPublicTopicState,
+} from '@/lib/content-visibility';
 import type { SessionUser } from '@/lib/auth';
 import { canModifyOwnContent, withinEditWindow } from '@/lib/permissions';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
@@ -110,14 +120,19 @@ export async function editTopic(
   input: { title?: string; content?: string },
 ): Promise<TopicEditResult> {
   const rows = await db
-    .select()
+    .select({ topic: schema.topics, nodeStatus: schema.nodes.status })
     .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(eq(schema.topics.id, topicId))
     .limit(1);
-  const topic = rows[0];
+  const topic = rows[0]?.topic;
   if (!topic) throw new ContentError('TOPIC_NOT_FOUND', '主题不存在', 404);
-  if (topic.deletedAt) {
+  if (!isPublicTopicState(topic)) {
     throw new ContentError('TOPIC_DELETED', '主题已被删除，无法编辑', 404);
+  }
+  const isStaff = canReviewHiddenNodes(user);
+  if (!isPublicNodeStatus(rows[0].nodeStatus) && !isStaff) {
+    throw new ContentError('TOPIC_NOT_FOUND', '主题不存在', 404);
   }
 
   if (!canModifyOwnContent(user, topic.authorId)) {
@@ -281,14 +296,29 @@ export async function editReply(
   input: { content?: string },
 ): Promise<ReplyEditResult> {
   const rows = await db
-    .select()
+    .select({
+      reply: schema.replies,
+      topicStatus: schema.topics.status,
+      topicDeletedAt: schema.topics.deletedAt,
+      nodeStatus: schema.nodes.status,
+    })
     .from(schema.replies)
+    .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(eq(schema.replies.id, replyId))
     .limit(1);
-  const reply = rows[0];
+  const reply = rows[0]?.reply;
   if (!reply) throw new ContentError('REPLY_NOT_FOUND', '回复不存在', 404);
-  if (reply.deletedAt) {
+  if (!isPublicReplyState(reply)) {
     throw new ContentError('REPLY_DELETED', '回复已被删除', 404);
+  }
+  const isStaff = canReviewHiddenNodes(user);
+  const publicTopic = isPublicTopicState({
+    status: rows[0].topicStatus,
+    deletedAt: rows[0].topicDeletedAt,
+  });
+  if ((!publicTopic || !isPublicNodeStatus(rows[0].nodeStatus)) && !isStaff) {
+    throw new ContentError('REPLY_NOT_FOUND', '回复不存在', 404);
   }
 
   if (!canModifyOwnContent(user, reply.authorId)) {
@@ -445,7 +475,14 @@ export async function thankReply(
       topicId: schema.replies.topicId,
     })
     .from(schema.replies)
-    .where(and(eq(schema.replies.id, replyId), isNull(schema.replies.deletedAt)))
+    .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(
+      eq(schema.replies.id, replyId),
+      PUBLIC_REPLY_CONDITION,
+      PUBLIC_TOPIC_CONDITION,
+      PUBLIC_NODE_CONDITION,
+    ))
     .limit(1);
   const reply = replyRows[0];
   if (!reply) throw new ContentError('REPLY_NOT_FOUND', '回复不存在', 404);
@@ -507,6 +544,20 @@ export async function unthankReply(
   user: SessionUser,
   replyId: number,
 ): Promise<{ replyId: number; thanks: number; removed: boolean }> {
+  const visible = await db
+    .select({ id: schema.replies.id })
+    .from(schema.replies)
+    .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(
+      eq(schema.replies.id, replyId),
+      PUBLIC_REPLY_CONDITION,
+      PUBLIC_TOPIC_CONDITION,
+      PUBLIC_NODE_CONDITION,
+    ))
+    .limit(1);
+  if (!visible[0]) throw new ContentError('REPLY_NOT_FOUND', '回复不存在', 404);
+
   const deleted = await db
     .delete(schema.thanks)
     .where(and(eq(schema.thanks.userId, user.id), eq(schema.thanks.replyId, replyId)))
@@ -549,7 +600,12 @@ export async function voteTopic(
   const topicRows = await db
     .select({ id: schema.topics.id })
     .from(schema.topics)
-    .where(and(eq(schema.topics.id, topicId), isNull(schema.topics.deletedAt)))
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(
+      eq(schema.topics.id, topicId),
+      PUBLIC_TOPIC_CONDITION,
+      PUBLIC_NODE_CONDITION,
+    ))
     .limit(1);
   if (!topicRows[0]) throw new ContentError('TOPIC_NOT_FOUND', '主题不存在', 404);
 
@@ -620,6 +676,18 @@ export async function unvoteTopic(
   user: SessionUser,
   topicId: number,
 ): Promise<{ topicId: number; votes: number; removed: boolean }> {
+  const visible = await db
+    .select({ id: schema.topics.id })
+    .from(schema.topics)
+    .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+    .where(and(
+      eq(schema.topics.id, topicId),
+      PUBLIC_TOPIC_CONDITION,
+      PUBLIC_NODE_CONDITION,
+    ))
+    .limit(1);
+  if (!visible[0]) throw new ContentError('TOPIC_NOT_FOUND', '主题不存在', 404);
+
   const existing = await db
     .select({ id: schema.votes.id, direction: schema.votes.direction })
     .from(schema.votes)
@@ -706,8 +774,8 @@ export async function getTopicDetail(
   const isAuthor = !!viewer && viewer.id === topic.authorId;
   const canSeeDeleted = opts.includeDeleted === true && (isStaff || isAuthor);
 
-  if (topic.deletedAt && !canSeeDeleted) {
-    // 已删除的主题对普通访问者表现为「不存在」
+  if (!canSeeDeleted && !isPublicTopicState(topic)) {
+    // 非公开主题对普通访问者表现为「不存在」；includeDeleted 仅显式放行。
     return { topic: null, replies: [], replyTotal: 0 };
   }
 
@@ -716,32 +784,24 @@ export async function getTopicDetail(
 
   const conditions = [eq(schema.replies.topicId, topicId)];
   if (!canSeeDeleted) {
-    conditions.push(isNull(schema.replies.deletedAt));
+    conditions.push(PUBLIC_REPLY_CONDITION);
   }
+  const where = and(...conditions);
 
   const replies = await db
     .select()
     .from(schema.replies)
-    .where(and(...conditions))
+    .where(where)
     .orderBy(asc(schema.replies.floor))
     .limit(replyLimit)
     .offset(replyOffset);
 
-  // ⚠️ 条件片段必须用 sql`` 包装。
-  // 直接写字符串会被 drizzle 当作**参数值**绑定成 $2，占位符而非 SQL 片段，
-  // PostgreSQL 直接报 42601「语法错误 在 "$2" 或附近的」。
-  // 这让 GET /api/topics/[id] 在生产构建下必然 500 ——
-  // 而 v0.0.3 的单元测试与 E2E 都没有调用过这个端点。
-  const deletedFilter = canSeeDeleted ? sql`` : sql`AND deleted_at IS NULL`;
-
-  const countRows = await db.execute(sql`
-    SELECT count(*)::int AS n FROM replies
-    WHERE topic_id = ${topicId}
-      ${deletedFilter}
-  `);
-  const replyTotal = Number(
-    (countRows as unknown as Array<{ n: number }>)[0]?.n ?? 0,
-  );
+  // 列表与总数共用同一个 Drizzle where，避免手写 SQL 片段绕过统一条件。
+  const countRows = await db
+    .select({ n: count() })
+    .from(schema.replies)
+    .where(where);
+  const replyTotal = Number(countRows[0]?.n ?? 0);
 
   return { topic, replies, replyTotal };
 }

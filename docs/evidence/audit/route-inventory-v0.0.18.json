@@ -1,0 +1,1449 @@
+{
+  "schema": "v2ex-clone-route-inventory/v1",
+  "generatedFrom": "src/app",
+  "counts": {
+    "pages": 27,
+    "apis": 74,
+    "apiMethods": 93
+  },
+  "permissionDisclaimer": "静态启发式；不替代守卫阅读、权限矩阵或运行负向测试。",
+  "pages": [
+    {
+      "route": "/",
+      "source": "src/app/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/about",
+      "source": "src/app/about/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/admin",
+      "source": "src/app/admin/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/bookmarks",
+      "source": "src/app/bookmarks/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/faq",
+      "source": "src/app/faq/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/following",
+      "source": "src/app/following/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/forgot",
+      "source": "src/app/forgot/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/go/:name",
+      "source": "src/app/go/[name]/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/go/new",
+      "source": "src/app/go/new/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/go/search",
+      "source": "src/app/go/search/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/hot",
+      "source": "src/app/hot/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/leaderboard",
+      "source": "src/app/leaderboard/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/member/:username",
+      "source": "src/app/member/[username]/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/nodes",
+      "source": "src/app/nodes/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/nodes/request",
+      "source": "src/app/nodes/request/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/notifications",
+      "source": "src/app/notifications/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/privacy",
+      "source": "src/app/privacy/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/recent",
+      "source": "src/app/recent/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/reports",
+      "source": "src/app/reports/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/reset-password",
+      "source": "src/app/reset-password/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/settings",
+      "source": "src/app/settings/page.tsx",
+      "kind": "page",
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/signin",
+      "source": "src/app/signin/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/signup",
+      "source": "src/app/signup/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/t/:id",
+      "source": "src/app/t/[id]/page.tsx",
+      "kind": "page",
+      "hint": "public-optional-session",
+      "markers": [
+        "getSessionUser",
+        "hidden-node-review"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/tag/:name",
+      "source": "src/app/tag/[name]/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/worldclock",
+      "source": "src/app/worldclock/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    },
+    {
+      "route": "/xna",
+      "source": "src/app/xna/page.tsx",
+      "kind": "page",
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    }
+  ],
+  "apis": [
+    {
+      "route": "/api/admin/categories",
+      "source": "src/app/api/admin/categories/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard",
+        "community-rate-limit"
+      ],
+      "permission": "categories.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/categories/:id",
+      "source": "src/app/api/admin/categories/[id]/route.ts",
+      "kind": "api",
+      "methods": [
+        "PATCH"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/config",
+      "source": "src/app/api/admin/config/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "config.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/credits",
+      "source": "src/app/api/admin/credits/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/logs",
+      "source": "src/app/api/admin/logs/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "logs.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/node-requests",
+      "source": "src/app/api/admin/node-requests/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "nodes.approve",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/node-requests/:id/approve",
+      "source": "src/app/api/admin/node-requests/[id]/approve/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/node-requests/:id/reject",
+      "source": "src/app/api/admin/node-requests/[id]/reject/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/ops",
+      "source": "src/app/api/admin/ops/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "ops.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/pending",
+      "source": "src/app/api/admin/pending/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "reports.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/reports",
+      "source": "src/app/api/admin/reports/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "reports.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/reports/:id/handle",
+      "source": "src/app/api/admin/reports/[id]/handle/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/stats",
+      "source": "src/app/api/admin/stats/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "config.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/users",
+      "source": "src/app/api/admin/users/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "admin",
+      "markers": [
+        "adminGuard"
+      ],
+      "permission": "users.view",
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/users/:id/ban",
+      "source": "src/app/api/admin/users/[id]/ban/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/users/:id/role",
+      "source": "src/app/api/admin/users/[id]/role/route.ts",
+      "kind": "api",
+      "methods": [
+        "PATCH"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/admin/users/:id/unban",
+      "source": "src/app/api/admin/users/[id]/unban/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/auth/forgot-password",
+      "source": "src/app/api/auth/forgot-password/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/auth/reset-password",
+      "source": "src/app/api/auth/reset-password/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "guardCsrf"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/auth/signin",
+      "source": "src/app/api/auth/signin/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/auth/signout",
+      "source": "src/app/api/auth/signout/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "mixed",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/auth/signup",
+      "source": "src/app/api/auth/signup/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/captcha",
+      "source": "src/app/api/captcha/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/checkin",
+      "source": "src/app/api/checkin/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/collections",
+      "source": "src/app/api/collections/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/credits",
+      "source": "src/app/api/credits/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/debug/boom",
+      "source": "src/app/api/debug/boom/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/debug/floors",
+      "source": "src/app/api/debug/floors/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/debug/rate-limit-probe",
+      "source": "src/app/api/debug/rate-limit-probe/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/debug/reset-rate-limits",
+      "source": "src/app/api/debug/reset-rate-limits/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/debug/table-count",
+      "source": "src/app/api/debug/table-count/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/feed",
+      "source": "src/app/api/feed/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/feed/atom",
+      "source": "src/app/api/feed/atom/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/feed/json",
+      "source": "src/app/api/feed/json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/health",
+      "source": "src/app/api/health/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/health/ready",
+      "source": "src/app/api/health/ready/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/leaderboard",
+      "source": "src/app/api/leaderboard/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/members/show.json",
+      "source": "src/app/api/members/show.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/node-requests",
+      "source": "src/app/api/node-requests/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/nodes",
+      "source": "src/app/api/nodes/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/nodes/:name/feed",
+      "source": "src/app/api/nodes/[name]/feed/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/nodes/all.json",
+      "source": "src/app/api/nodes/all.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/nodes/list.json",
+      "source": "src/app/api/nodes/list.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/nodes/show.json",
+      "source": "src/app/api/nodes/show.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/notifications",
+      "source": "src/app/api/notifications/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/replies",
+      "source": "src/app/api/replies/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/replies/:id",
+      "source": "src/app/api/replies/[id]/route.ts",
+      "kind": "api",
+      "methods": [
+        "PUT",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/replies/:id/edit-history",
+      "source": "src/app/api/replies/[id]/edit-history/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/replies/:id/restore",
+      "source": "src/app/api/replies/[id]/restore/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/replies/show.json",
+      "source": "src/app/api/replies/show.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/reports",
+      "source": "src/app/api/reports/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/search",
+      "source": "src/app/api/search/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/search/suggest",
+      "source": "src/app/api/search/suggest/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/settings/password",
+      "source": "src/app/api/settings/password/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/settings/profile",
+      "source": "src/app/api/settings/profile/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/thanks",
+      "source": "src/app/api/thanks/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics",
+      "source": "src/app/api/topics/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/topics/:id",
+      "source": "src/app/api/topics/[id]/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/:id/edit-history",
+      "source": "src/app/api/topics/[id]/edit-history/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/:id/lock",
+      "source": "src/app/api/topics/[id]/lock/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/:id/pin",
+      "source": "src/app/api/topics/[id]/pin/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/:id/restore",
+      "source": "src/app/api/topics/[id]/restore/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/:id/unlock",
+      "source": "src/app/api/topics/[id]/unlock/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/:id/unpin",
+      "source": "src/app/api/topics/[id]/unpin/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/topics/hot.json",
+      "source": "src/app/api/topics/hot.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/topics/latest.json",
+      "source": "src/app/api/topics/latest.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/topics/show.json",
+      "source": "src/app/api/topics/show.json/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": true
+    },
+    {
+      "route": "/api/users/avatar",
+      "source": "src/app/api/users/avatar/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit",
+        "rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/users/follows",
+      "source": "src/app/api/users/follows/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/users/follows/topics",
+      "source": "src/app/api/users/follows/topics/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/users/me",
+      "source": "src/app/api/users/me/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/api/votes",
+      "source": "src/app/api/votes/route.ts",
+      "kind": "api",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "hint": "authenticated",
+      "markers": [
+        "getSessionUser",
+        "guardCsrf",
+        "community-rate-limit"
+      ],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": false
+    },
+    {
+      "route": "/feed/:file",
+      "source": "src/app/feed/[file]/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": false,
+      "apiSpec": true
+    },
+    {
+      "route": "/uploads/*path",
+      "source": "src/app/uploads/[...path]/route.ts",
+      "kind": "api",
+      "methods": [
+        "GET"
+      ],
+      "hint": "public",
+      "markers": [],
+      "permission": null,
+      "pageInventory": true,
+      "apiSpec": false
+    }
+  ]
+}

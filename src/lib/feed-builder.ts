@@ -1,8 +1,9 @@
 import 'server-only';
 import type { drizzle } from 'drizzle-orm/postgres-js';
-import { and, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 
 /**
  * Feed 构建器（v0.0.3）
@@ -196,10 +197,8 @@ export async function buildFeedEntries(
   const limit = Math.min(Math.max(opts.limit ?? FEED_MAX_ITEMS, 1), FEED_MAX_ITEMS);
 
   const conditions = [
-    // 软删除的主题不得出现在 feed 里：
-    // deleted_at 非空（v0.0.3 软删除标记）或 status = 'deleted'（旧数据兼容）
-    isNull(schema.topics.deletedAt),
-    ne(schema.topics.status, 'deleted'),
+    // 只输出 published 且未软删除的主题（两种删除信号都要检查）。
+    PUBLIC_TOPIC_CONDITION,
     // 节点转为 pending / hidden 后，其主题不得继续从公共订阅流出。
     // 与旧版 / Feed 公共端点共用 `src/lib/node-visibility.ts` 的唯一定义，
     // 避免站内 Feed 与旧版 Feed 出现「一个过滤、一个不过滤」的口径漂移。

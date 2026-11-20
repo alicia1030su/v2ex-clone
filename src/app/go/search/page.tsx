@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, or, count } from 'drizzle-orm';
 import { MAX_PAGE, parsePageParam } from '@/lib/page-param';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { TOPICS_PER_PAGE } from '@/server/queries';
 import { relativeTime, fullTimestamp } from '@/lib/time';
 import { avatarUrl } from '@/components/Avatar';
@@ -64,7 +65,7 @@ export default async function SearchPage({
         .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
         .where(
           and(
-            eq(schema.topics.status, 'published'),
+            PUBLIC_TOPIC_CONDITION,
             PUBLIC_NODE_CONDITION,
             or(
               ilike(schema.topics.title, `%${q}%`),
@@ -96,7 +97,7 @@ export default async function SearchPage({
         .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
         .where(
           and(
-            eq(schema.topics.status, 'published'),
+            PUBLIC_TOPIC_CONDITION,
             PUBLIC_NODE_CONDITION,
             or(
               ilike(schema.topics.title, `%${q}%`),

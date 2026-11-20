@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
 import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   // 注意 total 原来是一段独立原生 SQL，只算 `deleted_at IS NULL AND author_id IN (...)`
   // —— 列表加了节点条件后若不同步修 total，分页会立刻错位（总数比可见行多）。
   const where = and(
-    sql`${schema.topics.deletedAt} IS NULL`,
+    PUBLIC_TOPIC_CONDITION,
     sql`${schema.topics.authorId} IN (
       SELECT following_id FROM follows WHERE follower_id = ${user.id}
     )`,

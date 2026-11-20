@@ -1,7 +1,11 @@
 import 'server-only';
 import { db, schema } from '@/db';
-import { and, asc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { renderMarkdown } from '@/lib/markdown';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+} from '@/lib/content-visibility';
 import { unixSeconds, type LegacyMember } from '@/lib/legacy-topic-api';
 import {
   assembleLegacyMember,
@@ -86,9 +90,8 @@ export async function loadLegacyReplies(
     .where(
       and(
         eq(schema.replies.topicId, topicId),
-        isNull(schema.replies.deletedAt),
-        isNull(schema.topics.deletedAt),
-        ne(schema.topics.status, 'deleted'),
+        PUBLIC_REPLY_CONDITION,
+        PUBLIC_TOPIC_CONDITION,
         PUBLIC_NODE_CONDITION,
       ),
     )
