@@ -10,7 +10,7 @@
 | 套件 | 命令 / 证据 | 结果 |
 |---|---|---|
 | 完整单元回归（含静态） | GitHub Actions CI run `44786766870` | **86 文件 / 1046 用例通过，0 failed / 0 skipped** |
-| 全量静态 | 同 CI run 的「静态测试」步骤 | **41 文件 / 470 用例通过** |
+| 全量静态 | 同 CI run 的「静态测试」步骤 | **41 文件 / 475 用例通过** |
 | E2E（Chromium） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
 | 跨浏览器矩阵 | GitHub Actions run `44786767021` | Chromium / Firefox / WebKit × 5 视口；最终以 run 结论为准 |
 | Docker / Redis 隔离验证 | GitHub Actions run `44786766802` | 九项验证通过，含 Trivy CRITICAL / HIGH 阻断 |

@@ -492,7 +492,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 | 套件 | 用例数 | 证据 | 结果 |
 |---|---|---|---|
 | 单元测试（vitest，含静态） | **1046**（86 个 spec 文件） | GitHub Actions CI run `44786766870` | **1046 passed / 0 failed / 0 skipped** |
-| 全量静态 | **470**（41 个文件） | 同 CI run 的「静态测试」步骤 | **470 passed / 0 failed / 0 skipped** |
+| 全量静态 | **475**（41 个文件） | 同 CI run 的「静态测试」步骤 | **475 passed / 0 failed / 0 skipped** |
 | E2E（Playwright / Chromium） | **283**（28 个 spec 文件） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
 | 跨浏览器矩阵 | 15 个分片 | GitHub Actions run `44786767021` | 14/15 已通过；`firefox / 768x1024` 异常超时，最终证据提交触发全套重跑 |
 | 候选包四角色验收 | **30** | GitHub Actions run `44777541811` | **30 passed / 0 failed** |
