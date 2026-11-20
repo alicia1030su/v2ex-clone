@@ -153,3 +153,29 @@ describe('v0.0.17 发布形态：本地预演与远端核验口径一致', () =>
     expect(dry).toMatch(/expectTitle\s*=\s*`## \$\{VERSION\}\$\{formSuffix\}`/);
   });
 });
+
+describe('v0.0.17 发布后独立验收：形态判据同样不得写死', () => {
+  const POST = stripComments(
+    readFileSync(path.join(ROOT, '.github/workflows/post-release-verify.yml'), 'utf8'),
+  );
+
+  it('不得要求「必须 Pre-release」', () => {
+    /*
+     * 真实失败（run 44667366422）：
+     *   发布后独立验收报「tag / 已发布 / Pre-release 三项不一致」
+     * 而 Release 实际完全正确（Stable、非 draft、资产齐全）。
+     * 这是**第四个**写死形态的判据 —— 同一个错误在四个地方复发。
+     */
+    expect(
+      /tag==sys\.argv\[2\]\s+and\s+draft\s+is\s+False\s+and\s+pre\s+is\s+True/.test(POST),
+      '又写死了「必须 Pre-release」—— 稳定版发布后验收会判红',
+    ).toBe(false);
+  });
+
+  it('形态期望必须来自 docs/STABLE_RELEASES.json（不写死）', () => {
+    expect(POST).toContain('STABLE_RELEASES.json');
+    expect(POST).toMatch(/EXPECT_PRE/);
+    // 必须真的拿期望去比，而不是拿到不用
+    expect(POST).toMatch(/pre\s+is\s+exp/);
+  });
+});
