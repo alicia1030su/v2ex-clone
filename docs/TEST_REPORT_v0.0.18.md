@@ -8,13 +8,13 @@
 
 | 套件 | 命令 | 结果 |
 |---|---|---|
-| 发布渠道 | `vitest ... tests/static/v018-release-channel.spec.ts` | 7/7 通过（含冲突/通配/缺失/非法值负向对照） |
-| Git 暂存安全 | `vitest ... tests/static/v018-git-staging-safety.spec.ts` | 7/7 通过（真实 Git 仓库、hook 正负向、CI 树模式） |
+| 发布渠道 | `vitest ... tests/static/v018-release-channel.spec.ts` | 8/8 通过（含冲突/通配/缺失/非法值负向对照） |
+| Git 暂存安全 | `vitest ... tests/static/v018-git-staging-safety.spec.ts` | 8/8 通过（真实 Git 仓库、hook 正负向、CI 树模式） |
 | 单实例长跑工具 | `vitest ... tests/static/v018-soak-tool.spec.ts` | 9/9 通过（真实进程采样、mock HTTP、漂移/HTTP/指纹负向） |
 | 路由枚举 | `vitest ... tests/static/v018-route-inventory.spec.ts` | 3/3 通过（真实源码 + 合成目录 + CLI 负向） |
 | 内容可见性真库 | `vitest run tests/v018-content-visibility.spec.ts --maxWorkers=1` | 8/8 通过（真实 PostgreSQL 55440 隔离库） |
-| 全量静态 | `vitest run --config vitest.static.config.ts --maxWorkers=2` | 41 文件 / 466 用例通过 |
-| **完整单元回归** | `vitest run --maxWorkers=1`（隔离 PG 55440） | **86 文件 / 1034 用例通过，0 failed / 0 skipped** |
+| 全量静态 | `vitest run --config vitest.static.config.ts --maxWorkers=2` | 41 文件 / 468 用例通过 |
+| **完整单元回归** | `vitest run --maxWorkers=1`（隔离 PG 55440） | **86 文件 / 1036 用例通过，0 failed / 0 skipped** |
 | TypeScript | `tsc --noEmit` | 通过 |
 | 工作流 YAML | `yaml.parse` | `ci.yml` / `soak-single-instance.yml` 通过 |
 | 前后端 API 契约 | `node scripts/ui-verify.cjs` | 后端 91 路由 / 前端 37 调用，全部匹配 |
