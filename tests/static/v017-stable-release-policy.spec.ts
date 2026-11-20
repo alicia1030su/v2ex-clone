@@ -83,16 +83,31 @@ describe('v0.0.17 发布形态：稳定版白名单', () => {
     expect(d.stable, 'v0.0.17 未登记为稳定版').toContain('v0.0.17');
   });
 
-  it('不得把未发布过的版本预先登记（防止「占位式白名单」）', () => {
+  it('当前载体版本按候选/发布态登记，且不得预登记未来稳定版', () => {
     const d = JSON.parse(readFileSync(path.join(ROOT, WHITELIST_PATH), 'utf8')) as {
       stable: string[];
     };
-    // 只允许登记当前载体版本与历史已发布版本；具体规则见下
     const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
       version: string;
     };
+    const channels = JSON.parse(readFileSync(path.join(ROOT, 'docs/RELEASE_CHANNELS.json'), 'utf8')) as {
+      default?: string;
+      versions?: Record<string, string>;
+    };
     const current = `v${pkg.version}`;
-    expect(d.stable, '当前载体版本必须已登记').toContain(current);
+    const currentChannel = channels.versions?.[current] ?? channels.default;
+    const registered = d.stable.includes(current);
+    if (currentChannel === 'stable') {
+      expect(registered, '稳定版载体必须同步登记到迁移白名单').toBe(true);
+    } else {
+      expect(registered, '候选态不得提前登记为稳定版').toBe(false);
+    }
+    // 注入式负向对照：候选态误登记必须被同一判据拒绝。
+    expect(() => {
+      if (currentChannel !== 'stable' && [...d.stable, current].includes(current)) {
+        throw new Error('candidate_pre_registered');
+      }
+    }).toThrow('candidate_pre_registered');
     // 反向断言：不得出现明显是「未来版本」的项（大于当前 carrier）
     for (const v of d.stable) {
       const parts = v.slice(1).split('.').map(Number);

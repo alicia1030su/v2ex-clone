@@ -1,5 +1,7 @@
 # FEATURE_MATRIX — 功能矩阵与验证状态
 
+> v0.0.18 当前候选的测试基线、门禁结果与授权边界见
+> [`docs/SESSION_HANDOFF_v0.0.18.md`](SESSION_HANDOFF_v0.0.18.md)；
 > 本版（v0.0.15）的当前测试基线、门禁结果与授权边界见
 > [`docs/SESSION_HANDOFF_v0.0.15.md`](SESSION_HANDOFF_v0.0.15.md)；
 > v0.0.14 的发布记录见 [`docs/SESSION_HANDOFF_v0.0.14.md`](SESSION_HANDOFF_v0.0.14.md)；

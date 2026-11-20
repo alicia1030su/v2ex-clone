@@ -72,6 +72,20 @@ describe('v0.0.18 发布渠道解析器', () => {
   });
 });
 
+describe('v0.0.18 版本载体', () => {
+  it('package.json 与 package-lock.json 的根版本必须一致', () => {
+    const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string };
+    const lock = JSON.parse(readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8')) as {
+      version: string;
+      packages: Record<string, { version?: string }>;
+    };
+    expect(lock.version).toBe(pkg.version);
+    expect(lock.packages['']?.version).toBe(pkg.version);
+    const sync = readFileSync(path.join(ROOT, 'scripts/release/sync-version.mjs'), 'utf8');
+    expect(sync).toContain("file: 'package-lock.json'");
+  });
+});
+
 describe('v0.0.18 发布渠道消费者接线', () => {
   const release = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
   const post = readFileSync(path.join(ROOT, '.github/workflows/post-release-verify.yml'), 'utf8');

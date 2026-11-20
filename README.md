@@ -92,7 +92,9 @@
 > 当前测试基线、门禁结论与授权边界见
 > [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
 >
-> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。**v0.0.15 的公开发布已在完整披露 R-01 的
+> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。v0.0.18 候选态的完整交接见
+> [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)，授权边界与 Go/No-Go 以该文件为准。
+> **v0.0.15 的公开发布已在完整披露 R-01 的
 > 前提下由项目所有者单独授权**（2026-11-10，决策 A3「保留历史 + 强化披露」+ 决策 B1
 > 「授权发布」；一次性、仅限本版本，不构成后续版本先例）；该授权**不包含**历史改写，
 > R-01 状态不变。详见 [`RISK_REGISTER.md`](RISK_REGISTER.md)、
@@ -473,6 +475,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
 > **v0.0.18（当前候选）的当前测试基线**以
 > [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 为唯一口径；
+> 完整交接见 [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)；
 > v0.0.17 已发布基线见
 > [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md)。
 > 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。

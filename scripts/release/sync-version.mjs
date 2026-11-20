@@ -49,6 +49,21 @@ const CARRIERS = [
     verify: (s) => new RegExp(`"version"\\s*:\\s*"${target.replace(/\./g, '\\.')}"`).test(s),
   },
   {
+    file: 'package-lock.json',
+    label: 'npm lockfile 版本',
+    apply: (s) => s
+      .replace(/("version"\s*:\s*")[^"]+(")/, `$1${target}$2`)
+      .replace(/(""\s*:\s*\{\s*"name"\s*:\s*"v2ex-clone",\s*"version"\s*:\s*")[^"]+(")/, `$1${target}$2`),
+    verify: (s) => {
+      try {
+        const lock = JSON.parse(s);
+        return lock.version === target && lock.packages?.['']?.version === target;
+      } catch {
+        return false;
+      }
+    },
+  },
+  {
     file: 'deploy/VERSION',
     label: '部署版本文件',
     apply: (s) => `${target}\n`,
