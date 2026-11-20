@@ -23,7 +23,7 @@ if (args.length === 0) {
 }
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const relative = args.map((arg) => {
-  if (arg === '-A' || arg === '--all' || arg === '.' || /[*?\[\]]/.test(arg)) {
+  if (arg === '-A' || arg === '--all' || arg === '.') {
     console.error(`✗ 拒绝无差别暂存：${arg}。请逐个列出文件。`);
     process.exit(1);
   }
@@ -33,14 +33,24 @@ const relative = args.map((arg) => {
     console.error(`✗ 文件不在仓库内：${arg}`);
     process.exit(1);
   }
-  if (existsSync(absolute) && statSync(absolute).isDirectory()) {
+  const literalExists = existsSync(absolute);
+  if (literalExists && statSync(absolute).isDirectory()) {
     console.error(`✗ 拒绝暂存目录：${arg}。请逐个列出文件。`);
     process.exit(1);
   }
-  if (!existsSync(absolute)) {
+  if (!literalExists) {
+    let tracked = false;
     try {
       execFileSync('git', ['ls-files', '--error-unmatch', '--', rel], { cwd: root, stdio: 'ignore' });
-    } catch {
+      tracked = true;
+    } catch { /* 不存在且未跟踪 */ }
+    // Next.js 动态路由文件名本身含 [id] / [...slug]；真实存在或已跟踪删除的
+    // 字面路径必须允许。路径不存在、未跟踪且含通配符时才按 glob 拒绝。
+    if (!tracked && /[*?\[\]]/.test(arg)) {
+      console.error(`✗ 拒绝无差别暂存：${arg}。请逐个列出文件。`);
+      process.exit(1);
+    }
+    if (!tracked) {
       console.error(`✗ 文件不存在或未被 Git 跟踪：${arg}`);
       process.exit(1);
     }

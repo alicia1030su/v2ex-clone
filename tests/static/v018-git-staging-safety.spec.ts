@@ -75,6 +75,18 @@ describe('v0.0.18 安全暂存', () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('允许 Next.js 动态路由的字面方括号路径，但仍拒绝 glob', () => {
+    const dir = repo();
+    try {
+      mkdirSync(path.join(dir, 'src/app/t/[id]'), { recursive: true });
+      writeFileSync(path.join(dir, 'src/app/t/[id]/page.tsx'), 'page');
+      expect(run(dir, [SAFE, 'src/app/t/[id]/page.tsx']).code).toBe(0);
+      const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: dir, encoding: 'utf8' });
+      expect(staged.trim()).toBe('src/app/t/[id]/page.tsx');
+      expect(run(dir, [SAFE, 'src/app/t/[missing]/page.tsx']).code).not.toBe(0);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('拒绝提交信息草稿与敏感文件', () => {
     const dir = repo();
     try {
