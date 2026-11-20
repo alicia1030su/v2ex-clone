@@ -1,11 +1,6 @@
 import { redirect } from 'next/navigation';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/db';
-import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
-import {
-  PUBLIC_REPLY_CONDITION,
-  PUBLIC_TOPIC_CONDITION,
-} from '@/lib/content-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { relativeTime } from '@/lib/time';
 import Wrapper from '@/components/Wrapper';
@@ -65,6 +60,8 @@ export default async function MyReportsPage() {
     .limit(100);
 
   // ── 按目标类型分别取标题 ───────────────────────────────────────
+  // 这是**举报人自己的历史反馈**，不是公共读取面。目标随后可能被软删或节点被隐藏，
+  // 但举报人仍应看到“我举报过什么、处理结果是什么”；公开列表仍由统一可见性条件拦截。
   const topicIds = rows.filter((r) => r.targetType === 'topic').map((r) => r.targetId);
   const replyIds = rows.filter((r) => r.targetType === 'reply').map((r) => r.targetId);
 
@@ -73,12 +70,7 @@ export default async function MyReportsPage() {
     const t = await db
       .select({ id: schema.topics.id, title: schema.topics.title })
       .from(schema.topics)
-      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(and(
-        inArray(schema.topics.id, topicIds),
-        PUBLIC_TOPIC_CONDITION,
-        PUBLIC_NODE_CONDITION,
-      ));
+      .where(inArray(schema.topics.id, topicIds));
     for (const row of t) topicTitles.set(row.id, row.title);
   }
 
@@ -88,25 +80,13 @@ export default async function MyReportsPage() {
     const r = await db
       .select({ id: schema.replies.id, topicId: schema.replies.topicId })
       .from(schema.replies)
-      .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
-      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(and(
-        inArray(schema.replies.id, replyIds),
-        PUBLIC_REPLY_CONDITION,
-        PUBLIC_TOPIC_CONDITION,
-        PUBLIC_NODE_CONDITION,
-      ));
+      .where(inArray(schema.replies.id, replyIds));
     const topicIdsOfReplies = [...new Set(r.map((x) => x.topicId))];
     if (topicIdsOfReplies.length > 0) {
       const t = await db
         .select({ id: schema.topics.id, title: schema.topics.title })
         .from(schema.topics)
-        .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-        .where(and(
-          inArray(schema.topics.id, topicIdsOfReplies),
-          PUBLIC_TOPIC_CONDITION,
-          PUBLIC_NODE_CONDITION,
-        ));
+        .where(inArray(schema.topics.id, topicIdsOfReplies));
       const byTopic = new Map(t.map((x) => [x.id, x.title]));
       for (const row of r) replyTopicTitles.set(row.id, byTopic.get(row.topicId) ?? '');
     }

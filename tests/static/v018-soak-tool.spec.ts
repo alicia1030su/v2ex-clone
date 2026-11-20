@@ -301,6 +301,11 @@ describe('v0.0.18 单实例长跑工具', () => {
     expect(workflow).toContain('not-completed');
     expect(workflow).toContain('soak-evidence/summary.json');
     expect(workflow).toContain('PGPASSWORD:');
+    // GitHub Actions service.command 只接受标量；数组会在解析阶段生成 0-job failure。
+    const redisCommand = workflow.match(/^\s+command:\s*(.+)$/m)?.[1] ?? '';
+    const isSequenceCommand = (line: string) => line.trimStart().startsWith('[');
+    expect(isSequenceCommand(redisCommand), 'Redis service.command 不能是 YAML 序列').toBe(false);
+    expect(isSequenceCommand("['redis-server', '--requirepass', 'x']"), '负向对照必须能识别数组写法').toBe(true);
     const doc = readFileSync(DOC, 'utf8');
     expect(doc).toContain('24 小时单实例连续验证 = `not-completed`');
     expect(doc).toContain('分段累计 ≠ 单实例连续');

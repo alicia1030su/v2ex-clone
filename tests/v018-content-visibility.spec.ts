@@ -301,10 +301,6 @@ async function publicReadSnapshot(fixture: Fixture) {
 
   authState.user = author;
   const bookmarksHtml = await renderPage(BookmarksPage());
-
-  authState.user = moderator;
-  const reportsResponse = await getReports(new Request('http://localhost/api/reports'));
-  const reportsBody = await reportsResponse.json();
   authState.user = null;
 
   return {
@@ -329,9 +325,6 @@ async function publicReadSnapshot(fixture: Fixture) {
     xna: xnaHtml.includes(fixture.title),
     bookmarks: bookmarksHtml.includes(fixture.title),
     notification: notifications.items.some((item) => item.message.includes(fixture.title)),
-    reportLabel: reportsBody.reports.some(
-      (report: { targetLabel: string }) => report.targetLabel === fixture.title,
-    ),
   };
 }
 
@@ -396,7 +389,7 @@ describe('公开内容可见性：正常内容仍可读、可互动', () => {
 });
 
 describe('公开内容可见性：软删除主题全面不可见', () => {
-  it('删主题后公共列表、详情、通知与举报回显均不泄露，写接口全部 404', async () => {
+  it('删主题后公共读取面不泄露，但举报人自己的历史反馈仍保留', async () => {
     const fixture = await seedFixture();
     await db
       .update(schema.topics)
@@ -432,6 +425,13 @@ describe('公开内容可见性：软删除主题全面不可见', () => {
       reports: 1,
       replies: 1,
     });
+
+    authState.user = moderator;
+    const ownReports = await (await getReports(new Request('http://localhost/api/reports'))).json();
+    authState.user = null;
+    expect(ownReports.reports.some(
+      (report: { targetLabel: string }) => report.targetLabel === fixture.title,
+    ), '举报人自己的历史反馈必须保留目标标题').toBe(true);
   });
 
   it('includeDeleted 管理入口仍只对作者/staff 显式开放', async () => {
@@ -533,7 +533,7 @@ describe('公开内容可见性：软删除回复不可见、不可互动', () =
 
     expect(thanked.status).toBe(404);
     expect(reported.status).toBe(404);
-    expect(JSON.stringify(reportsBody)).not.toContain(REPLY_MARKER);
+    expect(JSON.stringify(reportsBody), '举报人自己的历史反馈保留回复片段').toContain(REPLY_MARKER);
   });
 });
 
