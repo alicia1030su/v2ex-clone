@@ -34,6 +34,38 @@ function tempRepo(manifest: unknown, legacy: unknown) {
   return dir;
 }
 
+/** 提取某个具名 step 的 run: | 脚本，供真实 shell 语法检查。 */
+function stepRun(workflow: string, stepName: string): string {
+  const marker = `      - name: ${stepName}`;
+  const start = workflow.indexOf(marker);
+  expect(start, `找不到 step: ${stepName}`).toBeGreaterThan(-1);
+  const next = workflow.indexOf('\n      - name:', start + marker.length);
+  const block = workflow.slice(start, next === -1 ? undefined : next);
+  const run = block.indexOf('        run: |');
+  expect(run, `step 没有 run: |: ${stepName}`).toBeGreaterThan(-1);
+  return block
+    .slice(run + '        run: |\n'.length)
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^ {10}/, ''))
+    .join('\n');
+}
+
+/** GitHub 表达式不是 shell 语法；替换为占位符后交给 bash -n 做真实解析。 */
+function shellSyntaxError(script: string): string | null {
+  const normalized = script.replace(/\$\{\{[\s\S]*?\}\}/g, 'GH_EXPR');
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'v018-sh-')), 'step.sh');
+  writeFileSync(file, normalized);
+  try {
+    execFileSync('bash', ['-n', file], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return null;
+  } catch (e: unknown) {
+    const err = e as { stderr?: string; message?: string };
+    return err.stderr || err.message || 'bash -n failed';
+  } finally {
+    rmSync(path.dirname(file), { recursive: true, force: true });
+  }
+}
+
 const validManifest = {
   schema: 'v2ex-clone-release-channels/v1',
   default: 'prerelease',
@@ -87,8 +119,8 @@ describe('v0.0.18 版本载体', () => {
 });
 
 describe('v0.0.18 发布渠道消费者接线', () => {
-  const release = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
-  const post = readFileSync(path.join(ROOT, '.github/workflows/post-release-verify.yml'), 'utf8');
+  const release = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const post = readFileSync(path.join(ROOT, '.github/workflows/post-release-verify.yml'), 'utf8').replace(/\r\n/g, '\n');
   const dry = readFileSync(path.join(ROOT, 'scripts/release/preflight-dryrun.mjs'), 'utf8');
 
   it('release 的 meta 与 publish 都调用解析器', () => {
@@ -109,6 +141,43 @@ describe('v0.0.18 发布渠道消费者接线', () => {
     expect(release).toContain('ACTUAL_BUILD_SHA="$(git rev-parse HEAD)"');
     expect(release).toContain('if [ "$REV" != "$TAG_SHA" ] && [ "$REV" != "$ACTUAL_BUILD_SHA" ]; then');
     expect(release).toContain('preflight 已验证 Tag 与本次构建在全部构建输入上零差异');
+  });
+
+  it('补救构建白名单覆盖 Dockerfile 的真实运行时输入', () => {
+    for (const input of [
+      'scripts/', 'drizzle.config.ts', 'next-env.d.ts', 'global.d.ts',
+      'package.json', 'package-lock.json', 'Dockerfile',
+    ]) {
+      expect(release, `构建输入白名单缺少 ${input}`).toContain(input);
+    }
+  });
+
+  it('正式发布路径拒绝 lightweight Tag', () => {
+    expect(release).toContain('if [ "$TAG_TYPE_NOW" != "tag" ]; then');
+    expect(release).toContain('正式发布授权要求 annotated Tag');
+  });
+
+  it('正式发布与 Draft 创建脚本必须通过真实 bash 语法检查', () => {
+    expect(shellSyntaxError(stepRun(release, '创建 Release（先 draft）'))).toBeNull();
+    expect(shellSyntaxError(stepRun(release, '核验 draft 资产后正式发布'))).toBeNull();
+  });
+
+  it('负向：删掉 publish 分支条件必须被 shell 语法检查判红', () => {
+    const script = stepRun(release, '核验 draft 资产后正式发布');
+    const broken = script.replace('if [ "$PUBLISH" = "true" ]; then\n', '');
+    expect(broken).not.toBe(script);
+    expect(shellSyntaxError(broken), '漏掉 if 后 else 必须造成语法错误').not.toBeNull();
+  });
+
+  it('Draft 补救必须复用 release_id，且 GHCR 核验只对 publish=true 执行', () => {
+    const create = stepRun(release, '创建 Release（先 draft）');
+    expect(create).toContain('RESUME_DRAFT="${resume_draft:-false}"');
+    expect(create).toContain('跳过创建与资产上传');
+    const publish = stepRun(release, '核验 draft 资产后正式发布');
+    expect(publish).toContain('-F body=@release-notes.md');
+    expect(release).toContain("name: 登录 GHCR（核验用）\n        # Draft 路径不推送镜像，不能登录后拉一个尚不存在的标签。\n        if: ${{ needs.preflight.outputs.publish == 'true' }}");
+    expect(release).toContain("name: 核验 GHCR 镜像已推送（带凭据拉取）\n        if: ${{ needs.preflight.outputs.publish == 'true' }}");
+    expect(release).toContain("name: 交叉核对真实镜像 Digest（N3）\n        # Draft 路径没有 registry digest；只有公开发布后才做三方核对。\n        if: ${{ needs.preflight.outputs.publish == 'true' }}");
   });
 
   it('发布后验收与预演不得再自己读旧清单', () => {

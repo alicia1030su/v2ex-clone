@@ -99,6 +99,9 @@ on:
       - 'fix/**'
     paths:
       - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
       - 'scripts/release/verify-soak.sh'
       - '.github/workflows/soak-test.yml'
       # ⚠️ v0.0.9：**刻意不列** `.github/workflows/soak-segment.yml`。

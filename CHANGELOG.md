@@ -24,9 +24,11 @@
 - 授权闸门使用通用 `create-public-release`，并兼容 v0.0.16 / v0.0.17 历史裁决字段。
 - 修复正式发布步骤遗漏 `PRERELEASE` 环境变量的真实作用域缺陷；稳定版 Release 名称与 `--latest` 行为随统一渠道决定。
 - 修复 Tag 已创建、Release 未创建时的镜像幂等补救：允许复用“本次构建 commit”且已被 preflight 证明构建输入零差异的镜像，同时继续拒绝任意其它 revision。
+- 修复 Draft 转公开补救链：复用既有 Draft 与 `release_id`，不重复创建/上传资产，并在解除 Draft 前把 Release Notes 更新为真实 GHCR Digest。
+- 正式发布路径新增 annotated Tag 类型门禁，拒绝 lightweight Tag；补救构建白名单补齐 `scripts/`、`drizzle.config.ts` 等真实镜像输入。
 - 将 `package-lock.json` 纳入版本载体同步与复验范围。
 - 升级 Next.js 至 `15.5.29`，修复 3 个 moderate 安全公告；生产依赖审计降为 0 漏洞。
-- Docker 验证链路接入 Trivy 镜像扫描，CRITICAL / HIGH 且无修复版本的漏洞将阻断发布。
+- Docker 验证链路接入 Trivy 镜像扫描，CRITICAL / HIGH 且无修复版本的漏洞将阻断发布；运行层移除不需要的全局 npm/npx。
 
 ### Git 提交安全
 

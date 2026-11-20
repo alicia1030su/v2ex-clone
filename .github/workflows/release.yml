@@ -593,8 +593,9 @@ jobs:
               #    对象不可靠）；不要吞掉 `git diff` 的失败（原 `|| true`
               #    会把「无法比较」误判成「零差异」）—— 现在失败即中止。
               git fetch origin master:refs/remotes/origin/master
-              BUILD_PATHS=(deploy/ src/ package.json package-lock.json drizzle/ \
-                           Dockerfile .dockerignore next.config.mjs public/ tsconfig.json)
+              BUILD_PATHS=(deploy/ src/ scripts/ package.json package-lock.json drizzle/ \
+                           drizzle.config.ts Dockerfile .dockerignore next.config.mjs public/ \
+                           tsconfig.json next-env.d.ts global.d.ts)
               if ! CONTENT_DIFF="$(git diff --name-only "$TAG_SHA" origin/master -- "${BUILD_PATHS[@]}")"; then
                 echo "::error::无法比较 Tag $VERSION 的构建内容与 master（对象缺失或 git 失败）。"
                 echo "::error::**不能据此认定零差异** —— 中止发布。"
@@ -2202,6 +2203,10 @@ jobs:
             echo "::error::无法读取远端 tag $VERSION 的目标 commit（竞态检查）"
             exit 1
           fi
+          if [ "$TAG_TYPE_NOW" != "tag" ]; then
+            echo "::error::正式发布授权要求 annotated Tag；实际 object type=$TAG_TYPE_NOW"
+            exit 1
+          fi
           if [ "$TAG_SHA_NOW" != "${{ needs.preflight.outputs.tag_sha }}" ]; then
             echo "::error::Tag $VERSION 在竞态窗口内被移动（现在指向 $TAG_SHA_NOW，"
             echo "::error::发布开始时指向 ${{ needs.preflight.outputs.tag_sha }}），中止发布。"
@@ -2214,6 +2219,9 @@ jobs:
           # ⚠️ N3：把 build-image 实测 digest 注入 Notes，取代原先
           #    「镜像 Digest 见本 Release 页面」这句无法兑现的声明。
           IMAGE_DIGEST: ${{ needs.build-image.outputs.digest }}
+          # Draft 路径（dry_run=false + publish=false）按设计**不推送镜像**，
+          # 因此此时没有 GHCR digest。Notes 必须如实写“未推送”，不能留空或伪造。
+          PUBLISH: ${{ needs.preflight.outputs.publish }}
           # ⚠️ v0.0.17：发布形态（稳定版 / Pre-release）**在 Node 里判定**，
           #    shell 侧不加任何一行。
           #
@@ -2231,8 +2239,15 @@ jobs:
         run: |
           VERSION="${{ needs.preflight.outputs.version }}"
           if [ -z "$IMAGE_DIGEST" ]; then
-            echo "::error::build-image 未产出镜像 digest，拒绝写出无法核验的 Release Notes"
-            exit 1
+            if [ "$PUBLISH" != "true" ]; then
+              echo "::notice::Draft 路径不推送镜像，Notes 将如实标注 digest 未推送"
+              IMAGE_DIGEST_TEXT="未推送（Draft；转公开时会更新为真实 GHCR Digest）"
+            else
+              echo "::error::publish=true 但 build-image 未产出镜像 digest，拒绝写出无法核验的 Release Notes"
+              exit 1
+            fi
+          else
+            IMAGE_DIGEST_TEXT="$IMAGE_DIGEST"
           fi
           cat > release-notes.md <<'NOTES'
           ## __VERSION____FORM_SUFFIX__
@@ -2277,7 +2292,7 @@ jobs:
           - **部署**：Docker 多阶段镜像 + Compose 三阶段启动
             （迁移 → 首次初始化 → 启动），含备份 / 恢复 / 更新脚本
 
-          ### 已知限制（如实标注，不阻塞预览版使用）
+          ### 已知限制（如实标注；不影响安装，但使用前请阅读）
 
           - **私信**：未实现
           - **真实 SMTP 邮件投递**：未在发布流程中实测（需运维配置 SMTP）
@@ -2507,8 +2522,8 @@ jobs:
               ].join('\n')
             : [
                 '> ✅ **这是正式稳定版（Stable Release）。**',
-                '> 数据库迁移幂等、升级路径与备份恢复均已验证；安装与升级步骤见下方。',
-                '> ⚠️ 仍请阅读「已知限制」与「R-01 风险披露」两节后再用于生产环境。',
+                '> 本版本 CI 已验证数据库迁移幂等、升级路径与备份恢复；安装与升级步骤见下方。',
+                '> ⚠️ 稳定版表示发行工程经过稳定版验收，不等于已完成全部生产规模与 24 小时运行验证。',
               ].join('\n');
           let out = notes.replace('__CHANGELOG_SECTION__', () => indented);
           out = out.split('__FORM_SUFFIX__').join(formSuffix);
@@ -2518,7 +2533,7 @@ jobs:
           console.log('发布形态：' + (isPrerelease ? 'Pre-release' : '稳定版') + '（后缀：' + JSON.stringify(formSuffix) + '）');
           NODE
           sed -i "s|__VERSION__|${VERSION}|g" release-notes.md
-          sed -i "s|__DIGEST__|${IMAGE_DIGEST}|g" release-notes.md
+          sed -i "s|__DIGEST__|${IMAGE_DIGEST_TEXT}|g" release-notes.md
           # 版本说明真实性闸门：占位符必须清空、标题必须指向**本版本**
           NOTES_FAIL=0
           if grep -q '__CHANGELOG_SECTION__\|__VERSION__\|__DIGEST__' release-notes.md; then
@@ -2550,8 +2565,8 @@ jobs:
             NOTES_FAIL=1
           fi
           [ "$NOTES_FAIL" -eq 0 ] || exit 1
-          echo "Release Notes 已按版本 ${VERSION} 生成（镜像 digest=${IMAGE_DIGEST}）"
-          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release Notes 已按版本 ${VERSION} 生成（镜像 digest=${IMAGE_DIGEST_TEXT}）"
+          echo "IMAGE_DIGEST=${IMAGE_DIGEST_TEXT}" >> "$GITHUB_STEP_SUMMARY"
 
           # ── 安装路径与安装包实际结构的一致性闸门（D-01） ──
           #
@@ -2622,6 +2637,15 @@ jobs:
             echo "::error::未找到安装包 release-assets/${ZIP_NAME}"; exit 1; }
           test -f "release-assets/SHA256SUMS" || {
             echo "::error::未找到 SHA256SUMS"; exit 1; }
+          # B2：Tag 已存在 + Draft 资产齐全 + publish=true 时，竞态检查会写入
+          # resume_draft/release_id。此时必须复用既有 Draft，不能再次 POST。
+          RESUME_DRAFT="${resume_draft:-false}"
+          RESUME_RELEASE_ID="${release_id:-}"
+          if [ "$RESUME_DRAFT" = "true" ]; then
+            [ -n "$RESUME_RELEASE_ID" ] || { echo "::error::resume_draft=true 但 release_id 为空"; exit 1; }
+            echo "::notice::复用已有 Draft Release id=$RESUME_RELEASE_ID，跳过创建与资产上传"
+            exit 0
+          fi
           cd release-assets
 
           # ═══════════════════════════════════════════════════════════
@@ -2748,6 +2772,7 @@ jobs:
           # （如 Git 历史合规风险）需要停在 Draft —— 那只适用于
           # workflow_dispatch 且显式 publish=false 的情形。
           PUBLISH="${{ needs.preflight.outputs.publish }}"
+          if [ "$PUBLISH" = "true" ]; then
             # v0.0.18 P0-1：防御性复核也调用同一个解析器，
             # 不再在这里复制一份白名单读取逻辑。preflight 的 output 是正常路径，
             # 这里再解析一次并比对，能抓住 output 被错误传递/工作流被改动。
@@ -2760,6 +2785,15 @@ jobs:
               exit 1
             fi
             echo "  发布形态复核通过：$VERSION prerelease=$PRERELEASE"
+            # B2：复用已有 Draft 时，它创建时镜像尚未推送，Notes 中只能是
+            # “未推送”占位说明。现在镜像已真实推送，必须先把 body 更新为含
+            # 真实 digest 的版本，再解除 Draft —— 否则公开页会留下失真文本。
+            if [ "${resume_draft:-false}" = "true" ]; then
+              [ -n "${release_id:-}" ] || { echo "::error::resume_draft=true 但 release_id 为空"; exit 1; }
+              gh api --method PATCH "repos/${{ github.repository }}/releases/${release_id}" \
+                -F body=@release-notes.md --jq '.id' >/dev/null
+              echo "已更新复用 Draft 的 Release Notes（真实 digest）"
+            fi
             # ⚠️ v0.0.17：形态与 `--latest` 都必须跟随 PRERELEASE。
             #
             # `--latest=false` 对 Pre-release 是正确行为（GitHub 的 Latest
@@ -2783,10 +2817,7 @@ jobs:
           else
             echo "Release 保持 Draft 状态（publish=false）。"
             echo "资产已核验齐全。公开发布前请确认发布门槛已全部通过。"
-            # ⚠️ 不要建议「再 dispatch publish=true 重跑」：preflight 的
-            #    「Release 已存在（含 Draft）⇒ 中止」会把它挡死（实测
-            #    `gh release view` 对 Draft 也会返回），这条路走不通。
-            echo "如需公开，请在 GitHub 网页上手动发布该 Draft（或重新推 Tag 走正式发布路径）。"
+            echo "转公开：workflow_dispatch + publish=true；竞态检查会复用此 Draft，不重复创建或上传资产。"
           fi
 
   # ===========================================================================
@@ -2948,6 +2979,8 @@ jobs:
           echo "✓ 安装包结构完整"
 
       - name: 登录 GHCR（核验用）
+        # Draft 路径不推送镜像，不能登录后拉一个尚不存在的标签。
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         # ⚠️ v0.0.4：补上登录，让「带凭据拉取」名副其实。
         #   此前该步骤没有任何 registry 登录，只靠匿名 pull ——
         #   而匿名 pull 只在包为 Public 时可行；
@@ -2961,6 +2994,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 核验 GHCR 镜像已推送（带凭据拉取）
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
@@ -3033,6 +3067,8 @@ jobs:
           rm -f "$ANON_HEADERS"
 
       - name: 交叉核对真实镜像 Digest（N3）
+        # Draft 路径没有 registry digest；只有公开发布后才做三方核对。
+        if: ${{ needs.preflight.outputs.publish == 'true' }}
         # 任务书 §七「镜像 Digest 必须记录真实值」：不能只在 Notes 里声明
         # 「可复核」，必须由三个独立来源互证 —— 构建输出 / 本地 pull /
         # 匿名 Registry V2 响应头。任一不一致都判红。
