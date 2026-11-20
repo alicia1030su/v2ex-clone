@@ -8,7 +8,7 @@
 
 | ID | 级别 | 问题 | 证据 | 状态 | 后续 |
 |---|---|---|---|---|---|
-| D-01 | P0 | 公开发布面软删内容可见性不一致 | 会员最近回复、XNA、收藏、收藏/投票/感谢/举报目标校验、最后回复者回退 | **已修复** | 真库 8/8、完整单元 1055/1055、生产构建通过 |
+| D-01 | P0 | 公开发布面软删内容可见性不一致 | 会员最近回复、XNA、收藏、收藏/投票/感谢/举报目标校验、最后回复者回退 | **已修复** | 真库 8/8、完整单元 1056/1056、生产构建通过 |
 | D-02 | P1 | 通知角标直接统计 notifications，未复用列表可见性条件 | `src/components/SiteNav.tsx` vs `src/server/notifications.ts` | **开放** | 复用 `listNotificationsForUser().unread`，补真库测试 |
 | D-03 | P1 | 回复深链锚点混用 reply id / floor / repliesCount | `member/[username]/page.tsx`、`TopicItem.tsx`、`ReplyItem.tsx` | **开放** | 统一返回真实 floor，加删除楼层后的 E2E |
 | D-04 | P1 | API_SPEC 覆盖落后于 74 个真实 API 路由 | `docs/evidence/audit/route-inventory-v0.0.18.json` | **开放** | 按模块补契约与权限点 |

@@ -2241,6 +2241,9 @@ jobs:
             IMAGE_DIGEST_TEXT="$IMAGE_DIGEST"
           fi
           export VERSION
+          # render-release-notes.mjs 从 process.env 读取 digest；仅设置 shell
+          # 局部变量不会传给 Node 子进程，publish=true 时会渲染出空 digest。
+          export IMAGE_DIGEST_TEXT
           node scripts/release/render-release-notes.mjs
           echo "IMAGE_DIGEST=${IMAGE_DIGEST_TEXT}" >> "$GITHUB_STEP_SUMMARY"
 

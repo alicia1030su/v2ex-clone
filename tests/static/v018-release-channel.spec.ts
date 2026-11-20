@@ -66,6 +66,33 @@ function shellSyntaxError(script: string): string | null {
   }
 }
 
+/**
+ * 把 Notes 步骤里的 Node 调用替换成 env 探针后真实执行。
+ * 这能抓到“shell 有值、Node 子进程看不到”的作用域缺陷；bash -n 抓不到。
+ */
+function runNotesEnvProbe(script: string): { code: number; out: string } {
+  const probe = script
+    .replace('${{ needs.preflight.outputs.version }}', 'v0.0.18')
+    .replace('node scripts/release/render-release-notes.mjs', 'printenv IMAGE_DIGEST_TEXT');
+  const { IMAGE_DIGEST_TEXT: _inherited, ...cleanEnv } = process.env;
+  try {
+    const out = execFileSync('bash', ['-c', probe], {
+      encoding: 'utf8',
+      env: {
+        ...cleanEnv,
+        IMAGE_DIGEST: 'sha256:test-digest',
+        PUBLISH: 'true',
+        GITHUB_STEP_SUMMARY: path.join(tmpdir(), 'v018-step-summary.md'),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { code: 0, out };
+  } catch (e: unknown) {
+    const err = e as { status?: number; stdout?: string; stderr?: string };
+    return { code: err.status ?? 1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+  }
+}
+
 const validManifest = {
   schema: 'v2ex-clone-release-channels/v1',
   default: 'prerelease',
@@ -160,6 +187,19 @@ describe('v0.0.18 发布渠道消费者接线', () => {
   it('正式发布与 Draft 创建脚本必须通过真实 bash 语法检查', () => {
     expect(shellSyntaxError(stepRun(release, '创建 Release（先 draft）'))).toBeNull();
     expect(shellSyntaxError(stepRun(release, '核验 draft 资产后正式发布'))).toBeNull();
+  });
+
+  it('Notes 步骤必须把真实镜像 digest 导出给 Node 子进程', () => {
+    const script = stepRun(release, '生成中文 Release Notes');
+    const ok = runNotesEnvProbe(script);
+    expect(ok.code, ok.out).toBe(0);
+    expect(ok.out.trim()).toBe('sha256:test-digest');
+
+    const broken = script.replace('export IMAGE_DIGEST_TEXT\n', '');
+    expect(broken).not.toBe(script);
+    const bad = runNotesEnvProbe(broken);
+    expect(bad.code, bad.out).toBe(0);
+    expect(bad.out.trim(), '删掉 export 后 Node 探针必须取不到 digest').not.toBe('sha256:test-digest');
   });
 
   it('负向：删掉 publish 分支条件必须被 shell 语法检查判红', () => {
