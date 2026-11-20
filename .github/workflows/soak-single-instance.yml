@@ -78,7 +78,7 @@ jobs:
           --health-retries 10
       redis:
         image: redis:7-alpine
-        command: ['redis-server', '--requirepass', 'soak!redis-password']
+        command: "redis-server --requirepass soak!redis-password"
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli -a soak!redis-password ping"

@@ -239,8 +239,9 @@ export async function GET(request: Request) {
     .from(schema.reports)
     .where(eq(schema.reports.reporterId, user.id));
 
-  // 附带目标标题（让用户知道举报的是哪条）—— 只查自己的举报指向的目标，
-  // 不泄露任何他人信息。
+  // 附带目标标题（让用户知道举报的是哪条）—— 只查自己的举报指向的目标。
+  // 这是举报人自己的历史反馈，不是公共读取面；目标随后被软删/隐藏时仍保留反馈，
+  // 但公共列表、详情与互动写接口继续由统一可见性条件拦截。
   const topicIds = rows.filter((r) => r.targetType === 'topic').map((r) => r.targetId);
   const replyIds = rows.filter((r) => r.targetType === 'reply').map((r) => r.targetId);
 
@@ -249,12 +250,7 @@ export async function GET(request: Request) {
     const t = await db
       .select({ id: schema.topics.id, title: schema.topics.title })
       .from(schema.topics)
-      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(and(
-        inArray(schema.topics.id, topicIds),
-        PUBLIC_TOPIC_CONDITION,
-        PUBLIC_NODE_CONDITION,
-      ));
+      .where(inArray(schema.topics.id, topicIds));
     for (const row of t) topicTitles.set(row.id, row.title);
   }
 
@@ -267,14 +263,7 @@ export async function GET(request: Request) {
         topicId: schema.replies.topicId,
       })
       .from(schema.replies)
-      .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
-      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(and(
-        inArray(schema.replies.id, replyIds),
-        PUBLIC_REPLY_CONDITION,
-        PUBLIC_TOPIC_CONDITION,
-        PUBLIC_NODE_CONDITION,
-      ));
+      .where(inArray(schema.replies.id, replyIds));
     for (const row of r) {
       const title = topicTitles.get(row.topicId);
       replySnippets.set(
