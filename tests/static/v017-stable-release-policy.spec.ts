@@ -41,6 +41,8 @@ import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const WF_RAW = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
+const NOTES_TPL = readFileSync(path.join(ROOT, '.github/release-notes-template.md'), 'utf8');
+const RENDERER = readFileSync(path.join(ROOT, 'scripts/release/render-release-notes.mjs'), 'utf8');
 
 /** 剥掉 YAML/bash 注释 —— 反向断言必须只对**可执行代码**生效 */
 function stripComments(src: string): string {
@@ -102,9 +104,15 @@ describe('v0.0.17 发布形态：稳定版白名单', () => {
     } else {
       expect(registered, '候选态不得提前登记为稳定版').toBe(false);
     }
-    // 注入式负向对照：候选态误登记必须被同一判据拒绝。
+    // 注入式负向对照：取当前载体的下一个 patch 作为“未来候选”，
+    // 它必须未被提前登记；同一判据若看到候选被登记必须抛错。
+    const curParts = current.slice(1).split('.').map(Number);
+    const future = `v${curParts[0]}.${curParts[1]}.${curParts[2] + 1}`;
+    const futureChannel = channels.versions?.[future] ?? channels.default;
+    expect(d.stable, `未来候选 ${future} 不得提前登记`).not.toContain(future);
     expect(() => {
-      if (currentChannel !== 'stable' && [...d.stable, current].includes(current)) {
+      const injected = [...d.stable, future];
+      if (futureChannel !== 'stable' && injected.includes(future)) {
         throw new Error('candidate_pre_registered');
       }
     }).toThrow('candidate_pre_registered');
@@ -155,31 +163,27 @@ describe('v0.0.17 发布形态：Release 形态措辞不得自相矛盾', () => 
     // 名称
     expect(WF).toMatch(/RELEASE_TITLE=/);
     expect(WF).toMatch(/RELEASE_TITLE="\$VERSION — 开发预览版"/);
-    expect(WF).toMatch(/RELEASE_TITLE="\$VERSION — 稳定版"/);
+    expect(WF).toMatch(/RELEASE_TITLE="\$VERSION 稳定版"/);
     // Notes 标题用占位符注入，不写死
-    expect(WF_RAW).toContain('__FORM_SUFFIX__');
-    expect(WF_RAW).toContain('__FORM_NOTICE__');
+    expect(NOTES_TPL).toContain('__FORM_SUFFIX__');
+    expect(NOTES_TPL).toContain('__FORM_NOTICE__');
   });
 
   it('Notes 模板不得再硬编码「不是稳定版」', () => {
-    // 反向断言：模板正文里写死的那句必须已被占位符取代
-    const tplStart = WF_RAW.indexOf('cat > release-notes.md');
-    expect(tplStart).toBeGreaterThan(0);
-    const tpl = WF_RAW.slice(tplStart, tplStart + 2500);
     expect(
-      tpl.includes('**这是早期开发预览版（Pre-release），不是稳定版。**'),
+      NOTES_TPL.includes('**这是早期开发预览版（Pre-release），不是稳定版。**'),
       'Notes 模板又写死了「不是稳定版」—— 稳定版发布时会自相矛盾',
     ).toBe(false);
   });
 
   it('稳定版 Notes 里出现「不是稳定版」必须判红（反向闸门）', () => {
-    expect(WF).toMatch(/稳定版 Notes 里出现「不是稳定版」/);
+    expect(RENDERER).toMatch(/稳定版 Notes 里出现「不是稳定版」/);
   });
 
   it('主标题闸门必须按形态比对，而不是写死「开发预览版」', () => {
-    expect(WF).toMatch(/EXPECT_TITLE=/);
-    expect(WF).toMatch(/EXPECT_TITLE="## \${VERSION} — 开发预览版（Pre-release）"/);
-    expect(WF).toMatch(/EXPECT_TITLE="## \${VERSION} — 稳定版"/);
+    expect(RENDERER).toContain('const expectedTitle = isPrerelease');
+    expect(RENDERER).toContain('`## ${VERSION} — 开发预览版（Pre-release）`');
+    expect(RENDERER).toContain('`## ${VERSION} — 稳定版`');
   });
 });
 
@@ -228,9 +232,11 @@ describe('v0.0.17 发布形态：白名单判定的真实行为（执行，不�
     expect(isStable('v0.0.17')).toBe(true);
   });
 
-  it('未登记的版本一律不是稳定版（含 v0.0.16、v0.0.18）', () => {
+  it('已登记版本 v0.0.17 / v0.0.18 均为稳定版，未登记版本不是', () => {
+    expect(isStable('v0.0.17')).toBe(true);
+    expect(isStable('v0.0.18')).toBe(true);
     expect(isStable('v0.0.16'), 'v0.0.16 未登记却被判为稳定版').toBe(false);
-    expect(isStable('v0.0.18'), 'v0.0.18 未登记却被判为稳定版').toBe(false);
+    expect(isStable('v0.0.19'), 'v0.0.19 未登记却被判为稳定版').toBe(false);
   });
 
   it('大小写/空格/前缀都不该被宽松匹配', () => {

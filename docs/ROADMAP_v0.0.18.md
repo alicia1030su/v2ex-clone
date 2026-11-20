@@ -52,7 +52,7 @@
 | **修复方案** | 新建 `docs/RELEASE_CHANNELS.json`（`default: prerelease` + 精确版本映射），新建 `scripts/release/resolve-release-channel.mjs`；所有消费者只调用解析器。保留旧 `STABLE_RELEASES.json` 为迁移输入，由解析器校验二者一致。 |
 | **修改文件** | `docs/RELEASE_CHANNELS.json`、`scripts/release/resolve-release-channel.mjs`、`.github/workflows/release.yml`、`.github/workflows/post-release-verify.yml`、`scripts/release/preflight-dryrun.mjs`、`scripts/release/verify-release-consistency.sh`、`tests/static/v018-release-channel.spec.ts`。 |
 | **测试方法** | 解析器单测（默认 prerelease、v0.0.17 stable、未知版本、重复/冲突清单、错误类型、错误版本格式）；真实读取当前清单；workflow 接线静态断言；发布预演真实运行。 |
-| **验收标准** | 所有渠道消费者都调用同一解析器；无“0.0.x 必须 Pre-release”的可执行断言；v0.0.17 解析为 stable，v0.0.18 默认 prerelease；预演全绿；v0.0.17 既有 Release 不被修改。 |
+| **验收标准** | 所有渠道消费者都调用同一解析器；无“0.0.x 必须 Pre-release”的可执行断言；v0.0.17 与 v0.0.18 解析为 stable，未登记版本默认 prerelease；预演全绿；v0.0.17 既有 Release 不被修改。 |
 | **风险** | 清单写错会让未来版本发错形态；用迁移校验与精确枚举降低风险；不自动发布 v0.0.18。 |
 
 ## 三、P0-2：Git 暂存与提交安全治理
@@ -102,7 +102,7 @@
 | P0-2 Git 暂存安全 | **完成** | `safe-stage`、统一 checker、pre-commit hook、CI 提交树门禁、开发文档；修复 Windows `fileURLToPath` 主入口静默跳过 |
 | P1-1 单实例长跑工具 | **工具完成 / 24h not-completed** | `single-instance.mjs` + Node 分段启动器 + 手动 workflow + 证据 schema；真实短时运行与负向对照通过 |
 | P1-2 产品差距审查 | **完成** | 27 页面 / 74 API / 93 方法；报告 `PRODUCT_GAP_REVIEW_v0.0.18.md`；权限无水平越权，发现内容可见性 P0 |
-| 追加 P0 内容可见性 | **完成** | 会员回复、XNA、收藏、互动写接口与最后回复者统一过滤软删/隐藏内容；真库 8/8、全量单元 1036/1036 通过 |
+| 追加 P0 内容可见性 | **完成** | 会员回复、XNA、收藏、互动写接口与最后回复者统一过滤软删/隐藏内容；真库 8/8、完整单元 1046/1046 通过 |
 
 ### 6.1 P0-2 实施修正
 

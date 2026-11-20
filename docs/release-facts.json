@@ -1,99 +1,84 @@
 {
   "_comment": [
-    "v0.0.10 发布事实的单一事实来源（Single Source of Truth）。",
+    "v0.0.18 发布事实的单一事实来源（Single Source of Truth）。",
     "",
-    "为什么需要这个文件：BUG_REGISTER V9-11 记录过一次真实事故 —— 公开的 Release Notes",
-    "把升级指纹写成「60 项」，而仓库脚本可复现的口径是 42 项。原因是那些数字是**手写**的，",
-    "从没有任何产物能证明它。",
-    "",
-    "现在：Release Notes 里的量化指标、README 的测试表、发行一致性门禁，",
-    "全部读这个文件。任何一处与它不一致，门禁判红。",
-    "",
-    "更新规则：只在本版本**实测完成**后写入真实数字，并附 evidence（产物路径）。",
-    "禁止预估、禁止照抄上一版。",
-    "",
-    "⚠️ v0.0.13：`version` 是**载体版本**（sync-version.mjs 会同步到目标版本），",
-    "`measurementVersion` 是**数字的实测归属版本**（刻意不随载体同步）。",
-    "二者不同时，status 必须为 historical-snapshot，且 README 标注为历史实测、",
-    "Release Notes 不得写死这些数字 —— 由门禁 ⑦ 三重校验，防止「标着新版本、",
-    "写着旧实测」的假合格证。当前 444/220 等数字归属 v0.0.12，不是 v0.0.13 结论。"
+    "更新规则：只在本版本实测完成后写入真实数字，并附 evidence。禁止预估、禁止照抄上一版。",
+    "`version` 是载体版本；`measurementVersion` 是数字的实测归属版本。二者不同时，",
+    "status 必须为 historical-snapshot，且 README 标注为历史实测、Release Notes 不得写死这些数字。",
+    "本文件当前记录 v0.0.18 实测；visual 小节仍为 v0.0.10 历史快照，并已单独标注。"
   ],
   "version": "0.0.18",
-  "measurementVersion": "0.0.12",
-  "status": "historical-snapshot",
-  "measuredAt": "2026-11-08",
+  "measurementVersion": "0.0.18",
+  "status": "measured",
+  "measuredAt": "2026-11-20",
   "unit": {
-    "files": 36,
-    "tests": 444,
-    "passed": 444,
+    "files": 86,
+    "tests": 1046,
+    "passed": 1046,
     "failed": 0,
     "skipped": 0,
-    "evidence": "npx vitest run（本机隔离实例 v2ex_test_base）"
+    "evidence": "GitHub Actions CI run 44786766870（类型检查 / 单元测试 job）"
   },
   "static": {
-    "files": 4,
-    "tests": 40,
-    "passed": 40,
-    "failed": 0,
-    "evidence": "npx vitest run --config vitest.static.config.ts"
-  },
-  "e2e": {
-    "files": 20,
-    "tests": 220,
-    "passed": 220,
+    "files": 41,
+    "tests": 475,
+    "passed": 475,
     "failed": 0,
     "skipped": 0,
-    "evidence": "npx playwright test（本机 next start + 独立库 v2ex_e2e_v0010，8.1m）"
+    "evidence": "GitHub Actions CI run 44786766870（静态测试步骤）"
+  },
+  "e2e": {
+    "files": 28,
+    "tests": 283,
+    "passed": 283,
+    "failed": 0,
+    "skipped": 0,
+    "evidence": "GitHub Actions CI run 44786766870（E2E 测试 job，Chromium）"
   },
   "upgrade": {
     "baselines": [
       "v0.0.4",
-      "v0.0.9"
+      "v0.0.17"
     ],
     "businessFingerprintItems": 46,
     "assertions": 20,
     "failed": 0,
     "v004": {
       "migrationsBefore": 3,
-      "migrationsAfter": 4,
+      "migrationsAfter": 5,
       "indexesBefore": 76,
-      "indexesAfter": 78
+      "indexesAfter": 79
     },
-    "v009": {
-      "migrationsBefore": 4,
-      "migrationsAfter": 4,
-      "indexesBefore": 78,
-      "indexesAfter": 78
+    "v017": {
+      "migrationsBefore": 5,
+      "migrationsAfter": 5,
+      "indexesBefore": 79,
+      "indexesAfter": 79
     },
-    "evidence": "docs/UPGRADE_VERIFICATION_v0.0.10.md"
+    "evidence": "GitHub Actions CI run 44786766870（双基线升级验证，PASS=20 / FAIL=0）"
   },
   "visual": {
     "pages": 12,
     "screenshots": 72,
     "viewports": 4,
+    "measurementVersion": "0.0.10",
+    "status": "historical-snapshot",
     "evidence": "docs/evidence/visual/pages-audit.json"
   },
   "roles": {
-    "steps": 28,
-    "passed": 28,
-    "evidence": "docs/evidence/visual/roles-audit.json"
+    "steps": 30,
+    "passed": 30,
+    "failed": 0,
+    "measurementVersion": "0.0.18",
+    "evidence": "GitHub Actions 候选包四角色验收 run 44777541811"
   },
   "soak": {
     "oneHour": "passed",
     "twentyFourHour": "not-completed",
-    "note": "GitHub-hosted runner 单 job 上限 6 小时；已改为串行分段，累计真实时长由 artifact 传递。**v0.0.17 已发布，但 24 小时单实例连续运行仍未完成** —— 稳定版承诺的是发布工程质量，不含长期运行时长。"
+    "evidence": "GitHub Actions soak-test.yml；最终候选 SHA 由证据提交自动触发并复核",
+    "note": "GitHub-hosted runner 单 job 上限 6 小时；24 小时单实例连续运行仍未完成。稳定版承诺的是发布工程质量，不含长期运行时长。"
   },
   "releaseForm": "stable",
-  "releasedAt": "2026-11-20",
-  "release": {
-    "tag": "v0.0.17",
-    "tagObject": "0c092e758ef37022e5bd38b12ce0bf23e287ddac",
-    "commit": "10644d72161d722904829e53b31ff4c5cbe013e6",
-    "prerelease": false,
-    "latest": true,
-    "imageDigest": "sha256:1ec56dd5a6059841cf3206afca92c1dbd28fd8e8db763eb63c1c15260db3b995",
-    "zipName": "v2ex-clone-v0.0.17-deploy.zip",
-    "zipBytes": 145353,
-    "zipSha256": "e6068b9bfb74157cdf50a31733900daa82b35b48c2836e0ffbad1f5c60344918"
-  }
+  "releasedAt": null,
+  "release": null
 }

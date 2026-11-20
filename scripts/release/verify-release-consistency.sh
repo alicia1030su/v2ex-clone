@@ -460,8 +460,8 @@ EOF
   # 新判据：① Notes 稳定性表不写死具体通过数，改为指向本次 run 的真实报告；
   #         ② release-facts.json 若 version == 本版本，则必须带
   #            measurementVersion 且等于本版本（证明数字是本版本实测的）。
-  if [ -f .github/workflows/release.yml ]; then
-    NOTES_TPL="$(sed -n '/### 稳定性验证的真实状态/,/1 小时持续运行/p' .github/workflows/release.yml)"
+  if [ -f .github/workflows/release.yml ] && [ -f .github/release-notes-template.md ]; then
+    NOTES_TPL="$(sed -n '/### 稳定性验证的真实状态/,/1 小时持续运行/p' .github/release-notes-template.md)"
     STALE_COUNTS="$(printf '%s\n' "$NOTES_TPL" | grep -oE '[0-9]{2,}/[0-9]{2,}' | head -5)"
     if [ -n "$STALE_COUNTS" ]; then
       bad "Release Notes 稳定性表仍写死历史通过数：${STALE_COUNTS}（应指向本次 run 的真实报告）"
@@ -473,13 +473,20 @@ EOF
     else
       ok "Release Notes 稳定性表声明结果来自本次发布流水线"
     fi
+    if ! grep -q 'node scripts/release/render-release-notes.mjs' .github/workflows/release.yml; then
+      bad "release.yml 未调用真实 Notes 渲染脚本 —— 模板可能与发布路径脱节"
+    else
+      ok "release.yml 与独立 Notes 模板使用同一渲染脚本"
+    fi
 
     # 反向断言：不得残留历史事故里的「60 项数据指纹」（V9-11）
-    if grep -q '60 项数据指纹' .github/workflows/release.yml; then
+    if grep -q '60 项数据指纹' .github/release-notes-template.md; then
       bad "Release Notes 仍残留 V9-11 的错误口径「60 项数据指纹」"
     else
       ok "Release Notes 无 V9-11 的错误口径（60 项）"
     fi
+  else
+    bad "缺少 release.yml 或独立 Release Notes 模板 —— 无法核验公开说明真实性"
   fi
 
   # 数字新鲜度：`version` 是**载体版本**（sync-version.mjs 会同步），

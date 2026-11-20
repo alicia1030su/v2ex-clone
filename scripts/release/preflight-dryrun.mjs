@@ -214,6 +214,25 @@ export function allRepoReadingJobsCheckout(source) {
   return { pass: true };
 }
 
+/** 判据 5：正式发布步骤必须显式注入 PRERELEASE（set -u 下缺失会直接失败） */
+export function publishStepHasPrerelease(source) {
+  const jobs = splitJobs(source);
+  const block = jobs?.get('publish-release');
+  if (!block) return { pass: false, why: '未找到 publish-release job' };
+  const marker = '      - name: 核验 draft 资产后正式发布';
+  const start = block.indexOf(marker);
+  if (start < 0) return { pass: false, why: '未找到「核验 draft 资产后正式发布」步骤' };
+  const next = block.indexOf('\n      - name:', start + marker.length);
+  const step = block.slice(start, next < 0 ? block.length : next);
+  if (!/PRERELEASE:\s*\$\{\{\s*needs\.preflight\.outputs\.prerelease\s*\}\}/.test(step)) {
+    return {
+      pass: false,
+      why: '正式发布步骤未显式注入 PRERELEASE —— set -u 下读取该变量会中止发布',
+    };
+  }
+  return { pass: true };
+}
+
 /** 抽出 Release Notes 模板正文（`cat > release-notes.md <<'NOTES'` 到 `NOTES`） */
 /**
  * 抽出模板的**原始**文本（保留 `run: |` 的块缩进）。
@@ -268,8 +287,11 @@ export function extractNotesTemplate(source) {
 
 /** 判据 5：模板不得含待定态措辞（发布成功即证明已授权） */
 export function notesHasNoPendingWord(source) {
-  const tpl = extractNotesTemplate(source);
-  if (tpl === null) return { pass: false, why: '无法抽出 Release Notes 模板正文' };
+  // v0.0.18 起模板独立存放；保留旧内联格式兼容，避免历史调用方静默失效。
+  const tpl = source.includes("cat > release-notes.md <<'NOTES'")
+    ? extractNotesTemplate(source)
+    : source;
+  if (tpl === null) return { pass: false, why: '无法读取 Release Notes 模板正文' };
   if (tpl.length < 1000) {
     return { pass: false, why: `模板正文过短（${tpl.length} 字符）—— 抽取可能失效，护栏会静默变绿` };
   }
@@ -286,8 +308,10 @@ export function notesHasNoPendingWord(source) {
 
 /** 判据 6：模板必须仍由 CHANGELOG 注入（V13-10 契约），防止回归成旧模板 */
 export function notesKeepsChangelogContract(source) {
-  const tpl = extractNotesTemplate(source);
-  if (tpl === null) return { pass: false, why: '无法抽出 Release Notes 模板正文' };
+  const tpl = source.includes("cat > release-notes.md <<'NOTES'")
+    ? extractNotesTemplate(source)
+    : source;
+  if (tpl === null) return { pass: false, why: '无法读取 Release Notes 模板正文' };
   if (!tpl.includes('__CHANGELOG_SECTION__')) {
     return { pass: false, why: '模板缺 __CHANGELOG_SECTION__ 占位符' };
   }
@@ -434,6 +458,7 @@ function runStatic() {
   }
 
   const workflow = read('.github/workflows/release.yml');
+  const notesTemplate = read('.github/release-notes-template.md');
 
   // ② 白名单含目标版本
   section('② Tag 白名单');
@@ -515,7 +540,7 @@ function runStatic() {
 
   // ⑥ Notes 模板不含待定态措辞
   section('⑥ Release Notes 模板不得含待定态措辞');
-  const pending = notesHasNoPendingWord(workflow);
+  const pending = notesHasNoPendingWord(notesTemplate);
   if (pending.pass) {
     ok('模板正文不含「待主人裁决 / 待授权 / 待批准」');
   } else {
@@ -524,31 +549,17 @@ function runStatic() {
   negativeControl(
     '在模板里注入「待主人裁决」',
     () => {
-      // ⚠️ 注入必须用**原始文本**（带块缩进），否则 workflow.indexOf(tpl) = -1
-      const tpl = extractNotesTemplateRaw(workflow);
-      if (tpl === null) return null;
-      const idx = workflow.indexOf(tpl);
-      if (idx < 0) return null;
-      // ⚠️ 注入点不能锚在某一行的**具体措辞**上。
-      //
-      //    第一版锚的是 `| **后续仍需单独处置历史问题**` —— 而 v0.0.15 把这行
-      //    改名为「保留与披露不等于风险消失」后，`replace` 变成**空操作**，
-      //    输入根本没被破坏，判据自然仍判通过 ⇒ 负向对照报「假绿」。
-      //    这不是判据失效，而是**对照的靶子随文档改名一起漂了**。
-      //    靶子必须锚在**结构**上（模板首行必是主标题），与文案无关。
-      const firstLineEnd = tpl.indexOf('\n');
-      const broken =
-        firstLineEnd < 0
-          ? tpl + '\n待主人裁决\n'
-          : tpl.slice(0, firstLineEnd) + '\n待主人裁决\n' + tpl.slice(firstLineEnd);
-      return workflow.slice(0, idx) + broken + workflow.slice(idx + tpl.length);
+      const firstLineEnd = notesTemplate.indexOf('\n');
+      return firstLineEnd < 0
+        ? `${notesTemplate}\n待主人裁决\n`
+        : notesTemplate.slice(0, firstLineEnd) + '\n待主人裁决\n' + notesTemplate.slice(firstLineEnd);
     },
     (src) => notesHasNoPendingWord(src),
   );
 
   // ⑦ 模板保留 CHANGELOG 注入契约
   section('⑦ Release Notes 仍由 CHANGELOG 注入');
-  const contract = notesKeepsChangelogContract(workflow);
+  const contract = notesKeepsChangelogContract(notesTemplate);
   if (contract.pass) {
     ok('模板保留 __CHANGELOG_SECTION__ 与「### __VERSION__ 更新内容」');
   } else {
@@ -556,17 +567,7 @@ function runStatic() {
   }
   negativeControl(
     '删掉 __CHANGELOG_SECTION__ 占位符',
-    () => {
-      // 同上：注入用原始文本
-      const tpl = extractNotesTemplateRaw(workflow);
-      if (tpl === null) return null;
-      const idx = workflow.indexOf(tpl);
-      return (
-        workflow.slice(0, idx) +
-        tpl.replace('__CHANGELOG_SECTION__', '（此处应有更新内容）') +
-        workflow.slice(idx + tpl.length)
-      );
-    },
+    () => notesTemplate.replace('__CHANGELOG_SECTION__', '（此处应有更新内容）'),
     (src) => notesKeepsChangelogContract(src),
   );
 
@@ -601,6 +602,28 @@ function runStatic() {
       const miss = expected.filter((n) => ![...j.keys()].includes(n));
       return miss.length > 0 ? { pass: false, why: `缺 ${miss.join(', ')}` } : { pass: true };
     },
+  );
+
+  // ⑨ 正式发布步骤的 PRERELEASE 作用域
+  section('⑨ 正式发布步骤必须注入 PRERELEASE');
+  const preScope = publishStepHasPrerelease(workflow);
+  if (preScope.pass) {
+    ok('正式发布步骤显式读取 preflight 的 PRERELEASE output');
+  } else {
+    bad(preScope.why);
+  }
+  negativeControl(
+    '删除正式发布步骤的 PRERELEASE 注入',
+    () => {
+      const marker = '      - name: 核验 draft 资产后正式发布';
+      const start = workflow.indexOf(marker);
+      if (start < 0) return null;
+      const needle = '          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}';
+      const at = workflow.indexOf(needle, start + marker.length);
+      if (at < 0) return null;
+      return workflow.slice(0, at) + workflow.slice(at + needle.length + 1);
+    },
+    (src) => publishStepHasPrerelease(src),
   );
 
   console.log('\n' + '─'.repeat(70));
@@ -678,54 +701,45 @@ function runNotes() {
     (s) => notesSectionIsPublishable(s),
   );
 
-  section('③ 与 release.yml 的抽取规则一致性');
-  // 确认 workflow 里仍然是「精确 token + headingVersion」这套逻辑，
-  // 否则本预演验证的就不是同一条路径。
-  for (const marker of [
-    "const versionToken = new RegExp('(?:^|[^0-9])' + esc + '(?![0-9.])')",
-    'headingVersion(l) === want',
-  ]) {
-    if (workflow.includes(marker)) ok(`workflow 保留判据：${marker.slice(0, 50)}…`);
-    else bad(`workflow 的抽取判据已变（找不到：${marker.slice(0, 50)}…）—— 预演与真实路径脱节`);
+  section('③ 与真实发布渲染路径一致性');
+  const renderer = read('scripts/release/render-release-notes.mjs');
+  const notesTemplate = read('.github/release-notes-template.md');
+  if (workflow.includes('node scripts/release/render-release-notes.mjs')) {
+    ok('release.yml 调用独立渲染脚本');
+  } else {
+    bad('release.yml 未调用 render-release-notes.mjs —— 预演与真实路径脱节');
+  }
+  for (const marker of ['escapeRegExp(VERSION)', 'headingVersion(line)', '__CHANGELOG_SECTION__']) {
+    const source = marker === '__CHANGELOG_SECTION__' ? notesTemplate : renderer;
+    if (source.includes(marker)) ok(`真实渲染路径保留判据：${marker}`);
+    else bad(`真实渲染路径缺少判据：${marker}`);
   }
 
-  section('④ 渲染 Notes（用真实模板，但不创建 Release）');
-  const tpl = extractNotesTemplate(workflow);
-  if (tpl === null) {
-    bad('无法抽出模板正文');
-    return 1;
-  }
-  // 把 CHANGELOG 的 ### 降一级为 ####（与 workflow 的 indented 逻辑一致）
-  const indented = extracted.section.replace(/^(#{2,4})\s/gm, '#$1 ');
-
-  /*
-   * ⚠️ v0.0.17：模板新增两个**形态占位符** `__FORM_SUFFIX__` / `__FORM_NOTICE__`。
-   *
-   * 它们不能在本地预演里被忽略 —— 否则预演渲染出的标题永远是
-   * `## vX.Y.Z — `（后缀为空），而真实流水线会填「稳定版」或「开发预览版」，
-   * 预演与真实路径就**脱节**了。这类脱节正是本仓反复记录的
-   * 「预演验证的不是同一条路径」。
-   *
-   * 形态判定必须与 release.yml **同一套规则**：读 docs/STABLE_RELEASES.json。
-   */
+  section('④ 渲染 Notes（执行真实脚本，但不创建 Release）');
   const channelResult = JSON.parse(execFileSync(
     process.execPath,
     [path.join(ROOT, 'scripts/release/resolve-release-channel.mjs'), '--version', VERSION, '--format', 'json'],
     { cwd: ROOT, encoding: 'utf8' },
   ));
   const isStable = channelResult.channel === 'stable';
-  const formSuffix = isStable ? ' — 稳定版' : ' — 开发预览版（Pre-release）';
-  const formNotice = isStable
-    ? '> ✅ **这是正式稳定版（Stable Release）。**'
-    : '> ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**';
   ok(`发布形态判定：${isStable ? '稳定版（白名单已登记）' : 'Pre-release（未登记）'}`);
-
-  const notes = tpl
-    .replace(/__CHANGELOG_SECTION__/g, () => indented)
-    .replace(/__FORM_SUFFIX__/g, formSuffix)
-    .replace(/__FORM_NOTICE__/g, formNotice)
-    .replace(/__VERSION__/g, VERSION)
-    .replace(/__DIGEST__/g, 'sha256:dryrun-no-image-pushed');
+  const outDir = path.join(ROOT, 'dryrun-out');
+  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+  const renderedPath = path.join(outDir, 'release-notes.md');
+  execFileSync(process.execPath, [path.join(ROOT, 'scripts/release/render-release-notes.mjs')], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      VERSION,
+      PRERELEASE: isStable ? 'false' : 'true',
+      IMAGE_DIGEST_TEXT: 'sha256:dryrun-no-image-pushed',
+      OUTPUT: renderedPath,
+    },
+  });
+  const notes = readFileSync(renderedPath, 'utf8');
+  ok('真实渲染脚本执行成功');
 
   const leftovers = ['__CHANGELOG_SECTION__', '__VERSION__', '__DIGEST__', '__FORM_SUFFIX__', '__FORM_NOTICE__'].filter((p) =>
     notes.includes(p),
@@ -740,26 +754,22 @@ function runNotes() {
   } else {
     bad(`渲染后的 Notes 缺少「### ${VERSION} 更新内容」`);
   }
-  // 主标题必须与**形态**一致，不能写死「开发预览版」
+  const formSuffix = isStable ? ' — 稳定版' : ' — 开发预览版（Pre-release）';
   const expectTitle = `## ${VERSION}${formSuffix}`;
   if (notes.includes(expectTitle)) {
     ok(`主标题正确：${expectTitle}`);
   } else {
     bad(`主标题不是 ${VERSION}（期望：${expectTitle}）`);
   }
-  // 反向断言：稳定版里不得出现「不是稳定版」
   if (isStable && notes.includes('不是稳定版')) {
     bad('稳定版 Notes 出现「不是稳定版」—— 形态自相矛盾');
   }
-  // R-01 披露必须在场（发布说明的核心合规要求）
   for (const marker of ['R-01', 'DEFERRED', '不构成']) {
     if (notes.includes(marker)) ok(`R-01 披露含「${marker}」`);
     else bad(`R-01 披露缺少「${marker}」—— 合规披露不完整`);
   }
 
   section('⑤ 落盘（作为 CI artifact 证据）');
-  const outDir = path.join(ROOT, 'dryrun-out');
-  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
   writeFileSync(path.join(outDir, 'release-notes.md'), notes, 'utf8');
   writeFileSync(
     path.join(outDir, 'changelog-section.md'),

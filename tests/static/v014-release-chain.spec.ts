@@ -249,13 +249,10 @@ describe('发布链路：读仓库文件的 job 必须 checkout（v0.0.14）', (
    * 判据必须限定在**真正会写进公开说明的文本**上。
    * 这与本仓 V13-17 / V14-03 的教训同源：反向断言先剥掉不该算数的部分。
    */
-  const notesTemplate = (() => {
-    const start = workflow.indexOf("cat > release-notes.md <<'NOTES'");
-    if (start < 0) return '';
-    const bodyStart = workflow.indexOf('\n', start) + 1;
-    const end = workflow.indexOf('\n          NOTES', bodyStart);
-    return end < 0 ? '' : workflow.slice(bodyStart, end);
-  })();
+  const notesTemplate = readFileSync(
+    path.join(ROOT, '.github/release-notes-template.md'),
+    'utf8',
+  );
 
   it('Release Notes 模板必须是可解析的（不能因抽取失败而静默跳过检查）', () => {
     expect(

@@ -84,6 +84,23 @@ function serviceBlock(yaml: string, service: string): string {
   return out.join('\n');
 }
 
+describe('Docker 镜像安全扫描门禁（v0.0.18）', () => {
+  const workflow = read('.github/workflows/docker-verify.yml');
+
+  it('真实构建后必须运行 Trivy，并阻断 CRITICAL / HIGH', () => {
+    expect(workflow).toContain('aquasecurity/trivy-action@v0.36.0');
+    expect(workflow).toContain('image-ref: v2ex-clone:dv');
+    expect(workflow).toContain("severity: CRITICAL,HIGH");
+    expect(workflow).toContain("exit-code: '1'");
+    expect(workflow).toContain('ignore-unfixed: true');
+  });
+
+  it('扫描报告必须直接进入 CI 日志', () => {
+    expect(workflow).toContain('format: table');
+    expect(workflow).not.toContain('output: trivy-image.txt');
+  });
+});
+
 describe('Dockerfile 启动阶段分离（P0-2）', () => {
   const dockerfile = read('Dockerfile');
 
@@ -100,6 +117,13 @@ describe('Dockerfile 启动阶段分离（P0-2）', () => {
     expect(cmdLine).toBeDefined();
     expect(cmdLine).not.toContain('seed.ts');
     expect(cmdLine).not.toContain('migrate');
+  });
+
+  it('运行层删除业务不需要的全局 npm/npx，缩小漏洞面', () => {
+    expect(dockerfile).toContain('rm -rf /usr/local/lib/node_modules/npm');
+    expect(dockerfile).toContain('rm -f /usr/local/bin/npm /usr/local/bin/npx');
+    const entrypoint = stripComments(read('scripts/docker-entrypoint.sh'));
+    expect(entrypoint).not.toMatch(/\b(?:npm|npx)\b/);
   });
 
   it('entrypoint 脚本存在且区分三个阶段', () => {

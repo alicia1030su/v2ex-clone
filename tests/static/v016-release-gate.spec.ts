@@ -44,19 +44,20 @@ function stripComments(src: string): string {
 
 describe('v0.0.16 发布闸门：授权必须由文件驱动，不能由文案预写', () => {
   const src = stripComments(read('.github/workflows/release.yml'));
+  const notesTemplate = stripComments(read('.github/release-notes-template.md'));
 
   it('Release Notes 模板不得预写「已授权」结论', () => {
     expect(
-      src.includes('已授权（仅限本版本）'),
+      notesTemplate.includes('已授权（仅限本版本）'),
       'Release Notes 模板又预写了「已授权（仅限本版本）」—— ' +
         '模板是静态文本，它无法知道本版本是否真的拿到授权',
     ).toBe(false);
     expect(
-      src.includes('本版本已获明确授权'),
+      notesTemplate.includes('本版本已获明确授权'),
       'Release Notes 模板又预写了「本版本已获明确授权」',
     ).toBe(false);
     expect(
-      src.includes('见 preflight 校验结果') || src.includes('由 preflight'),
+      notesTemplate.includes('见 preflight 校验结果') || notesTemplate.includes('由 preflight'),
       '模板应把授权状态交由 preflight 判定，而不是自己下结论',
     ).toBe(true);
   });
