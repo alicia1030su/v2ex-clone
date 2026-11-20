@@ -2268,6 +2268,20 @@ jobs:
           # ⚠️ N3：把 build-image 实测 digest 注入 Notes，取代原先
           #    「镜像 Digest 见本 Release 页面」这句无法兑现的声明。
           IMAGE_DIGEST: ${{ needs.build-image.outputs.digest }}
+          # ⚠️ v0.0.17：发布形态（稳定版 / Pre-release）**在 Node 里判定**，
+          #    shell 侧不加任何一行。
+          #
+          #    为什么不在 shell 里拼：那段「多行 `printf` + 再开一个 python
+          #    heredoc」的写法在 YAML / shell / Python 三个解析器眼里都合法，
+          #    但 **GitHub 的 workflow 解析器会拒绝整份文件**：
+          #        Exceeded max expression length 21000  (Line: 2271, Col: 14)
+          #    报错位置指向 `run: |` 行，与真实原因完全无关。排查方式是
+          #    用 workflow_dispatch 的 422 拿到真实错误，再逐段二分：
+          #    模板占位符单独改 **能过**；Node 改动单独改 **能过**；
+          #    两者合在一起就 **失败** ⇒ 触发的是「同一 block scalar 内多段
+          #    构造」的解析器缺陷，不是语法错。
+          #    ⇒ 把形态判定整体搬进已经在读写这份文件的 Node 脚本。
+          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
         run: |
           VERSION="${{ needs.preflight.outputs.version }}"
           if [ -z "$IMAGE_DIGEST" ]; then
@@ -2529,41 +2543,34 @@ jobs:
           // 同时把 CHANGELOG 的 `### A.`~`### F.` 降一级为 `####`，避免与模板的
           // `### __VERSION__ 更新内容` 同级（发布页目录层级会更清晰）。
           const indented = section.replace(/^(#{2,4})\s/gm, '#$1 ');
-          fs.writeFileSync('release-notes.md', notes.replace('__CHANGELOG_SECTION__', () => indented));
+          /*
+           * 发布形态判定 —— 唯一真相来源是环境变量 PRERELEASE。
+           *
+           * 稳定版与预发布版的标题 / 警示语必须不同，且**不能自相矛盾**
+           * （稳定版里出现「不是稳定版」是最刺眼的一种错误）。
+           * 用数组 join 而不是模板字符串，避免多行文本在 YAML block scalar
+           * 里产生「缩进/换行」的解释歧义。
+           */
+          const isPrerelease = process.env.PRERELEASE === 'true';
+          const formSuffix = isPrerelease ? ' — 开发预览版（Pre-release）' : ' — 稳定版';
+          const formNotice = isPrerelease
+            ? [
+                '> ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**',
+                '> 功能尚未完备，**不保证与 V2EX 完全一致**，**不建议直接用于生产环境**。',
+                '> 本项目 `0.0.x` 全部为早期开发预览版，不承诺 API 稳定性。',
+              ].join('\n')
+            : [
+                '> ✅ **这是正式稳定版（Stable Release）。**',
+                '> 数据库迁移幂等、升级路径与备份恢复均已验证；安装与升级步骤见下方。',
+                '> ⚠️ 仍请阅读「已知限制」与「R-01 风险披露」两节后再用于生产环境。',
+              ].join('\n');
+          let out = notes.replace('__CHANGELOG_SECTION__', () => indented);
+          out = out.split('__FORM_SUFFIX__').join(formSuffix);
+          out = out.split('__FORM_NOTICE__').join(formNotice);
+          fs.writeFileSync('release-notes.md', out);
           console.log('已从 CHANGELOG.md 注入 ' + version + ' 段落（' + indented.length + ' 字符，归属校验通过）');
+          console.log('发布形态：' + (isPrerelease ? 'Pre-release' : '稳定版') + '（后缀：' + JSON.stringify(formSuffix) + '）');
           NODE
-          # ⚠️ v0.0.17：标题与警示语必须随发布形态，不能在稳定版里写「开发预览版」，
-          #    也不能在 Pre-release 里写「稳定版」。两段都用占位符注入。
-          #
-          # 为什么要做成占位符而不是在模板里写两份：写两份就要维护两条分支，
-          # 迟早漂移；占位符只有一个真相来源（PRERELEASE）。
-          # ⚠️ 多行文本一律用 `printf '%s\n'` 拼接，**不要**在 YAML block scalar
-          #    里写裸多行字符串 —— 续行会掉到第 0 列，把 YAML 结构直接撑坏
-          #    （本轮实测：`ScannerError: expected a comment or a line break,
-          #     but found '功'`）。这是「内容里的换行」和「YAML 的缩进」两件事
-          #    被混在一起，属于最容易犯又最难看出的一类错误。
-          if [ "$PRERELEASE" = "true" ]; then
-            FORM_SUFFIX=" — 开发预览版（Pre-release）"
-            FORM_NOTICE="$(printf '%s\n' \
-              '> ⚠️ **这是早期开发预览版（Pre-release），不是稳定版。**' \
-              '> 功能尚未完备，**不保证与 V2EX 完全一致**，**不建议直接用于生产环境**。' \
-              '> 本项目 `0.0.x` 全部为早期开发预览版，不承诺 API 稳定性。')"
-          else
-            FORM_SUFFIX=" — 稳定版"
-            FORM_NOTICE="$(printf '%s\n' \
-              '> ✅ **这是正式稳定版（Stable Release）。**' \
-              '> 数据库迁移幂等、升级路径与备份恢复均已验证；安装与升级步骤见下方。' \
-              '> ⚠️ 仍请阅读「已知限制」与「R-01 风险披露」两节后再用于生产环境。')"
-          fi
-          # 用 python 做替换：多行内容 + 反引号 + 中文，sed 容易踩转义问题
-          python3 - "$FORM_SUFFIX" "$FORM_NOTICE" <<'PYSUB'
-          import io, sys
-          suffix, notice = sys.argv[1], sys.argv[2]
-          p = 'release-notes.md'
-          t = io.open(p, encoding='utf-8').read()
-          t = t.replace('__FORM_SUFFIX__', suffix).replace('__FORM_NOTICE__', notice)
-          io.open(p, 'w', encoding='utf-8', newline='\n').write(t)
-          PYSUB
           sed -i "s|__VERSION__|${VERSION}|g" release-notes.md
           sed -i "s|__DIGEST__|${IMAGE_DIGEST}|g" release-notes.md
           # 版本说明真实性闸门：占位符必须清空、标题必须指向**本版本**
