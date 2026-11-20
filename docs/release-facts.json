@@ -81,6 +81,19 @@
   "soak": {
     "oneHour": "passed",
     "twentyFourHour": "not-completed",
-    "note": "GitHub-hosted runner 单 job 上限 6 小时；已改为串行分段，累计真实时长由 artifact 传递"
+    "note": "GitHub-hosted runner 单 job 上限 6 小时；已改为串行分段，累计真实时长由 artifact 传递。**v0.0.17 已发布，但 24 小时单实例连续运行仍未完成** —— 稳定版承诺的是发布工程质量，不含长期运行时长。"
+  },
+  "releaseForm": "stable",
+  "releasedAt": "2026-11-20",
+  "release": {
+    "tag": "v0.0.17",
+    "tagObject": "0c092e758ef37022e5bd38b12ce0bf23e287ddac",
+    "commit": "10644d72161d722904829e53b31ff4c5cbe013e6",
+    "prerelease": false,
+    "latest": true,
+    "imageDigest": "sha256:1ec56dd5a6059841cf3206afca92c1dbd28fd8e8db763eb63c1c15260db3b995",
+    "zipName": "v2ex-clone-v0.0.17-deploy.zip",
+    "zipBytes": 145353,
+    "zipSha256": "e6068b9bfb74157cdf50a31733900daa82b35b48c2836e0ffbad1f5c60344918"
   }
 }

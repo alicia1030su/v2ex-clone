@@ -1,0 +1,29 @@
+docs(v0.0.17): 回填正式发布事实（Tag / Release / Digest / ZIP SHA256 / 验收 run）
+
+## 回填内容（全部来自真实运行，不估算）
+
+| 项 | 值 |
+|---|---|
+| 正式 Tag | v0.0.17（annotated，tag 对象 0c092e75…ddac） |
+| Tag 指向 | 10644d72161d722904829e53b31ff4c5cbe013e6 |
+| Release | Stable（prerelease=false / draft=false / Latest） |
+| 镜像 Digest | sha256:1ec56dd5…b995 |
+| ZIP | v2ex-clone-v0.0.17-deploy.zip（145,353 B） |
+| ZIP SHA256 | e6068b9b…4918（三次构建一致） |
+| 官方包四角色 | run 44673507996：30 PASS / 0 FAIL |
+| 发布后独立验收 | run 44673122399：全步骤 success |
+
+## 同时写入「不删除、不美化」的失败记录
+SESSION_HANDOFF 新增 §13，逐条记录发布过程中的 **8 个真实失败**与根因。
+共同点：**「0.0.x 一律 Pre-release」被当成常量写进了 8 处判据** ——
+改成白名单后产出侧改对了，判据侧逐个在真实运行时才暴露。
+
+## 明确边界
+- 24h 单实例连续运行 **仍是 not-completed**，不因发布而改变
+- R-01 **仍 DEFERRED**
+- 「稳定版」承诺的是**发布工程质量**，不是 API 兼容、不是长期运行时长
+
+## 验证
+- 静态 37 文件 / 440 用例通过
+- sync-version --verify 全通过
+- verify-release-consistency --expect 0.0.17：PASS=21 / FAIL=0
