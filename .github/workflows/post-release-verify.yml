@@ -242,14 +242,19 @@ jobs:
             #      · 已发布（非 draft）  ✅ 不变量
             #      · 形态**与预期一致** —— 而预期来自 `docs/STABLE_RELEASES.json`，
             #        不是写死。这才是不变量，写死某一种形态只是把「当前状态」当判据。
-            EXPECT_PRE="$(V="$VERSION" python3 -c "
-          import json, os
-          try:
-              d = json.load(open('docs/STABLE_RELEASES.json', encoding='utf-8'))
-              stable = d.get('stable') if isinstance(d, dict) else None
-              stable = stable if isinstance(stable, list) else []
-          except Exception:
-              stable = []
+            # ⚠️ 必须用**绝对路径**读白名单：本 step 前面已 `cd "$WORK"`，
+            #    而 $WORK 是临时目录，里面没有 docs/。
+            #    第一版写相对路径 `docs/STABLE_RELEASES.json` ⇒ 读不到 ⇒
+            #    回退成「按 Pre-release 处理」⇒ 稳定版依旧判红
+            #    （run 44670036637 的真实失败原因）。
+            #    读不到时**判红**，不再静默回退 —— 回退会让判据变成恒真。
+            WL="$GITHUB_WORKSPACE/verify-tools/docs/STABLE_RELEASES.json"
+            [ -f "$WL" ] || fail "形态期望来源" "找不到 $WL —— 无法判定该版应为稳定版还是预发布"
+            EXPECT_PRE="$(V="$VERSION" WL="$WL" python3 -c "
+          import json, os, sys
+          d = json.load(open(os.environ['WL'], encoding='utf-8'))
+          stable = d.get('stable') if isinstance(d, dict) else None
+          stable = stable if isinstance(stable, list) else []
           print('false' if os.environ['V'] in stable else 'true')
           ")"
 
