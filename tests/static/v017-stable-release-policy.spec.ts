@@ -41,6 +41,8 @@ import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const WF_RAW = readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
+const NOTES_TPL = readFileSync(path.join(ROOT, '.github/release-notes-template.md'), 'utf8');
+const RENDERER = readFileSync(path.join(ROOT, 'scripts/release/render-release-notes.mjs'), 'utf8');
 
 /** 剥掉 YAML/bash 注释 —— 反向断言必须只对**可执行代码**生效 */
 function stripComments(src: string): string {
@@ -163,29 +165,25 @@ describe('v0.0.17 发布形态：Release 形态措辞不得自相矛盾', () => 
     expect(WF).toMatch(/RELEASE_TITLE="\$VERSION — 开发预览版"/);
     expect(WF).toMatch(/RELEASE_TITLE="\$VERSION 稳定版"/);
     // Notes 标题用占位符注入，不写死
-    expect(WF_RAW).toContain('__FORM_SUFFIX__');
-    expect(WF_RAW).toContain('__FORM_NOTICE__');
+    expect(NOTES_TPL).toContain('__FORM_SUFFIX__');
+    expect(NOTES_TPL).toContain('__FORM_NOTICE__');
   });
 
   it('Notes 模板不得再硬编码「不是稳定版」', () => {
-    // 反向断言：模板正文里写死的那句必须已被占位符取代
-    const tplStart = WF_RAW.indexOf('cat > release-notes.md');
-    expect(tplStart).toBeGreaterThan(0);
-    const tpl = WF_RAW.slice(tplStart, tplStart + 2500);
     expect(
-      tpl.includes('**这是早期开发预览版（Pre-release），不是稳定版。**'),
+      NOTES_TPL.includes('**这是早期开发预览版（Pre-release），不是稳定版。**'),
       'Notes 模板又写死了「不是稳定版」—— 稳定版发布时会自相矛盾',
     ).toBe(false);
   });
 
   it('稳定版 Notes 里出现「不是稳定版」必须判红（反向闸门）', () => {
-    expect(WF).toMatch(/稳定版 Notes 里出现「不是稳定版」/);
+    expect(RENDERER).toMatch(/稳定版 Notes 里出现「不是稳定版」/);
   });
 
   it('主标题闸门必须按形态比对，而不是写死「开发预览版」', () => {
-    expect(WF).toMatch(/EXPECT_TITLE=/);
-    expect(WF).toMatch(/EXPECT_TITLE="## \${VERSION} — 开发预览版（Pre-release）"/);
-    expect(WF).toMatch(/EXPECT_TITLE="## \${VERSION} — 稳定版"/);
+    expect(RENDERER).toContain('const expectedTitle = isPrerelease');
+    expect(RENDERER).toContain('`## ${VERSION} — 开发预览版（Pre-release）`');
+    expect(RENDERER).toContain('`## ${VERSION} — 稳定版`');
   });
 });
 

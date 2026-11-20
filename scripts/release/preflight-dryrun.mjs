@@ -287,8 +287,11 @@ export function extractNotesTemplate(source) {
 
 /** 判据 5：模板不得含待定态措辞（发布成功即证明已授权） */
 export function notesHasNoPendingWord(source) {
-  const tpl = extractNotesTemplate(source);
-  if (tpl === null) return { pass: false, why: '无法抽出 Release Notes 模板正文' };
+  // v0.0.18 起模板独立存放；保留旧内联格式兼容，避免历史调用方静默失效。
+  const tpl = source.includes("cat > release-notes.md <<'NOTES'")
+    ? extractNotesTemplate(source)
+    : source;
+  if (tpl === null) return { pass: false, why: '无法读取 Release Notes 模板正文' };
   if (tpl.length < 1000) {
     return { pass: false, why: `模板正文过短（${tpl.length} 字符）—— 抽取可能失效，护栏会静默变绿` };
   }
@@ -305,8 +308,10 @@ export function notesHasNoPendingWord(source) {
 
 /** 判据 6：模板必须仍由 CHANGELOG 注入（V13-10 契约），防止回归成旧模板 */
 export function notesKeepsChangelogContract(source) {
-  const tpl = extractNotesTemplate(source);
-  if (tpl === null) return { pass: false, why: '无法抽出 Release Notes 模板正文' };
+  const tpl = source.includes("cat > release-notes.md <<'NOTES'")
+    ? extractNotesTemplate(source)
+    : source;
+  if (tpl === null) return { pass: false, why: '无法读取 Release Notes 模板正文' };
   if (!tpl.includes('__CHANGELOG_SECTION__')) {
     return { pass: false, why: '模板缺 __CHANGELOG_SECTION__ 占位符' };
   }
@@ -453,6 +458,7 @@ function runStatic() {
   }
 
   const workflow = read('.github/workflows/release.yml');
+  const notesTemplate = read('.github/release-notes-template.md');
 
   // ② 白名单含目标版本
   section('② Tag 白名单');
@@ -534,7 +540,7 @@ function runStatic() {
 
   // ⑥ Notes 模板不含待定态措辞
   section('⑥ Release Notes 模板不得含待定态措辞');
-  const pending = notesHasNoPendingWord(workflow);
+  const pending = notesHasNoPendingWord(notesTemplate);
   if (pending.pass) {
     ok('模板正文不含「待主人裁决 / 待授权 / 待批准」');
   } else {
@@ -543,31 +549,17 @@ function runStatic() {
   negativeControl(
     '在模板里注入「待主人裁决」',
     () => {
-      // ⚠️ 注入必须用**原始文本**（带块缩进），否则 workflow.indexOf(tpl) = -1
-      const tpl = extractNotesTemplateRaw(workflow);
-      if (tpl === null) return null;
-      const idx = workflow.indexOf(tpl);
-      if (idx < 0) return null;
-      // ⚠️ 注入点不能锚在某一行的**具体措辞**上。
-      //
-      //    第一版锚的是 `| **后续仍需单独处置历史问题**` —— 而 v0.0.15 把这行
-      //    改名为「保留与披露不等于风险消失」后，`replace` 变成**空操作**，
-      //    输入根本没被破坏，判据自然仍判通过 ⇒ 负向对照报「假绿」。
-      //    这不是判据失效，而是**对照的靶子随文档改名一起漂了**。
-      //    靶子必须锚在**结构**上（模板首行必是主标题），与文案无关。
-      const firstLineEnd = tpl.indexOf('\n');
-      const broken =
-        firstLineEnd < 0
-          ? tpl + '\n待主人裁决\n'
-          : tpl.slice(0, firstLineEnd) + '\n待主人裁决\n' + tpl.slice(firstLineEnd);
-      return workflow.slice(0, idx) + broken + workflow.slice(idx + tpl.length);
+      const firstLineEnd = notesTemplate.indexOf('\n');
+      return firstLineEnd < 0
+        ? `${notesTemplate}\n待主人裁决\n`
+        : notesTemplate.slice(0, firstLineEnd) + '\n待主人裁决\n' + notesTemplate.slice(firstLineEnd);
     },
     (src) => notesHasNoPendingWord(src),
   );
 
   // ⑦ 模板保留 CHANGELOG 注入契约
   section('⑦ Release Notes 仍由 CHANGELOG 注入');
-  const contract = notesKeepsChangelogContract(workflow);
+  const contract = notesKeepsChangelogContract(notesTemplate);
   if (contract.pass) {
     ok('模板保留 __CHANGELOG_SECTION__ 与「### __VERSION__ 更新内容」');
   } else {
@@ -575,17 +567,7 @@ function runStatic() {
   }
   negativeControl(
     '删掉 __CHANGELOG_SECTION__ 占位符',
-    () => {
-      // 同上：注入用原始文本
-      const tpl = extractNotesTemplateRaw(workflow);
-      if (tpl === null) return null;
-      const idx = workflow.indexOf(tpl);
-      return (
-        workflow.slice(0, idx) +
-        tpl.replace('__CHANGELOG_SECTION__', '（此处应有更新内容）') +
-        workflow.slice(idx + tpl.length)
-      );
-    },
+    () => notesTemplate.replace('__CHANGELOG_SECTION__', '（此处应有更新内容）'),
     (src) => notesKeepsChangelogContract(src),
   );
 
