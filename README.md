@@ -38,32 +38,32 @@
 
 ---
 
-## 当前版本状态（已公开 v0.0.16；本版候选 v0.0.17）
+## 当前版本状态（v0.0.17 稳定版已发布）
 
 > **版本载体**：`0.0.17`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
 > 开发态停留在**上一个已发布版本**，只在最终 SHA 固定后才同步 —— G-VER-01。
-> 本版已进入**发行候选**阶段，故载体已同步到 `0.0.16`。）
+> 本版已进入**正式发布**阶段，故载体已同步到 `0.0.17`。）
 
 > ⚠️ **两个版本必须分开看，不要把候选写成已发布**
 >
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **已公开发布**（可下载、可拉镜像） | `v0.0.16` | GitHub Pre-release，2026-11-19 |
-> | 上一已发布版本 | `v0.0.15` | GitHub Pre-release，2026-11-10 |
+> | **已公开发布**（可下载、可拉镜像） | `v0.0.17` | GitHub **Stable Release** |
+> | 上一已发布版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
 
 | 项 | 值 |
 |---|---|
-| **当前实际公开版本** | **`v0.0.16`**（GitHub Pre-release，含部署 ZIP 与 GHCR 镜像，2026-11-19 发布） |
-| **上一已发布版本** | `v0.0.15`（Pre-release，2026-11-10） |
-| 再上一版 | `v0.0.14`（Pre-release，2026-11-09） |
-| 版本载体 | `0.0.17`（**候选态**，已由 `sync-version.mjs` 全量同步并复验） |
-| **本版候选** | **`v0.0.17`**（**稳定版发布进行中**：Tag / Release / 镜像在发布流水线完成后才写入本表）—— 交接文档与测试基线见 [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md) |
+| **当前实际公开版本** | **`v0.0.17`**（**Stable Release**，含部署 ZIP 与 GHCR 镜像） |
+| **上一已发布版本** | `v0.0.16`（Pre-release，2026-11-19） |
+| 再上一版 | `v0.0.15`（Pre-release，2026-11-10） |
+| 版本载体 | `0.0.17`（**已发布态**，已由 `sync-version.mjs` 全量同步并复验） |
+| **本版** | **`v0.0.17`**（**稳定版**）—— 交接文档与测试基线见 [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md) |
 | 本版发布授权 | **已获本版公开发布授权**（仅限 `v0.0.17`，一次性）—— 决策 A = **A3 保留 + 披露**，决策 B = **B1 授权发布**，发布形态 = **稳定版**；裁决记录见 [`docs/RISK_DECISION_v0.0.17.md`](docs/RISK_DECISION_v0.0.17.md)。⚠️ 该授权**不延续**到 v0.0.18 及以后 |
 | 发布形态 | **`v0.0.17` 起为稳定版（Stable Release）**；`v0.0.9` ~ `v0.0.16` 均为 Pre-release（历史形态，不可回改） |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16`（**只有 v0.0.16**；v0.0.17 镜像未推送） |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17`（匿名可拉） |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -316,10 +316,10 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
 > 的规约保持原样 —— **建议使用 v0.0.14，不要用 v0.0.9**。
 
-下载 `v2ex-clone-v0.0.16-deploy.zip` 并解压。
+下载 `v2ex-clone-v0.0.17-deploy.zip` 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.16-deploy.zip -d v2ex-clone-v0.0.16-deploy && cd v2ex-clone-v0.0.16-deploy/deploy`
+> `unzip v2ex-clone-v0.0.17-deploy.zip -d v2ex-clone-v0.0.17-deploy && cd v2ex-clone-v0.0.17-deploy/deploy`
 >
 > ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
@@ -381,9 +381,9 @@ docker compose up -d
 | 内容 | 位置 |
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
-| **最新已发布版本（v0.0.16）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.16> |
-| 一键部署安装包 | `v2ex-clone-v0.0.16-deploy.zip`（在 v0.0.16 Release 资产中，含 `SHA256SUMS`） |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.16` |
+| **最新已发布版本（v0.0.17）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17> |
+| 一键部署安装包 | `v2ex-clone-v0.0.17-deploy.zip`（在 v0.0.17 Release 资产中，含 `SHA256SUMS`） |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17` |
 | 上一版本（v0.0.15） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.15> |
 | 更早版本（v0.0.14） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
 | 更早版本（v0.0.12） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |

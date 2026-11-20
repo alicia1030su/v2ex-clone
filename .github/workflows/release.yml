@@ -2662,6 +2662,11 @@ jobs:
       - name: 创建 Release（先 draft）
         env:
           GH_TOKEN: ${{ github.token }}
+          # ⚠️ v0.0.17：标题随发布形态，所以必须拿到 PRERELEASE。
+          #    这个 step 同样只继承 workflow 级 env，**看不到**上一步的 output，
+          #    漏传会让 `set -u` 在 `if [ "$PRERELEASE" = "true" ]` 那一行直接退出，
+          #    报错只说 `PRERELEASE: unbound variable`，指不到「少传一个变量」。
+          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
@@ -2718,19 +2723,22 @@ jobs:
           #
           # 实测：本写法（不传 `target_commitish`）已在 run `41985412431`
           # 的诊断步骤中成功执行（创建出 id `434887371` 的 Draft）。
-          # ⚠️ v0.0.17：标题必须随发布形态，不能在稳定版里写「开发预览版」。
+          # ⚠️ v0.0.17：标题与 Draft 形态都必须随发布形态，
+          #    不能在稳定版里写「开发预览版」，也不该先建成 Pre-release 再改。
           if [ "$PRERELEASE" = "true" ]; then
             RELEASE_TITLE="$VERSION — 开发预览版"
+            DRAFT_PRERELEASE="true"
           else
             RELEASE_TITLE="$VERSION — 稳定版"
+            DRAFT_PRERELEASE="false"
           fi
-          echo "  Release 标题：$RELEASE_TITLE"
+          echo "  Release 标题：$RELEASE_TITLE（draft prerelease=$DRAFT_PRERELEASE）"
 
           RELEASE_ID="$(gh api --method POST "repos/${REPO}/releases" \
             -f tag_name="$VERSION" \
             -f name="$RELEASE_TITLE" \
             -F draft=true \
-            -F prerelease=true \
+            -F prerelease=$DRAFT_PRERELEASE \
             -F body=@../release-notes.md \
             --jq '.id')"
           if [ -z "$RELEASE_ID" ]; then
