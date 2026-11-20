@@ -9,8 +9,8 @@
 
 | 套件 | 命令 / 证据 | 结果 |
 |---|---|---|
-| 完整单元回归（含静态） | GitHub Actions CI run `44786766870` + 官方升级护栏新增 9 条 | **87 文件 / 1055 用例；新增 9 条本地已通过，最终 SHA CI 复核中** |
-| 全量静态 | 同 CI run 的「静态测试」步骤 + 官方升级护栏 | **42 文件 / 484 用例；新增 9 条本地已通过** |
+| 完整单元回归（含静态） | GitHub Actions CI run `44786766870` + 官方升级 / digest 护栏新增 10 条 | **87 文件 / 1056 用例；新增 10 条本地已通过，最终 SHA CI 复核中** |
+| 全量静态 | 同 CI run 的「静态测试」步骤 + 官方升级 / digest 护栏 | **42 文件 / 485 用例；新增 10 条本地已通过** |
 | E2E（Chromium） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
 | 跨浏览器矩阵 | GitHub Actions run `44786767021` | Chromium / Firefox / WebKit × 5 视口；最终以 run 结论为准 |
 | Docker / Redis 隔离验证 | GitHub Actions run `44786766802` | 九项验证通过，含 Trivy CRITICAL / HIGH 阻断 |
