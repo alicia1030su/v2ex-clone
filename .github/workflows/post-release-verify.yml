@@ -233,9 +233,29 @@ jobs:
           echo "  匿名 API 状态码：$API_CODE"
 
           if [ "$API_CODE" = "200" ]; then
-            python3 -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); tag=d.get('tag_name'); draft=d.get('draft'); pre=d.get('prerelease'); print('tag=%s draft=%s prerelease=%s'%(tag,draft,pre)); sys.exit(0 if tag==sys.argv[2] and draft is False and pre is True else 1)" "$WORK/release.json" "$VERSION" \
-              || fail "Release tag 与形态" "tag / 已发布 / Pre-release 三项不一致（见上方输出）"
-            pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（已发布 · Pre-release，匿名 API 200）"
+            # ⚠️ v0.0.17：这里原先写死「必须是 Pre-release」。
+            #    稳定版发布后必然判红（run 44667366422 就是这样失败的：
+            #    报「tag / 已发布 / Pre-release 三项不一致」，而 Release 实际完全正确）。
+            #
+            #    判据应当校验的是：
+            #      · tag 一致  ✅ 不变量
+            #      · 已发布（非 draft）  ✅ 不变量
+            #      · 形态**与预期一致** —— 而预期来自 `docs/STABLE_RELEASES.json`，
+            #        不是写死。这才是不变量，写死某一种形态只是把「当前状态」当判据。
+            EXPECT_PRE="$(V="$VERSION" python3 -c "
+          import json, os
+          try:
+              d = json.load(open('docs/STABLE_RELEASES.json', encoding='utf-8'))
+              stable = d.get('stable') if isinstance(d, dict) else None
+              stable = stable if isinstance(stable, list) else []
+          except Exception:
+              stable = []
+          print('false' if os.environ['V'] in stable else 'true')
+          ")"
+
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); tag=d.get('tag_name'); draft=d.get('draft'); pre=d.get('prerelease'); exp=(sys.argv[3]=='true'); print('tag=%s draft=%s prerelease=%s 期望=%s'%(tag,draft,pre,exp)); sys.exit(0 if tag==sys.argv[2] and draft is False and pre is exp else 1)" "$WORK/release.json" "$VERSION" "$EXPECT_PRE" \
+              || fail "Release tag 与形态" "tag / 已发布 / 形态（期望 prerelease=$EXPECT_PRE）不一致（见上方输出）"
+            pass "三方版本一致" "VERSION=$PKG_VERSION / IMAGE=$COMPOSE_DEFAULT / Release tag=$VERSION（已发布 · prerelease=$EXPECT_PRE，匿名 API 200）"
           elif [ "$API_CODE" = "404" ]; then
             fail "匿名读取 Release" "releases/tags/$VERSION 返回 404（仍是 Draft 或不存在）"
           else
