@@ -405,22 +405,37 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          # 用本次预演的目标版本：它**不该**已经发布。
+          # 判据目标必须是「**一定不存在**」的版本，不能取「本次预演的目标版本」。
           #
-          # ⚠️ 兜底值**必须从源码载体读**，不能写死一个版本号。
-          #    这里原先写 `v0.0.15` —— 而 v0.0.15 已经发布过，
-          #    于是 sync 到 0.0.16 之后这条负向对照必然判红：
-          #      ##[error]期望决策为 "create"，实际为 "refuse"
-          #    这不是产品问题，是「把会变的事实硬编码进了判据」。
-          #    与本仓 V15-10（升级脚本硬编码基线迁移数）同一类。
-          if [ -n "${INPUT_VERSION:-}" ]; then
-            TARGET="$INPUT_VERSION"
+          # ⚠️ 这条负向对照的目的只有一个：证明脚本**不会**把一个尚未发布的
+          #    版本误判成 refuse/resume。它不该依赖「预演目标版本当前是否已发布」——
+          #    而 v0.0.17 在 Tag 推上去之后**已经存在**，于是：
+          #      ##[error]期望决策为 "create"，实际为 "resume"
+          #    这不是产品问题，是「把会变的事实当成了判据前提」。
+          #
+          #    历史两轮已因同一类问题改过两次（先写死 v0.0.15 → 改成读载体），
+          #    这次是第三次：读载体也不够，因为**载体版本终将发布**。
+          #    ⇒ 用一个语义上永远不存在的版本号，判据就与发布进度解耦。
+          #
+          #    选 v99.99.99 而不是 v0.0.x：0.0.x 属于本项目真实版本区间，
+          #    将来可能被占用；99.x 明显超出，且不参与任何真实发布。
+          TARGET="v99.99.99"
+          echo "  判据目标（保证不存在）：$TARGET"
+          if node scripts/release/release-decision.mjs --repo "$REPO" \
+               --version "$TARGET" --expect create; then
+            ok=1
           else
-            TARGET="v$(tr -d ' \r\n' < deploy/VERSION)"
+            echo "::error::负向对照失败：不存在的版本没有被判为 create —— 判据可能误拦"
+            exit 1
           fi
-          echo "  目标版本（源码载体）：$TARGET"
-          node scripts/release/release-decision.mjs --repo "$REPO" \
-            --version "$TARGET" --expect create
+
+          # 附加正向探测：预演目标版本的真实状态必须与远端一致
+          # （不写死期望值 —— 已发布就该是 resume，未发布就该是 create）
+          PROBE="${INPUT_VERSION:-}"
+          if [ -n "$PROBE" ]; then
+            echo "  预演目标 $PROBE 的当前决策（仅供参考，不做断言）："
+            node scripts/release/release-decision.mjs --repo "$REPO" --version "$PROBE" || true
+          fi
 
       - name: 全程只读自证（本 job 未创建任何东西）
         run: |

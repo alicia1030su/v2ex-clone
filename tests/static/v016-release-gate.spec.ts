@@ -72,13 +72,29 @@ describe('v0.0.16 发布闸门：授权必须由文件驱动，不能由文案�
     expect(src).toMatch(/if\s*\[\s*!\s*-f\s*"\$DECISION"\s*\]/);
   });
 
-  it('预演的版本兜底必须来自源码载体，不得写死已发布版本', () => {
+  it('预演的负向对照必须与「发布进度」解耦（用永不存在的版本）', () => {
+    /*
+     * ⚠️ v0.0.17：这条判据改的是**判据本身的设计**，不是放宽。
+     *
+     * 该负向对照的目的是「证明脚本不会把**未发布**的版本误判成 refuse/resume」。
+     * 它踩过三次同一个坑：
+     *   ① 写死 `v0.0.15` ⇒ 该版本一发布就判红；
+     *   ② 改成读 `deploy/VERSION` ⇒ 当时对了，但**载体版本终将发布**；
+     *   ③ v0.0.17 Tag 推上去后 ⇒ `期望 create，实际 resume`。
+     *
+     * 根因是同一个：**把会变的事实（当前发布到哪一版）当成了判据前提**。
+     * 正确做法是让靶子与发布进度无关 —— 用语义上永不存在的版本号。
+     */
     const dry = stripComments(read('.github/workflows/release-dryrun.yml'));
     expect(
-      /TARGET="\$\{INPUT_VERSION:-v0\.0\.\d+\}"/.test(dry),
-      '预演兜底又写死成某个具体版本 —— 该版本一旦发布，判据必然自相矛盾',
+      /TARGET="v99\.99\.99"/.test(dry),
+      '负向对照没有用「永不存在的版本」作靶子 —— 与发布进度耦合后必然反复判红',
+    ).toBe(true);
+    // 反向断言：不得再出现「拿预演目标版本当 create 判据」的写法
+    expect(
+      /--version "\$TARGET" --expect create/.test(dry) && /TARGET="\$\{INPUT_VERSION/.test(dry),
+      '又回到了「拿预演目标版本当 create 靶子」—— 该版本发布后必然失败',
     ).toBe(false);
-    expect(dry, '兜底应读 deploy/VERSION').toContain("tr -d ' \\r\\n' < deploy/VERSION");
   });
 });
 
