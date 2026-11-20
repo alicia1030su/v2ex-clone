@@ -75,19 +75,25 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 安装脚本会生成随机的数据库口令、Redis 口令与会话密钥，
 并把管理员凭据写入 `INSTALL_CREDENTIALS.txt`（权限 600）。
 
-**从上一已发布版本升级**（官方升级基线以本版本 `CHANGELOG.md`
-与 CI 的升级验证产物为准，不沿用历史版本的写死基线）：
+**从上一已发布版本升级**（在**现有安装目录**执行；新解压的发行包没有 `.env`）：
+
 ```bash
-cd v2ex-clone-__VERSION__-deploy/deploy
-./update.sh        # 保留数据卷，仅更新镜像与迁移
+cd <你现有的 V2EX Clone 部署目录>
+./backup.sh
+./update.sh --version __VERSION__
 ```
+
+`update.sh` 会保留数据卷、自动改写 `.env` 的 `V2EX_IMAGE`、拉取目标镜像并在失败时回滚。
 升级 / 备份 / 恢复的**本版本实测口径**见 `docs/release-facts.json`
-的 `upgrade` 段与本版本 CI 产物；历史版本的迁移数与指纹数只是当时的记录，
+的 `upgrade` 段、本版本 CI 产物与发布后官方资产升级验收；历史版本的迁移数与指纹数只是当时的记录，
 **不得冒充本版结论**。
 
 **回滚**：
+
 ```bash
+cd <你现有的 V2EX Clone 部署目录>
 ./restore.sh <备份文件>   # 先恢复数据
+./update.sh --version <回滚目标版本>
 ```
 回滚到更早版本需配合对应版本的部署包；数据卷不随 `stop` / `update.sh`
 删除，但 `docker compose down -v` 会**永久删除**数据，操作前必须备份。

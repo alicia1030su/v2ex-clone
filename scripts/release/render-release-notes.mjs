@@ -130,6 +130,21 @@ if (/^unzip v2ex-clone-[^ ]+-deploy\.zip$/m.test(notes)) {
   fail('Release Notes 仍有「unzip 无 -d」与「cd 到版本目录」混用的错误写法');
 }
 
+// 升级命令必须在“现有安装目录”执行：新解压的发行包没有 .env，
+// 在那里运行 update.sh 会被脚本正确拒绝。这里把真实踩坑写进渲染闸门，
+// 防止未来模板演化时又把用户引到缺 .env 的新目录。
+const requiredUpgradeLines = [
+  'cd <你现有的 V2EX Clone 部署目录>',
+  './backup.sh',
+  `./update.sh --version ${VERSION}`,
+];
+for (const line of requiredUpgradeLines) {
+  if (!notes.includes(line)) fail(`Release Notes 升级路径不符：缺少 ${line}`);
+}
+if (notes.includes(`cd v2ex-clone-${VERSION}-deploy/deploy\n./update.sh`)) {
+  fail('Release Notes 让用户在新解压目录执行 update.sh；该目录没有现有 .env');
+}
+
 fs.writeFileSync(abs(OUTPUT), notes);
 console.log(`已从 CHANGELOG.md 注入 ${VERSION} 段落（${indented.length} 字符，归属校验通过）`);
 console.log(`发布形态：${isPrerelease ? 'Pre-release' : '稳定版'}（后缀：${JSON.stringify(formSuffix)}）`);

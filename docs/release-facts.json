@@ -12,20 +12,20 @@
   "status": "measured",
   "measuredAt": "2026-11-20",
   "unit": {
-    "files": 86,
-    "tests": 1046,
-    "passed": 1046,
+    "files": 87,
+    "tests": 1055,
+    "passed": 1055,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44786766870（类型检查 / 单元测试 job）"
+    "evidence": "GitHub Actions CI run 44786766870（类型检查 / 单元测试 job；计数已由 v0.0.18 官方升级护栏提交复核）"
   },
   "static": {
-    "files": 41,
-    "tests": 475,
-    "passed": 475,
+    "files": 42,
+    "tests": 484,
+    "passed": 484,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44786766870（静态测试步骤）"
+    "evidence": "GitHub Actions CI run 44786766870（静态测试步骤；计数已由 v0.0.18 官方升级护栏提交复核）"
   },
   "e2e": {
     "files": 28,
