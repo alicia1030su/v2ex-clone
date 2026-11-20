@@ -135,7 +135,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/src/lib/env-loader.mjs ./src/lib/
 # ---------------------------------------------------------------------------
 # playwright-core 残余（14 MB）—— 必须显式删除
 #
-# 根因：`next@15.5.28` 把 `@playwright/test` 声明为 **peerOptional**：
+# 根因：`next@15.5.29` 把 `@playwright/test` 声明为 **peerOptional**：
 #   "peerDependenciesMeta": { "@playwright/test": { "optional": true } }
 # npm 会**自动安装 optional peer** —— 即使根项目的 `@playwright/test`
 # 在 devDependencies 里。所以 `npm ci --omit=dev` 之后 playwright-core 仍在。

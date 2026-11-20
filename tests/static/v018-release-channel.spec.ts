@@ -42,9 +42,9 @@ const validManifest = {
 const validLegacy = { stable: ['v0.0.17'] };
 
 describe('v0.0.18 发布渠道解析器', () => {
-  it('真实清单：v0.0.17=stable，v0.0.18=默认 prerelease', () => {
+  it('真实清单：v0.0.17 与 v0.0.18 均为 stable', () => {
     expect(run(ROOT, 'v0.0.17').data).toEqual({ version: 'v0.0.17', channel: 'stable', prerelease: false, latest: true });
-    expect(run(ROOT, 'v0.0.18').data).toEqual({ version: 'v0.0.18', channel: 'prerelease', prerelease: true, latest: false });
+    expect(run(ROOT, 'v0.0.18').data).toEqual({ version: 'v0.0.18', channel: 'stable', prerelease: false, latest: true });
   });
 
   it('负向：迁移清单冲突必须拒绝', () => {
@@ -95,6 +95,20 @@ describe('v0.0.18 发布渠道消费者接线', () => {
     expect(release).toContain('resolve-release-channel.mjs');
     expect(release).toContain('release-channel-recheck.out');
     expect(release).not.toMatch(/INPUT_PRERELEASE/);
+  });
+
+  it('正式发布步骤必须显式注入 PRERELEASE，且稳定版名称符合本版要求', () => {
+    const start = release.indexOf('      - name: 核验 draft 资产后正式发布');
+    expect(start).toBeGreaterThan(-1);
+    const block = release.slice(start, release.indexOf('\n      - name:', start + 10));
+    expect(block).toContain('PRERELEASE: ${{ needs.preflight.outputs.prerelease }}');
+    expect(release).toContain('RELEASE_TITLE="$VERSION 稳定版"');
+  });
+
+  it('幂等补救允许复用本次构建 commit 的镜像，但仍拒绝任意 revision', () => {
+    expect(release).toContain('ACTUAL_BUILD_SHA="$(git rev-parse HEAD)"');
+    expect(release).toContain('if [ "$REV" != "$TAG_SHA" ] && [ "$REV" != "$ACTUAL_BUILD_SHA" ]; then');
+    expect(release).toContain('preflight 已验证 Tag 与本次构建在全部构建输入上零差异');
   });
 
   it('发布后验收与预演不得再自己读旧清单', () => {

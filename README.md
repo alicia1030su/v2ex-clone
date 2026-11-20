@@ -22,10 +22,10 @@
 > **不表示**整个 Git 历史从未包含第三方材料。第 ③④ 层的清理状态是
 > **R-01（DEFERRED）** —— 未清理、未获得任何素材授权、也没有把清理等同于授权。
 > 明确指出这一点，是为了不让读者把「当前树干净」误读成「历史上从无此事」。
-> **本轮裁决（2026-11-10）选择了「保留历史 + 强化披露」**：不改写历史、不移动任何
+> **本轮裁决（2026-11-20）选择「保留历史 + 强化披露」**：不改写历史、不移动任何
 > 既有 Tag，把事实（含精确数字与可达路径）讲清并**明示接受**这一持续存在的风险。
-> 该裁决记录见 [`docs/RISK_DECISION_v0.0.15.md`](docs/RISK_DECISION_v0.0.15.md)。
-> 保留与披露**不等于**风险消失，**也不等于**取得素材授权。
+> v0.0.18 的一次性裁决记录见 [`docs/RISK_DECISION_v0.0.18.md`](docs/RISK_DECISION_v0.0.18.md)；
+> 历史版本裁决仍保留在各自文件中。保留与披露**不等于**风险消失，**也不等于**取得素材授权。
 
 ---
 
@@ -38,33 +38,33 @@
 
 ---
 
-## 当前版本状态（v0.0.18 开发中，v0.0.17 稳定版已发布）
+## 当前版本状态（本版候选 v0.0.18 已授权，发布门禁执行中）
 
 > **版本载体**：`0.0.18`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
-> 已同步到 `0.0.18` 候选态；候选态不等于发布授权。—— G-VER-01。）
+> 已同步到 `0.0.18`；本版已获一次性稳定版发布授权，实际发布结果以 Tag / Release / GHCR 核验为准。）
 
 > ⚠️ **两个版本必须分开看，不要把候选写成已发布**
 >
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **当前开发版本** | `v0.0.18` | 工程治理 + 产品体验升级；**未发布、无发布授权** |
-> | **已公开发布**（可下载、可拉镜像） | `v0.0.17` | GitHub **Stable Release** |
+> | **本版发布候选** | `v0.0.18` | 工程治理 + 产品体验升级；已授权 Stable Release，门禁执行中 |
+> | **当前已公开发布** | `v0.0.17` | GitHub **Stable Release** |
 > | 上一已发布版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
 
 | 项 | 值 |
 |---|---|
 | **当前实际公开版本** | **`v0.0.17`**（**Stable Release**，含部署 ZIP 与 GHCR 镜像） |
-| **当前开发版本** | **`v0.0.18`**（候选研发态，未发布） |
+| **本版发布候选** | **`v0.0.18`**（已授权 Stable Release，门禁执行中） |
 | **上一已发布版本** | `v0.0.16`（Pre-release，2026-11-19） |
 | 再上一版 | `v0.0.15`（Pre-release，2026-11-10） |
-| 版本载体 | `0.0.18`（**候选态**，已由 `sync-version.mjs` 全量同步并复验；未发布） |
-| **本版** | **`v0.0.18` 研发分支** —— 路线图、实施与测试见 [`docs/ROADMAP_v0.0.18.md`](docs/ROADMAP_v0.0.18.md)、[`docs/IMPLEMENTATION_REPORT_v0.0.18.md`](docs/IMPLEMENTATION_REPORT_v0.0.18.md)、[`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) |
-| 本版发布授权 | **未授权**。v0.0.17 的一次性授权不延续到 v0.0.18 |
-| 发布形态 | v0.0.18 未登记稳定渠道，默认解析为 Pre-release；**这不是发布授权** |
+| 版本载体 | `0.0.18`（已由 `sync-version.mjs` 全量同步并复验） |
+| **本版** | **`v0.0.18` 正式稳定版发布候选** —— 路线图、实施与测试见 [`docs/ROADMAP_v0.0.18.md`](docs/ROADMAP_v0.0.18.md)、[`docs/IMPLEMENTATION_REPORT_v0.0.18.md`](docs/IMPLEMENTATION_REPORT_v0.0.18.md)、[`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) |
+| 本版发布授权 | **已取得**（2026-11-20，A3 + B1，一次性、仅限 v0.0.18）；记录见 [`docs/RISK_DECISION_v0.0.18.md`](docs/RISK_DECISION_v0.0.18.md) |
+| 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17`（匿名可拉） |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17`（匿名可拉）；v0.0.18 以正式发布产物为准 |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -92,13 +92,12 @@
 > 当前测试基线、门禁结论与授权边界见
 > [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
 >
-> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。v0.0.18 候选态的完整交接见
+> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。v0.0.18 的完整交接见
 > [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)，授权边界与 Go/No-Go 以该文件为准。
-> **v0.0.15 的公开发布已在完整披露 R-01 的
-> 前提下由项目所有者单独授权**（2026-11-10，决策 A3「保留历史 + 强化披露」+ 决策 B1
-> 「授权发布」；一次性、仅限本版本，不构成后续版本先例）；该授权**不包含**历史改写，
-> R-01 状态不变。详见 [`RISK_REGISTER.md`](RISK_REGISTER.md)、
-> [`docs/RISK_DECISION_v0.0.15.md`](docs/RISK_DECISION_v0.0.15.md)
+> **v0.0.18 的公开发布已在完整披露 R-01 的前提下由项目所有者单独授权**
+> （2026-11-20，决策 A3「保留历史 + 强化披露」+ 决策 B1「授权发布」；一次性、仅限本版本）；
+> 该授权**不包含**历史改写，R-01 状态不变。详见 [`RISK_REGISTER.md`](RISK_REGISTER.md)、
+> [`docs/RISK_DECISION_v0.0.18.md`](docs/RISK_DECISION_v0.0.18.md)
 > 与 [`docs/R01_COMPLIANCE_REVIEW_v0.0.15.md`](docs/R01_COMPLIANCE_REVIEW_v0.0.15.md)。
 
 > **已知限制与使用前提（`v0.0.17` 稳定版同样适用 —— 稳定 ≠ 无条件生产可用）**
@@ -473,7 +472,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
-> **v0.0.18（当前候选）的当前测试基线**以
+> **v0.0.18（本版稳定版候选）的当前测试基线**以
 > [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 为唯一口径；
 > 完整交接见 [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)；
 > v0.0.17 已发布基线见

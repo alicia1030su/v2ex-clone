@@ -1,9 +1,9 @@
 # v0.0.18 会话交接：工程治理 + 产品体验升级
 
-> 分支：`feat/v0.0.18-governance`
-> 基线：master `73b83061b3e36c81963fb8f0edee20673f019099`
+> 分支：`release/v0.0.18-stable`
+> 基线：master `d1d66fbe0636330085e8592e821968247cd49500`
 > 日期：2026-11-20
-> **状态：研发候选，未发布、无发布授权。**
+> **状态：已获一次性 Stable Release 授权，发布门禁执行中。**
 
 ## 一、当前完成项
 
@@ -26,8 +26,8 @@
 
 ## 三、发布边界
 
-- v0.0.17 一次性公开发布授权**不延续**到 v0.0.18。
-- 不创建 v0.0.18 Tag/Release/GHCR 正式标签。
+- 项目所有者已于 2026-11-20 对 v0.0.18 单独作出 A3 + B1 裁决，授权 Stable Release；记录见 `docs/RISK_DECISION_v0.0.18.md`。
+- 实际 Tag / Release / GHCR 结果必须以发布流水线和匿名核验为准。
 - 不改写历史、force push、移动 Tag 或修改已发布 Release。
 - R-01 保持 `DEFERRED / A3`。
 - 24h 单实例连续运行保持 `not-completed`。
@@ -43,9 +43,9 @@
 
 ## 五、授权边界与 Go/No-Go
 
-- **授权边界**：v0.0.18 未发布、无公开发布授权；v0.0.17 一次性授权不延续。
-- **Go/No-Go**：研发与 PR 合并 = Go；Tag / Release / GHCR 正式发布 = No-Go。
-- R-01 保持 `DEFERRED / A3`。
+- **授权边界**：v0.0.18 已获一次性 A3 + B1 授权；仅覆盖本版 Stable Release。
+- **Go/No-Go**：只有全部门禁、候选安装、升级/恢复和发布预演通过后才允许创建 Tag。
+- R-01 保持 `DEFERRED / A3`；24h 保持 `not-completed`。
 
 ## 六、下一步
 

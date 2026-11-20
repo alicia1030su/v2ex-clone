@@ -214,6 +214,25 @@ export function allRepoReadingJobsCheckout(source) {
   return { pass: true };
 }
 
+/** 判据 5：正式发布步骤必须显式注入 PRERELEASE（set -u 下缺失会直接失败） */
+export function publishStepHasPrerelease(source) {
+  const jobs = splitJobs(source);
+  const block = jobs?.get('publish-release');
+  if (!block) return { pass: false, why: '未找到 publish-release job' };
+  const marker = '      - name: 核验 draft 资产后正式发布';
+  const start = block.indexOf(marker);
+  if (start < 0) return { pass: false, why: '未找到「核验 draft 资产后正式发布」步骤' };
+  const next = block.indexOf('\n      - name:', start + marker.length);
+  const step = block.slice(start, next < 0 ? block.length : next);
+  if (!/PRERELEASE:\s*\$\{\{\s*needs\.preflight\.outputs\.prerelease\s*\}\}/.test(step)) {
+    return {
+      pass: false,
+      why: '正式发布步骤未显式注入 PRERELEASE —— set -u 下读取该变量会中止发布',
+    };
+  }
+  return { pass: true };
+}
+
 /** 抽出 Release Notes 模板正文（`cat > release-notes.md <<'NOTES'` 到 `NOTES`） */
 /**
  * 抽出模板的**原始**文本（保留 `run: |` 的块缩进）。
@@ -601,6 +620,28 @@ function runStatic() {
       const miss = expected.filter((n) => ![...j.keys()].includes(n));
       return miss.length > 0 ? { pass: false, why: `缺 ${miss.join(', ')}` } : { pass: true };
     },
+  );
+
+  // ⑨ 正式发布步骤的 PRERELEASE 作用域
+  section('⑨ 正式发布步骤必须注入 PRERELEASE');
+  const preScope = publishStepHasPrerelease(workflow);
+  if (preScope.pass) {
+    ok('正式发布步骤显式读取 preflight 的 PRERELEASE output');
+  } else {
+    bad(preScope.why);
+  }
+  negativeControl(
+    '删除正式发布步骤的 PRERELEASE 注入',
+    () => {
+      const marker = '      - name: 核验 draft 资产后正式发布';
+      const start = workflow.indexOf(marker);
+      if (start < 0) return null;
+      const needle = '          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}';
+      const at = workflow.indexOf(needle, start + marker.length);
+      if (at < 0) return null;
+      return workflow.slice(0, at) + workflow.slice(at + needle.length + 1);
+    },
+    (src) => publishStepHasPrerelease(src),
   );
 
   console.log('\n' + '─'.repeat(70));

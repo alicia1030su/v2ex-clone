@@ -2,7 +2,8 @@
   "schema": "v2ex-clone-release-channels/v1",
   "default": "prerelease",
   "versions": {
-    "v0.0.17": "stable"
+    "v0.0.17": "stable",
+    "v0.0.18": "stable"
   },
   "_comment": [
     "发布渠道的**单一事实来源**。",
@@ -13,7 +14,7 @@
     "  · 只允许两个值：prerelease / stable；",
     "  · 登记 stable 不等于获得发布授权；授权仍由 docs/RISK_DECISION_v<版本>.md 独立判定。",
     "",
-    "迁移：docs/STABLE_RELEASES.json 保留为 v0.0.17 的历史清单，",
+    "迁移：docs/STABLE_RELEASES.json 保留 v0.0.17 / v0.0.18 的稳定版登记，",
     "resolve-release-channel.mjs 会校验二者一致，防止两个真相来源漂移。"
   ]
 }

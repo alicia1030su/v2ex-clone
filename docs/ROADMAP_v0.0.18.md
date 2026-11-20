@@ -52,7 +52,7 @@
 | **修复方案** | 新建 `docs/RELEASE_CHANNELS.json`（`default: prerelease` + 精确版本映射），新建 `scripts/release/resolve-release-channel.mjs`；所有消费者只调用解析器。保留旧 `STABLE_RELEASES.json` 为迁移输入，由解析器校验二者一致。 |
 | **修改文件** | `docs/RELEASE_CHANNELS.json`、`scripts/release/resolve-release-channel.mjs`、`.github/workflows/release.yml`、`.github/workflows/post-release-verify.yml`、`scripts/release/preflight-dryrun.mjs`、`scripts/release/verify-release-consistency.sh`、`tests/static/v018-release-channel.spec.ts`。 |
 | **测试方法** | 解析器单测（默认 prerelease、v0.0.17 stable、未知版本、重复/冲突清单、错误类型、错误版本格式）；真实读取当前清单；workflow 接线静态断言；发布预演真实运行。 |
-| **验收标准** | 所有渠道消费者都调用同一解析器；无“0.0.x 必须 Pre-release”的可执行断言；v0.0.17 解析为 stable，v0.0.18 默认 prerelease；预演全绿；v0.0.17 既有 Release 不被修改。 |
+| **验收标准** | 所有渠道消费者都调用同一解析器；无“0.0.x 必须 Pre-release”的可执行断言；v0.0.17 与 v0.0.18 解析为 stable，未登记版本默认 prerelease；预演全绿；v0.0.17 既有 Release 不被修改。 |
 | **风险** | 清单写错会让未来版本发错形态；用迁移校验与精确枚举降低风险；不自动发布 v0.0.18。 |
 
 ## 三、P0-2：Git 暂存与提交安全治理

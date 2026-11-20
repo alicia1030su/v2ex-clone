@@ -37,6 +37,7 @@
 
 ## 四、发布边界
 
-- v0.0.18 本轮**不自动发布**，不继承 v0.0.17 授权。
-- 不创建 Tag/Release/GHCR 正式标签，不改写历史、force push、移动 Tag 或修改已发布 Release。
+- v0.0.18 已由项目所有者单独授权发布为 Stable Release（A3 + B1，一次性、仅限本版）。
+- 授权生效前提是全部必要门禁通过；未通过不得创建 Tag / Release / GHCR 正式标签。
+- 不改写历史、force push、移动 Tag 或修改已发布 Release。
 - R-01 不因本轮代码修复而改变状态。

@@ -35,7 +35,7 @@
 
 ### 2.3 效果
 
-- v0.0.17 解析为 stable / Latest；v0.0.18 未登记，默认 prerelease。
+- v0.0.17 与 v0.0.18 均解析为 stable / Latest；未登记版本仍默认 prerelease。
 - 预演 static 21/21、notes 17/17；真实 v0.0.17 Release 一致性检查通过。
 - 不存在可执行的“0.0.x 必须 Pre-release”断言。
 

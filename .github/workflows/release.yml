@@ -737,7 +737,7 @@ jobs:
           echo "dry_run : ${{ steps.meta.outputs.dry_run }}"
           echo "publish : ${{ steps.meta.outputs.publish }}"
           echo "prerelease: ${{ steps.meta.outputs.prerelease }}"
-          echo "三态    : dry_run=true → 干跑 / publish=false → Draft / publish=true → 公开 Pre-release"
+          echo "三态    : dry_run=true → 干跑 / publish=false → Draft / publish=true → 公开发布（形态由统一渠道决定）"
 
   # ===========================================================================
   # 2. code-checks —— 类型检查 + 生产构建
@@ -1423,11 +1423,18 @@ jobs:
         env:
           VERSION: ${{ needs.preflight.outputs.version }}
           TAG_SHA: ${{ needs.preflight.outputs.tag_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          BUILD_SHA: ${{ github.sha }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
           set -euo pipefail
           IMAGE="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+          if [ "$EVENT_NAME" = "push" ]; then
+            ACTUAL_BUILD_SHA="$BUILD_SHA"
+          else
+            ACTUAL_BUILD_SHA="$(git rev-parse HEAD)"
+          fi
           SKIP=false
           DIGEST=""
           if PULL_OUT="$(docker pull "$IMAGE" 2>&1)"; then
@@ -1438,15 +1445,18 @@ jobs:
               echo "::error::目标标签 $IMAGE 已存在但读不到 image.revision —— 拒绝覆盖"
               exit 1
             fi
-            if [ "$REV" != "$TAG_SHA" ]; then
-              echo "::error::目标标签 revision=$REV 与版本锚点 $TAG_SHA 不一致 —— 拒绝用不同源码覆盖同一标签"
+            if [ "$REV" != "$TAG_SHA" ] && [ "$REV" != "$ACTUAL_BUILD_SHA" ]; then
+              echo "::error::目标标签 revision=$REV 与版本锚点 $TAG_SHA / 本次构建 $ACTUAL_BUILD_SHA 均不一致 —— 拒绝用不同源码覆盖同一标签"
               exit 1
+            fi
+            if [ "$REV" = "$ACTUAL_BUILD_SHA" ] && [ "$REV" != "$TAG_SHA" ]; then
+              echo "::notice::补救路径：镜像由本次构建 commit 生成；preflight 已验证 Tag 与本次构建在全部构建输入上零差异，允许复用"
             fi
             if [ -z "$DIGEST" ]; then
               echo "::error::目标标签已存在但读不到 RepoDigest —— 拒绝继续"
               exit 1
             fi
-            echo "::notice::目标标签已存在且 revision 与版本锚点一致 ⇒ 幂等重跑，跳过推送（不覆盖先 run 的镜像）"
+            echo "::notice::目标标签已存在且 revision 与版本锚点/本次构建一致 ⇒ 幂等重跑，跳过推送（不覆盖先 run 的镜像）"
             SKIP=true
           else
             printf '%s\n' "$PULL_OUT"
@@ -2660,7 +2670,7 @@ jobs:
             RELEASE_TITLE="$VERSION — 开发预览版"
             DRAFT_PRERELEASE="true"
           else
-            RELEASE_TITLE="$VERSION — 稳定版"
+            RELEASE_TITLE="$VERSION 稳定版"
             DRAFT_PRERELEASE="false"
           fi
           echo "  Release 标题：$RELEASE_TITLE（draft prerelease=$DRAFT_PRERELEASE）"
@@ -2715,6 +2725,9 @@ jobs:
       - name: 核验 draft 资产后正式发布
         env:
           GH_TOKEN: ${{ github.token }}
+          # v0.0.18：本 step 在 set -u 下读取 PRERELEASE，必须显式注入。
+          # 历史缺陷正是「变量在错误步骤作用域中不存在」，只在真实发布时暴露。
+          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.preflight.outputs.version }}"
