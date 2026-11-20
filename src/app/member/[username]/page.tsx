@@ -4,6 +4,10 @@ import { notFound } from 'next/navigation';
 import { and, eq, desc } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+} from '@/lib/content-visibility';
 import { getUserByUsername, listTopics, TOPICS_PER_PAGE } from '@/server/queries';
 import { formatDate, fullTimestamp } from '@/lib/time';
 import { stripMarkdown } from '@/lib/markdown';
@@ -57,7 +61,12 @@ export default async function MemberPage({
     .from(schema.replies)
     .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(and(eq(schema.replies.authorId, user.id), PUBLIC_NODE_CONDITION))
+    .where(and(
+      eq(schema.replies.authorId, user.id),
+      PUBLIC_REPLY_CONDITION,
+      PUBLIC_TOPIC_CONDITION,
+      PUBLIC_NODE_CONDITION,
+    ))
     .orderBy(desc(schema.replies.createdAt))
     .limit(10);
 

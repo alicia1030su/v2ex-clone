@@ -4,7 +4,12 @@ import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
 import { isReportReason, REPORT_REASONS } from '@/lib/report-reasons';
 import { pgErrorCodeOf } from '@/lib/pg-error-code';
-import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+} from '@/lib/content-visibility';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
 
@@ -82,7 +87,12 @@ export async function POST(request: Request) {
     const rows = await db
       .select({ id: schema.topics.id, authorId: schema.topics.authorId })
       .from(schema.topics)
-      .where(eq(schema.topics.id, targetId))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(
+        eq(schema.topics.id, targetId),
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ))
       .limit(1);
     const target = rows[0];
     if (!target) {
@@ -95,7 +105,14 @@ export async function POST(request: Request) {
     const rows = await db
       .select({ id: schema.replies.id, authorId: schema.replies.authorId })
       .from(schema.replies)
-      .where(eq(schema.replies.id, targetId))
+      .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(
+        eq(schema.replies.id, targetId),
+        PUBLIC_REPLY_CONDITION,
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ))
       .limit(1);
     const target = rows[0];
     if (!target) {
@@ -232,7 +249,12 @@ export async function GET(request: Request) {
     const t = await db
       .select({ id: schema.topics.id, title: schema.topics.title })
       .from(schema.topics)
-      .where(inArray(schema.topics.id, topicIds));
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(
+        inArray(schema.topics.id, topicIds),
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ));
     for (const row of t) topicTitles.set(row.id, row.title);
   }
 
@@ -245,7 +267,14 @@ export async function GET(request: Request) {
         topicId: schema.replies.topicId,
       })
       .from(schema.replies)
-      .where(inArray(schema.replies.id, replyIds));
+      .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
+      .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
+      .where(and(
+        inArray(schema.replies.id, replyIds),
+        PUBLIC_REPLY_CONDITION,
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ));
     for (const row of r) {
       const title = topicTitles.get(row.topicId);
       replySnippets.set(

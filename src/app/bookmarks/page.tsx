@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { relativeTime } from '@/lib/time';
 import Wrapper from '@/components/Wrapper';
@@ -65,7 +66,11 @@ export default async function BookmarksPage() {
       .select({ topicId: schema.topics.id })
       .from(schema.topics)
       .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(and(inArray(schema.topics.id, topicIds), PUBLIC_NODE_CONDITION));
+      .where(and(
+        inArray(schema.topics.id, topicIds),
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ));
     for (const r of topicNodes) visibleTopicIds.add(r.topicId);
   }
 

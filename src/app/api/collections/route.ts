@@ -3,6 +3,7 @@ import { guardCsrf } from '@/lib/csrf-guard';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { getSessionUser } from '@/lib/auth';
 import { guardCommunityAction } from '@/lib/community-rate-limit';
 
@@ -51,7 +52,11 @@ export async function POST(request: Request) {
       .select({ id: schema.topics.id })
       .from(schema.topics)
       .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-      .where(and(eq(schema.topics.id, id), PUBLIC_NODE_CONDITION))
+      .where(and(
+        eq(schema.topics.id, id),
+        PUBLIC_TOPIC_CONDITION,
+        PUBLIC_NODE_CONDITION,
+      ))
       .limit(1);
     if (!exists.length) {
       return NextResponse.json({ ok: false, error: '主题不存在' }, { status: 404 });

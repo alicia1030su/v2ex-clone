@@ -2,6 +2,10 @@ import 'server-only';
 import { and, count, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+} from '@/lib/content-visibility';
 
 /**
  * 通知的**公共可见性判据**（v0.0.15 P0-1）
@@ -73,13 +77,12 @@ export function visibleNotificationCondition(): SQL | undefined {
     // ② 不指向任何主题的通知（如节点申请结果）也始终可见
     isNull(schema.notifications.topicId),
     and(
-      // ② 主题未被软删除、状态仍是 published
-      isNull(schema.topics.deletedAt),
-      eq(schema.topics.status, 'published'),
+      // ② 主题必须仍是公开主题（published 且未软删除）
+      PUBLIC_TOPIC_CONDITION,
       // ③ 所在节点必须公开可见（全仓唯一判据）
       PUBLIC_NODE_CONDITION,
       // ④ 若指向具体回复，回复也不能是已删除的
-      or(isNull(schema.notifications.replyId), isNull(schema.replies.deletedAt)),
+      or(isNull(schema.notifications.replyId), PUBLIC_REPLY_CONDITION),
     ),
   );
 }

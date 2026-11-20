@@ -45,27 +45,13 @@ export default async function TopicPage({
   // 一次显式例外，不是「角色不同看到不同东西」的隐式分支。
   // `user` 必须在本次查询**之前**取到 —— 否则永远拿到 undefined，
   // staff 的审核入口会静默失效（而且失效得看起来很像正常 404）。
+  const canReview = canReviewHiddenNodes(user);
   const topic = await getTopicById(topicId, {
-    includeHiddenNode: canReviewHiddenNodes(user),
+    includeHiddenNode: canReview,
+    // staff 的已删除主题审核/恢复入口保持可用；普通访问者仍按不存在处理。
+    includeDeleted: canReview,
   });
   if (!topic) notFound();
-
-  // v0.0.5：已软删除的主题 —— **staff 仍可访问并恢复**。
-  //
-  // 原实现：`if (!topic || topic.status === 'deleted') notFound();`
-  // 后果是删除后**连版主/管理员都进不去该页**，「恢复」按钮永远点不到
-  // ⇒ 内容恢复只能靠后台或手输 URL，UI 闭环是断的
-  // （`FEATURE_AUDIT_v0.0.5.md` §二 记录的真实缺陷，E2E 实测发现）。
-  //
-  // 修法：游客与非 staff 的普通用户仍然看不到（notFound，不泄露
-  // 「这里曾有内容」）；staff 看到「已删除」页面 + 恢复按钮。
-  //
-  // 作者本人**不**放行 —— 原站行为是作者删掉后自己 also 看不到，
-  // 恢复是管理动作，不应让作者自舞。
-  if (topic.status === 'deleted') {
-    const isStaff = user?.role === 'moderator' || user?.role === 'admin';
-    if (!isStaff) notFound();
-  }
 
   const nodeRows = await db
     .select()
@@ -85,12 +71,12 @@ export default async function TopicPage({
   // staff 打开隐藏节点主题时**必须同时**放行回复，否则审核界面会
   // 「有正文、零回复」—— 看起来完全正常，实际无从判断。
   // 传的是同一个 `canReviewHiddenNodes(user)` 结果，与上面的主题查询同源。
-  const canReview = canReviewHiddenNodes(user);
+  // staff 查看已删除主题时仍需看到未删除回复，因此同步显式放行主题状态。
   const { items: replies, total: replyTotal } = await listReplies(
     topicId,
     page,
     REPLIES_PER_PAGE,
-    { includeHiddenNode: canReview },
+    { includeHiddenNode: canReview, includeDeleted: canReview },
   );
   const totalPages = Math.min(MAX_PAGE, Math.max(1, Math.ceil(replyTotal / REPLIES_PER_PAGE)));
   const contentHtml = await renderMarkdown(topic.content);

@@ -1,7 +1,11 @@
 import 'server-only';
 import { db, schema } from '@/db';
-import { and, desc, eq, isNull, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { renderMarkdown } from '@/lib/markdown';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+} from '@/lib/content-visibility';
 import { toLegacyTopic, type LegacyTopic } from '@/lib/legacy-topic-api';
 import {
   legacyMemberInputFromRow,
@@ -62,7 +66,7 @@ async function lastReplyers(topicIds: number[]): Promise<Map<number, string>> {
     })
     .from(schema.replies)
     .innerJoin(schema.users, eq(schema.users.id, schema.replies.authorId))
-    .where(and(inArray(schema.replies.topicId, topicIds), isNull(schema.replies.deletedAt)))
+    .where(and(inArray(schema.replies.topicId, topicIds), PUBLIC_REPLY_CONDITION))
     .orderBy(desc(schema.replies.floor));
 
   for (const row of rows) {
@@ -127,8 +131,8 @@ export async function loadLegacyTopics(
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
     .where(
       and(
-        // 公众视图：软删除主题一律不可见（本项目安全策略）
-        isNull(schema.topics.deletedAt),
+        // 公众视图：只暴露 published 且未软删除的主题（本项目安全策略）
+        PUBLIC_TOPIC_CONDITION,
         // 非 active 节点下的主题不进入任何旧版公共端点（共用条件，避免口径漂移）
         PUBLIC_NODE_CONDITION,
         filter.kind === 'id' ? eq(schema.topics.id, filter.id) : undefined,

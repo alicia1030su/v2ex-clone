@@ -274,28 +274,27 @@ describe('节点 active 可见性：所有旧版 / Feed 公共路径统一收敛
     expect(hasCondition(src.replace(/PUBLIC_NODE_CONDITION/g, 'REMOVED'))).toBe(false);
   });
 
-  it('主题 / Feed 的原有软删除与参数语义保持不变', () => {
+  it('主题 / Feed 的公开条件与参数语义保持不变', () => {
     const topics = read('src/server/legacy-topics.ts');
     expect(topics).toContain('innerJoin(schema.nodes');
-    expect(topics).toContain('isNull(schema.topics.deletedAt)');
+    expect(topics).toContain('PUBLIC_TOPIC_CONDITION');
     expect(topics).toContain("filter.kind === 'hot'");
     const feed = read('src/server/legacy-feed.ts');
     expect(feed).toContain('.from(schema.nodes)');
     expect(feed).toContain('eq(schema.nodes.name, opts.nodeName.toLowerCase())');
-    expect(feed).toContain('isNull(schema.topics.deletedAt)');
+    expect(feed).toContain('PUBLIC_TOPIC_CONDITION');
     expect(read('src/app/api/topics/show.json/route.ts')).toContain('parseLegacyId');
     expect(read('src/app/api/nodes/[name]/feed/route.ts')).toContain('feedCachedResponse');
   });
 
-  it('回复端点同样收敛到 active 节点，且软删除三条过滤保持不变', () => {
+  it('回复端点同样收敛到 active 节点，并复用公共主题/回复条件', () => {
     const src = read('src/server/legacy-replies.ts');
     // 不 join nodes 的旧实现会让 hidden 节点下主题的回复按 topic_id 泄露
     expect(src, '回复查询必须 join nodes').toContain('innerJoin(schema.nodes');
     expect(src).toContain('eq(schema.nodes.id, schema.topics.nodeId)');
     expect(src).toContain('PUBLIC_NODE_CONDITION');
-    expect(src).toContain('isNull(schema.replies.deletedAt)');
-    expect(src).toContain('isNull(schema.topics.deletedAt)');
-    expect(src).toContain("ne(schema.topics.status, 'deleted')");
+    expect(src).toContain('PUBLIC_REPLY_CONDITION');
+    expect(src).toContain('PUBLIC_TOPIC_CONDITION');
     expect(src).toContain('orderBy(asc(schema.replies.id))');
   });
 
@@ -347,15 +346,14 @@ describe('节点 active 可见性：所有旧版 / Feed 公共路径统一收敛
 });
 
 describe('软删除 / 封禁用户不得从公共接口泄露', () => {
-  it('主题装配排除软删除主题', () => {
-    expect(read('src/server/legacy-topics.ts')).toContain('isNull(schema.topics.deletedAt)');
+  it('主题装配排除软删除与非 published 主题', () => {
+    expect(read('src/server/legacy-topics.ts')).toContain('PUBLIC_TOPIC_CONDITION');
   });
 
-  it('回复装配排除软删除回复与已删除主题', () => {
+  it('回复装配排除软删除回复与非公开主题', () => {
     const src = read('src/server/legacy-replies.ts');
-    expect(src).toContain('isNull(schema.replies.deletedAt)');
-    expect(src).toContain('isNull(schema.topics.deletedAt)');
-    expect(src).toContain("ne(schema.topics.status, 'deleted')");
+    expect(src).toContain('PUBLIC_REPLY_CONDITION');
+    expect(src).toContain('PUBLIC_TOPIC_CONDITION');
   });
 
   it('封禁/停用用户的自填资料字段被装配器置空', () => {

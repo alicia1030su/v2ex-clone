@@ -1,8 +1,13 @@
 import 'server-only';
-import { and, desc, eq, ilike, or, sql, count, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql, count, inArray } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { extractRows } from '@/server/sql-rows';
 import { PUBLIC_NODE_CONDITION, isPublicNodeStatus } from '@/lib/node-visibility';
+import {
+  PUBLIC_REPLY_CONDITION,
+  PUBLIC_TOPIC_CONDITION,
+  isPublicTopicState,
+} from '@/lib/content-visibility';
 
 /**
  * 站内页面 / 站内 API 的**公共**读取层。
@@ -119,10 +124,10 @@ async function loadLastRepliers(ids: number[]): Promise<Map<number, { id: number
     SELECT t.id AS topic_id, u.id AS user_id, u.username
     FROM topics t
     CROSS JOIN LATERAL (
-      SELECT r.author_id
-      FROM replies r
-      WHERE r.topic_id = t.id
-      ORDER BY r.created_at DESC, r.id DESC
+      SELECT replies.author_id
+      FROM replies
+      WHERE replies.topic_id = t.id AND ${PUBLIC_REPLY_CONDITION}
+      ORDER BY replies.created_at DESC, replies.id DESC
       LIMIT 1
     ) lr
     JOIN users u ON u.id = lr.author_id
@@ -157,7 +162,7 @@ export async function listTopics(opts: {
   const offset = (page - 1) * perPage;
 
   const conditions = [
-    eq(schema.topics.status, 'published'),
+    PUBLIC_TOPIC_CONDITION,
     // 隐藏 / 待审节点下的主题不进入公共列表（v0.0.14 P0-1）。
     // 列表查询与下面的 count 查询共用同一个 `where`，两者天然同口径。
     PUBLIC_NODE_CONDITION,
@@ -244,7 +249,7 @@ export async function listTopicsByNodeIds(
 ): Promise<TopicListResult> {
   const offset = (Math.max(1, page) - 1) * perPage;
   const where = and(
-    eq(schema.topics.status, 'published'),
+    PUBLIC_TOPIC_CONDITION,
     inArray(schema.topics.nodeId, nodeIds),
     // v0.0.14 P0-1：即使调用方把隐藏节点的 id 传进来（例如首页 tab 的
     // 节点名集合里混进了一个已被删除/隐藏的节点），也不得返回其主题。
@@ -411,12 +416,14 @@ export async function getUserByUsername(username: string) {
  * 「主题不存在」与「主题存在但节点不可见」，两者对外都表现为 `null`
  * （不泄露「这里曾有内容」），但审核入口需要一个可显式放行的开关。
  *
+ * @param opts.includeDeleted 授权管理入口显式放行非公开主题状态。
+ *   调用方必须先用 `canReviewHiddenNodes(user)` 判定，不要在 SQL 层猜角色。
  * @param opts.includeHiddenNode 授权审核入口（moderator / admin）显式放行。
  *   调用方必须用 `canReviewHiddenNodes(user)` 判定后传入，不要在 SQL 层猜角色。
  */
 export async function getTopicById(
   id: number,
-  opts: { includeHiddenNode?: boolean } = {},
+  opts: { includeDeleted?: boolean; includeHiddenNode?: boolean } = {},
 ): Promise<typeof schema.topics.$inferSelect | null> {
   const rows = await db
     .select({ topic: schema.topics, nodeStatus: schema.nodes.status })
@@ -429,6 +436,7 @@ export async function getTopicById(
   if (!row) return null;
   // 返回对象形状与改造前**逐字段相同**（仍是 topics 行），调用方无需改动。
   if (!isPublicNodeStatus(row.nodeStatus) && !opts.includeHiddenNode) return null;
+  if (!opts.includeDeleted && !isPublicTopicState(row.topic)) return null;
   return row.topic;
 }
 
@@ -465,8 +473,10 @@ export async function listReplies(
     conditions.push(PUBLIC_NODE_CONDITION);
   }
   if (!opts.includeDeleted) {
-    conditions.push(isNull(schema.replies.deletedAt));
+    conditions.push(PUBLIC_TOPIC_CONDITION, PUBLIC_REPLY_CONDITION);
   }
+  const where = and(...conditions);
+
   const rows = await db
     .select({
       id: schema.replies.id,
@@ -487,26 +497,19 @@ export async function listReplies(
     .innerJoin(schema.users, eq(schema.users.id, schema.replies.authorId))
     .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(and(...conditions))
+    .where(where)
     .orderBy(schema.replies.floor)
     .limit(perPage)
     .offset(offset);
 
-  // ⚠️ total 与 items 必须**同口径**。
-  // 原实现的 total 只按 topicId 统计（含已删除回复），items 却排除已删除 ——
-  // 那个不一致在 v0.0.3 起就存在，但它与「节点可见性」无关，本轮**不改**
-  // （改了会让「回复被删后总条数不变」这个既有行为变化）。
-  // 唯一必须保证的是：total 也带节点可见性条件，否则隐藏后 items 空、total 非零。
-  const totalConditions = [eq(schema.replies.topicId, topicId)];
-  if (!opts.includeHiddenNode) {
-    totalConditions.push(PUBLIC_NODE_CONDITION);
-  }
+  // total 与 items 使用完全相同的 where：软删除回复不能只从总数里泄露，
+  // 已删除主题下的回复也不能绕过主题可见性单独计数。
   const totalRows = await db
     .select({ n: count() })
     .from(schema.replies)
     .innerJoin(schema.topics, eq(schema.topics.id, schema.replies.topicId))
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(and(...totalConditions));
+    .where(where);
 
   return { items: rows, total: Number(totalRows[0]?.n ?? 0) };
 }
@@ -529,7 +532,7 @@ export async function listHotTopics(limit = 10) {
     .from(schema.topics)
     .innerJoin(schema.users, eq(schema.users.id, schema.topics.authorId))
     .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-    .where(and(eq(schema.topics.status, 'published'), PUBLIC_NODE_CONDITION))
+    .where(and(PUBLIC_TOPIC_CONDITION, PUBLIC_NODE_CONDITION))
     .orderBy(desc(schema.topics.votes), desc(schema.topics.repliesCount))
     .limit(limit);
   return rows;
@@ -562,7 +565,7 @@ export async function listTopicsByTag(
 
   const where = and(
     eq(schema.tags.name, tagName),
-    eq(schema.topics.status, 'published'),
+    PUBLIC_TOPIC_CONDITION,
     PUBLIC_NODE_CONDITION,
   );
 

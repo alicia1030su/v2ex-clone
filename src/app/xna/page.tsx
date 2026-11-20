@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
+import { PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { relativeTime } from '@/lib/time';
 import { avatarUrl } from '@/components/Avatar';
 import Wrapper from '@/components/Wrapper';
@@ -48,7 +49,11 @@ export default async function XnaPage() {
         // v0.0.14 P0-1：主题查询同样要 join nodes 并过滤 ——
         // 只过滤外层节点是不够的：主题的 nodeId 与外层查询是两个入口。
         .innerJoin(schema.nodes, eq(schema.nodes.id, schema.topics.nodeId))
-        .where(and(eq(schema.topics.nodeId, nodes[0].id), PUBLIC_NODE_CONDITION))
+        .where(and(
+          eq(schema.topics.nodeId, nodes[0].id),
+          PUBLIC_TOPIC_CONDITION,
+          PUBLIC_NODE_CONDITION,
+        ))
         .orderBy(desc(schema.topics.createdAt))
         .limit(20)
     : [];
