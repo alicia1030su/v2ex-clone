@@ -1,0 +1,126 @@
+name: 单实例连续观测（分段，不构成 24h 通过）
+
+# ---------------------------------------------------------------------------
+# v0.0.18 P1-1
+#
+# GitHub-hosted runner 单 job 上限约 6 小时 ⇒ 本工作流最多观测 330 分钟。
+# 它验证「同一实例在同一分段内持续运行」并产出证据，**不能**完成 24h 单实例验证。
+# 不足 24h 时工具输出 status=not-completed、退出码 3；本 step 因此预期判红，
+# 但 if: always() 仍上传证据。不得把绿色 job 或累计分段误写成 24h PASS。
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration_minutes:
+        description: '本段观测时长（1-330 分钟；不是 24h 完成声明）'
+        required: true
+        default: '330'
+        type: string
+      interval_seconds:
+        description: '采样间隔（>=5 秒）'
+        required: true
+        default: '60'
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: soak-single-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22.23.4'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  DISABLE_CAPTCHA: '1'
+  APP_REPLICAS: '1'
+  APP_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: soak!password-not-for-production
+  POSTGRES_DB: v2ex_soak
+  DATABASE_URL: postgres://v2ex:soak!password-not-for-production@127.0.0.1:5432/v2ex_soak
+  REDIS_URL: redis://:soak!redis-password@127.0.0.1:6379
+  SESSION_SECRET: soak!session-secret-not-for-production-0123456789abcdef
+  SEED_ADMIN_USERNAME: admin
+  SEED_ADMIN_EMAIL: admin@soak.local
+  SEED_ADMIN_PASSWORD: Soak!Admin-Pass-2026!
+  SEED_DEMO_USERS: '1'
+  SEED_DEMO_PASSWORD: Soak!Demo-Pass-2026!
+  SOAK_ADMIN_USERNAME: admin
+  SOAK_ADMIN_PASSWORD: Soak!Admin-Pass-2026!
+  PGHOST: 127.0.0.1
+  PGPORT: '5432'
+  PGUSER: v2ex
+  PGPASSWORD: soak!password-not-for-production
+  PGDATABASE: v2ex_soak
+
+jobs:
+  observe:
+    name: 单实例观测分段（not-completed 是如实结论）
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: v2ex
+          POSTGRES_PASSWORD: soak!password-not-for-production
+          POSTGRES_DB: v2ex_soak
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U v2ex -d v2ex_soak"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        command: ['redis-server', '--requirepass', 'soak!redis-password']
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli -a soak!redis-password ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 数据库迁移
+        run: npx drizzle-kit migrate
+
+      - name: 初始化隔离测试数据
+        run: npx tsx scripts/seed.ts
+
+      - name: 构建应用
+        run: npm run build
+
+      - name: 运行单实例观测分段
+        env:
+          DURATION_MINUTES: ${{ inputs.duration_minutes }}
+          INTERVAL_SECONDS: ${{ inputs.interval_seconds }}
+        # 单行 Node 调用；启动、就绪等待、采样、清理均由 Node 完成。
+        # 330 分钟观测会以 not-completed / exit 3 结束，这是预期且诚实的结果。
+        run: node scripts/soak/run-workflow-segment.mjs --minutes "$DURATION_MINUTES" --interval-seconds "$INTERVAL_SECONDS"
+
+      - name: 上传单实例证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-single-${{ github.run_id }}
+          path: |
+            soak-evidence/summary.json
+            soak-evidence/samples.jsonl
+            soak-evidence/app-log-tail.txt
+          if-no-files-found: warn
+          retention-days: 30
