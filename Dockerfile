@@ -186,6 +186,8 @@ RUN npm ci --omit=dev --no-audit --no-fund \
  && rm -rf node_modules/playwright-core node_modules/playwright node_modules/@playwright \
  && npm cache clean --force \
  && rm -rf /root/.npm \
+ && rm -rf /usr/local/lib/node_modules/npm \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx \
  && test -f node_modules/drizzle-kit/bin.cjs \
  && test -f node_modules/tsx/dist/cli.mjs \
  && test -f node_modules/next/dist/bin/next \

@@ -119,6 +119,13 @@ describe('Dockerfile 启动阶段分离（P0-2）', () => {
     expect(cmdLine).not.toContain('migrate');
   });
 
+  it('运行层删除业务不需要的全局 npm/npx，缩小漏洞面', () => {
+    expect(dockerfile).toContain('rm -rf /usr/local/lib/node_modules/npm');
+    expect(dockerfile).toContain('rm -f /usr/local/bin/npm /usr/local/bin/npx');
+    const entrypoint = stripComments(read('scripts/docker-entrypoint.sh'));
+    expect(entrypoint).not.toMatch(/\b(?:npm|npx)\b/);
+  });
+
   it('entrypoint 脚本存在且区分三个阶段', () => {
     const entrypoint = stripComments(read('scripts/docker-entrypoint.sh'));
     expect(entrypoint).toContain('run_migrate');

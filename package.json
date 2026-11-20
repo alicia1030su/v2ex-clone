@@ -68,8 +68,6 @@
   },
   "overrides": {
     "postcss": "^8.5.32",
-    "@esbuild-kit/core-utils": {
-      "esbuild": "^0.25.0"
-    }
+    "esbuild": "^0.28.0"
   }
 }
