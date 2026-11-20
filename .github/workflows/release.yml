@@ -404,6 +404,11 @@ jobs:
           INPUT_PUBLISH: ${{ inputs.publish }}
           INPUT_PRERELEASE: ${{ inputs.prerelease }}
           EVENT_NAME: ${{ github.event_name }}
+          # ⚠️ v0.0.17：白名单判定需要版本号。**必须显式传入** ——
+          #    这个 step 只继承 workflow 级 env，看不到上一步的 output。
+          #    漏了它 ⇒ `VERSION: unbound variable`（在 `set -u` 下直接 exit 1），
+          #    而报错发生在第 42 行的判断语句里，看不出是「少传了一个变量」。
+          VERSION: ${{ steps.v.outputs.version }}
         run: |
           set -euo pipefail
           # ⚠️ v0.0.9：本 step 是 publish / prerelease / dry_run 的
