@@ -38,33 +38,30 @@
 
 ---
 
-## 当前版本状态（本版候选 v0.0.18 已授权，发布门禁执行中）
+## 当前版本状态（v0.0.18 正式稳定版）
 
 > **版本载体**：`0.0.18`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
 > 已同步到 `0.0.18`；本版已获一次性稳定版发布授权，实际发布结果以 Tag / Release / GHCR 核验为准。）
 
-> ⚠️ **两个版本必须分开看，不要把候选写成已发布**
->
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **本版发布候选** | `v0.0.18` | 工程治理 + 产品体验升级；已授权 Stable Release，门禁执行中 |
-> | **当前已公开发布** | `v0.0.17` | GitHub **Stable Release** |
-> | 上一已发布版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
+> | **当前已公开发布** | `v0.0.18` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
+> | 上一已发布版本 | `v0.0.17` | GitHub **Stable Release** |
+> | 再上一版 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
 
 | 项 | 值 |
 |---|---|
-| **当前实际公开版本** | **`v0.0.17`**（**Stable Release**，含部署 ZIP 与 GHCR 镜像） |
-| **本版发布候选** | **`v0.0.18`**（已授权 Stable Release，门禁执行中） |
-| **上一已发布版本** | `v0.0.16`（Pre-release，2026-11-19） |
-| 再上一版 | `v0.0.15`（Pre-release，2026-11-10） |
+| **当前实际公开版本** | **`v0.0.18`**（[**Stable Release**](https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18)，含部署 ZIP 与 GHCR 镜像） |
+| **上一已发布版本** | `v0.0.17`（Stable Release） |
+| 再上一版 | `v0.0.16`（Pre-release，2026-11-19） |
 | 版本载体 | `0.0.18`（已由 `sync-version.mjs` 全量同步并复验） |
-| **本版** | **`v0.0.18` 正式稳定版发布候选** —— 路线图、实施与测试见 [`docs/ROADMAP_v0.0.18.md`](docs/ROADMAP_v0.0.18.md)、[`docs/IMPLEMENTATION_REPORT_v0.0.18.md`](docs/IMPLEMENTATION_REPORT_v0.0.18.md)、[`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) |
+| **本版** | **`v0.0.18` 正式稳定版** —— 路线图、实施与测试见 [`docs/ROADMAP_v0.0.18.md`](docs/ROADMAP_v0.0.18.md)、[`docs/IMPLEMENTATION_REPORT_v0.0.18.md`](docs/IMPLEMENTATION_REPORT_v0.0.18.md)、[`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) |
 | 本版发布授权 | **已取得**（2026-11-20，A3 + B1，一次性、仅限 v0.0.18）；记录见 [`docs/RISK_DECISION_v0.0.18.md`](docs/RISK_DECISION_v0.0.18.md) |
 | 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17`（匿名可拉）；v0.0.18 以正式发布产物为准 |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18`（匿名可拉） |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -100,7 +97,7 @@
 > [`docs/RISK_DECISION_v0.0.18.md`](docs/RISK_DECISION_v0.0.18.md)
 > 与 [`docs/R01_COMPLIANCE_REVIEW_v0.0.15.md`](docs/R01_COMPLIANCE_REVIEW_v0.0.15.md)。
 
-> **已知限制与使用前提（`v0.0.17` 稳定版同样适用 —— 稳定 ≠ 无条件生产可用）**
+> **已知限制与使用前提（`v0.0.18` 稳定版同样适用 —— 稳定 ≠ 无条件生产可用）**
 >
 > - **不保证与 V2EX 完全一致** —— 页面内容、交互细节与原站存在差异
 > - **24 小时单实例连续运行尚未完成** —— 1 小时持续运行已真实通过；
@@ -112,12 +109,12 @@
 > ### 关于「稳定版」与 `0.x` 的关系（请先读这段）
 >
 > 本项目版本号为 `0.0.x`。按语义化版本约定，`1.0.0` 之前**不承诺 API 向后兼容**。
-> 本次把 `v0.0.17` 标记为 **Stable Release**，含义是：
+> 本次把 `v0.0.18` 标记为 **Stable Release**，含义是：
 >
 > | 稳定版**承诺** | 稳定版**不承诺** |
 > |---|---|
 > | 安装包可复现（同源码三次构建 SHA256 一致） | 对外 API / 数据库结构的向后兼容 |
-> | 升级路径经过真实验证（v0.0.4 与 v0.0.16 → v0.0.17） | 长时间连续运行的稳定性（24h 未完成） |
+> | 升级路径经过真实验证（v0.0.4 与 v0.0.17 → v0.0.18） | 长时间连续运行的稳定性（24h 未完成） |
 > | 备份 / 恢复 / 恢复失败原子性经过真实验证 | 与 V2EX 原站完全一致 |
 > | 发布产物可追溯（Tag / 镜像 Digest / ZIP SHA256） | 第三方素材的授权（R-01 仍 DEFERRED） |
 >
@@ -314,19 +311,18 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 
 ### 方式 A：一键安装包（推荐）
 
-> ✅ **v0.0.14 是已正式发布的 Pre-release**（2026-11-09），其部署 ZIP 与 GHCR 镜像均可获取：
+> ✅ **v0.0.18 是当前正式 Stable Release**（2026-11-20），其部署 ZIP 与 GHCR 镜像均可匿名获取。
 > 部署包匿名下载后实算 SHA256 与 `SHA256SUMS` 逐字匹配，镜像匿名 `docker pull` 通过。
-> 发布后由**独立工作流在全新 runner 上全程匿名**复验（8 项全 PASS），
-> 其中包含「用官方 `install.sh` 完成全新安装 + 备份恢复 + 重启后数据保留」。
-> **v0.0.13 从未发布**（无 Tag / Release / 镜像），其成果已包含在 v0.0.14 中。
+> 发布后由**独立工作流在全新 runner 上全程匿名**复验安装、备份恢复、重启持久化与四角色业务。
+> **v0.0.13 从未发布**（无 Tag / Release / 镜像），其成果已包含在后续版本中。
 > 更旧的 **v0.0.9** 安装包存在两处已确认缺陷（V9-09 脚本缺可执行位、
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
-> 的规约保持原样 —— **建议使用 v0.0.14，不要用 v0.0.9**。
+> 的规约保持原样 —— **建议使用 v0.0.18，不要用 v0.0.9**。
 
-下载 `v2ex-clone-v0.0.17-deploy.zip` 并解压。
+下载 [`v2ex-clone-v0.0.18-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.18/v2ex-clone-v0.0.18-deploy.zip) 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.17-deploy.zip -d v2ex-clone-v0.0.17-deploy && cd v2ex-clone-v0.0.17-deploy/deploy`
+> `unzip v2ex-clone-v0.0.18-deploy.zip -d v2ex-clone-v0.0.18-deploy && cd v2ex-clone-v0.0.18-deploy/deploy`
 >
 > ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
@@ -346,7 +342,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 安装完成后访问 **http://localhost:3000**。
 
-安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases>
+安装包下载：<https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18>
 
 ### 方式 B：手动 Docker Compose
 
@@ -388,10 +384,11 @@ docker compose up -d
 | 内容 | 位置 |
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
-| **最新已发布版本（v0.0.17）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17> |
-| 一键部署安装包 | `v2ex-clone-v0.0.17-deploy.zip`（在 v0.0.17 Release 资产中，含 `SHA256SUMS`） |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.17` |
-| 上一版本（v0.0.15） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.15> |
+| **最新已发布版本（v0.0.18）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18> |
+| 一键部署安装包 | [`v2ex-clone-v0.0.18-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.18/v2ex-clone-v0.0.18-deploy.zip)（含 `SHA256SUMS`） |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18` |
+| 上一版本（v0.0.17） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17> |
+| 更早版本（v0.0.16） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.16> |
 | 更早版本（v0.0.14） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
 | 更早版本（v0.0.12） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.12> |
 | 历史版本（v0.0.9） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.9>（含已知缺陷，不建议新装） |
