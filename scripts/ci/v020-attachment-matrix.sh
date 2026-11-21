@@ -281,16 +281,16 @@ else
 fi
 
 echo '===== [A4] 直接访问授权矩阵 ====='
-probe 'current avatar / anonymous' 200 "${BASE_URL}/uploads/${CURRENT_AVATAR}" '' 'public, max-age=60, must-revalidate'
-probe 'current avatar / other user' 200 "${BASE_URL}/uploads/${CURRENT_AVATAR}" 'v020-other-session' 'public, max-age=60, must-revalidate'
+probe 'current avatar / anonymous' 200 "${BASE_URL}/uploads/${CURRENT_AVATAR}" '' 'private, no-store'
+probe 'current avatar / other user' 200 "${BASE_URL}/uploads/${CURRENT_AVATAR}" 'v020-other-session' 'private, no-store'
 probe 'old avatar / owner' 404 "${BASE_URL}/uploads/${OLD_AVATAR}" 'v020-owner-session'
 
 probe 'pending / owner' 200 "${BASE_URL}/uploads/${PENDING_PATH}" 'v020-owner-session' 'private, no-store'
 probe 'pending / other user' 404 "${BASE_URL}/uploads/${PENDING_PATH}" 'v020-other-session'
 probe 'pending / anonymous' 404 "${BASE_URL}/uploads/${PENDING_PATH}"
 
-probe 'active public / anonymous' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'public, max-age=60, must-revalidate'
-probe 'active public / other user' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" 'v020-other-session' 'public, max-age=60, must-revalidate'
+probe 'active public / anonymous' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'private, no-store'
+probe 'active public / other user' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" 'v020-other-session' 'private, no-store'
 benchmark_attachment_get "${BASE_URL}/uploads/${ACTIVE_PATH}"
 probe 'superseded stale link / owner' 200 "${BASE_URL}/uploads/${SUPERSEDED_PATH}" 'v020-owner-session' 'private, no-store'
 probe 'superseded stale link / anonymous' 404 "${BASE_URL}/uploads/${SUPERSEDED_PATH}"
@@ -304,7 +304,7 @@ probe 'deleted / owner' 404 "${BASE_URL}/uploads/${DELETED_PATH}" 'v020-owner-se
 probe 'purged / anonymous' 404 "${BASE_URL}/uploads/${PURGED_PATH}"
 
 echo '===== [A5] 反向代理授权一致性 ====='
-probe 'proxy active public / anonymous' 200 "${PROXY_URL}/uploads/${ACTIVE_PATH}" '' 'public, max-age=60, must-revalidate'
+probe 'proxy active public / anonymous' 200 "${PROXY_URL}/uploads/${ACTIVE_PATH}" '' 'private, no-store'
 probe 'proxy pending / owner cookie' 200 "${PROXY_URL}/uploads/${PENDING_PATH}" 'v020-owner-session' 'private, no-store'
 probe 'proxy pending / anonymous' 404 "${PROXY_URL}/uploads/${PENDING_PATH}"
 probe 'proxy superseded / anonymous' 404 "${PROXY_URL}/uploads/${SUPERSEDED_PATH}"
@@ -318,24 +318,21 @@ probe 'next/image pending attachment' 404 "$PENDING_OPT_URL" 'v020-owner-session
 echo '===== [A7] 重启后授权与卷仍一致 ====='
 "${COMPOSE[@]}" restart app >/dev/null
 wait_app_ready '重启后应用'
-probe 'restart active public / anonymous' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'public, max-age=60, must-revalidate'
+probe 'restart active public / anonymous' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'private, no-store'
 probe 'restart pending / anonymous' 404 "${BASE_URL}/uploads/${PENDING_PATH}"
 probe 'restart pending / owner' 200 "${BASE_URL}/uploads/${PENDING_PATH}" 'v020-owner-session' 'private, no-store'
 
-echo '===== [A8] 静态 public/uploads 负向对照（测试后立即删除） ====='
-CANARY_REL="replies/${OWNER_ID}/deadbeefdeadbeefdeadbeefdeadbeef.png"
-"${COMPOSE[@]}" exec -u root -T app sh -c \
-  "mkdir -p '/app/public/uploads/$(dirname "$CANARY_REL")' && printf %s canary > '/app/public/uploads/$CANARY_REL'"
-"${COMPOSE[@]}" restart app >/dev/null
-wait_app_ready '静态 canary 重启后应用'
-probe 'public canary is statically visible (sensitivity)' 200 "${BASE_URL}/uploads/${CANARY_REL}"
-
-"${COMPOSE[@]}" exec -u root -T app sh -c \
-  "rm -f '/app/public/uploads/$CANARY_REL' && rmdir '/app/public/uploads/$(dirname "$CANARY_REL")' 2>/dev/null || true"
-"${COMPOSE[@]}" restart app >/dev/null
-wait_app_ready '删除 canary 后应用'
-probe 'removed canary is no longer visible' 404 "${BASE_URL}/uploads/${CANARY_REL}"
-probe 'post-canary active attachment still authorized' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'public, max-age=60, must-revalidate'
+echo '===== [A8] 重启后 legacy public/uploads 必须不存在 ====='
+if "${COMPOSE[@]}" exec -T app test ! -e /app/public/uploads; then
+  echo '  PASS  重启后镜像运行层仍不存在 /app/public/uploads'
+  PASS=$((PASS + 1))
+else
+  echo '  FAIL  重启后出现 /app/public/uploads'
+  FAIL=$((FAIL + 1))
+fi
+LEGACY_STATIC_URL="${BASE_URL}/uploads/replies/${OWNER_ID}/deadbeefdeadbeefdeadbeefdeadbeef.png"
+probe 'legacy static path is not served' 404 "$LEGACY_STATIC_URL"
+probe 'post-restart active attachment still authorized' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'private, no-store'
 
 {
   echo '# v0.0.20 P0-A 附件授权攻击矩阵'

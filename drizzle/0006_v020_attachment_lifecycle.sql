@@ -59,7 +59,9 @@ FROM reply_images ri
 JOIN replies r ON r.id = ri.reply_id
 WHERE r.deleted_at IS NULL
   AND r.author_id = ri.user_id
-  AND position('/uploads/' || ri.storage_path in r.content) > 0
+  AND position('```' in r.content) = 0
+  AND position('~~~' in r.content) = 0
+  AND r.content ~ ('!\[[^]]*\]\(/uploads/' || ri.storage_path || '\)')
 ON CONFLICT (reply_id, attachment_id) DO NOTHING;
 
 UPDATE reply_images ri

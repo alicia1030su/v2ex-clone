@@ -4,7 +4,7 @@
 #
 # 验证目标：
 #   1. 真实 backup.sh 产出一致 bundle；
-#   2. 解包后向 database.sql.gz 中段注入必然失败的 SQL，并重算全部 SHA256；
+#   2. 解包后把 custom dump 截断到 90%，并重算全部 SHA256；
 #   3. restore.sh --yes 必须返回非零，且失败发生在 scratch DB 重放阶段；
 #   4. 失败后目标数据库业务/结构指纹逐字节不变；
 #   5. 截断外层 bundle、损坏内层 dump gzip 都必须被前置校验拒绝；
@@ -87,31 +87,25 @@ else
 fi
 [ -s "$BASE_BUNDLE.sha256" ] && ok "外部 SHA256 sidecar 存在" || bad "缺少外部 SHA256 sidecar"
 
-step "3. 构造合法 bundle，但 database.sql.gz 中段执行必然失败"
+step "3. 构造合法 bundle，但 custom dump 在中途截断"
 STAGE="$(mktemp -d /tmp/v020-atomic-stage.XXXXXX)"
 FAIL_BUNDLE="/tmp/v020-atomic-fail.tar.gz"
 rm -f "$FAIL_BUNDLE" "$FAIL_BUNDLE.sha256"
 tar --no-same-owner -xzf "$BASE_BUNDLE" -C "$STAGE" || { bad "解包基础 bundle 失败"; exit 1; }
-gzip -dc "$STAGE/database.sql.gz" > "$STAGE/database.sql" || { bad "解压 dump 失败"; exit 1; }
-TOTAL_LINES="$(wc -l < "$STAGE/database.sql" | tr -d ' ')"
-MID=$((TOTAL_LINES / 2))
-[ "$MID" -gt 10 ] || { bad "dump 行数异常，无法选择中段注入点"; exit 1; }
-{
-  head -n "$MID" "$STAGE/database.sql"
-  printf '\n-- v0.0.20 atomic fault injection\n'
-  printf 'SELECT * FROM table_that_does_not_exist_v020_atomic;\n'
-  tail -n +$((MID + 1)) "$STAGE/database.sql"
-} > "$STAGE/database.fail.sql"
-gzip -9 -c "$STAGE/database.fail.sql" > "$STAGE/database.sql.gz"
-rm -f "$STAGE/database.sql" "$STAGE/database.fail.sql"
+gzip -dc "$STAGE/database.dump.gz" > "$STAGE/database.dump" || { bad "解压 dump 失败"; exit 1; }
+DUMP_SIZE="$(stat -c%s "$STAGE/database.dump")"
+[ "$DUMP_SIZE" -gt 1024 ] || { bad "custom dump 过小，无法构造中途截断"; exit 1; }
+head -c "$((DUMP_SIZE * 90 / 100))" "$STAGE/database.dump" | gzip -9 > "$STAGE/database.fail.dump.gz"
+mv "$STAGE/database.fail.dump.gz" "$STAGE/database.dump.gz"
+rm -f "$STAGE/database.dump"
 (
   cd "$STAGE"
-  sha256sum database.sql.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
+  sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
 )
 tar -C "$STAGE" -czf "$FAIL_BUNDLE" .
 sha256sum "$FAIL_BUNDLE" > "$FAIL_BUNDLE.sha256"
 gzip -t "$FAIL_BUNDLE" || { bad "失败 bundle 外层 gzip 损坏"; exit 1; }
-[ "$(gzip -cd "$FAIL_BUNDLE" | wc -c)" -gt 0 ] && ok "失败 bundle 结构完整（注入点第 ${MID}/${TOTAL_LINES} 行）" || bad "失败 bundle 为空"
+[ "$(gzip -cd "$FAIL_BUNDLE" | wc -c)" -gt 0 ] && ok "失败 bundle 结构完整（custom dump 截断至 90%）" || bad "失败 bundle 为空"
 
 step "4. 执行恢复：必须非零且目标指纹不变"
 set +e
@@ -119,8 +113,8 @@ bash restore.sh --yes "$FAIL_BUNDLE" >/tmp/v020-restore-fail.log 2>&1
 RC_FAIL=$?
 set -e
 [ "$RC_FAIL" -ne 0 ] && ok "恢复返回非零（${RC_FAIL}）" || bad "失败 bundle 被当成成功"
-if grep -qiE "does not exist|临时数据库重放失败|恢复失败" /tmp/v020-restore-fail.log; then
-  ok "失败发生在 scratch DB / SQL 执行阶段"
+if grep -qiE "unexpected end|pg_restore|临时数据库重放失败|恢复失败" /tmp/v020-restore-fail.log; then
+  ok "失败发生在 scratch DB / pg_restore 阶段"
 else
   bad "失败原因不符合预期"; tail -20 /tmp/v020-restore-fail.log
 fi
@@ -145,10 +139,10 @@ BAD_INNER_STAGE="$(mktemp -d /tmp/v020-bad-inner.XXXXXX)"
 BAD_INNER="/tmp/v020-atomic-bad-inner.tar.gz"
 rm -f "$BAD_INNER" "$BAD_INNER.sha256"
 tar --no-same-owner -xzf "$BASE_BUNDLE" -C "$BAD_INNER_STAGE"
-head -c 128 /dev/urandom > "$BAD_INNER_STAGE/database.sql.gz"
+head -c 128 /dev/urandom > "$BAD_INNER_STAGE/database.dump.gz"
 (
   cd "$BAD_INNER_STAGE"
-  sha256sum database.sql.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
+  sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
 )
 tar -C "$BAD_INNER_STAGE" -czf "$BAD_INNER" .
 sha256sum "$BAD_INNER" > "$BAD_INNER.sha256"

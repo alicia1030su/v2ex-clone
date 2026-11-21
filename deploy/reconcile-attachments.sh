@@ -10,7 +10,7 @@
 #     这类文件可能是旧版本遗留或上传中断产物，默认保留供人工/宽限期处理。
 #
 # 用法：
-#   ./reconcile-attachments.sh
+#   ./reconcile-attachments.sh [--volume <named-volume>]
 # ---------------------------------------------------------------------------
 set -euo pipefail
 umask 077
@@ -20,6 +20,14 @@ cd "$SCRIPT_DIR"
 
 ENV_FILE="$SCRIPT_DIR/.env"
 UPLOAD_DIR="/app/data/uploads"
+VOLUME=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --volume) VOLUME="${2:-}"; shift 2 ;;
+    -h|--help) echo "用法：./reconcile-attachments.sh [--volume <named-volume>]"; exit 0 ;;
+    *) echo "[错误] 未知参数：$1" >&2; exit 2 ;;
+  esac
+done
 
 [ -f "$ENV_FILE" ] || { echo "[错误] 未找到 .env 配置。" >&2; exit 1; }
 command -v docker >/dev/null 2>&1 || { echo "[错误] 未检测到 docker 命令。" >&2; exit 1; }
@@ -32,11 +40,14 @@ POSTGRES_USER="$(read_env_value POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:
 POSTGRES_DB="$(read_env_value POSTGRES_DB)"; POSTGRES_DB="${POSTGRES_DB:-v2ex}"
 COMPOSE=(docker compose --env-file "$ENV_FILE")
 
-APP_CID="$("${COMPOSE[@]}" ps -q app 2>/dev/null | head -1 || true)"
-[ -n "$APP_CID" ] || { echo "[错误] 找不到 app 容器，无法读取 uploads 卷。" >&2; exit 1; }
-MOUNTS="$(docker inspect "$APP_CID" --format '{{json .Mounts}}')"
-printf '%s' "$MOUNTS" | grep -q '"Destination":"/app/data/uploads"' \
-  || { echo "[错误] app 容器未挂载 /app/data/uploads。" >&2; exit 1; }
+if [ -z "$VOLUME" ]; then
+  APP_CID="$("${COMPOSE[@]}" ps -q app 2>/dev/null | head -1 || true)"
+  [ -n "$APP_CID" ] || { echo "[错误] 找不到 app 容器，无法读取 uploads 卷。" >&2; exit 1; }
+  VOLUME="$(docker inspect "$APP_CID" --format '{{range .Mounts}}{{if eq .Destination "/app/data/uploads"}}{{.Name}}{{end}}{{end}}')"
+fi
+[ -n "$VOLUME" ] || { echo "[错误] 找不到 /app/data/uploads 的 named volume。" >&2; exit 1; }
+docker volume inspect "$VOLUME" >/dev/null 2>&1 \
+  || { echo "[错误] uploads named volume 不存在：${VOLUME}" >&2; exit 1; }
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-attachment-reconcile.XXXXXX")"
 chmod 700 "$TMP_DIR"
@@ -75,9 +86,12 @@ else
   exit 1
 fi
 
-"${COMPOSE[@]}" exec -T app sh -c \
-  "find '$UPLOAD_DIR' -type f 2>/dev/null | sed 's#^$UPLOAD_DIR/##'" \
-  > "$TMP_DIR/physical.raw"
+if ! docker run --rm --entrypoint sh -v "${VOLUME}:/data:ro" postgres:17-alpine -c \
+      'set -eu; find /data -type f' > "$TMP_DIR/physical.absolute"; then
+  echo "[错误] 无法枚举 uploads 物理文件；拒绝给出“对账通过”结论。" >&2
+  exit 1
+fi
+sed "s#^/data/##" "$TMP_DIR/physical.absolute" > "$TMP_DIR/physical.raw"
 
 for name in refs purged known physical; do
   LC_ALL=C sort -u "$TMP_DIR/$name.raw" > "$TMP_DIR/$name.sorted"

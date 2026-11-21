@@ -60,7 +60,8 @@ beforeAll(async () => {
         'active ![x](/uploads/replies/1/aaaaaaaaaaaaaaaa.png)');
     INSERT INTO replies (topic_id, author_id, floor, content)
       VALUES ((SELECT id FROM topics WHERE title='migration topic'),
-        (SELECT id FROM users WHERE username='v020_mig_owner'), 2, 'no current image');
+        (SELECT id FROM users WHERE username='v020_mig_owner'), 2,
+        chr(96) || chr(96) || chr(96) || chr(10) || '![x](/uploads/replies/1/bbbbbbbbbbbbbbbb.png)' || chr(10) || chr(96) || chr(96) || chr(96));
     INSERT INTO replies (topic_id, author_id, floor, content)
       VALUES ((SELECT id FROM topics WHERE title='migration topic'),
         (SELECT id FROM users WHERE username='v020_mig_other'), 3,
@@ -69,6 +70,10 @@ beforeAll(async () => {
       VALUES ((SELECT id FROM topics WHERE title='migration topic'),
         (SELECT id FROM users WHERE username='v020_mig_owner'), 4,
         'deleted reply ![x](/uploads/replies/1/dddddddddddddddd.png)', now());
+    INSERT INTO replies (topic_id, author_id, floor, content)
+      VALUES ((SELECT id FROM topics WHERE title='migration topic'),
+        (SELECT id FROM users WHERE username='v020_mig_owner'), 5,
+        'suffix ![x](/uploads/replies/1/ffffffffffffffff.png?download=1)');
 
     INSERT INTO reply_images (user_id, reply_id, storage_path, mime_type, size)
       VALUES
@@ -76,6 +81,7 @@ beforeAll(async () => {
         ((SELECT id FROM users WHERE username='v020_mig_owner'), 2, 'replies/1/bbbbbbbbbbbbbbbb.png', 'image/png', 10),
         ((SELECT id FROM users WHERE username='v020_mig_owner'), 3, 'replies/1/cccccccccccccccc.png', 'image/png', 10),
         ((SELECT id FROM users WHERE username='v020_mig_owner'), 4, 'replies/1/dddddddddddddddd.png', 'image/png', 10),
+        ((SELECT id FROM users WHERE username='v020_mig_owner'), 5, 'replies/1/ffffffffffffffff.png', 'image/png', 10),
         ((SELECT id FROM users WHERE username='v020_mig_owner'), NULL, 'replies/1/eeeeeeeeeeeeeeee.png', 'image/png', 10);
   `);
 
@@ -113,6 +119,7 @@ describe('v0.0.19 → v0.0.20 附件迁移回填', () => {
       'replies/1/bbbbbbbbbbbbbbbb.png',
       'replies/1/cccccccccccccccc.png',
       'replies/1/dddddddddddddddd.png',
+      'replies/1/ffffffffffffffff.png',
     ]) {
       expect(byPath.get(file)?.state).toBe('superseded');
       expect(byPath.get(file)?.purge_after).not.toBeNull();
@@ -128,6 +135,7 @@ describe('v0.0.19 → v0.0.20 附件迁移回填', () => {
       'replies/1/bbbbbbbbbbbbbbbb.png',
       'replies/1/cccccccccccccccc.png',
       'replies/1/dddddddddddddddd.png',
+      'replies/1/ffffffffffffffff.png',
     ]);
   });
 

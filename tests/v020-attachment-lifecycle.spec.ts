@@ -13,6 +13,7 @@ import { provisionTestDatabase, dropTestDatabase } from './helpers/test-db-lifec
 import { adminUrlOf, dbUrlFor, logDbTarget } from './helpers/test-spec-base';
 import {
   AttachmentLinkError,
+  extractReplyImageStoragePaths,
   syncReplyImageLinks,
 } from '../src/server/attachment-links';
 import { resolveReplyImageVisibility } from '../src/server/attachment-access';
@@ -219,6 +220,17 @@ async function unlinkImage(replyId: number, userId: number) {
 }
 
 describe('v0.0.20 附件引用状态机', () => {
+  it('只把真实渲染的精确 Markdown 图片 URL 计入授权', () => {
+    const valid = 'replies/1/aaaaaaaaaaaaaaaa.png';
+    const url = `/uploads/${valid}`;
+    expect(extractReplyImageStoragePaths(`![ok](${url})`)).toEqual([valid]);
+    expect(extractReplyImageStoragePaths(`\`![inline](${url})\``)).toEqual([]);
+    expect(extractReplyImageStoragePaths(`\`\`\`\n![fenced](${url})\n\`\`\``)).toEqual([]);
+    expect(extractReplyImageStoragePaths(`[plain](${url})`)).toEqual([]);
+    expect(extractReplyImageStoragePaths(`![suffix](${url}?download=1)`)).toEqual([]);
+    expect(extractReplyImageStoragePaths(`\\![escaped](${url})`)).toEqual([]);
+  });
+
   it('pending 绑定后建立当前 link 并进入 active', async () => {
     const replyId = await createReply();
     const image = await createImage();

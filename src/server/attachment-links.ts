@@ -4,7 +4,7 @@ import { db, schema } from '@/db';
 import { enqueueAttachmentPurge } from '@/server/attachment-purge';
 
 const REPLY_IMAGE_PATH_RE = /^replies\/\d+\/[a-f0-9]{8,64}\.(png|jpg|webp|gif)$/;
-const REPLY_IMAGE_MARKDOWN_RE = /!\[[^\]]*]\((\/uploads\/(replies\/[^)\s]+))\)/g;
+const REPLY_IMAGE_MARKDOWN_RE = /!\[[^\]\r\n]*]\(\/uploads\/(replies\/\d+\/[a-f0-9]{8,64}\.(?:png|jpg|webp|gif))\)/g;
 const DEFAULT_PURGE_GRACE_SECONDS = 7 * 24 * 60 * 60;
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -16,11 +16,17 @@ export class AttachmentLinkError extends Error {
   }
 }
 
-/** 从回复正文提取服务端规范的回复图片 URL。 */
+/** 从回复正文提取服务端规范的回复图片 URL；代码块、注释与行内码不参与授权。 */
 export function extractReplyImageStoragePaths(content: string): string[] {
+  const rendered = content
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/```[\s\S]*?(?:```|$)/g, ' ')
+    .replace(/~~~[\s\S]*?(?:~~~|$)/g, ' ')
+    .replace(/`[^`\r\n]*`/g, ' ');
   const paths = new Set<string>();
-  for (const match of content.matchAll(REPLY_IMAGE_MARKDOWN_RE)) {
-    const storagePath = match[2];
+  for (const match of rendered.matchAll(REPLY_IMAGE_MARKDOWN_RE)) {
+    if ((match.index ?? 0) > 0 && rendered[match.index! - 1] === '\\') continue;
+    const storagePath = match[1];
     if (REPLY_IMAGE_PATH_RE.test(storagePath)) paths.add(storagePath);
   }
   return [...paths];

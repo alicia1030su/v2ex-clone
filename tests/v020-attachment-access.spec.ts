@@ -210,7 +210,7 @@ describe('v0.0.20 attachment authorization route', () => {
     for (const viewer of [null, owner, other]) {
       const response = await fetchUpload(current, viewer);
       expect(response.status, `current avatar viewer=${viewer?.username ?? 'anonymous'}`).toBe(200);
-      expect(response.headers.get('cache-control')).toBe('public, max-age=60, must-revalidate');
+      expect(response.headers.get('cache-control')).toBe('private, no-store');
     }
 
     const oldByOwner = await fetchUpload(old, owner);
@@ -246,7 +246,7 @@ describe('v0.0.20 attachment authorization route', () => {
     for (const viewer of [null, owner, other]) {
       const response = await fetchUpload(storagePath, viewer);
       expect(response.status, `public image viewer=${viewer?.username ?? 'anonymous'}`).toBe(200);
-      expect(response.headers.get('cache-control')).toBe('public, max-age=60, must-revalidate');
+      expect(response.headers.get('cache-control')).toBe('private, no-store');
       expect(response.headers.get('x-content-type-options')).toBe('nosniff');
       expect(response.headers.get('content-type')).toBe('image/png');
     }

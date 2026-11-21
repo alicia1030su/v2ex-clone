@@ -35,7 +35,6 @@ BACKUP_DIR="$SCRIPT_DIR/backups"
 # 阈值
 DISK_WARN_PERCENT="${DISK_WARN_PERCENT:-85}"   # 磁盘使用率超过 85% 告警
 BACKUP_STALE_DAYS="${BACKUP_STALE_DAYS:-7}"    # 备份超过 7 天未更新告警
-APP_PORT="${APP_PORT:-3000}"
 
 QUIET=0
 [ "${1:-}" = "--quiet" ] && QUIET=1
@@ -60,6 +59,7 @@ read_env_value() {
   [ -f "$ENV_FILE" ] || return 0
   grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/^["'"'"']//; s/["'"'"']$//'
 }
+APP_PORT="$(read_env_value APP_PORT)"; APP_PORT="${APP_PORT:-3000}"
 
 cd "$SCRIPT_DIR" || exit 1
 
@@ -178,8 +178,8 @@ LATEST_BUNDLE="$(ls -t "$BACKUP_DIR"/v2ex-backup-*.tar.gz 2>/dev/null | head -1 
 LEGACY_DUMP="$(ls -t "$BACKUP_DIR"/v2ex-*.sql.gz 2>/dev/null | head -1 || true)"
 if [ -z "$LATEST_BUNDLE" ]; then
   if [ -n "$LEGACY_DUMP" ]; then
-    warn "只找到旧版数据库备份：$(basename "$LEGACY_DUMP")"
-    warn "旧版备份不含 uploads 附件卷，不能作为完整灾难恢复包；请运行 ./backup.sh 生成新 bundle。"
+    err "只找到旧版数据库备份：$(basename "$LEGACY_DUMP")"
+    err "旧版备份不含 uploads 附件卷，不能作为完整灾难恢复包；请运行 ./backup.sh 生成新 bundle。"
   else
     err "没有任何备份文件（$BACKUP_DIR）—— 建议立即执行 ./backup.sh"
   fi
@@ -202,7 +202,7 @@ else
       err "bundle SHA256 不匹配（备份可能被改动）"
     fi
   else
-    warn "bundle 缺少 .sha256 sidecar（完整性保护降级）"
+    err "bundle 缺少 .sha256 sidecar（完整性保护降级）"
   fi
 
   VERIFY_TMP="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-health.XXXXXX")"
@@ -223,6 +223,12 @@ else
       && tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP" 2>/dev/null \
       && [ -f "$VERIFY_TMP/SHA256SUMS" ] \
       && [ -f "$VERIFY_TMP/manifest.env" ] \
+      && [ -f "$VERIFY_TMP/database.dump.gz" ] \
+      && [ -f "$VERIFY_TMP/uploads.tar.gz" ] \
+      && [ -f "$VERIFY_TMP/uploads-files.tsv" ] \
+      && [ -f "$VERIFY_TMP/migration-journal.json" ] \
+      && gzip -t "$VERIFY_TMP/database.dump.gz" 2>/dev/null \
+      && gzip -t "$VERIFY_TMP/uploads.tar.gz" 2>/dev/null \
       && ( cd "$VERIFY_TMP" && sha256sum -c SHA256SUMS >/dev/null 2>&1 ); then
     ok "bundle 内 manifest 与成员 SHA256 校验通过"
   elif [ "$ARCHIVE_SAFE" -eq 1 ]; then

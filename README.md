@@ -322,10 +322,10 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
 > 的规约保持原样 —— **建议使用 v0.0.18，不要用 v0.0.9**。
 
-下载 [`v2ex-clone-v0.0.18-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.18/v2ex-clone-v0.0.18-deploy.zip) 并解压。
+下载 [`v2ex-clone-v0.0.19-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.19/v2ex-clone-v0.0.19-deploy.zip) 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.18-deploy.zip -d v2ex-clone-v0.0.18-deploy && cd v2ex-clone-v0.0.18-deploy/deploy`
+> `unzip v2ex-clone-v0.0.19-deploy.zip -d v2ex-clone-v0.0.19-deploy && cd v2ex-clone-v0.0.19-deploy/deploy`
 >
 > ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
@@ -388,7 +388,7 @@ docker compose up -d
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
 | **最新已发布版本（v0.0.18）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18> |
-| 一键部署安装包 | [`v2ex-clone-v0.0.18-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.18/v2ex-clone-v0.0.18-deploy.zip)（含 `SHA256SUMS`） |
+| 一键部署安装包 | [`v2ex-clone-v0.0.19-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.19/v2ex-clone-v0.0.19-deploy.zip)（含 `SHA256SUMS`） |
 | 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18` |
 | 上一版本（v0.0.17） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17> |
 | 更早版本（v0.0.16） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.16> |

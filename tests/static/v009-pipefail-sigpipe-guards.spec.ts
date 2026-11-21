@@ -109,6 +109,10 @@ const BIG_DUMP_AWK =
 const FAKE_DOCKER = `#!/usr/bin/env bash
 set -u
 cmd="$*"
+if [ "$1" = "info" ]; then
+  echo /tmp
+  exit 0
+fi
 if [ "$cmd" = "compose version" ]; then exit 0; fi
 case "$cmd" in
   *"compose "*"ps -q app"*) echo fakeapp; exit 0 ;;
@@ -138,7 +142,12 @@ case "$cmd" in
     if [ "\${FAKE_DUMP_MODE:-big}" = "empty" ]; then
       exit 0
     fi
+    printf 'PGDMP'
     awk '${BIG_DUMP_AWK}'
+    exit 0
+    ;;
+  *"compose exec -T postgres pg_restore"*)
+    cat > /dev/null
     exit 0
     ;;
   *"compose exec -T postgres psql"*)
@@ -294,9 +303,14 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     // 真实解包后读取，避免不同 tar 实现对 “./member” 与 “member” 的差异。
     const extract = mkdtempSync(path.join(os.tmpdir(), 'v009-bundle-'));
     try {
-      expect(spawnSync('tar', ['-xzf', bundlePath, '-C', extract]).status, '解包 bundle 失败').toBe(0);
-      const dumpPath = path.join(extract, 'database.sql.gz');
-      expect(existsSync(dumpPath), 'bundle 缺少 database.sql.gz').toBe(true);
+      const extractRun = spawnSync(
+        'bash',
+        ['-c', 'tar -xzf "$1" -C "$2"', 'v009-extract', bundlePath, extract],
+        { encoding: 'utf8' },
+      );
+      expect(extractRun.status, `解包 bundle 失败：${extractRun.stderr}`).toBe(0);
+      const dumpPath = path.join(extract, 'database.dump.gz');
+      expect(existsSync(dumpPath), 'bundle 缺少 database.dump.gz').toBe(true);
       const dumpBytes = spawnSync(
         'bash',
         ['-c', `gzip -cd ${JSON.stringify(dumpPath)} | wc -c`],
@@ -370,23 +384,28 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     ).toBe(0);
     expect(okRun.stdout).toContain('恢复完成并通过恢复后核验');
 
-    // 构造一个结构完整、SHA256 全部重算、但 database.sql.gz 解压后为 0 字节的 bundle。
+    // 构造一个结构完整、SHA256 全部重算、但 database.dump.gz 解压后为 0 字节的 bundle。
     const stage = mkdtempSync(path.join(os.tmpdir(), 'v009-empty-bundle-'));
     const emptyName = 'v2ex-empty-dump.tar.gz';
     const emptyPath = path.join(backupsDir, emptyName);
     try {
-      expect(spawnSync('tar', ['-xzf', goodPath, '-C', stage]).status, '解包正常 bundle 失败').toBe(0);
-      const made = spawnSync('bash', ['-c', `printf '' | gzip -9 > ${JSON.stringify(path.join(stage, 'database.sql.gz'))}`], {
+      const unpack = spawnSync(
+        'bash',
+        ['-c', 'tar -xzf "$1" -C "$2"', 'v009-unpack', goodPath, stage],
+        { encoding: 'utf8' },
+      );
+      expect(unpack.status, `解包正常 bundle 失败：${unpack.stderr}`).toBe(0);
+      const made = spawnSync('bash', ['-c', `printf '' | gzip -9 > ${JSON.stringify(path.join(stage, 'database.dump.gz'))}`], {
         encoding: 'utf8',
       });
       expect(made.status, made.stderr).toBe(0);
-      expect(spawnSync('gzip', ['-t', path.join(stage, 'database.sql.gz')]).status).toBe(0);
+      expect(spawnSync('gzip', ['-t', path.join(stage, 'database.dump.gz')]).status).toBe(0);
 
       const sums = spawnSync(
         'bash',
         [
           '-c',
-          'cd "$1" && sha256sum database.sql.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS',
+          'cd "$1" && sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS',
           'v009-sums',
           stage,
         ],

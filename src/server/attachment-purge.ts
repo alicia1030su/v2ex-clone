@@ -55,7 +55,6 @@ async function claimPurgeItems(limit: number, workerId: string): Promise<QueueRo
         AND (locked_at IS NULL OR locked_at < now() - ${LOCK_TIMEOUT_MS} * interval '1 millisecond')
       ORDER BY purge_after, id
       LIMIT ${Math.max(1, Math.min(limit, 200))}
-      FOR UPDATE SKIP LOCKED
     `));
 
     const claimed: QueueRow[] = [];

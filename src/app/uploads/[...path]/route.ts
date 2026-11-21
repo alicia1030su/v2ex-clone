@@ -108,11 +108,9 @@ export async function GET(
       'Content-Length': String(size),
       // 禁止 MIME 嗅探（防止上传的 SVG/HTML 被当脚本执行）
       'X-Content-Type-Options': 'nosniff',
-      // 公共附件允许短时共享缓存但每次必须回源校验，确保软删/隐藏后快速撤销；
-      // 私有附件（未绑定或内容不可见）绝不进入共享缓存。
-      'Cache-Control': visibility.isPublic
-        ? 'public, max-age=60, must-revalidate'
-        : 'private, no-store',
+      // 附件授权状态可在任意时刻被软删除、隐藏节点或 purge 撤销。
+      // 因此全部响应禁止共享/浏览器缓存，确保撤销后立即生效。
+      'Cache-Control': 'private, no-store',
     },
   });
 }

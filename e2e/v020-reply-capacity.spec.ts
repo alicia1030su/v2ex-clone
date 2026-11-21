@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import postgres from 'postgres';
 
 // 10000 回复夹具只在 core 全量 E2E 跑一次；跨浏览器矩阵跳过，避免重复灌库。
@@ -45,7 +45,7 @@ test.afterAll(async () => {
   await client.end({ timeout: 5 });
 });
 
-describe('v0.0.20 10000 回复七种展示模式容量', () => {
+test.describe('v0.0.20 10000 回复七种展示模式容量', () => {
   test('首屏、末页与七种模式均保持有界 DOM', async ({ page }) => {
     test.setTimeout(120_000);
     const runtimeErrors: string[] = [];

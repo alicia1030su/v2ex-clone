@@ -36,6 +36,9 @@ ASSUME_YES=0
 RESTORE_ENV=0
 LEGACY_DB_ONLY=0
 BUNDLE=""
+BUNDLE_SNAPSHOT=""
+RECOVERY_MARKER="$BACKUP_DIR/.restore-in-progress"
+MAX_BUNDLE_UNCOMPRESSED_BYTES="${MAX_BUNDLE_UNCOMPRESSED_BYTES:-2147483648}"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   C_RED=$'\033[31m'; C_GRN=$'\033[32m'; C_BLU=$'\033[34m'; C_YEL=$'\033[33m'; C_BLD=$'\033[1m'; C_RST=$'\033[0m'
@@ -90,6 +93,7 @@ if command -v flock >/dev/null 2>&1; then
   exec 9>"$BACKUP_DIR/.restore.lock"
   flock -n 9 || die "已有另一个恢复进程正在运行。"
 fi
+[ ! -e "$RECOVERY_MARKER" ] || die "检测到未完成的恢复现场：${RECOVERY_MARKER}。禁止自动覆盖，请按 marker 内容人工处置。"
 
 read_env_value() {
   local key="$1"
@@ -119,6 +123,16 @@ if gzip -t "$BUNDLE" 2>/dev/null && ! tar -tzf "$BUNDLE" >/dev/null 2>&1; then
   die "检测到 v0.0.19 旧版纯数据库 dump；它不含 uploads，不能作为完整 bundle。如确认只恢复数据库，请使用 --legacy-db-only。"
 fi
 
+# 把输入复制成脚本私有快照，避免校验后被原路径替换（TOCTOU）。
+[ ! -L "$BUNDLE" ] || die "备份 bundle 不能是符号链接。"
+ORIGINAL_BUNDLE="$BUNDLE"
+SHA_SIDECAR="${ORIGINAL_BUNDLE}.sha256"
+BUNDLE_SNAPSHOT="$(mktemp "$SCRIPT_DIR/.restore-input.XXXXXX")"
+chmod 600 "$BUNDLE_SNAPSHOT"
+cp "$ORIGINAL_BUNDLE" "$BUNDLE_SNAPSHOT"
+BUNDLE="$BUNDLE_SNAPSHOT"
+trap 'rm -f "$BUNDLE_SNAPSHOT" 2>/dev/null || true' EXIT
+
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | cut -d ' ' -f 1
@@ -130,18 +144,23 @@ sha256_file() {
 validate_tar_archive() {
   local archive="$1" label="$2"
   gzip -t "$archive" 2>/dev/null || die "${label} gzip 结构损坏。"
-  if tar -tzf "$archive" | awk '
-      { entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
+  local list_cmd=(tar -tzf "$archive")
+  if command -v timeout >/dev/null 2>&1; then list_cmd=(timeout 60 tar -tzf "$archive"); fi
+  if "${list_cmd[@]}" | awk '
+      { entries++; if (entries > 10000) bad=1
+        entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
         if (entry ~ /^\// || entry == ".." || entry ~ /(^|\/)\.\.(\/|$)/) bad=1 }
       END { exit bad ? 1 : 0 }'; then
     :
   else
-    die "${label} 包含绝对路径或 .. 路径穿越。"
+    die "${label} 包含绝对路径、.. 路径穿越、过多成员或解压超时。"
   fi
-  if tar -tvzf "$archive" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
+  local meta_cmd=(tar -tvzf "$archive")
+  if command -v timeout >/dev/null 2>&1; then meta_cmd=(timeout 60 tar -tvzf "$archive"); fi
+  if "${meta_cmd[@]}" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
     :
   else
-    die "${label} 包含符号链接、硬链接、设备或 FIFO。"
+    die "${label} 包含符号链接、硬链接、设备文件、FIFO 或解压超时。"
   fi
 }
 
@@ -159,7 +178,6 @@ EOF
 
 validate_tar_archive "$BUNDLE" "备份 bundle"
 BUNDLE_SHA="$(sha256_file "$BUNDLE")"
-SHA_SIDECAR="${BUNDLE}.sha256"
 if [ -f "$SHA_SIDECAR" ]; then
   EXPECTED_BUNDLE_SHA="$(awk 'NR==1 {print $1}' "$SHA_SIDECAR")"
   [ "$EXPECTED_BUNDLE_SHA" = "$BUNDLE_SHA" ] || die "备份 bundle 外部 SHA256 不匹配。"
@@ -170,10 +188,22 @@ else
   die "缺少 ${SHA_SIDECAR}；拒绝恢复。可使用 --force 显式降级。"
 fi
 
+case "$MAX_BUNDLE_UNCOMPRESSED_BYTES" in
+  ''|*[!0-9]*) die "MAX_BUNDLE_UNCOMPRESSED_BYTES 必须是正整数。" ;;
+esac
+[ "$MAX_BUNDLE_UNCOMPRESSED_BYTES" -gt 0 ] || die "MAX_BUNDLE_UNCOMPRESSED_BYTES 必须大于 0。"
+BUNDLE_BOMB_CMD=(gzip -dc "$BUNDLE")
+if command -v timeout >/dev/null 2>&1; then BUNDLE_BOMB_CMD=(timeout 120 gzip -dc "$BUNDLE"); fi
+BUNDLE_UNCOMPRESSED_BYTES="$("${BUNDLE_BOMB_CMD[@]}" | wc -c | tr -d ' ')"
+[ "$BUNDLE_UNCOMPRESSED_BYTES" -le "$MAX_BUNDLE_UNCOMPRESSED_BYTES" ] \
+  || die "bundle 解压后 ${BUNDLE_UNCOMPRESSED_BYTES} 字节，超过上限 ${MAX_BUNDLE_UNCOMPRESSED_BYTES}。"
+info "bundle 解压大小 ${BUNDLE_UNCOMPRESSED_BYTES} 字节（上限 ${MAX_BUNDLE_UNCOMPRESSED_BYTES}）。"
+
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-restore.XXXXXX")"
 chmod 700 "$STAGE"
 APP_WAS_PRESENT=0
 APP_REMOVED=0
+DB_COMMITTED=0
 NEW_VOLUME=""
 OLD_VOLUME_BACKUP=""
 RESTART_APP=0
@@ -185,11 +215,16 @@ cleanup() {
     docker compose exec -T postgres dropdb --if-exists --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null 2>&1 || true
   fi
   if [ "$APP_REMOVED" -eq 1 ] || [ "$RESTART_APP" -eq 1 ]; then
-    docker compose up -d app >/dev/null 2>&1 || true
+    if [ "$DB_COMMITTED" -eq 0 ]; then
+      docker compose up -d app >/dev/null 2>&1 || true
+    else
+      warn "恢复已进入跨资源不确定区；不自动启动 app。现场 marker：${RECOVERY_MARKER}"
+    fi
   fi
   if [ -n "$NEW_VOLUME" ]; then
     docker volume rm "$NEW_VOLUME" >/dev/null 2>&1 || true
   fi
+  [ -z "$BUNDLE_SNAPSHOT" ] || rm -f "$BUNDLE_SNAPSHOT" 2>/dev/null || true
   rm -rf "$STAGE" 2>/dev/null || true
   return "$rc"
 }
@@ -210,10 +245,12 @@ trap 'on_signal INT' INT
 trap 'on_signal TERM' TERM
 
 mkdir -p "$STAGE/bundle" "$STAGE/uploads"
-tar --no-same-owner -xzf "$BUNDLE" -C "$STAGE/bundle"
+EXTRACT_CMD=(tar --no-same-owner -xzf "$BUNDLE" -C "$STAGE/bundle")
+if command -v timeout >/dev/null 2>&1; then EXTRACT_CMD=(timeout 120 tar --no-same-owner -xzf "$BUNDLE" -C "$STAGE/bundle"); fi
+"${EXTRACT_CMD[@]}" || die "bundle 解包失败或超时。"
 BUNDLE_DIR="$STAGE/bundle"
 
-for f in manifest.json manifest.env SHA256SUMS database.sql.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json; do
+for f in manifest.json manifest.env SHA256SUMS database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json; do
   [ -f "$BUNDLE_DIR/$f" ] || die "bundle 缺少必需文件：$f"
   [ ! -L "$BUNDLE_DIR/$f" ] || die "bundle 必需文件是符号链接：$f"
 done
@@ -226,22 +263,41 @@ chmod 600 "$BUNDLE_DIR/env"
 ok "bundle 内 SHA256SUMS 校验通过。"
 
 if awk -F= '
-    NF != 2 || $1 !~ /^[A-Z_][A-Z0-9_]*$/ || $2 ~ /[\r\n]/ { bad=1 }
+    BEGIN {
+      allowed["BACKUP_FORMAT"]=1; allowed["CREATED_AT"]=1; allowed["APP_VERSION"]=1;
+      allowed["APP_IMAGE_ID"]=1; allowed["APP_REPO_DIGEST"]=1; allowed["COMPOSE_PROJECT"]=1;
+      allowed["UPLOADS_VOLUME"]=1; allowed["REDIS_POLICY"]=1; allowed["MIGRATIONS"]=1;
+      allowed["DB_USERS"]=1; allowed["DB_TOPICS"]=1; allowed["DB_REPLIES"]=1;
+      allowed["DB_AVATARS"]=1; allowed["DB_REPLY_IMAGES"]=1;
+      allowed["UPLOAD_FILE_COUNT"]=1; allowed["UPLOAD_BYTES"]=1;
+    }
+    NF != 2 || $1 !~ /^[A-Z_][A-Z0-9_]*$/ || !($1 in allowed) || $2 ~ /[\r\n]/ { bad=1 }
     END { exit bad ? 1 : 0 }' "$BUNDLE_DIR/manifest.env"; then
   :
 else
-  die "manifest.env 格式非法。"
+  die "manifest.env 格式非法或包含未授权键。"
 fi
-# shellcheck disable=SC1091
-source "$BUNDLE_DIR/manifest.env"
+manifest_value() {
+  awk -F= -v key="$1" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$BUNDLE_DIR/manifest.env"
+}
+BACKUP_FORMAT="$(manifest_value BACKUP_FORMAT)"
+APP_VERSION="$(manifest_value APP_VERSION)"
+MIGRATIONS="$(manifest_value MIGRATIONS)"
+DB_USERS="$(manifest_value DB_USERS)"
+DB_TOPICS="$(manifest_value DB_TOPICS)"
+DB_REPLIES="$(manifest_value DB_REPLIES)"
+DB_AVATARS="$(manifest_value DB_AVATARS)"
+DB_REPLY_IMAGES="$(manifest_value DB_REPLY_IMAGES)"
+UPLOAD_FILE_COUNT="$(manifest_value UPLOAD_FILE_COUNT)"
+UPLOAD_BYTES="$(manifest_value UPLOAD_BYTES)"
 
-[ "${BACKUP_FORMAT:-}" = "v2" ] || die "不支持的备份格式：${BACKUP_FORMAT:-missing}"
+[ "$BACKUP_FORMAT" = "v3" ] || die "不支持的备份格式：${BACKUP_FORMAT:-missing}"
 for v in MIGRATIONS DB_USERS DB_TOPICS DB_REPLIES DB_AVATARS DB_REPLY_IMAGES UPLOAD_FILE_COUNT UPLOAD_BYTES; do
   case "${!v:-}" in
     ''|*[!0-9]*) die "manifest.env 中 ${v} 不是非负整数：${!v:-missing}" ;;
   esac
 done
-case "${APP_VERSION:-}" in
+case "$APP_VERSION" in
   ''|*[!0-9.]*) die "manifest.env 中 APP_VERSION 非法。" ;;
 esac
 
@@ -252,11 +308,15 @@ if [ "$BACKUP_VERSION_NUM" -gt "$CURRENT_VERSION_NUM" ] && [ "$FORCE" -eq 0 ]; t
 fi
 info "备份版本 v${APP_VERSION}（迁移 ${MIGRATIONS} 条）→ 目标 v${CURRENT_VERSION}。"
 
-gzip -t "$BUNDLE_DIR/database.sql.gz" 2>/dev/null || die "数据库备份 gzip 结构损坏。"
-DUMP_BYTES="$(gzip -cd "$BUNDLE_DIR/database.sql.gz" | awk '{ bytes += length($0) + 1 } END { print bytes + 0 }')"
+gzip -t "$BUNDLE_DIR/database.dump.gz" 2>/dev/null || die "数据库备份 gzip 结构损坏。"
+DUMP_BYTES="$(gzip -cd "$BUNDLE_DIR/database.dump.gz" | wc -c | tr -d ' ')"
 [ "$DUMP_BYTES" -gt 0 ] || die "数据库备份内容为空。"
+DUMP_MAGIC="$(gzip -dc "$BUNDLE_DIR/database.dump.gz" | dd bs=5 count=1 status=none 2>/dev/null || true)"
+[ "$DUMP_MAGIC" = "PGDMP" ] || die "数据库备份不是 PostgreSQL custom-format dump。"
 validate_tar_archive "$BUNDLE_DIR/uploads.tar.gz" "uploads 归档"
-tar --no-same-owner -xzf "$BUNDLE_DIR/uploads.tar.gz" -C "$STAGE/uploads"
+UPLOADS_EXTRACT_CMD=(tar --no-same-owner -xzf "$BUNDLE_DIR/uploads.tar.gz" -C "$STAGE/uploads")
+if command -v timeout >/dev/null 2>&1; then UPLOADS_EXTRACT_CMD=(timeout 120 tar --no-same-owner -xzf "$BUNDLE_DIR/uploads.tar.gz" -C "$STAGE/uploads"); fi
+"${UPLOADS_EXTRACT_CMD[@]}" || die "uploads 归档解包失败或超时。"
 [ -z "$(find "$STAGE/uploads" -type l -print -quit)" ] || die "uploads 归档解压后出现符号链接。"
 
 ACTUAL_UPLOADS="$STAGE/uploads-files.actual.tsv"
@@ -279,32 +339,49 @@ ACTUAL_UPLOAD_COUNT="$(wc -l < "$ACTUAL_UPLOADS" | tr -d ' ')"
 [ "$ACTUAL_UPLOAD_COUNT" -eq "$UPLOAD_FILE_COUNT" ] || die "uploads 文件数量与 manifest 不一致。"
 ok "数据库与 uploads 归档、逐文件 SHA256 校验通过。"
 
-AVAILABLE_KB="$(df -Pk "$SCRIPT_DIR" | awk 'NR==2 {print $4}')"
+DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)"
+[ -n "$DOCKER_ROOT" ] && [ -d "$DOCKER_ROOT" ] || die "无法确定 DockerRootDir；拒绝在空间状态未知时继续。"
+SCRIPT_AVAILABLE_KB="$(df -Pk "$SCRIPT_DIR" | awk 'NR==2 {print $4}')"
+DOCKER_AVAILABLE_KB="$(df -Pk "$DOCKER_ROOT" | awk 'NR==2 {print $4}')"
+TMP_AVAILABLE_KB="$(df -Pk "$STAGE" | awk 'NR==2 {print $4}')"
 STAGED_KB="$(du -sk "$STAGE" | awk '{print $1}')"
-REQUIRED_KB=$((STAGED_KB + 512 * 1024))
-[ "$AVAILABLE_KB" -ge "$REQUIRED_KB" ] || die "磁盘空间不足：需要约 ${REQUIRED_KB}KB，可用 ${AVAILABLE_KB}KB。"
-info "磁盘空间检查通过（暂存 ${STAGED_KB}KB / 可用 ${AVAILABLE_KB}KB）。"
+COMMON_REQUIRED_KB=$((STAGED_KB + 512 * 1024))
+DOCKER_REQUIRED_KB=$(( (UPLOAD_BYTES / 1024) * 2 + 512 * 1024 ))
+[ "$SCRIPT_AVAILABLE_KB" -ge "$COMMON_REQUIRED_KB" ] \
+  || die "安装目录磁盘空间不足：需要约 ${COMMON_REQUIRED_KB}KB，可用 ${SCRIPT_AVAILABLE_KB}KB。"
+[ "$TMP_AVAILABLE_KB" -ge "$COMMON_REQUIRED_KB" ] \
+  || die "临时目录磁盘空间不足：需要约 ${COMMON_REQUIRED_KB}KB，可用 ${TMP_AVAILABLE_KB}KB。"
+[ "$DOCKER_AVAILABLE_KB" -ge "$DOCKER_REQUIRED_KB" ] \
+  || die "DockerRootDir 磁盘空间不足：需要约 ${DOCKER_REQUIRED_KB}KB，可用 ${DOCKER_AVAILABLE_KB}KB。"
+info "磁盘空间检查通过（暂存 ${STAGED_KB}KB / DockerRoot ${DOCKER_AVAILABLE_KB}KB）。"
 
 # 在临时数据库中完整重放 dump。只有语义可恢复且关键行数与 manifest 一致，
 # 才允许触碰目标数据库。
 SCRATCH_DB="v2ex_restore_verify_$(date -u +%s)"
 info "在临时数据库 ${SCRATCH_DB} 重放 dump..."
 docker compose exec -T postgres createdb --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null
-if ! gzip -dc "$BUNDLE_DIR/database.sql.gz" \
-    | docker compose exec -T postgres psql \
+if ! gzip -dc "$BUNDLE_DIR/database.dump.gz" \
+    | docker compose exec -T postgres pg_restore \
         --username="$POSTGRES_USER" \
         --dbname="$SCRATCH_DB" \
         --single-transaction \
-        --quiet \
-        -v ON_ERROR_STOP=1 >/dev/null; then
+        --clean --if-exists \
+        --no-owner --no-acl \
+        --exit-on-error >/dev/null; then
   die "临时数据库重放失败；目标数据尚未修改。"
 fi
-SCRATCH_USERS="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -t -A -c 'SELECT count(*) FROM users;' | tr -d ' \r\n')"
-SCRATCH_TOPICS="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -t -A -c 'SELECT count(*) FROM topics;' | tr -d ' \r\n')"
-SCRATCH_REPLIES="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -t -A -c 'SELECT count(*) FROM replies;' | tr -d ' \r\n')"
-[ "$SCRATCH_USERS" -eq "$DB_USERS" ] || die "临时库 users=%s 与 manifest=%s 不一致。" "$SCRATCH_USERS" "$DB_USERS"
-[ "$SCRATCH_TOPICS" -eq "$DB_TOPICS" ] || die "临时库 topics=%s 与 manifest=%s 不一致。" "$SCRATCH_TOPICS" "$DB_TOPICS"
-[ "$SCRATCH_REPLIES" -eq "$DB_REPLIES" ] || die "临时库 replies=%s 与 manifest=%s 不一致。" "$SCRATCH_REPLIES" "$DB_REPLIES"
+SCRATCH_USERS="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -q -t -A -c 'SELECT count(*) FROM users;' | tr -d ' \r\n')"
+SCRATCH_TOPICS="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -q -t -A -c 'SELECT count(*) FROM topics;' | tr -d ' \r\n')"
+SCRATCH_REPLIES="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -q -t -A -c 'SELECT count(*) FROM replies;' | tr -d ' \r\n')"
+SCRATCH_AVATARS="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -q -t -A -c 'SELECT count(*) FROM avatars;' | tr -d ' \r\n')"
+SCRATCH_REPLY_IMAGES="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -q -t -A -c 'SELECT count(*) FROM reply_images;' | tr -d ' \r\n')"
+SCRATCH_MIGRATIONS="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$SCRATCH_DB" -X -q -t -A -c 'SELECT count(*) FROM drizzle.__drizzle_migrations;' | tr -d ' \r\n')"
+[ "$SCRATCH_USERS" -eq "$DB_USERS" ] || die "临时库 users=${SCRATCH_USERS} 与 manifest=${DB_USERS} 不一致。"
+[ "$SCRATCH_TOPICS" -eq "$DB_TOPICS" ] || die "临时库 topics=${SCRATCH_TOPICS} 与 manifest=${DB_TOPICS} 不一致。"
+[ "$SCRATCH_REPLIES" -eq "$DB_REPLIES" ] || die "临时库 replies=${SCRATCH_REPLIES} 与 manifest=${DB_REPLIES} 不一致。"
+[ "$SCRATCH_AVATARS" -eq "$DB_AVATARS" ] || die "临时库 avatars=${SCRATCH_AVATARS} 与 manifest=${DB_AVATARS} 不一致。"
+[ "$SCRATCH_REPLY_IMAGES" -eq "$DB_REPLY_IMAGES" ] || die "临时库 reply_images=${SCRATCH_REPLY_IMAGES} 与 manifest=${DB_REPLY_IMAGES} 不一致。"
+[ "$SCRATCH_MIGRATIONS" -eq "$MIGRATIONS" ] || die "临时库 migrations=${SCRATCH_MIGRATIONS} 与 manifest=${MIGRATIONS} 不一致。"
 docker compose exec -T postgres dropdb --if-exists --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null
 SCRATCH_DB=""
 ok "临时数据库重放与关键行数核验通过。"
@@ -315,11 +392,18 @@ UPLOADS_VOLUME="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination
 [ -n "$UPLOADS_VOLUME" ] || die "找不到 /app/data/uploads 的 named volume。"
 APP_WAS_PRESENT=1
 
-DB_USERS_CURRENT="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -t -A -c 'SELECT count(*) FROM users;' 2>/dev/null | tr -d ' \r\n' || true)"
+if ! DB_USERS_CURRENT="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -q -t -A -c 'SELECT count(*) FROM users;' 2>/dev/null | tr -d ' \r\n')"; then
+  die "无法读取目标数据库 users 计数；拒绝在目标状态未知时覆盖。"
+fi
 case "$DB_USERS_CURRENT" in
-  ''|*[!0-9]*) DB_USERS_CURRENT=0 ;;
+  ''|*[!0-9]*) die "目标数据库 users 计数非法：${DB_USERS_CURRENT:-empty}" ;;
 esac
-UPLOADS_CURRENT="$(docker run --rm --entrypoint sh -v "${UPLOADS_VOLUME}:/data:ro" postgres:17-alpine -c 'find /data -type f | wc -l' | tr -d ' \r\n')"
+if ! UPLOADS_CURRENT="$(docker run --rm --entrypoint sh -v "${UPLOADS_VOLUME}:/data:ro" postgres:17-alpine -c 'find /data -type f | wc -l' 2>/dev/null | tr -d ' \r\n')"; then
+  die "无法读取目标 uploads 文件数；拒绝在目标状态未知时覆盖。"
+fi
+case "$UPLOADS_CURRENT" in
+  ''|*[!0-9]*) die "目标 uploads 文件数非法：${UPLOADS_CURRENT:-empty}" ;;
+esac
 TARGET_HAS_DATA=0
 if [ "$DB_USERS_CURRENT" -gt 0 ] || [ "$UPLOADS_CURRENT" -gt 0 ]; then
   TARGET_HAS_DATA=1
@@ -361,16 +445,34 @@ docker compose rm -f app >/dev/null
 APP_REMOVED=1
 
 info "在单事务中恢复 PostgreSQL..."
-if ! gzip -dc "$BUNDLE_DIR/database.sql.gz" \
-    | docker compose exec -T postgres psql \
+if ! gzip -dc "$BUNDLE_DIR/database.dump.gz" \
+    | docker compose exec -T postgres pg_restore \
         --username="$POSTGRES_USER" \
         --dbname="$POSTGRES_DB" \
         --single-transaction \
-        --quiet \
-        -v ON_ERROR_STOP=1; then
+        --clean --if-exists \
+        --no-owner --no-acl \
+        --exit-on-error; then
   die "PostgreSQL 恢复失败；原 uploads 卷尚未改动。"
 fi
-ok "PostgreSQL 恢复完成。"
+DB_COMMITTED=1
+cat > "$RECOVERY_MARKER" <<EOF
+state=db-committed
+bundle_sha256=${BUNDLE_SHA}
+original_bundle=${ORIGINAL_BUNDLE}
+safety_bundle=${SAFETY:-none}
+started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+EOF
+chmod 600 "$RECOVERY_MARKER"
+command -v sync >/dev/null 2>&1 && sync || true
+ok "PostgreSQL 恢复完成；已写入恢复现场 marker。"
+
+DB_USERS_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -q -t -A -c 'SELECT count(*) FROM users;' | tr -d ' \r\n')"
+DB_TOPICS_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -q -t -A -c 'SELECT count(*) FROM topics;' | tr -d ' \r\n')"
+DB_REPLIES_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -q -t -A -c 'SELECT count(*) FROM replies;' | tr -d ' \r\n')"
+[ "$DB_USERS_AFTER" -eq "$DB_USERS" ] || die "恢复后 users 数量不一致：${DB_USERS_AFTER} != ${DB_USERS}"
+[ "$DB_TOPICS_AFTER" -eq "$DB_TOPICS" ] || die "恢复后 topics 数量不一致：${DB_TOPICS_AFTER} != ${DB_TOPICS}"
+[ "$DB_REPLIES_AFTER" -eq "$DB_REPLIES" ] || die "恢复后 replies 数量不一致：${DB_REPLIES_AFTER} != ${DB_REPLIES}"
 
 info "把 uploads 恢复到新 named volume 并复核..."
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
@@ -401,9 +503,16 @@ fi
 ok "新 uploads 卷校验通过（${UPLOAD_FILE_COUNT} 个文件）。"
 
 OLD_VOLUME_BACKUP="${UPLOADS_VOLUME}.pre-restore-${STAMP}"
-volume_file_count() {
-  docker run --rm --entrypoint sh -v "$1:/data:ro" postgres:17-alpine -c 'find /data -type f | wc -l' \
-    | tr -d ' \r\n'
+volume_file_list() {
+  docker run --rm --entrypoint sh -v "$1:/data:ro" postgres:17-alpine -c '
+    set -eu
+    find /data -type f | LC_ALL=C sort | while IFS= read -r f; do
+      rel=${f#/data/}
+      size=$(wc -c < "$f")
+      sha=$(sha256sum "$f" | cut -d " " -f 1)
+      printf "%s\t%s\t%s\n" "$rel" "$size" "$sha"
+    done
+  '
 }
 
 info "备份原 uploads 卷到 ${OLD_VOLUME_BACKUP}..."
@@ -411,14 +520,18 @@ docker volume create "$OLD_VOLUME_BACKUP" >/dev/null
 if ! docker run --rm \
       -v "${UPLOADS_VOLUME}:/old:ro" \
       -v "${OLD_VOLUME_BACKUP}:/backup" \
-      postgres:17-alpine sh -c 'cp -a /old/. /backup/'; then
+      postgres:17-alpine sh -c 'cp -a /old/. /backup/; sync'; then
   die "原 uploads 卷备份失败；目标卷尚未改动。"
 fi
-ORIGINAL_COUNT="$(volume_file_count "$UPLOADS_VOLUME")"
-BACKUP_COUNT="$(volume_file_count "$OLD_VOLUME_BACKUP")"
-[ "$ORIGINAL_COUNT" = "$BACKUP_COUNT" ] \
-  || die "原 uploads 卷备份数量不一致（原=${ORIGINAL_COUNT} 备份=${BACKUP_COUNT}）。"
-ok "原 uploads 卷已备份（${BACKUP_COUNT} 个文件）。"
+ORIGINAL_LIST="$STAGE/original-volume-files.tsv"
+BACKUP_LIST="$STAGE/backup-volume-files.tsv"
+volume_file_list "$UPLOADS_VOLUME" > "$ORIGINAL_LIST"
+volume_file_list "$OLD_VOLUME_BACKUP" > "$BACKUP_LIST"
+if ! diff -u "$ORIGINAL_LIST" "$BACKUP_LIST" > "$STAGE/old-volume-backup.diff"; then
+  cat "$STAGE/old-volume-backup.diff"
+  die "原 uploads 卷备份逐文件 SHA256/大小校验失败。"
+fi
+ok "原 uploads 卷已逐文件备份并校验（$(wc -l < "$BACKUP_LIST" | tr -d ' ') 个文件）。"
 
 # Docker CLI 没有 volume rename。这里采用“备份原卷 → 清空原挂载名 → 复制新卷”
 # 的受控切换，并在复制后再次逐文件校验。它明确不是跨资源原子事务。
@@ -426,7 +539,7 @@ info "受控切换 uploads 内容：${NEW_VOLUME} → ${UPLOADS_VOLUME}"
 if ! docker run --rm \
       -v "${UPLOADS_VOLUME}:/target" \
       -v "${NEW_VOLUME}:/source:ro" \
-      postgres:17-alpine sh -c 'rm -rf /target/* /target/.[!.]* /target/..?*; cp -a /source/. /target/'; then
+      postgres:17-alpine sh -c 'rm -rf /target/* /target/.[!.]* /target/..?*; cp -a /source/. /target/; sync'; then
   NEW_VOLUME=""
   die "uploads 受控复制失败；原卷可能已部分覆盖，备份卷与新卷均保留，需人工处置。"
 fi
@@ -450,6 +563,14 @@ if ! diff -u "$STAGE/uploads-files.expected.sorted.tsv" "$STAGE/target-volume-fi
 fi
 ok "uploads 卷受控切换完成（${UPLOAD_FILE_COUNT} 个文件，逐文件 SHA256 已核验）。"
 echo "SWITCH_COMPLETE uploads=${UPLOADS_VOLUME} backup=${OLD_VOLUME_BACKUP}"
+
+info "放流量前执行附件双向对账..."
+if ! bash "$SCRIPT_DIR/reconcile-attachments.sh" --volume "$UPLOADS_VOLUME"; then
+  warn "数据库与新 uploads 卷已切换；脚本不会伪装成已自动回滚。"
+  warn "旧卷保留为 ${OLD_VOLUME_BACKUP}，现场 marker：${RECOVERY_MARKER}。"
+  die "恢复后附件对账失败；app 保持停止，请人工处置。"
+fi
+
 docker volume rm "$NEW_VOLUME" >/dev/null
 NEW_VOLUME=""
 RESTART_APP=1
@@ -474,24 +595,12 @@ done
 APP_READY_NS="$(date +%s%N)"
 RESTART_APP=0
 
-info "执行恢复后数据库计数核验..."
-DB_USERS_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -t -A -c 'SELECT count(*) FROM users;' | tr -d ' \r\n')"
-DB_TOPICS_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -t -A -c 'SELECT count(*) FROM topics;' | tr -d ' \r\n')"
-DB_REPLIES_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -t -A -c 'SELECT count(*) FROM replies;' | tr -d ' \r\n')"
-[ "$DB_USERS_AFTER" -eq "$DB_USERS" ] || die "恢复后 users 数量不一致：${DB_USERS_AFTER} != ${DB_USERS}"
-[ "$DB_TOPICS_AFTER" -eq "$DB_TOPICS" ] || die "恢复后 topics 数量不一致：${DB_TOPICS_AFTER} != ${DB_TOPICS}"
-[ "$DB_REPLIES_AFTER" -eq "$DB_REPLIES" ] || die "恢复后 replies 数量不一致：${DB_REPLIES_AFTER} != ${DB_REPLIES}"
+# uploads 已在放流量前逐文件校验；app 启动后 purge worker 可能合法删除到期文件，
+# 因此这里不再用“当前文件数 == bundle 文件数”做恢复后判据。
+UPLOADS_AFTER="$UPLOAD_FILE_COUNT"
 
-UPLOADS_AFTER="$(docker run --rm --entrypoint sh -v "${UPLOADS_VOLUME}:/data:ro" postgres:17-alpine -c 'find /data -type f | wc -l' | tr -d ' \r\n')"
-[ "$UPLOADS_AFTER" -eq "$UPLOAD_FILE_COUNT" ] || die "恢复后 uploads 文件数不一致：${UPLOADS_AFTER} != ${UPLOAD_FILE_COUNT}"
-
-info "执行恢复后附件双向对账..."
-if ! bash "$SCRIPT_DIR/reconcile-attachments.sh"; then
-  warn "PostgreSQL 恢复与 uploads Volume 切换不是跨资源原子事务。"
-  warn "此时数据库与新卷均已切换，脚本不会伪装成已自动回滚；旧卷保留为 ${OLD_VOLUME_BACKUP:-<未生成>}。"
-  die "恢复后附件对账失败；请人工比对新旧卷与备份 bundle。"
-fi
-
+rm -f "$RECOVERY_MARKER"
+command -v sync >/dev/null 2>&1 && sync || true
 ok "恢复完成并通过恢复后核验。"
 printf '  数据库 : users=%s topics=%s replies=%s\n' "$DB_USERS_AFTER" "$DB_TOPICS_AFTER" "$DB_REPLIES_AFTER"
 printf '  上传   : %s 个文件（逐文件 SHA256 已核验）\n' "$UPLOADS_AFTER"

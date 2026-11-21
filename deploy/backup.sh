@@ -156,17 +156,20 @@ fi
 # --- 1. PostgreSQL ---------------------------------------------------------
 info "备份 PostgreSQL（${POSTGRES_USER}@${POSTGRES_DB}）..."
 if ! docker compose exec -T postgres pg_dump \
+      --format=custom \
       --username="$POSTGRES_USER" \
       --dbname="$POSTGRES_DB" \
       --no-owner --no-acl \
       --clean --if-exists \
-    | gzip -9 > "$TMP_DIR/database.sql.gz"; then
+    | gzip -9 > "$TMP_DIR/database.dump.gz"; then
   die "PostgreSQL 备份失败。"
 fi
-gzip -t "$TMP_DIR/database.sql.gz" 2>/dev/null || die "PostgreSQL 备份 gzip 结构损坏。"
-DUMP_BYTES="$(gzip -cd "$TMP_DIR/database.sql.gz" | awk '{ bytes += length($0) + 1 } END { print bytes + 0 }')"
+gzip -t "$TMP_DIR/database.dump.gz" 2>/dev/null || die "PostgreSQL 备份 gzip 结构损坏。"
+DUMP_BYTES="$(gzip -cd "$TMP_DIR/database.dump.gz" | wc -c | tr -d ' ')"
 [ "$DUMP_BYTES" -gt 0 ] || die "PostgreSQL 备份内容为空。"
-ok "PostgreSQL 备份完成（解压后 ${DUMP_BYTES} 字节）。"
+DUMP_MAGIC="$(gzip -dc "$TMP_DIR/database.dump.gz" | dd bs=5 count=1 status=none 2>/dev/null || true)"
+[ "$DUMP_MAGIC" = "PGDMP" ] || die "PostgreSQL 未返回 custom-format dump。"
+ok "PostgreSQL custom-format 备份完成（解压后 ${DUMP_BYTES} 字节）。"
 
 # --- 2. uploads volume -----------------------------------------------------
 info "备份 uploads volume（${UPLOADS_VOLUME}）..."
@@ -177,10 +180,16 @@ if ! docker run --rm --entrypoint tar \
 fi
 gzip -t "$TMP_DIR/uploads.tar.gz" 2>/dev/null || die "uploads 归档 gzip 结构损坏。"
 
-# 逐文件清单：相对路径、字节数、SHA256。上传路径由服务端生成且不含空白，
-# 但这里仍用 tab 分隔并拒绝换行，避免清单注入。
+# 从刚生成的归档解包后计算清单，确保清单与归档内容一致，而不是在 app 停止后
+# 再次读取可能被外部进程改动的 volume。
+UPLOADS_VERIFY="$TMP_DIR/uploads-verify"
+mkdir -p "$UPLOADS_VERIFY"
+chmod 700 "$UPLOADS_VERIFY"
+if ! tar -C "$UPLOADS_VERIFY" -xzf "$TMP_DIR/uploads.tar.gz"; then
+  die "uploads 归档解包校验失败。"
+fi
 docker run --rm --entrypoint sh \
-  -v "${UPLOADS_VOLUME}:/data:ro" \
+  -v "${UPLOADS_VERIFY}:/data:ro" \
   postgres:17-alpine -c '
     set -eu
     find /data -type f | LC_ALL=C sort | while IFS= read -r f; do
@@ -197,6 +206,7 @@ else
 fi
 UPLOAD_FILE_COUNT="$(wc -l < "$TMP_DIR/uploads-files.tsv" | tr -d ' ')"
 UPLOAD_BYTES="$(awk -F '\t' '{ sum += $2 } END { print sum + 0 }' "$TMP_DIR/uploads-files.tsv")"
+rm -rf "$UPLOADS_VERIFY"
 ok "uploads 备份完成（${UPLOAD_FILE_COUNT} 个文件 / ${UPLOAD_BYTES} 字节）。"
 
 # --- 3. 配置与迁移元数据 ---------------------------------------------------
@@ -229,7 +239,7 @@ sha256_file() {
 file_size() { wc -c < "$1" | tr -d ' '; }
 
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-DB_SHA="$(sha256_file "$TMP_DIR/database.sql.gz")"
+DB_SHA="$(sha256_file "$TMP_DIR/database.dump.gz")"
 UPLOADS_SHA="$(sha256_file "$TMP_DIR/uploads.tar.gz")"
 UPLOADS_LIST_SHA="$(sha256_file "$TMP_DIR/uploads-files.tsv")"
 ENV_SHA="$(sha256_file "$TMP_DIR/env")"
@@ -238,7 +248,7 @@ COMPOSE_SHA="$(sha256_file "$TMP_DIR/docker-compose.yml")"
 JOURNAL_SHA="$(sha256_file "$TMP_DIR/migration-journal.json")"
 
 cat > "$TMP_DIR/manifest.env" <<EOF
-BACKUP_FORMAT=v2
+BACKUP_FORMAT=v3
 CREATED_AT=${CREATED_AT}
 APP_VERSION=${APP_VERSION}
 APP_IMAGE_ID=${APP_IMAGE_ID}
@@ -258,7 +268,7 @@ EOF
 
 cat > "$TMP_DIR/manifest.json" <<EOF
 {
-  "format": "v2ex-backup/v2",
+  "format": "v2ex-backup/v3",
   "createdAt": "${CREATED_AT}",
   "appVersion": "${APP_VERSION}",
   "runtime": {
@@ -270,8 +280,8 @@ cat > "$TMP_DIR/manifest.json" <<EOF
   },
   "migrations": ${MIGRATIONS},
   "database": {
-    "file": "database.sql.gz",
-    "size": $(file_size "$TMP_DIR/database.sql.gz"),
+    "file": "database.dump.gz",
+    "size": $(file_size "$TMP_DIR/database.dump.gz"),
     "sha256": "${DB_SHA}",
     "counts": {
       "users": ${DB_USERS},
@@ -310,7 +320,7 @@ EOF
 
 (
   cd "$TMP_DIR"
-  sha256sum database.sql.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
+  sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
 )
 
 # --- 4. 组装 bundle --------------------------------------------------------
