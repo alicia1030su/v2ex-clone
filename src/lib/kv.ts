@@ -20,7 +20,7 @@ interface KV {
   set(key: string, value: string, ttlSeconds?: number): Promise<void>;
   del(key: string): Promise<void>;
   incrWindow(key: string, windowSeconds: number): Promise<CounterResult>;
-  slidingWindow(key: string, windowSeconds: number): Promise<CounterResult>;
+  slidingWindow(key: string, windowSeconds: number, nowMs?: number): Promise<CounterResult>;
   ping(): Promise<boolean>;
   /**
    * 清空全部键（调试端点用）。
@@ -61,8 +61,8 @@ class RedisKV implements KV {
     return { count, resetAt: Date.now() + Math.max(ttl, 0) * 1000 };
   }
 
-  async slidingWindow(key: string, windowSeconds: number): Promise<CounterResult> {
-    const now = Date.now();
+  async slidingWindow(key: string, windowSeconds: number, nowMs = Date.now()): Promise<CounterResult> {
+    const now = nowMs;
     const cutoff = now - windowSeconds * 1000;
     const member = `${now}:${Math.random().toString(36).slice(2)}`;
     const script = `
@@ -166,9 +166,9 @@ class PgKV implements KV {
     return { count: Number(extractRows<{ count: number }>(res)[0]?.count ?? 1), resetAt };
   }
 
-  async slidingWindow(key: string, windowSeconds: number): Promise<CounterResult> {
+  async slidingWindow(key: string, windowSeconds: number, nowMs = Date.now()): Promise<CounterResult> {
     return await db.transaction(async (tx) => {
-      const now = new Date();
+      const now = new Date(nowMs);
       const cutoff = new Date(now.getTime() - windowSeconds * 1000);
       // 同一 key 的滑动窗口操作串行化，避免并发事务互相看不到未提交命中。
       await tx.execute(sql`
