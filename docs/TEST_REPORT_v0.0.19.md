@@ -9,7 +9,7 @@
 | 套件 | 结果 | 证据 |
 |---|---|---|
 | TypeScript | 通过 | `npx tsc --noEmit` |
-| 完整单元（含静态） | **90 文件 / 1085 用例通过**，0 failed / 0 skipped | 本机隔离 PostgreSQL 55440，`vitest run` + 用例计数门禁 |
+| 完整单元（含静态） | **90 文件 / 1086 用例通过**，0 failed / 0 skipped | 本机隔离 PostgreSQL 55440，`vitest run` + 用例计数门禁 |
 | 全量静态 | **43 文件 / 501 用例通过**，0 failed / 0 skipped | `vitest.static.config.ts` + 用例计数门禁 |
 | v0.0.19 回复真库/API | **10/10** | `tests/v019-reply-threads.spec.ts` |
 | 固定/滑动窗口限流 | **3/3** | `tests/rate-limit-window.spec.ts`，含 20 并发计数连续性 |

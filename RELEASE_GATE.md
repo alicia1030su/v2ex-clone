@@ -1200,7 +1200,7 @@ v0.0.10 新增 `src/app/api/debug/boom`（三重闸门：调试令牌 + `APP_RUN
 | 门禁 | 结果 |
 |---|---|
 | 类型检查 | 通过 |
-| 单元 / 静态 | 1085 / 501 passed，0 skipped |
+| 单元 / 静态 | 1086 / 501 passed，0 skipped |
 | Chromium E2E | 295 passed |
 | 双基线升级 | PASS=30 / FAIL=0 ×2 |
 | 发布预演 | static 23/23、notes 20/20 |

@@ -13,11 +13,11 @@
   "measuredAt": "2026-11-21",
   "unit": {
     "files": 90,
-    "tests": 1085,
-    "passed": 1085,
+    "tests": 1086,
+    "passed": 1086,
     "failed": 0,
     "skipped": 0,
-    "evidence": "本机隔离 PostgreSQL 55440 全量 vitest；90 文件 / 1085 passed / 0 failed / 0 skipped"
+    "evidence": "本机隔离 PostgreSQL 55440 全量 vitest；90 文件 / 1086 passed / 0 failed / 0 skipped"
   },
   "static": {
     "files": 43,

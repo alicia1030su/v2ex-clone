@@ -512,7 +512,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 
 | 套件 | 用例数 | 证据 | 结果 |
 |---|---|---|---|
-| 单元测试（vitest，含静态） | **1085**（90 个 spec 文件） | 本机隔离 PostgreSQL 全量 + 用例计数门禁 | **1085 passed / 0 failed / 0 skipped** |
+| 单元测试（vitest，含静态） | **1086**（90 个 spec 文件） | 本机隔离 PostgreSQL 全量 + 用例计数门禁 | **1086 passed / 0 failed / 0 skipped** |
 | 全量静态 | **501**（43 个文件） | `vitest.static.config.ts` 全量 | **501 passed / 0 failed / 0 skipped** |
 | E2E（Playwright / Chromium） | **295**（29 个 spec 文件） | 本机 `next start` 全量 | **295 passed / 0 failed** |
 | v0.0.19 回复体验 | **8** | `e2e/v019-reply-experience.spec.ts` | **8 passed** |
