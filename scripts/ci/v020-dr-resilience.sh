@@ -127,6 +127,7 @@ if [ "$BEFORE_DISK" = "$AFTER_DISK" ]; then pass '磁盘不足失败后业务指
 if grep -qiE '磁盘空间不足|No space left|写.*失败|解压' /tmp/v020-dr-disk.log; then pass '失败原因指向磁盘/暂存空间'; else fail '磁盘不足失败原因不明确'; fi
 
 echo '===== [B4] 卷切换后 SIGTERM：保留旧卷，不伪装跨资源原子回滚 ====='
+ORIGINAL_UPLOADS_VOLUME="$(docker inspect v2ex-app --format '{{range .Mounts}}{{if eq .Destination "/app/data/uploads"}}{{.Name}}{{end}}{{end}}')"
 cp -a "$DR_DEPLOY" "$DR_DEPLOY_BADAPP"
 sed -i 's#^APP_URL=.*#APP_URL=http://127.0.0.1:9#' "$DR_DEPLOY_BADAPP/.env"
 set +e
@@ -135,7 +136,8 @@ RESTORE_PID=$!
 set -e
 SWITCHED=0
 for _ in $(seq 1 120); do
-  if docker volume ls --format '{{.Name}}' | grep -q "${COMPOSE_PROJECT_NAME}.*uploads-data.*pre-restore-"; then
+  if docker volume inspect "$ORIGINAL_UPLOADS_VOLUME" >/dev/null 2>&1 \
+      && docker volume ls --format '{{.Name}}' | grep -q "${COMPOSE_PROJECT_NAME}.*uploads-data.*pre-restore-"; then
     SWITCHED=1
     break
   fi

@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, test } from '@playwright/test';
 import postgres from 'postgres';
 
+// 10000 回复夹具只在 core 全量 E2E 跑一次；跨浏览器矩阵跳过，避免重复灌库。
+test.skip(process.env.E2E_CROSS === '1', 'v020 capacity runs in core E2E only');
+
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) throw new Error('DATABASE_URL is required for v020 capacity E2E');
 
