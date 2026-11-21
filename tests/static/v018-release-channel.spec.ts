@@ -224,6 +224,8 @@ describe('v0.0.18 发布渠道消费者接线', () => {
     const code = (s: string) => s.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
     expect(code(post)).toContain('resolve-release-channel.mjs');
     expect(code(post)).not.toContain('STABLE_RELEASES.json');
+    expect(post).toContain('cd "$GITHUB_WORKSPACE/verify-tools"');
+    expect(post).toContain('&& node scripts/release/resolve-release-channel.mjs');
     expect(dry).toContain('resolve-release-channel.mjs');
   });
 });

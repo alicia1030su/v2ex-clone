@@ -243,9 +243,14 @@ jobs:
             #      · 形态**与预期一致** —— 而预期来自 `docs/STABLE_RELEASES.json`，
             #        不是写死。这才是不变量，写死某一种形态只是把「当前状态」当判据。
             # v0.0.18 P0-1：渠道期望由统一解析器给出，消费者不再自己读清单。
+            # ⚠️ 解析器按 process.cwd() 找 docs/RELEASE_CHANNELS.json；本步骤
+            #    前面已 cd "$WORK"，必须显式回到验收工具仓库根目录执行，
+            #    否则会把 /tmp 当作仓库根并 ENOENT（v0.0.18 首次发布后实测）。
             RESOLVER="$GITHUB_WORKSPACE/verify-tools/scripts/release/resolve-release-channel.mjs"
             [ -f "$RESOLVER" ] || fail "形态期望来源" "找不到 $RESOLVER"
-            EXPECT_PRE="$(node "$RESOLVER" --version "$VERSION" --format github-output \
+            EXPECT_PRE="$(cd "$GITHUB_WORKSPACE/verify-tools" \
+              && node scripts/release/resolve-release-channel.mjs \
+                  --version "$VERSION" --format github-output \
               | awk -F= '$1=="prerelease" {print $2}')"
             [ "$EXPECT_PRE" = "true" ] || [ "$EXPECT_PRE" = "false" ] \
               || fail "形态期望来源" "解析器未返回合法 prerelease 值：${EXPECT_PRE:-空}"
