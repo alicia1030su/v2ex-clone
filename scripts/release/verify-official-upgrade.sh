@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# 官方公开资产升级验收（默认 v0.0.17 → v0.0.18）
+# 官方公开资产升级验收（默认 v0.0.18 → v0.0.19）
 #
-# 这个脚本回答的问题与候选 CI 的 verify-upgrade-v0018.sh 不同：
+# 这个脚本回答的问题与候选 CI 的 verify-upgrade-v0019.sh 不同：
 #   · 候选 CI：用 git tag 的历史迁移集建库，验证迁移与业务指纹；
 #   · 本脚本：从 GitHub Release **匿名下载两个版本的正式部署包**，
 #     用旧版官方 install.sh 真装，再用旧版包内 update.sh 升到新版官方镜像。
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 REPO="${REPO:-alicia1030su/v2ex-clone}"
-WORK="${WORK:-/tmp/official-upgrade-v0018}"
+WORK="${WORK:-/tmp/official-upgrade-v0019}"
 FROM_VERSION=""
 TO_VERSION=""
 RESULTS=""
@@ -23,7 +23,7 @@ usage() {
 用法：
   REPO=owner/repo WORK=/tmp/official-upgrade \
     bash scripts/release/verify-official-upgrade.sh \
-      --from v0.0.17 --to v0.0.18
+      --from v0.0.18 --to v0.0.19
 EOF
   exit 2
 }

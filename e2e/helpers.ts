@@ -649,13 +649,8 @@ export async function pickNodeId(page: Page): Promise<number> {
 /**
  * 在主题详情页提交一条回复。
  *
- * 真实行为（v0.0.4 实测确认）：
- *   主题页的回复表单是**原生 form**（action="/api/replies" method="post"），
- *   CSRF token 通过隐藏字段 csrfToken 传递（原生表单无法加请求头）。
- *   提交成功后服务端返回 **303 重定向回 /t/{id}** —— URL **没有变化**，
- *   因此 `waitForURL` 不会触发（会一直等到超时）。
- *
- * 正确的等待方式：**等回复内容出现在页面上**。
+ * v0.0.19：回复改为无刷新 JSON 提交，不再使用原生 form / 303。
+ * 正确等待方式是“回复内容出现在当前页面”，URL 本来就不会变化。
  */
 export async function submitReplyViaUi(
   page: Page,
@@ -666,7 +661,7 @@ export async function submitReplyViaUi(
   // ⚠️ v0.0.5：不用 networkidle（页面有持续请求，网络永不空闲）
   await page.waitForLoadState('domcontentloaded');
 
-  const textarea = page.locator('textarea[name="content"]').first();
+  const textarea = page.locator('#reply-content');
   await expect(textarea).toBeVisible({ timeout: 20_000 });
 
   // 确认 React 已接管（受控输入框的值不会被重渲染还原）
@@ -674,16 +669,11 @@ export async function submitReplyViaUi(
   await textarea.blur();
   await expect(textarea).toHaveValue(content, { timeout: 10_000 });
 
-  // 提交（原生 form → 303 重定向回同一页，URL 不变）
-  await page
-    .locator('form')
-    .filter({ has: textarea })
-    .first()
-    .locator('button[type="submit"]')
-    .click();
+  await page.getByRole('button', { name: '提交回复' }).click();
 
-  // 等回复内容真正出现在页面上
+  // 等回复内容真正出现在页面上，并确认草稿已清空
   await expect(page.locator('#Main')).toContainText(content.slice(0, 20), {
     timeout: 30_000,
   });
+  await expect(textarea).toHaveValue('');
 }

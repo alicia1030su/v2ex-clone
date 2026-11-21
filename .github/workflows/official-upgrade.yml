@@ -4,7 +4,7 @@ name: 官方公开资产升级验收
 # 用两个版本的正式 GitHub Release 资产验证真实容器升级。
 #
 # 与候选 CI 的迁移脚本分工：
-#   · CI verify-upgrade-v0018.sh：历史 tag 迁移集 + 业务指纹；
+#   · CI verify-upgrade-v0019.sh：历史 tag 迁移集 + 业务指纹；
 #   · 本工作流：匿名下载 from/to 正式 ZIP → 旧版官方 install.sh 真装 →
 #     旧版包内 update.sh --version 升级 → 新版官方 GHCR 镜像 → 指纹比对。
 #
@@ -15,14 +15,14 @@ on:
   workflow_dispatch:
     inputs:
       from_version:
-        description: '已发布的起始版本，例如 v0.0.17'
-        required: true
-        default: 'v0.0.17'
-        type: string
-      to_version:
-        description: '已发布的目标版本，例如 v0.0.18'
+        description: '已发布的起始版本，例如 v0.0.18'
         required: true
         default: 'v0.0.18'
+        type: string
+      to_version:
+        description: '已发布的目标版本，例如 v0.0.19'
+        required: true
+        default: 'v0.0.19'
         type: string
 
 permissions:

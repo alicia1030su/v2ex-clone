@@ -48,6 +48,31 @@ export async function rateLimit(
   return { ok, count, limit, resetAt, retryAfterSeconds };
 }
 
+/**
+ * v0.0.19：滑动窗口限流。
+ *
+ * 与固定窗口的区别：不会在整分钟/整小时边界出现“双倍突发”。
+ * 每次命中都保留精确时间戳，只统计最近 windowSeconds 内的请求。
+ */
+export async function rateLimitSliding(
+  scope: string,
+  identifier: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<RateLimitResult> {
+  const kv = await getKV();
+  const key = `ratelimit-sliding:${scope}:${identifier}`;
+  const { count, resetAt } = await kv.slidingWindow(key, windowSeconds);
+  const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+  const ok = count <= limit;
+  countMetric('ratelimit.sliding.check');
+  if (!ok) {
+    countMetric('ratelimit.blocked');
+    countMetric(`ratelimit.blocked.${scope}`);
+  }
+  return { ok, count, limit, resetAt, retryAfterSeconds };
+}
+
 export async function rateLimitByIp(
   scope: string,
   limit: number,
@@ -63,4 +88,21 @@ export async function rateLimitByUser(
   windowSeconds: number,
 ): Promise<RateLimitResult> {
   return rateLimit(scope, `u${userId}`, limit, windowSeconds);
+}
+
+export async function rateLimitSlidingByUser(
+  scope: string,
+  userId: number,
+  limit: number,
+  windowSeconds: number,
+): Promise<RateLimitResult> {
+  return rateLimitSliding(scope, `u${userId}`, limit, windowSeconds);
+}
+
+export async function rateLimitSlidingByIp(
+  scope: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<RateLimitResult> {
+  return rateLimitSliding(scope, await clientIp(), limit, windowSeconds);
 }

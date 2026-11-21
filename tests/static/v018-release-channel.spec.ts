@@ -101,9 +101,10 @@ const validManifest = {
 const validLegacy = { stable: ['v0.0.17'] };
 
 describe('v0.0.18 发布渠道解析器', () => {
-  it('真实清单：v0.0.17 与 v0.0.18 均为 stable', () => {
+  it('真实清单：v0.0.17、v0.0.18 与 v0.0.19 均为 stable', () => {
     expect(run(ROOT, 'v0.0.17').data).toEqual({ version: 'v0.0.17', channel: 'stable', prerelease: false, latest: true });
     expect(run(ROOT, 'v0.0.18').data).toEqual({ version: 'v0.0.18', channel: 'stable', prerelease: false, latest: true });
+    expect(run(ROOT, 'v0.0.19').data).toEqual({ version: 'v0.0.19', channel: 'stable', prerelease: false, latest: true });
   });
 
   it('负向：迁移清单冲突必须拒绝', () => {

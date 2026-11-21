@@ -45,7 +45,7 @@ test.describe('主题与回复', () => {
     const maxFloorBefore = floorsBefore.length ? Math.max(...floorsBefore) : 0;
 
     const replyText = `E2E 回复 ${Date.now()}`;
-    await page.fill('textarea[name="content"]', replyText);
+    await page.fill('#reply-content', replyText);
 
     // ⚠️ v0.0.7：**不能**用 `Promise.all([waitForURL(/\/t\/\d+/), click])` 等待提交完成。
     //
@@ -60,7 +60,7 @@ test.describe('主题与回复', () => {
     //
     // 修法：轮询等待「楼层数确实 +1」这个**真实终态**，再做完整断言。
     //   断言一条不少（递增 / 唯一 / 最大值提升），只是不再靠竞态蒙对。
-    await page.click('form button[type="submit"]');
+    await page.getByRole('button', { name: '提交回复' }).click();
 
     const floorsQuery = () =>
       page.request.get('/api/debug/floors?topicId=1', {
@@ -249,7 +249,7 @@ test('最后回复者：B 回复后页面必须显示 B，而不是楼主 A', as
 
   // A 自己回复一条（此时唯一回复者是 A）
   await page.fill('#reply-content', `A 的自回复 ${Date.now()}`);
-  await page.click('form button[type="submit"]');
+  await page.getByRole('button', { name: '提交回复' }).click();
   await expect(page.locator('#reply-content')).toBeVisible({ timeout: 20_000 });
 
   // 独立 BrowserContext：B 是另一个真实用户，不与 A 共享登录态
@@ -259,7 +259,7 @@ test('最后回复者：B 回复后页面必须显示 B，而不是楼主 A', as
     await register(pageB, replierName);
     await pageB.goto(`/t/${topicId}`);
     await pageB.fill('#reply-content', `B 的回复 ${Date.now()}`);
-    await pageB.click('form button[type="submit"]');
+    await pageB.getByRole('button', { name: '提交回复' }).click();
     await expect(pageB.locator('#reply-content')).toBeVisible({ timeout: 20_000 });
   } finally {
     await ctxB.close();

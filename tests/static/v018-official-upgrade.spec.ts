@@ -16,6 +16,7 @@ const TEMPLATE = path.join(ROOT, '.github', 'release-notes-template.md');
 const RENDERER = path.join(ROOT, 'scripts', 'release', 'render-release-notes.mjs');
 const UPGRADE_SCRIPT = path.join(ROOT, 'scripts', 'release', 'verify-official-upgrade.sh');
 const UPGRADE_WORKFLOW = path.join(ROOT, '.github', 'workflows', 'official-upgrade.yml');
+const CURRENT_VERSION = `v${JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version}`;
 
 function read(rel: string) {
   return readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -28,7 +29,7 @@ function runRenderer(cwd: string) {
       encoding: 'utf8',
       env: {
         ...process.env,
-        VERSION: 'v0.0.18',
+        VERSION: CURRENT_VERSION,
         PRERELEASE: 'false',
         IMAGE_DIGEST_TEXT: 'sha256:test',
         OUTPUT: 'release-notes.md',
@@ -59,10 +60,10 @@ describe('v0.0.18 升级文档真实性', () => {
     expect(install).toContain('新目录没有现有 `.env`');
   });
 
-  it('README 的 v0.0.18 升级入口与包内文档一致', () => {
+  it('README 的当前版本升级入口与包内文档一致', () => {
     const readme = read('README.md');
-    expect(readme).toContain('**v0.0.4 → v0.0.18** 与 **v0.0.17 → v0.0.18**');
-    expect(readme).toContain('./update.sh --version v0.0.18');
+    expect(readme).toContain(`**v0.0.4 → ${CURRENT_VERSION}** 与 **v0.0.17 → ${CURRENT_VERSION}**`);
+    expect(readme).toContain(`./update.sh --version ${CURRENT_VERSION}`);
     expect(readme).toContain('那里没有现有 `.env`');
   });
 
@@ -75,7 +76,7 @@ describe('v0.0.18 升级文档真实性', () => {
       const result = runRenderer(dir);
       expect(result.code, result.out).toBe(0);
       expect(readFileSync(path.join(dir, 'release-notes.md'), 'utf8'))
-        .toContain('./update.sh --version v0.0.18');
+        .toContain(`./update.sh --version ${CURRENT_VERSION}`);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

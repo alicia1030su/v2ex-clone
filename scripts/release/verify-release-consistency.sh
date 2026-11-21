@@ -522,11 +522,18 @@ EOF
     ok "release-facts.json 仍是上一版本快照（version=${F_VER}），本轮不作为当前结论"
   fi
 
-  # 升级报告里的业务指纹项数必须与事实一致
-  if [ -f docs/UPGRADE_VERIFICATION_v0.0.10.md ]; then
-    grep -q "${F_UPG} 项" docs/UPGRADE_VERIFICATION_v0.0.10.md \
-      && ok "升级报告的业务指纹项数 = ${F_UPG}" \
-      || bad "升级报告未出现「${F_UPG} 项」"
+  # 升级报告里的业务指纹项数必须与事实一致。优先使用本版本报告，
+  # 避免每次发版都去旧版本文档里找当前数字（v0.0.19 真实踩到）。
+  upgrade_report="docs/UPGRADE_VERIFICATION_v${EXPECT}.md"
+  if [ ! -f "$upgrade_report" ] && [ -f docs/UPGRADE_VERIFICATION_v0.0.10.md ]; then
+    upgrade_report="docs/UPGRADE_VERIFICATION_v0.0.10.md"
+  fi
+  if [ -f "$upgrade_report" ]; then
+    grep -q "${F_UPG} 项" "$upgrade_report" \
+      && ok "升级报告的业务指纹项数 = ${F_UPG}（${upgrade_report}）" \
+      || bad "升级报告未出现「${F_UPG} 项」（${upgrade_report}）"
+  else
+    bad "缺少 v${EXPECT} 升级验证报告"
   fi
 
   # 视觉/四身份报告同样核对

@@ -484,6 +484,7 @@ export async function listReplies(
       content: schema.replies.content,
       thanks: schema.replies.thanks,
       quoteId: schema.replies.quoteId,
+      parentReplyId: schema.replies.parentReplyId,
       createdAt: schema.replies.createdAt,
       editedAt: schema.replies.editedAt,
       editCount: schema.replies.editCount,

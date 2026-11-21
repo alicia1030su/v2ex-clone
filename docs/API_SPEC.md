@@ -137,17 +137,28 @@
 请求（JSON 或表单）：
 
 ```json
-{ "topicId": 1, "content": "回复内容", "redirect": "/t/1" }
+{
+  "topicId": 1,
+  "content": "回复内容",
+  "redirect": "/t/1",
+  "parentReplyId": 5,
+  "clientRequestId": "0f5d…",
+  "imageIds": [12, 13]
+}
 ```
 
-表单格式（主题页内嵌表单使用）：
+`parentReplyId`、`clientRequestId`、`imageIds` 均为可选。手动输入 `@用户名` 不会建立父子关联；只有显式 `parentReplyId` 会。服务端重新验证父回复存在、属于同一主题、未软删且节点可见，并限制父链最多 32 层。
+
+表单格式（旧客户端兼容）：
 
 ```
 topicId=1&content=…&redirect=/t/1
 ```
 
-响应 `200`（JSON 请求）：`{ "ok": true, "redirect": "/t/1" }`
+响应 `200`（JSON 请求）：`{ "ok": true, "redirect": "/t/1", "replyId": 42, "reply": { … }, "replyTotal": 6 }`
 响应 `303`（表单请求）：`Location` 指向 `redirect`
+
+同一 `clientRequestId` 重试返回同一条 `replyId`，不会重复创建；网络超时客户端应先调用核对端点。
 
 **执行顺序（重要）**：参数校验 → 主题存在性/锁定校验 → **限流** → 写入。
 主题不存在或已锁定时不消耗限流配额。
@@ -163,8 +174,28 @@ topicId=1&content=…&redirect=/t/1
 | `400` | 内容长度非法 / topicId 非法 |
 | `401` | 未登录 |
 | `403` | 主题已锁定 |
-| `404` | 主题不存在 |
+| `404` | 主题不存在 / 父回复不存在或不可见 |
 | `429` | 限流（每用户 20 次 / 120 秒） |
+
+### 3.2 `GET /api/replies/submission` — 核对超时请求
+
+查询参数：`topicId`、`clientRequestId`。仅返回当前登录用户自己的回复。
+响应：`{ "ok": true, "found": false }` 或 `{ "ok": true, "found": true, "reply": { … } }`。
+
+### 3.3 `GET /api/topics/[id]/replies/[replyId]/context` — 跨页楼中楼上下文
+
+按需返回最多 8 层父链与最多 20 条直接子回复；`cursor` 使用已加载子回复的 `floor` 继续取后续窗口。
+登录用户限流 60/分钟，游客按 IP 120/分钟（滑动窗口）。
+
+### 3.4 `/api/reply-images` — 回复图片
+
+| 方法 | 说明 |
+|---|---|
+| `GET` | 当前用户最近未使用图片，`limit` 1–20；登录用户 60/分钟滑动窗口 |
+| `POST` | multipart 字段 `file`；PNG/JPEG/WebP/GIF，默认 5MB、4000 万像素、最长边 2400；固定 30/小时 + 突发 10/60 秒 |
+| `DELETE` | body `{ "id" }`；仅允许删除自己的未使用图片；30/小时 |
+
+服务端校验 magic number、MIME 与扩展名一致性，生成随机存储路径；二进制位于持久化上传卷，不进入 Git。
 
 ## 4. 收藏
 
@@ -276,6 +307,15 @@ topicId=1&content=…&redirect=/t/1
 新密码 8–128 字符。需校验当前密码，否则 `401`。
 限流：每用户 5 次 / 300 秒。
 
+### 7.3 `/api/preferences` — 回复展示与主题偏好
+
+| 方法 | 说明 |
+|---|---|
+| `GET` | 返回 `{ replyDisplayMode, themePreference }` |
+| `PUT` | body 可含 `replyDisplayMode`（`classic/quote/badge/nested/tree/lines/excerpt`）与 `themePreference`（`light/dark/system`） |
+
+主题偏好同时写入非 HttpOnly 的 `v2_theme` Cookie，用于首屏脚本在绘制前应用；服务端数据库值在登录用户重新登录后优先。
+
 ## 8. 调试端点（仅非生产环境）
 
 以下端点在 `NODE_ENV=production` 且未设 `ENABLE_DEBUG_ENDPOINTS=1` 时返回 `404`。
@@ -309,7 +349,12 @@ topicId=1&content=…&redirect=/t/1
 | 登录 | IP + 用户名 | 10 | 60s |
 | 注册 | IP + 用户名 | 5 | 60s |
 | 发帖 | 用户 ID | 5 | 60s |
-| 回复 | 用户 ID | 20 | 120s |
+| 回复 | 用户 ID | 20 | 120s（固定窗口） |
+| 回复图片上传 | 用户 ID | 30 | 3600s（固定窗口） |
+| 回复图片突发 | 用户 ID | 10 | 60s（滑动窗口） |
+| 回复图片最近列表 | 用户 ID | 60 | 60s（滑动窗口） |
+| 回复图片删除 | 用户 ID | 30 | 3600s（固定窗口） |
+| 回复上下文 | 用户 ID / IP | 60 / 120 | 60s（滑动窗口） |
 | 建节点 | 用户 ID | 10 | 60s |
 | 改密码 | 用户 ID | 5 | 300s |
 
@@ -319,8 +364,8 @@ topicId=1&content=…&redirect=/t/1
 
 ## 11. CSRF 防护
 
-所有写接口（`/api/auth/*`、`/api/topics`、`/api/replies`、`/api/collections`、
-`/api/nodes`、`/api/settings/*`）都要求 CSRF token。
+所有写接口（`/api/auth/*`、`/api/topics`、`/api/replies`、`/api/reply-images`、
+`/api/preferences`、`/api/collections`、`/api/nodes`、`/api/settings/*`）都要求 CSRF token。
 
 - **下发**：`src/middleware.ts` 对所有页面路径下发 `v2_csrf` Cookie
   （非 HttpOnly，供客户端读取；`SameSite=Lax`；`Secure`（生产）；有效期 14 天）

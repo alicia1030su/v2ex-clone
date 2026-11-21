@@ -23,6 +23,7 @@ import {
   uniqueIndex,
   index,
   primaryKey,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 // ---------------------------------------------------------------------------
@@ -229,8 +230,14 @@ export const replies = pgTable(
     floor: integer('floor').notNull(),
     /** 感谢数（❤️ 计数） */
     thanks: integer('thanks').notNull().default(0),
-    /** 引用回复的楼层 */
+    /** 引用回复的楼层（历史兼容字段；不建立真实父子约束） */
     quoteId: integer('quote_id'),
+    /** v0.0.19：真实父回复；NULL 表示直接回复主题 */
+    parentReplyId: integer('parent_reply_id').references((): AnyPgColumn => replies.id, {
+      onDelete: 'set null',
+    }),
+    /** v0.0.19：客户端请求幂等键，防止超时重试创建重复回复 */
+    clientRequestId: varchar('client_request_id', { length: 64 }),
     /** v0.0.3：软删除标记。内容保留在库中，但普通 API 与列表一律不可见。 */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     /** v0.0.3：软删除操作人 */
@@ -249,6 +256,8 @@ export const replies = pgTable(
     index('replies_author_idx').on(t.authorId),
     // v0.0.3：楼层计数在并发下用 ON CONFLICT 原子递增，此索引支持按楼层定位
     index('replies_topic_deleted_idx').on(t.topicId, t.deletedAt),
+    index('replies_parent_topic_idx').on(t.topicId, t.parentReplyId, t.floor),
+    uniqueIndex('replies_client_request_uidx').on(t.clientRequestId),
   ],
 );
 
@@ -409,6 +418,19 @@ export const rateLimitBuckets = pgTable('rate_limit_buckets', {
   count: integer('count').notNull().default(0),
   windowStart: timestamp('window_start', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** v0.0.19：滑动窗口限流的原子命中记录（Redis 不可用时使用）。 */
+export const rateLimitSlidingHits = pgTable(
+  'rate_limit_sliding_hits',
+  {
+    id: serial('id').primaryKey(),
+    key: varchar('key', { length: 255 }).notNull(),
+    hitAt: timestamp('hit_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('rate_limit_sliding_key_time_idx').on(t.key, t.hitAt),
+  ],
+);
 
 // 引入 sql 供唯一索引表达式使用
 import { sql } from 'drizzle-orm';
@@ -654,6 +676,54 @@ export const avatars = pgTable(
   (t) => [
     index('avatars_user_idx').on(t.userId),
     uniqueIndex('avatars_path_uidx').on(t.storagePath),
+  ],
+);
+
+/**
+ * 用户展示偏好（v0.0.19）
+ *
+ * 登录用户的服务端偏好；游客只使用浏览器本地偏好，不写入本表。
+ */
+export const userPreferences = pgTable('user_preferences', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  replyDisplayMode: varchar('reply_display_mode', { length: 16 })
+    .notNull()
+    .default('classic'),
+  themePreference: varchar('theme_preference', { length: 16 })
+    .notNull()
+    .default('system'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * 回复图片元数据（v0.0.19）
+ *
+ * 二进制存于 public/uploads/replies/<userId>/<random>.<ext>；
+ * 回复成功后通过 reply_id / used_at 标记已使用，未使用文件由受控清理任务回收。
+ */
+export const replyImages = pgTable(
+  'reply_images',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    replyId: integer('reply_id').references(() => replies.id, { onDelete: 'set null' }),
+    storagePath: varchar('storage_path', { length: 256 }).notNull(),
+    originalName: varchar('original_name', { length: 255 }),
+    mimeType: varchar('mime_type', { length: 64 }).notNull(),
+    size: integer('size').notNull(),
+    width: integer('width'),
+    height: integer('height'),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('reply_images_storage_path_uidx').on(t.storagePath),
+    index('reply_images_user_created_idx').on(t.userId, t.createdAt),
+    index('reply_images_reply_idx').on(t.replyId),
   ],
 );
 
