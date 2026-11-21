@@ -9,9 +9,16 @@
 
 ## [0.0.19] — v0.0.19（**稳定版 Stable Release**）
 
-> **发布形态**：稳定版（`prerelease=false`、`draft=false`）。
+> **发布形态**：稳定版（`prerelease=false`、`draft=false`、Latest）。
 > **授权范围**：仅限本版，一次性；不延续到其它版本。
 > 裁决记录见 `docs/RISK_DECISION_v0.0.19.md`。
+>
+> **本轮已执行**：master `7baaae5d4704d86f145e8c5152fc3ea9abbf771c` → annotated Tag `v0.0.19`
+> （Tag 对象 `266c0bcdc61a825c75db39bce62c9139e2205b0f`）→ Release 流水线 run `44888852285`
+> → GHCR Digest `sha256:279324decd36c7cdaaab5758b566ee5fe7a43eaf674457ac2f2af7466f41d49e`
+> → GitHub Stable / Latest Release（id `453579475`）
+> → 部署 ZIP（144,346 B，SHA256 `693fb7427f00f76b3090dbaa45e176b113698188174774e30b5cc5995b88ae4e`）。
+> 发布后匿名验收、官方包四角色 30/30、v0.0.19 专项 41/41、官方 v0.0.18→v0.0.19 升级 10/10 均通过。
 >
 > ⚠️ **「稳定版」承诺的是发行工程质量**（可复现、可追溯、升级与回滚经过验证），
 > **不是** API 向后兼容，**也不是**长期运行时长 —— 24 小时单实例连续运行

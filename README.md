@@ -38,34 +38,33 @@
 
 ---
 
-## 当前版本状态（v0.0.19 稳定版发布候选）
+## 当前版本状态（v0.0.19 Stable Release 已发布）
 
-> **本版候选 = v0.0.19**（已授权 Stable Release，发布门禁执行中）。
+> **本版 = v0.0.19**（已正式发布，Stable / Latest）。
 > **版本载体**：`0.0.19`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
 > 已同步到 `0.0.19`；本版已获一次性稳定版发布授权，实际发布结果以 Tag / Release / GHCR 核验为准。）
 
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **本版发布候选** | `v0.0.19` | 已授权 Stable Release，发布门禁执行中 |
-> | **当前已公开发布** | `v0.0.18` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
-> | 上一已发布版本 | `v0.0.17` | GitHub **Stable Release** |
-> | 再上一版 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
+> | **当前已公开发布** | `v0.0.19` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
+> | 上一已发布版本 | `v0.0.18` | GitHub **Stable Release** |
+> | 再上一版 | `v0.0.17` | GitHub **Stable Release** |
+> | 更早版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
 
 | 项 | 值 |
 |---|---|
-| **当前实际公开版本** | **`v0.0.18`**（[**Stable Release**](https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18)，含部署 ZIP 与 GHCR 镜像） |
-| **本版发布候选** | **`v0.0.19`**（已授权 Stable Release，门禁执行中） |
-| **上一已发布版本** | `v0.0.17`（Stable Release） |
-| 再上一版 | `v0.0.16`（Pre-release，2026-11-19） |
+| **当前实际公开版本** | **`v0.0.19`**（[**Stable Release**](https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.19)，含部署 ZIP 与 GHCR 镜像） |
+| **上一已发布版本** | `v0.0.18`（Stable Release） |
+| 再上一版 | `v0.0.17`（Stable Release） |
 | 版本载体 | `0.0.19`（已由 `sync-version.mjs` 全量同步并复验） |
-| **本版** | **`v0.0.19` 稳定版发布候选** —— 官方更新对照、实施与测试见 [`docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md`](docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md)、[`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) |
-| 本版发布授权 | **已取得**（2026-11-21，A3 + B1，一次性、仅限 v0.0.19）；记录见 [`docs/RISK_DECISION_v0.0.19.md`](docs/RISK_DECISION_v0.0.19.md) |
-| 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
+| **本版** | **`v0.0.19` 稳定版已发布** —— 官方更新对照、实施与测试见 [`docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md`](docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md)、[`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) |
+| 本版发布授权 | **已取得并执行**（2026-11-21，A3 + B1，一次性、仅限 v0.0.19）；记录见 [`docs/RISK_DECISION_v0.0.19.md`](docs/RISK_DECISION_v0.0.19.md) |
+| 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`、Latest），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18`（匿名可拉，linux/amd64）；v0.0.19 以正式发布产物为准 |
-| 部署 ZIP | `v2ex-clone-v0.0.18-deploy.zip`（当前公开版）；v0.0.19 以正式发布产物为准 |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.19`（匿名可拉，linux/amd64；Digest `sha256:279324de…f41d49e`） |
+| 部署 ZIP | `v2ex-clone-v0.0.19-deploy.zip`（144,346 字节；SHA256 `693fb742…b88ae4e`） |
 | 数据库迁移 | `drizzle/` 下 6 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories` / `0005_v019_reply_threads`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -478,7 +477,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
-> **v0.0.19（本版稳定版候选）的当前测试基线**以
+> **v0.0.19（本版稳定版）的当前测试基线**以
 > [`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) 为唯一口径；
 > 完整交接见 [`docs/SESSION_HANDOFF_v0.0.19.md`](docs/SESSION_HANDOFF_v0.0.19.md)；
 > v0.0.18 已发布基线见
@@ -519,8 +518,12 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 | 回复真库/API | **10** | `tests/v019-reply-threads.spec.ts` | **10 passed** |
 | 固定/滑动窗口限流 | **3** | `tests/rate-limit-window.spec.ts` | **3 passed**，20 并发计数连续 |
 | 双基线升级与恢复 | **30 项断言 × 2 基线** | `verify-upgrade-v0019.sh` | **PASS=30 / FAIL=0 ×2**，45 项业务指纹逐字节一致 |
-| 1 小时持续运行 | pending | 最终候选 CI | 待执行；24h 仍为 `not-completed` |
-| 官方公开资产升级 | pending | v0.0.18 → v0.0.19 | 待正式发布后执行 |
+| 跨浏览器矩阵 | **15 分片** | GitHub Actions run `44881277162` | Chromium / Firefox / WebKit × 5 视口：**15/15 success** |
+| 1 小时持续运行 | 真实 1h+ | GitHub Actions run `44881274218` | **通过**；24h 单实例连续运行仍为 `not-completed` |
+| 官方公开资产升级 | **10 项** | GitHub Actions run `44890599571` | v0.0.18 → v0.0.19：**10/10 通过**，12 行业务指纹一致，迁移 5→6 |
+| 发布后匿名验收 | **13 项** | GitHub Actions run `44890019049` | **0 FAIL**（1 个已披露 WARN，由四角色验收覆盖） |
+| 官方包四角色验收 | **30 项** | GitHub Actions run `44890022618` | **30/30 通过** |
+| 官方包 v0.0.19 专项 | **41 项** | GitHub Actions run `44890893741` | **41/41 通过**：父子回复、七模式、三态主题、回复图片 |
 
 > 当前口径以 [`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) 与
 > [`docs/release-facts.json`](docs/release-facts.json) 为准；24 小时单实例连续运行仍为

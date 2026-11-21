@@ -4,12 +4,11 @@
     "",
     "更新规则：只在本版本实测完成后写入真实数字，并附 evidence。禁止预估、禁止照抄上一版。",
     "`version` 是载体版本；`measurementVersion` 是数字的实测归属版本。",
-    "本文件当前记录 v0.0.19 候选态实测；visual 小节仍为 v0.0.10 历史快照，并已单独标注。",
-    "soak / officialUpgrade / postRelease 在正式发布完成前保持 pending。"
+    "本文件记录 v0.0.19 正式发布后的实测结果；visual 小节仍为 v0.0.10 历史快照，并已单独标注。"
   ],
   "version": "0.0.19",
   "measurementVersion": "0.0.19",
-  "status": "measured",
+  "status": "released",
   "measuredAt": "2026-11-21",
   "unit": {
     "files": 90,
@@ -34,6 +33,24 @@
     "failed": 0,
     "skipped": 0,
     "evidence": "本机 next start + Playwright Chromium 全量；295 passed / 0 failed（含 v0.0.19 回复体验 8 组）"
+  },
+  "crossBrowser": {
+    "shards": 15,
+    "browsers": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "viewports": [
+      "375x812",
+      "390x844",
+      "768x1024",
+      "1280x900",
+      "1920x1080"
+    ],
+    "passed": 15,
+    "failed": 0,
+    "evidence": "GitHub Actions E2E 跨浏览器矩阵 run 44881277162；15/15 分片 success（Chromium / Firefox / WebKit × 5 视口）"
   },
   "upgrade": {
     "baselines": [
@@ -61,7 +78,7 @@
     "pages": 12,
     "screenshots": 72,
     "viewports": 4,
-    "measurementVersion": "0.0.10",
+    "measurementVersion": "v0.0.10",
     "status": "historical-snapshot",
     "evidence": "docs/evidence/visual/pages-audit.json",
     "v019Note": "官方 2026-11 楼中楼与主题更新未取得可合法复现的像素规格；详见 docs/VISUAL_DIFF_v0.0.19.md，相关细节保持 UNVERIFIED。"
@@ -70,27 +87,61 @@
     "steps": 30,
     "passed": 30,
     "failed": 0,
-    "measurementVersion": "v0.0.18",
-    "status": "historical-snapshot",
-    "evidence": "GitHub Actions 官方包四角色真实用户验收 run 44840648812（v0.0.18 正式 Release 资产）"
+    "measurementVersion": "v0.0.19",
+    "status": "measured",
+    "evidence": "GitHub Actions 官方包四角色真实用户验收 run 44890022618（v0.0.19 正式 Release 资产）；扩展专项 run 44890893741 共 41 PASS / 0 FAIL"
   },
   "soak": {
-    "oneHour": "pending",
+    "oneHour": "passed",
     "twentyFourHour": "not-completed",
-    "evidence": "待最终候选 SHA 触发 soak-test.yml",
+    "evidence": "GitHub Actions 最终候选 SHA soak run 44881274218；1 小时冒烟 job success，时长诚实闸门通过",
     "note": "24 小时单实例连续运行仍未完成；1 小时 soak 不得替代 24 小时单实例连续运行。"
   },
   "officialUpgrade": {
     "from": "v0.0.18",
     "to": "v0.0.19",
-    "status": "pending",
-    "evidence": "待 v0.0.19 正式 Release 发布后运行 official-upgrade.yml"
+    "status": "passed",
+    "assertions": 10,
+    "failed": 0,
+    "evidence": "GitHub Actions 官方公开资产升级 run 44890599571；PASS=10 / FAIL=0，12 行业务指纹逐字节一致，迁移 5 -> 6 且与目标镜像 journal 一致；首次 run 44890026036 因验收脚本把预期迁移误判为业务变化而失败，已由 PR #82 修正并重跑通过"
   },
   "postRelease": {
-    "status": "pending",
-    "evidence": "待 v0.0.19 正式 Release 发布后运行 post-release-verify.yml 与 official-acceptance.yml"
+    "status": "passed",
+    "anonymous": {
+      "items": 13,
+      "failed": 0,
+      "warnings": 1,
+      "evidence": "GitHub Actions 发布后独立验收 run 44890019049；0 FAIL，1 个已披露 WARN（通知写入由四角色验收覆盖）"
+    },
+    "fourRole": {
+      "items": 30,
+      "passed": 30,
+      "failed": 0,
+      "evidence": "GitHub Actions 官方包四角色验收 run 44890022618"
+    },
+    "v019Features": {
+      "items": 41,
+      "passed": 41,
+      "failed": 0,
+      "evidence": "GitHub Actions 扩展官方包验收 run 44890893741；正式安装实例上验证父子回复、七种展示模式、Light/Dark/System 与回复图片"
+    }
   },
   "releaseForm": "stable",
-  "releasedAt": null,
-  "release": null
+  "releasedAt": "2026-11-21T09:30:16Z",
+  "release": {
+    "id": 453579475,
+    "tag": "v0.0.19",
+    "tagObject": "266c0bcdc61a825c75db39bce62c9139e2205b0f",
+    "targetCommit": "7baaae5d4704d86f145e8c5152fc3ea9abbf771c",
+    "url": "https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.19",
+    "draft": false,
+    "prerelease": false,
+    "latest": true,
+    "ghcrDigest": "sha256:279324decd36c7cdaaab5758b566ee5fe7a43eaf674457ac2f2af7466f41d49e",
+    "deployZip": {
+      "name": "v2ex-clone-v0.0.19-deploy.zip",
+      "size": 144346,
+      "sha256": "693fb7427f00f76b3090dbaa45e176b113698188174774e30b5cc5995b88ae4e"
+    }
+  }
 }
