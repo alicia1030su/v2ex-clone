@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from '@playwright/test';
+import { describe, expect, test } from '@playwright/test';
 import postgres from 'postgres';
 
 // 10000 回复夹具只在 core 全量 E2E 跑一次；跨浏览器矩阵跳过，避免重复灌库。
@@ -10,7 +10,7 @@ if (!DATABASE_URL) throw new Error('DATABASE_URL is required for v020 capacity E
 const client = postgres(DATABASE_URL, { prepare: false, max: 2 });
 let topicId = 0;
 
-beforeAll(async () => {
+test.beforeAll(async () => {
   const [author] = await client`
     SELECT id FROM users ORDER BY id LIMIT 1
   `;
@@ -38,7 +38,7 @@ beforeAll(async () => {
   `;
 });
 
-afterAll(async () => {
+test.afterAll(async () => {
   if (topicId > 0) {
     await client`DELETE FROM topics WHERE id = ${topicId}`;
   }

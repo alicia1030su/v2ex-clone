@@ -240,18 +240,21 @@ jobs:
       - name: 校验备份与恢复
         run: |
           cd /tmp/inst
-          ./backup.sh 2>&1 | tail -12
-          BK=$(ls -t backups/*.sql.gz 2>/dev/null | head -1)
-          [ -n "$BK" ] || { echo "  ✗ 未生成备份文件"; exit 1; }
-          echo "  备份文件: $BK ($(stat -c%s "$BK") 字节)"
-          # 恢复到临时库
+          ./backup.sh 2>&1 | tee /tmp/install-backup.log
+          BK=$(ls -t backups/v2ex-backup-*.tar.gz 2>/dev/null | head -1)
+          [ -n "$BK" ] || { echo "  ✗ 未生成一致备份 bundle"; exit 1; }
+          echo "  备份 bundle: $BK ($(stat -c%s "$BK") 字节)"
+          # 从一致 bundle 解出数据库 dump，恢复到临时库。
+          VERIFY_DIR=$(mktemp -d)
+          tar -xzf "$BK" -C "$VERIFY_DIR"
           docker compose --env-file .env exec -T postgres psql -U v2ex -d postgres -c "DROP DATABASE IF EXISTS v2ex_restore_check;" >/dev/null
           docker compose --env-file .env exec -T postgres psql -U v2ex -d postgres -c "CREATE DATABASE v2ex_restore_check;" >/dev/null
-          gunzip -c "$BK" | docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex_restore_check >/dev/null
+          gunzip -c "$VERIFY_DIR/database.sql.gz" | docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex_restore_check >/dev/null
           CNT=$(docker compose --env-file .env exec -T postgres psql -U v2ex -d v2ex_restore_check -t -A -c "select count(*) from users;")
+          rm -rf "$VERIFY_DIR"
           echo "  恢复库用户数 = $CNT"
           [ "$CNT" -ge 1 ] || { echo "  ✗ 恢复失败"; exit 1; }
-          echo "  ✓ 备份恢复通过"
+          echo "  ✓ 一致 bundle 备份恢复通过"
 
       - name: 校验卸载流程需要显式确认删卷
         run: |
