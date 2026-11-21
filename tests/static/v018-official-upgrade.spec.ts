@@ -62,7 +62,7 @@ describe('v0.0.18 升级文档真实性', () => {
 
   it('README 的当前版本升级入口与包内文档一致', () => {
     const readme = read('README.md');
-    expect(readme).toContain(`**v0.0.4 → ${CURRENT_VERSION}** 与 **v0.0.17 → ${CURRENT_VERSION}**`);
+    expect(readme).toContain(`**v0.0.4 → ${CURRENT_VERSION}** 与 **v0.0.19 → ${CURRENT_VERSION}**`);
     expect(readme).toContain(`./update.sh --version ${CURRENT_VERSION}`);
     expect(readme).toContain('那里没有现有 `.env`');
   });

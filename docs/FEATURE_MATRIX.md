@@ -1,10 +1,9 @@
 # FEATURE_MATRIX — 功能矩阵与验证状态
 
-> v0.0.18 当前候选的测试基线、门禁结果与授权边界见
-> [`docs/SESSION_HANDOFF_v0.0.18.md`](SESSION_HANDOFF_v0.0.18.md)；
-> 本版（v0.0.15）的当前测试基线、门禁结果与授权边界见
-> [`docs/SESSION_HANDOFF_v0.0.15.md`](SESSION_HANDOFF_v0.0.15.md)；
-> v0.0.14 的发布记录见 [`docs/SESSION_HANDOFF_v0.0.14.md`](SESSION_HANDOFF_v0.0.14.md)；
+> v0.0.20 当前候选的测试基线、门禁结果与授权边界见
+> [`docs/SESSION_HANDOFF_v0.0.20.md`](SESSION_HANDOFF_v0.0.20.md)；
+> v0.0.19 已发布基线见 [`docs/SESSION_HANDOFF_v0.0.19.md`](SESSION_HANDOFF_v0.0.19.md)；
+> v0.0.18 历史交接见 [`docs/SESSION_HANDOFF_v0.0.18.md`](SESSION_HANDOFF_v0.0.18.md)。
 > 下文「验证方式」列出的测试文件即可复现这些结论。
 >
 > 验证方式：每个功能都通过**实际运行**验证（HTTP 响应码 / 数据库查询 / Playwright 交互）。

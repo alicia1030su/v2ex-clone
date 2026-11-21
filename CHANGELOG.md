@@ -7,6 +7,51 @@
 本文件只记录**本项目实际做过的事**。凡是未实现的功能，一律列在「不包含」小节，
 不以任何形式（包括占位按钮、静态演示数据）冒充已实现。
 
+## [Unreleased] — v0.0.20（开发中 / 发行候选，未发布）
+
+> 本版聚焦附件授权、可回滚灾难恢复与楼中楼容量；发布授权与最终产物 SHA 以冻结记录为准。
+
+### 附件安全与生命周期
+
+- 用户上传文件从 `public/uploads` 迁往私有 `/app/data/uploads`，URL 仍由 `/uploads/*` 授权路由提供。
+- Next Image optimizer 对所有 `/uploads/*` 请求 fail-closed，避免优化器缓存绕过数据库授权。
+- 新增附件当前引用表与 `active / superseded / deleted / purged` 状态机。
+- 软删回复、隐藏节点、替换头像、编辑移除图片后立即撤销公开访问。
+- purge worker 使用两阶段提交、advisory lock、锁超时重领与 tombstone，避免崩溃时误删新有效附件。
+- 历史迁移只按严格 Markdown 引用保守回填，不把代码块、普通链接或后缀字符串当作当前图片。
+
+### 一致备份与灾难恢复
+
+- 备份 bundle 改为 PostgreSQL custom-format dump、uploads tar、逐文件 SHA256、manifest 与 migration journal 的组合。
+- 恢复前在 scratch database 完整重放，并核对全部 manifest 计数与迁移记录。
+- `manifest.env` 改为严格白名单解析，不再执行不可信 bundle 内的命令替换。
+- uploads 先恢复到新卷并逐文件校验，旧卷先做逐文件安全备份，再执行受控复制切换。
+- 数据库提交后进入 recovery marker 状态；附件对账通过前不对外放流量。
+- 明确披露 PostgreSQL 与 Docker Volume 不是跨资源原子事务，不确定状态保留人工恢复边界。
+
+### 部署运维
+
+- 根 Compose 与发行 Compose 的 uploads 卷统一挂载到 `/app/data/uploads`。
+- `health-check.sh` 增加完整 bundle 校验、归档攻击面检查与附件对账。
+- `update.sh` 在升级后校验私有卷挂载、属主、可写性，并拒绝 legacy `public/uploads`。
+- 源码启动前自动迁移 legacy 公共上传文件；Docker 运行时镜像包含该迁移脚本。
+- v0.0.19 纯数据库 dump 只能通过显式 DB-only 兼容路径恢复，不会被误判为完整 bundle。
+
+### 楼中楼性能与容量
+
+- 父回复链改为递归 CTE 批量加载，查询数从随深度增长降为固定次数。
+- `lines` 模式增加 DOM 硬上限，避免 10000 回复时无界渲染。
+- 10000 回复、七种展示模式、首屏与末页浏览器验证通过。
+- 新增 purge queue 到期索引与 `EXPLAIN ANALYZE` 查询计划取证。
+
+### 本版验证与边界
+
+- 生产镜像附件授权攻击矩阵 35/35 通过。
+- 真实 Docker 灾难恢复韧性矩阵通过。
+- `v0.0.4 → v0.0.20` 与 `v0.0.19 → v0.0.20` 双基线升级合计 36/36 通过，45 项业务指纹逐字节一致。
+- R-01 仍为 DEFERRED / A3；24 小时单实例连续运行仍未完成。
+- 未改写历史、force push、移动 Tag 或修改已发布 Release。
+
 ## [0.0.19] — v0.0.19（**稳定版 Stable Release**）
 
 > **发布形态**：稳定版（`prerelease=false`、`draft=false`、Latest）。

@@ -231,7 +231,7 @@ jobs:
           set -o pipefail
           bash scripts/release/verify-upgrade-v008.sh 2>&1 | tee /tmp/v008-upgrade.log
 
-      - name: 双基线升级验证（v0.0.4 → v0.0.20 与 v0.0.17 → v0.0.20）
+      - name: 双基线升级验证（v0.0.4 → v0.0.20 与 v0.0.19 → v0.0.20）
         # v0.0.20 更新。与上一条（v008 脚本）的分工：
         #   · v008：单基线 + 迁移幂等，覆盖「结构变更」路径；
         #   · 本条：**双基线**（最早的 v0.0.4 与上一版的 v0.0.17），
