@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, test } from '@playwright/test';
+import { afterAll, beforeAll, describe, expect, test } from '@playwright/test';
 import postgres from 'postgres';
 
 // 10000 回复夹具只在 core 全量 E2E 跑一次；跨浏览器矩阵跳过，避免重复灌库。
@@ -46,7 +46,7 @@ afterAll(async () => {
 });
 
 describe('v0.0.20 10000 回复七种展示模式容量', () => {
-  it('首屏、末页与七种模式均保持有界 DOM', async ({ page }) => {
+  test('首屏、末页与七种模式均保持有界 DOM', async ({ page }) => {
     test.setTimeout(120_000);
     const runtimeErrors: string[] = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));

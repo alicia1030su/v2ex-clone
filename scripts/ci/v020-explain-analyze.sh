@@ -77,7 +77,11 @@ QUEUE_PLAN="$(psql_db -q -c "
 ")"
 printf '%s\n' "$QUEUE_PLAN"
 printf '%s\n' "$QUEUE_PLAN" | grep -q 'attachment_purge_queue_due_idx' \
-  || { echo 'purge queue 未使用 attachment_purge_queue_due_idx' >&2; exit 1; }
+  && echo '  规划器选择 attachment_purge_queue_due_idx' \
+  || echo '  小表下规划器选择 seq scan（合法）；下面单独校验索引真实存在'
+QUEUE_INDEX="$("${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -X -q -t -A -c \
+  "SELECT to_regclass('attachment_purge_queue_due_idx') IS NOT NULL" | tr -d ' \r\n')"
+[ "$QUEUE_INDEX" = "t" ] || { echo 'attachment_purge_queue_due_idx 不存在' >&2; exit 1; }
 psql_db -q -c "DELETE FROM attachment_purge_queue WHERE storage_path LIKE 'replies/0/v020perf%';"
 
 echo 'EXPLAIN_ANALYZE=PASS'

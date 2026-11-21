@@ -410,6 +410,10 @@ describe('v0.0.20 附件引用状态机', () => {
       const image = await createImage();
       await linkImage(replyId, owner.id, image.storagePath, image.id);
       await unlinkImage(replyId, owner.id);
+      const [beforeRace] = await db.select().from(schema.replyImages).where(eq(schema.replyImages.id, image.id));
+      const queueBeforeRace = await db.select().from(schema.attachmentPurgeQueue);
+      expect(beforeRace.state, '并发前置状态必须是 superseded').toBe('superseded');
+      expect(queueBeforeRace).toHaveLength(1);
 
       const [purged, relink] = await Promise.allSettled([
         runActualPurge(),
@@ -425,7 +429,10 @@ describe('v0.0.20 附件引用状态机', () => {
       const [row] = await db.select().from(schema.replyImages).where(eq(schema.replyImages.id, image.id));
       const fileExists = existsSync(path.resolve(UPLOAD_ROOT, image.storagePath));
       if (row.state === 'active') {
-        expect(relink.status).toBe('fulfilled');
+        expect(
+          relink.status,
+          relink.status === 'rejected' ? String(relink.reason) : 'relink unexpectedly fulfilled',
+        ).toBe('fulfilled');
         expect(fileExists).toBe(true);
         expect(await db.select().from(schema.attachmentPurgeQueue)).toHaveLength(0);
       } else if (row.state === 'purged') {

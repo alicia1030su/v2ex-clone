@@ -110,9 +110,12 @@ const FAKE_DOCKER = `#!/usr/bin/env bash
 set -u
 cmd="$*"
 if [ "$cmd" = "compose version" ]; then exit 0; fi
-if [ "$cmd" = "compose ps -q app" ]; then echo fakeapp; exit 0; fi
+case "$cmd" in
+  *"compose "*"ps -q app"*) echo fakeapp; exit 0 ;;
+esac
 if [ "$1" = "inspect" ]; then
   fmt="$3"
+  [ "$fmt" = "--format" ] && fmt="$4"
   case "$fmt" in
     *Mounts*) echo fakeuploads ;;
     *State.Running*) echo false ;;
@@ -283,13 +286,22 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     expect(existsSync(`${bundlePath}.sha256`), '缺少 bundle 外部 SHA256 sidecar').toBe(true);
 
     // v0.0.20 起数据库 dump 封装在一致 bundle 内，不再是 backups/ 下的裸 .sql.gz。
-    const dumpBytes = spawnSync(
-      'bash',
-      ['-c', `tar -xOf ${JSON.stringify(bundlePath)} ./database.sql.gz | gzip -cd | wc -c`],
-      { encoding: 'utf8' },
-    );
-    expect(dumpBytes.status, dumpBytes.stderr).toBe(0);
-    expect(Number(dumpBytes.stdout.trim())).toBeGreaterThan(65536);
+    // 真实解包后读取，避免不同 tar 实现对 “./member” 与 “member” 的差异。
+    const extract = mkdtempSync(path.join(os.tmpdir(), 'v009-bundle-'));
+    try {
+      expect(spawnSync('tar', ['-xzf', bundlePath, '-C', extract]).status, '解包 bundle 失败').toBe(0);
+      const dumpPath = path.join(extract, 'database.sql.gz');
+      expect(existsSync(dumpPath), 'bundle 缺少 database.sql.gz').toBe(true);
+      const dumpBytes = spawnSync(
+        'bash',
+        ['-c', `gzip -cd ${JSON.stringify(dumpPath)} | wc -c`],
+        { encoding: 'utf8' },
+      );
+      expect(dumpBytes.status, dumpBytes.stderr).toBe(0);
+      expect(Number(dumpBytes.stdout.trim())).toBeGreaterThan(65536);
+    } finally {
+      rmSync(extract, { recursive: true, force: true });
+    }
   });
 
   it('③ 负向对照：同环境重现旧写法必须失败（证明 ② 不是空测试）', () => {
