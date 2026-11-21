@@ -4,11 +4,11 @@
 > worktree：`C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0019-release`
 > 基线：`c8734f1eaa414264ef1319ed2c7b5690094c9812`（v0.0.18 发布后文档提交）
 > 日期：2026-11-21（GMT+8）
-> 状态：**研发与本地验证进行中；尚未创建 Tag、GHCR v0.0.19 或 GitHub Release。**
+> 状态：**v0.0.19 已正式发布为 Stable / Latest，并完成发布后独立验收。**
 
 ## 一、授权边界
 
-> HEAD（业务实现提交）：`ebfabdc`。
+> HEAD（正式发布 commit）：`7baaae5d4704d86f145e8c5152fc3ea9abbf771c`。
 
 - 项目所有者对 v0.0.19 单独作出 **A3 + B1** 裁决：保留历史并强化披露，R-01 维持 `DEFERRED`；授权本版发布 Stable Release。
 - 授权记录：`docs/RISK_DECISION_v0.0.19.md`，已通过 `verify-risk-decision.mjs`。
@@ -106,24 +106,23 @@
 - 发布预演：static **23/23**、notes **20/20**。
 - 生产依赖审计：0 漏洞。
 
-## 五、版本冻结状态
+## 五、版本冻结与正式发布状态
 
-- 业务实现提交：`ebfabdc`。
+- 业务实现提交：`ebfabdc`；最终发布 commit：`7baaae5d4704d86f145e8c5152fc3ea9abbf771c`。
 - 版本载体已按 G-VER-01 同步到 `0.0.19` 并通过 20 项写后复验。
-- v0.0.19 已登记为 Stable；v0.0.20 未预登记。
-- Release Notes 升级证据改为读取本版 `docs/UPGRADE_VERIFICATION_v0.0.19.md`。
-- 当前尚需完成最终提交、PR CI、候选安装/四角色/soak、正式发布与发布后验收。
+- v0.0.19 已登记为 Stable 并正式发布；v0.0.20 未预登记、未开始。
+- annotated Tag：`v0.0.19`，Tag 对象 `266c0bcdc61a825c75db39bce62c9139e2205b0f`。
+- Release：ID `453579475`，Stable / Latest，`draft=false`、`prerelease=false`。
+- GHCR Digest：`sha256:279324decd36c7cdaaab5758b566ee5fe7a43eaf674457ac2f2af7466f41d49e`。
+- 部署 ZIP：144,346 字节，SHA256 `693fb7427f00f76b3090dbaa45e176b113698188174774e30b5cc5995b88ae4e`。
+- 正式 Release 流水线 run `44888852285` 全部 job success。
 
-## 六、Go/No-Go 与下一步
+## 六、Go/No-Go 与发布后验收
 
-- **Go**：业务代码冻结、版本载体同步、本地完整测试与发布预演均通过。
-- **No-Go（暂缓）**：最终 master CI、候选安装、四角色、1 小时 soak 与正式发布后验收尚未完成。
-- **永久边界**：R-01 保持 `DEFERRED / A3`；24 小时单实例连续运行保持 `not-completed`。
-
-1. 提交版本同步与发布事实回填。
-2. 推送分支并创建 PR，等待完整 CI 与跨浏览器矩阵。
-3. 合并后固定最终 master SHA。
-4. 在最终 SHA 上跑候选安装、四角色、1 小时 soak 与发布预演。
-5. 创建并推送一次 annotated `v0.0.19` Tag，监控正式发布。
-6. 用全新 Runner 做匿名安装、GHCR、ZIP、四角色、七模式、图片、主题、隐私、备份恢复与 v0.0.18→v0.0.19 升级验收。
-7. 回填 `release-facts.json`、README、CHANGELOG、测试报告与最终交付报告。
+- **Go（已执行）**：v0.0.19 已完成正式 Stable Release 与发布后独立验收。
+- 1 小时 soak：run `44881274218`，通过。
+- 发布后匿名验收：run `44890019049`，13 项 0 FAIL（1 个已披露 WARN）。
+- 官方包四角色：run `44890022618`，30/30 通过。
+- 官方包 v0.0.19 专项：run `44890893741`，41/41 通过。
+- 官方公开资产升级：run `44890599571`，10/10 通过；首次失败已定位为验收脚本误判并修复。
+- **永久边界**：R-01 保持 `DEFERRED / A3`；24 小时单实例连续运行保持 `not-completed`；B1 授权仅限 v0.0.19，不延续到 v0.0.20。
