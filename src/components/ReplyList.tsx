@@ -288,8 +288,10 @@ export default function ReplyList({
     const cursor = childCursors[parentId] ?? 0;
     setContextLoading(parentId);
     try {
-      const suffix = cursor > 0 ? `?cursor=${cursor}` : '';
-      const res = await fetch(`/api/topics/${topicId}/replies/${parentId}/context${suffix}`, { cache: 'no-store' });
+      const url = cursor > 0
+        ? `/api/topics/${topicId}/replies/${parentId}/context?cursor=${cursor}`
+        : `/api/topics/${topicId}/replies/${parentId}/context`;
+      const res = await fetch(url, { cache: 'no-store' });
       const data = (await res.json().catch(() => null)) as ContextResponse | null;
       if (!res.ok || !data?.ok) throw new Error(data?.error ?? '楼中楼加载失败');
       const children = (data.children ?? []).map(contextChildToItem);
