@@ -13,6 +13,15 @@
 > **授权范围**：仅限本版，一次性；不延续到其它版本。
 > 裁决记录见 `docs/RISK_DECISION_v0.0.18.md`。
 >
+> **本轮已执行**：annotated Tag `v0.0.18`（tag 对象 `d593436f`）→ Release 流水线
+> → GHCR `v0.0.18`（Digest `sha256:95f7725b…758baeb3`，linux/amd64）
+> → 公开 GitHub Stable Release（Latest，id `453305532`）
+> → 部署 ZIP（144,346 B，SHA256 `f3162582…729588`）与 `SHA256SUMS`。
+> 首次 Tag 触发运行 `44831729786` 在 Release Notes 步骤因 digest 未 export 给 Node 子进程而失败，
+> 当时未创建 Release；修复后由 `workflow_dispatch` 幂等补救运行 `44838838391` 复用原镜像并成功发布。
+> 发布后匿名独立验收 `44842628787`、官方包四角色验收 `44840648812`（30/30）、
+> 官方 v0.0.17 → v0.0.18 升级验收 `44840653969`（10/10）全部通过。
+>
 > ⚠️ **「稳定版」承诺的是发布工程质量**（可复现、可追溯、升级与回滚经过验证），
 > **不是** API 向后兼容，**也不是**长期运行时长 —— 24 小时单实例连续运行
 > **仍未完成**（`docs/release-facts.json` 的 `soak.twentyFourHour` 保持 `not-completed`）。
