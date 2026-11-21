@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           docker build -t v2ex-clone:v020-matrix .
-          docker images v2ex-clone:v020-matrix --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.Id}}'
+          docker images v2ex-clone:v020-matrix --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.ID}}'
 
       - name: 创建隔离 Compose 环境
         run: |
