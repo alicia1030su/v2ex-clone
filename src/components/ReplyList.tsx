@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ReplyItem from '@/components/ReplyItem';
 import ReplyComposer, {
@@ -53,6 +54,8 @@ type Props = {
   initialMode: ReplyDisplayMode;
   currentUser: CurrentUser | null;
   thankedIds: number[];
+  tags: Array<{ name: string }>;
+  lastReplyAtLabel: string;
 };
 
 type ContextResponse = {
@@ -170,6 +173,8 @@ export default function ReplyList({
   initialMode,
   currentUser,
   thankedIds,
+  tags,
+  lastReplyAtLabel,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
@@ -557,18 +562,30 @@ export default function ReplyList({
 
   return (
     <div className={`reply-list reply-list-${mode}`}>
-      <div className="cell reply-mode-bar">
-        <label htmlFor="reply-display-mode">回复显示</label>
-        <select
-          id="reply-display-mode"
-          value={mode}
-          onChange={(event) => persistMode(event.target.value as ReplyDisplayMode)}
-        >
-          {MODE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+      <div className="cell reply-list-header">
+        <div className="fr" style={{ margin: '-3px -5px 0px 0px' }}>
+          {tags.map((tag) => (
+            <Link key={tag.name} href={`/tag/${encodeURIComponent(tag.name)}`} className="tag">
+              <li className="fa fa-tag" /> {tag.name}
+            </Link>
           ))}
-        </select>
-        <span className="fade">仅改变阅读方式，不修改回复数据</span>
+        </div>
+        <span className="gray">
+          <span id="reply-total-count">{total}</span> 条回复 &nbsp;<strong className="snow">•</strong> &nbsp;
+          {lastReplyAtLabel}
+        </span>
+        <label className="reply-mode-bar" htmlFor="reply-display-mode">
+          <span>显示</span>
+          <select
+            id="reply-display-mode"
+            value={mode}
+            onChange={(event) => persistMode(event.target.value as ReplyDisplayMode)}
+          >
+            {MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {notice ? <div className="cell reply-mode-notice" role="status">{notice}</div> : null}

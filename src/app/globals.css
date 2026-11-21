@@ -1728,16 +1728,20 @@ textarea {
    v0.0.19 · 回复七模式 / 无刷新编辑器 / 图片插入
    ========================================================================== */
 .reply-mode-bar {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding-top: 7px;
-  padding-bottom: 7px;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: 12px;
+  vertical-align: middle;
 }
 
 .reply-mode-bar select {
   width: auto;
-  min-width: 132px;
+  min-width: 112px;
+  height: 26px;
+  padding: 2px 22px 2px 6px;
+  font-size: 12px;
 }
 
 .reply-mode-notice {
@@ -2009,6 +2013,34 @@ textarea {
     top: auto;
     bottom: 12px;
     width: auto;
+  }
+}
+
+@media screen and (max-width: 820px) {
+  /* 新增控件不参与顶栏/回复头 flex 布局，避免平板与手机高度回归 */
+  .theme-toggle {
+    position: fixed;
+    right: 12px;
+    bottom: 54px;
+    z-index: 1100;
+    margin: 0;
+  }
+
+  .reply-mode-bar {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 1100;
+    margin: 0;
+    padding: 4px;
+    border: 1px solid var(--box-border-color);
+    border-radius: var(--box-border-radius);
+    background: var(--box-background-color);
+    box-shadow: 0 3px 12px var(--menu-shadow-color);
+  }
+
+  .reply-mode-bar > span {
+    display: none;
   }
 }
 

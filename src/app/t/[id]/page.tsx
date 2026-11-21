@@ -236,21 +236,6 @@ export default async function TopicPage({
       <div className="sep20" />
       <div id="topic-replies">
         <div className="box">
-          {/* 回复区头：与参考站一致 —— 左「N 条回复 • 时间」，右标签（floated） */}
-          <div className="cell">
-            <div className="fr" style={{ margin: '-3px -5px 0px 0px' }}>
-              {tags.map((t) => (
-                <Link key={t.name} href={`/tag/${encodeURIComponent(t.name)}`} className="tag">
-                  <li className="fa fa-tag" /> {t.name}
-                </Link>
-              ))}
-            </div>
-            <span className="gray">
-              <span id="reply-total-count">{replyTotal}</span> 条回复 &nbsp;<strong className="snow">•</strong> &nbsp;
-              {fullTimestamp(topic.lastReplyAt)}
-            </span>
-          </div>
-
           {totalPages > 1 ? (
             <div className="cell ps_container">
               <PageNav page={page} totalPages={totalPages} basePath={`/t/${topicId}`} />
@@ -260,6 +245,8 @@ export default async function TopicPage({
           <ReplyList
             topicId={topicId}
             topicLocked={topic.locked}
+            tags={tags}
+            lastReplyAtLabel={fullTimestamp(topic.lastReplyAt)}
             initialItems={repliesWithHtml.map((r) => ({
               id: r.id,
               floor: r.floor,
