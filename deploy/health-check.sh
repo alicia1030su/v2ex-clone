@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.19 — 运维体检脚本
+# V2EX Clone v0.0.20 — 运维体检脚本
 #
 # 用途：**不依赖应用进程**的独立健康巡检（任务书 §六）。
 # 可以放进 cron / systemd timer / 监控探针里。
@@ -9,9 +9,10 @@
 #   1. 容器状态与健康（app / postgres / redis）
 #   2. 应用就绪探针（/api/health/ready）
 #   3. 数据库与 Redis 可用性
-#   4. 磁盘空间（低于阈值告警）
-#   5. 备份存在性与完整性（gzip 结构 + SHA256）
-#   6. 最近一次备份的时间（超过 N 天告警）
+#   4. 附件数据库引用与 uploads 物理文件双向对账
+#   5. 磁盘空间（低于阈值告警）
+#   6. 备份存在性与完整性（gzip 结构 + SHA256）
+#   7. 最近一次备份的时间（超过 N 天告警）
 #
 # 用法：
 #   ./health-check.sh            # 检查并输出报告
@@ -128,6 +129,26 @@ if [ -n "$REDIS_PASSWORD" ]; then
   fi
 else
   info "  （未配置 REDIS_PASSWORD，跳过 Redis 检查）"
+fi
+
+# --- 3b. 附件数据库引用与物理文件对账 --------------------------------------
+info ""
+info "${C_BLD}附件对账${C_RST}"
+if [ -x "$SCRIPT_DIR/reconcile-attachments.sh" ] || [ -f "$SCRIPT_DIR/reconcile-attachments.sh" ]; then
+  RECONCILE_LOG="$(bash "$SCRIPT_DIR/reconcile-attachments.sh" 2>&1)"
+  RECONCILE_RC=$?
+  if [ "$RECONCILE_RC" -eq 0 ]; then
+    ok "附件引用与物理文件一致"
+    if printf '%s\n' "$RECONCILE_LOG" | grep -q '\[警告\]'; then
+      printf '%s\n' "$RECONCILE_LOG" | grep '\[警告\]' >&2 || true
+      warn "存在无引用附件文件（已保留，未自动删除）"
+    fi
+  else
+    printf '%s\n' "$RECONCILE_LOG" >&2
+    err "附件对账失败（数据库引用与 uploads 卷不一致）"
+  fi
+else
+  err "缺少 reconcile-attachments.sh，无法完成附件对账"
 fi
 
 # --- 4. 磁盘空间 ------------------------------------------------------------

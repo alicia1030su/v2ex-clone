@@ -265,7 +265,11 @@ export async function listRecentReplyImages(userId: number, limit = 10) {
       createdAt: schema.replyImages.createdAt,
     })
     .from(schema.replyImages)
-    .where(and(eq(schema.replyImages.userId, userId), isNull(schema.replyImages.usedAt)))
+    .where(and(
+      eq(schema.replyImages.userId, userId),
+      eq(schema.replyImages.state, 'active'),
+      isNull(schema.replyImages.usedAt),
+    ))
     .orderBy(desc(schema.replyImages.createdAt))
     .limit(safeLimit);
 }

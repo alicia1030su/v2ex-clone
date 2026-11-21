@@ -70,6 +70,7 @@ export async function syncReplyImageLinks(
       .from(schema.replyImages)
       .where(and(
         eq(schema.replyImages.userId, input.userId),
+        ne(schema.replyImages.state, 'deleted'),
         ne(schema.replyImages.state, 'purged'),
         sql`NOT EXISTS (
           SELECT 1 FROM attachment_purge_queue q

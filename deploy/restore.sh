@@ -410,6 +410,13 @@ DB_REPLIES_AFTER="$(docker compose exec -T postgres psql --username="$POSTGRES_U
 UPLOADS_AFTER="$(docker run --rm --entrypoint sh -v "${UPLOADS_VOLUME}:/data:ro" postgres:17-alpine -c 'find /data -type f | wc -l' | tr -d ' \r\n')"
 [ "$UPLOADS_AFTER" -eq "$UPLOAD_FILE_COUNT" ] || die "恢复后 uploads 文件数不一致：${UPLOADS_AFTER} != ${UPLOAD_FILE_COUNT}"
 
+info "执行恢复后附件双向对账..."
+if ! bash "$SCRIPT_DIR/reconcile-attachments.sh"; then
+  warn "PostgreSQL 恢复与 uploads Volume 切换不是跨资源原子事务。"
+  warn "此时数据库与新卷均已切换，脚本不会伪装成已自动回滚；旧卷保留为 ${OLD_VOLUME_BACKUP:-<未生成>}。"
+  die "恢复后附件对账失败；请人工比对新旧卷与备份 bundle。"
+fi
+
 ok "恢复完成并通过恢复后核验。"
 printf '  数据库 : users=%s topics=%s replies=%s\n' "$DB_USERS_AFTER" "$DB_TOPICS_AFTER" "$DB_REPLIES_AFTER"
 printf '  上传   : %s 个文件（逐文件 SHA256 已核验）\n' "$UPLOADS_AFTER"

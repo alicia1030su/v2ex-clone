@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { deleteAvatarFile } from '@/lib/avatar';
 import { deleteReplyImageFile } from '@/lib/reply-images';
+import { extractRows } from '@/server/sql-rows';
 
 type PurgeKind = 'avatar' | 'reply_image';
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -36,7 +37,7 @@ export async function enqueueAttachmentPurge(
 }
 
 function rowsOf<T>(result: unknown): T[] {
-  return (result as { rows?: T[] }).rows ?? [];
+  return extractRows<T>(result);
 }
 
 /**
