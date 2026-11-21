@@ -61,7 +61,9 @@
 | 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
-| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18`（匿名可拉） |
+| 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18`（匿名可拉，linux/amd64） |
+| 镜像 Digest | `sha256:95f7725bb94a201fb3e797dcce39d61cfe057bc4001c0c71f4e5b85e758baeb3` |
+| 部署 ZIP | `v2ex-clone-v0.0.18-deploy.zip`（144,346 B；SHA256 `f31625827393f936e3f9b1429997ffa18886420ba08f53e66e0ae55e17279588`） |
 | 数据库迁移 | `drizzle/` 下 5 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
@@ -493,12 +495,16 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 
 | 套件 | 用例数 | 证据 | 结果 |
 |---|---|---|---|
-| 单元测试（vitest，含静态） | **1056**（87 个 spec 文件） | GitHub Actions CI run `44786766870` | **1046 passed / 0 failed / 0 skipped**；新增官方升级与 digest 导出护栏 10 条待最终 SHA CI 复核 |
-| 全量静态 | **485**（42 个文件） | 同 CI run 的「静态测试」步骤 | **475 passed / 0 failed / 0 skipped**；新增 10 条本地已通过 |
+| 单元测试（vitest，含静态） | **1056**（87 个 spec 文件） | GitHub Actions CI run `44823003971` | **1056 passed / 0 failed / 0 skipped** |
+| 全量静态 | **485**（42 个文件） | 同 CI run 的「静态测试」步骤 | **485 passed / 0 failed / 0 skipped** |
 | E2E（Playwright / Chromium） | **283**（28 个 spec 文件） | 同 CI run 的 E2E job | **283 passed / 0 failed / 0 skipped** |
-| 跨浏览器矩阵 | 15 个分片 | GitHub Actions run `44786767021` | 14/15 已通过；`firefox / 768x1024` 异常超时，最终证据提交触发全套重跑 |
-| 候选包四角色验收 | **30** | GitHub Actions run `44777541811` | **30 passed / 0 failed** |
-| 双基线升级与恢复 | 20 项断言 × 2 基线 | 同 CI run 的升级 job | v0.0.4 / v0.0.17 → v0.0.18 全部通过，46 项业务指纹逐字节一致 |
+| 跨浏览器矩阵 | 15 个分片 | GitHub Actions run `44836648219` | **15/15 通过** |
+| 官方包四角色验收 | **30** | GitHub Actions run `44840648812` | **30 passed / 0 failed** |
+| 候选包四角色验收 | **30** | GitHub Actions run `44823135897` | **30 passed / 0 failed** |
+| 双基线升级与恢复 | 20 项断言 × 2 基线 | CI run `44823003971` | v0.0.4 / v0.0.17 → v0.0.18 全部通过，46 项业务指纹逐字节一致 |
+| 官方公开资产升级 | 10 项 | GitHub Actions run `44840653969` | v0.0.17 → v0.0.18：**10/10 通过**，13 行指纹逐字节一致 |
+| 发布后匿名独立验收 | 13 项 | GitHub Actions run `44842628787` | **0 FAIL**（1 个已披露 WARN：通知写入需强验证码环境） |
+| 1 小时持续运行 | 真实 1h1m3s | GitHub Actions run `44823003899` | **通过**；24h 单实例连续运行仍为 `not-completed` |
 
 > 当前口径以 [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 与
 > [`docs/release-facts.json`](docs/release-facts.json) 为准；24 小时单实例连续运行仍为

@@ -17,7 +17,7 @@
     "passed": 1056,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44786766870（类型检查 / 单元测试 job；计数已由 v0.0.18 官方升级护栏提交复核）"
+    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，类型检查 / 单元测试 job）"
   },
   "static": {
     "files": 42,
@@ -25,7 +25,7 @@
     "passed": 485,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44786766870（静态测试步骤；计数已由 v0.0.18 官方升级护栏提交复核）"
+    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，静态测试步骤）"
   },
   "e2e": {
     "files": 28,
@@ -33,7 +33,7 @@
     "passed": 283,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44786766870（E2E 测试 job，Chromium）"
+    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，E2E 测试 job，Chromium）"
   },
   "upgrade": {
     "baselines": [
@@ -55,7 +55,7 @@
       "indexesBefore": 79,
       "indexesAfter": 79
     },
-    "evidence": "GitHub Actions CI run 44786766870（双基线升级验证，PASS=20 / FAIL=0）"
+    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，双基线升级验证，PASS=20 / FAIL=0 ×2）"
   },
   "visual": {
     "pages": 12,
@@ -70,15 +70,55 @@
     "passed": 30,
     "failed": 0,
     "measurementVersion": "0.0.18",
-    "evidence": "GitHub Actions 候选包四角色验收 run 44777541811"
+    "evidence": "GitHub Actions 官方包四角色真实用户验收 run 44840648812（正式 Release 资产，30 PASS / 0 FAIL）"
   },
   "soak": {
     "oneHour": "passed",
     "twentyFourHour": "not-completed",
-    "evidence": "GitHub Actions soak-test.yml；最终候选 SHA 由证据提交自动触发并复核",
+    "evidence": "GitHub Actions soak-test.yml run 44823003899（最终 master be0831c，真实 1h1m3s）",
     "note": "GitHub-hosted runner 单 job 上限 6 小时；24 小时单实例连续运行仍未完成。稳定版承诺的是发布工程质量，不含长期运行时长。"
   },
+  "officialUpgrade": {
+    "from": "v0.0.17",
+    "to": "v0.0.18",
+    "checks": 10,
+    "passed": 10,
+    "failed": 0,
+    "fingerprintLines": 13,
+    "fingerprintIdentical": true,
+    "evidence": "GitHub Actions 官方公开资产升级验收 run 44840653969"
+  },
+  "postRelease": {
+    "run": 44842628787,
+    "items": 13,
+    "failed": 0,
+    "warnings": 1,
+    "warning": "通知写入路径需第二用户且管理员登录受强制验证码保护，本环境无法自动化；已由官方包四角色验收覆盖。",
+    "evidence": "全新 ubuntu runner；匿名下载、SHA256、官方 install.sh、备份恢复、重启持久化全部通过"
+  },
   "releaseForm": "stable",
-  "releasedAt": null,
-  "release": null
+  "releasedAt": "2026-11-20T23:57:05Z",
+  "release": {
+    "id": 453305532,
+    "tag": "v0.0.18",
+    "tagObject": "d593436fbcc19c1539f434c4cfe0c6ba5c569065",
+    "targetCommit": "be0831cec0ba24d80740a941f04916b51146c524",
+    "url": "https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18",
+    "draft": false,
+    "prerelease": false,
+    "latest": true,
+    "image": "ghcr.io/alicia1030su/v2ex-clone:v0.0.18",
+    "imageDigest": "sha256:95f7725bb94a201fb3e797dcce39d61cfe057bc4001c0c71f4e5b85e758baeb3",
+    "platforms": [
+      "linux/amd64"
+    ],
+    "zip": "v2ex-clone-v0.0.18-deploy.zip",
+    "zipBytes": 144346,
+    "zipSha256": "f31625827393f936e3f9b1429997ffa18886420ba08f53e66e0ae55e17279588",
+    "sha256sumsSha256": "524ed398550cdf4370362823af887f25ed4479dd9dc3cea151b6b56d9cd7d03c",
+    "releaseRun": 44838838391,
+    "initialTagRun": 44831729786,
+    "initialTagRunResult": "failure-before-release-created",
+    "note": "首次 Tag 触发的 Release Notes 因 shell 变量未 export 给 Node 子进程而失败；镜像与安装包已成功，未创建 Release。修复后以 workflow_dispatch 幂等补救，复用原镜像并成功公开发布。"
+  }
 }
