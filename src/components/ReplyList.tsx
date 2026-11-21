@@ -86,6 +86,7 @@ const MODE_OPTIONS: Array<{ value: ReplyDisplayMode; label: string }> = [
 
 const LOCAL_MODE_KEY = 'v2ex-reply-display-mode';
 const MAX_TREE_DEPTH = 4;
+const MAX_LINES_DOM_ITEMS = 1000;
 
 function contextChildToItem(child: NonNullable<ContextResponse['children']>[number]): ReplyListItem {
   return {
@@ -555,6 +556,20 @@ export default function ReplyList({
         .sort((a, b) => a.floor - b.floor)
         .filter((item) => !hasCollapsedAncestor(item))
         .map((item) => renderCard(item, { depth: Math.min(treeDepth(item), MAX_TREE_DEPTH) }));
+    }
+
+    if (mode === 'lines') {
+      const visible = items.slice(0, MAX_LINES_DOM_ITEMS);
+      return (
+        <>
+          {visible.map((item) => renderCard(item))}
+          {items.length > MAX_LINES_DOM_ITEMS ? (
+            <div className="cell reply-mode-notice" role="status">
+              连线模式为保护浏览器性能，最多渲染前 {MAX_LINES_DOM_ITEMS} 条回复；共 {items.length} 条已加载。
+            </div>
+          ) : null}
+        </>
+      );
     }
 
     return items.map((item) => renderCard(item));

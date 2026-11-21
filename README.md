@@ -38,16 +38,17 @@
 
 ---
 
-## 当前版本状态（v0.0.19 Stable Release 已发布）
+## 当前版本状态（v0.0.20 候选开发中；v0.0.19 Stable 已发布）
 
-> **本版 = v0.0.19**（已正式发布，Stable / Latest）。
-> **版本载体**：`0.0.19`
-> （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
-> 已同步到 `0.0.19`；本版已获一次性稳定版发布授权，实际发布结果以 Tag / Release / GHCR 核验为准。）
+> **当前仓库载体 = `0.0.20`（候选，尚未发布）。**
+> **本版候选 = `v0.0.20`（开发中，未发布）。**
+> **当前实际公开版本 = `v0.0.19`（Stable / Latest）。**
+> v0.0.20 尚未取得专属 A3/B1 发布授权，因此没有创建 Tag、正式 GHCR 镜像或公开 Release。
 
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **当前已公开发布** | `v0.0.19` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
+> | **当前实际公开发布** | `v0.0.19` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
+> | **当前候选载体** | `v0.0.20` | 开发/验收分支，未发布 |
 > | 上一已发布版本 | `v0.0.18` | GitHub **Stable Release** |
 > | 再上一版 | `v0.0.17` | GitHub **Stable Release** |
 > | 更早版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
@@ -55,17 +56,17 @@
 | 项 | 值 |
 |---|---|
 | **当前实际公开版本** | **`v0.0.19`**（[**Stable Release**](https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.19)，含部署 ZIP 与 GHCR 镜像） |
-| **上一已发布版本** | `v0.0.18`（Stable Release） |
+| **当前候选载体** | `0.0.20`（由 `sync-version.mjs` 全量同步并复验；不代表已发布） |
+| 上一已发布版本 | `v0.0.18`（Stable Release） |
 | 再上一版 | `v0.0.17`（Stable Release） |
-| 版本载体 | `0.0.19`（已由 `sync-version.mjs` 全量同步并复验） |
-| **本版** | **`v0.0.19` 稳定版已发布** —— 官方更新对照、实施与测试见 [`docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md`](docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md)、[`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) |
-| 本版发布授权 | **已取得并执行**（2026-11-21，A3 + B1，一次性、仅限 v0.0.19）；记录见 [`docs/RISK_DECISION_v0.0.19.md`](docs/RISK_DECISION_v0.0.19.md) |
-| 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`、Latest），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
+| **本版** | **`v0.0.20` 候选** —— 附件统一授权、状态机与灾难恢复、楼中楼容量优化；验收见 [`docs/TEST_REPORT_v0.0.20.md`](docs/TEST_REPORT_v0.0.20.md) 与 [`docs/UPGRADE_VERIFICATION_v0.0.20.md`](docs/UPGRADE_VERIFICATION_v0.0.20.md) |
+| 本版发布授权 | **未取得**。v0.0.19 的一次性 A3+B1 授权不延续到 v0.0.20 |
+| 发布形态 | 未发布；授权后由 `docs/RELEASE_CHANNELS.json` 逐版本解析 |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
 | 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.19`（匿名可拉，linux/amd64；Digest `sha256:279324de…f41d49e`） |
 | 部署 ZIP | `v2ex-clone-v0.0.19-deploy.zip`（144,346 字节；SHA256 `693fb742…b88ae4e`） |
-| 数据库迁移 | `drizzle/` 下 6 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories` / `0005_v019_reply_threads`），容器启动时幂等执行 |
+| 数据库迁移 | `drizzle/` 下 7 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories` / `0005_v019_reply_threads` / `0006_v020_attachment_lifecycle`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
 > `v0.0.13` **从未发布**（无 Tag / Release / 镜像），其成果由 v0.0.14 一次性包含。
@@ -92,8 +93,9 @@
 > 当前测试基线、门禁结论与授权边界见
 > [`docs/SESSION_HANDOFF_v0.0.15.md`](docs/SESSION_HANDOFF_v0.0.15.md)。
 >
-> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。v0.0.19 的完整交接见
-> [`docs/SESSION_HANDOFF_v0.0.19.md`](docs/SESSION_HANDOFF_v0.0.19.md)，授权边界与 Go/No-Go 以该文件为准。
+> ⚠️ **R-01 历史版权风险仍未清理（DEFERRED）**。v0.0.20 的当前交接见
+> [`docs/SESSION_HANDOFF_v0.0.20.md`](docs/SESSION_HANDOFF_v0.0.20.md)，授权边界与 Go/No-Go 以该文件为准；
+> v0.0.19 的历史交接见 [`docs/SESSION_HANDOFF_v0.0.19.md`](docs/SESSION_HANDOFF_v0.0.19.md)。
 > **v0.0.19 的公开发布已在完整披露 R-01 的前提下由项目所有者单独授权**
 > （2026-11-21，决策 A3「保留历史 + 强化披露」+ 决策 B1「授权发布」；一次性、仅限本版本）；
 > 该授权**不包含**历史改写，R-01 状态不变。详见 [`RISK_REGISTER.md`](RISK_REGISTER.md)、
@@ -126,13 +128,12 @@
 >
 > ### 从旧版本升级
 >
-> v0.0.19 已实测 **v0.0.4 → v0.0.19** 与 **v0.0.17 → v0.0.19** 双基线升级；
-> 发布后还会用两个版本的**正式公开 Release 资产**在全新 runner 上复跑真实容器升级。
-> 在**现有安装目录**执行：
+> v0.0.20 候选已实测 **v0.0.4 → v0.0.20** 与 **v0.0.19 → v0.0.20** 双基线升级；
+> 若后续取得本版专属发布授权并完成正式发行，将在**现有安装目录**执行：
 >
 > ```bash
 > ./backup.sh
-> ./update.sh --version v0.0.19
+> ./update.sh --version v0.0.20
 > ```
 >
 > `update.sh --version <目标版本>` 会改写 `.env` 里的 `V2EX_IMAGE`、保留数据卷并在失败时回滚；
@@ -322,10 +323,10 @@ v0.0.10 的 Tag 已创建，但其内容里 `deploy/README.md` 的标题仍写�
 > V9-13 `backup.sh` 的 SIGPIPE 假失败），已发布资产按「不得覆盖已有 Release」
 > 的规约保持原样 —— **建议使用 v0.0.18，不要用 v0.0.9**。
 
-下载 [`v2ex-clone-v0.0.18-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.18/v2ex-clone-v0.0.18-deploy.zip) 并解压。
+下载 [`v2ex-clone-v0.0.19-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.19/v2ex-clone-v0.0.19-deploy.zip) 并解压。
 
 > 解压后会得到 `deploy/` 目录，安装脚本在里面：
-> `unzip v2ex-clone-v0.0.18-deploy.zip -d v2ex-clone-v0.0.18-deploy && cd v2ex-clone-v0.0.18-deploy/deploy`
+> `unzip v2ex-clone-v0.0.19-deploy.zip -d v2ex-clone-v0.0.19-deploy && cd v2ex-clone-v0.0.19-deploy/deploy`
 >
 > ✅ v0.0.9 起安装包内 `deploy/*.sh` **自带 0755 可执行位**（打包器显式写入
 > ZIP 中央目录的 Unix mode，并在 `verify-release-consistency.sh` 里回读断言），
@@ -387,9 +388,9 @@ docker compose up -d
 | 内容 | 位置 |
 |---|---|
 | **发布页面（含全部安装包）** | <https://github.com/alicia1030su/v2ex-clone/releases> |
-| **最新已发布版本（v0.0.18）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18> |
-| 一键部署安装包 | [`v2ex-clone-v0.0.18-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.18/v2ex-clone-v0.0.18-deploy.zip)（含 `SHA256SUMS`） |
-| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.18` |
+| **最新已发布版本（v0.0.19）** | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.19> |
+| 一键部署安装包 | [`v2ex-clone-v0.0.19-deploy.zip`](https://github.com/alicia1030su/v2ex-clone/releases/download/v0.0.19/v2ex-clone-v0.0.19-deploy.zip)（含 `SHA256SUMS`） |
+| 容器镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.19` |
 | 上一版本（v0.0.17） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.17> |
 | 更早版本（v0.0.16） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.16> |
 | 更早版本（v0.0.14） | <https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.14> |
@@ -477,11 +478,11 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
-> **v0.0.19（本版稳定版）的当前测试基线**以
-> [`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) 为唯一口径；
-> 完整交接见 [`docs/SESSION_HANDOFF_v0.0.19.md`](docs/SESSION_HANDOFF_v0.0.19.md)；
-> v0.0.18 已发布基线见
-> [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)。
+> **v0.0.20（本版候选）的当前测试基线**以
+> [`docs/TEST_REPORT_v0.0.20.md`](docs/TEST_REPORT_v0.0.20.md) 与
+> [`docs/SESSION_HANDOFF_v0.0.20.md`](docs/SESSION_HANDOFF_v0.0.20.md) 为唯一口径；
+> v0.0.19 已发布基线见
+> [`docs/SESSION_HANDOFF_v0.0.19.md`](docs/SESSION_HANDOFF_v0.0.19.md)。
 > 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。
 >
 > v0.0.16 的历史基线见

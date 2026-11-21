@@ -252,7 +252,7 @@ describe('v0.0.19 父子回复 API 与幂等', () => {
 });
 
 describe('v0.0.19 跨页上下文与容量', () => {
-  it.each([100, 500, 2000])(' %i 条回复保持分页与跨页父链可用', async (count) => {
+  it.each([100, 500, 2000, 10000])(' %i 条回复保持分页与跨页父链可用', async (count) => {
     const topicId = await seedTopic(`capacity ${count}`);
     await client.unsafe(`
       INSERT INTO replies (topic_id, author_id, content, floor, parent_reply_id)

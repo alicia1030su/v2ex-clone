@@ -3,6 +3,11 @@ import { createReadStream, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { resolveStoragePath } from '@/lib/avatar';
 import { resolveReplyImagePath } from '@/lib/reply-images';
+import { getSessionUser } from '@/lib/auth';
+import {
+  resolveAvatarVisibility,
+  resolveReplyImageVisibility,
+} from '@/server/attachment-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +62,14 @@ export async function GET(
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }
 
+  const user = await getSessionUser();
+  const visibility = isReplyImage
+    ? await resolveReplyImageVisibility(storagePath, user?.id ?? null)
+    : await resolveAvatarVisibility(storagePath, user?.id ?? null);
+  if (!visibility.visible) {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
   let size: number;
   try {
     const st = statSync(absolute);
@@ -95,8 +108,9 @@ export async function GET(
       'Content-Length': String(size),
       // 禁止 MIME 嗅探（防止上传的 SVG/HTML 被当脚本执行）
       'X-Content-Type-Options': 'nosniff',
-      // 文件名含随机 hash ⇒ 内容不可变 ⇒ 可长期缓存
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      // 附件授权状态可在任意时刻被软删除、隐藏节点或 purge 撤销。
+      // 因此全部响应禁止共享/浏览器缓存，确保撤销后立即生效。
+      'Cache-Control': 'private, no-store',
     },
   });
 }

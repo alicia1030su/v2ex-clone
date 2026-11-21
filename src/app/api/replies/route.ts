@@ -16,6 +16,10 @@ import {
   loadOwnedReplyByClientRequest,
   serializeCreatedReply,
 } from '@/server/reply-submissions';
+import {
+  AttachmentLinkError,
+  syncReplyImageLinks,
+} from '@/server/attachment-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,19 +166,6 @@ export async function POST(request: Request) {
     }
   }
 
-  if (imageIds.length > 0) {
-    const owned = await db
-      .select({ id: schema.replyImages.id, usedAt: schema.replyImages.usedAt })
-      .from(schema.replyImages)
-      .where(and(
-        eq(schema.replyImages.userId, user.id),
-        inArray(schema.replyImages.id, imageIds),
-      ));
-    if (owned.length !== imageIds.length || owned.some((image) => image.usedAt !== null)) {
-      return NextResponse.json({ ok: false, error: '图片不存在或已被使用' }, { status: 400 });
-    }
-  }
-
   const limit = await rateLimitByUser(
     'reply',
     user.id,
@@ -275,20 +266,12 @@ export async function POST(request: Request) {
           await tx.insert(schema.notifications).values(notifications);
         }
 
-        if (imageIds.length > 0) {
-          const claimed = await tx
-            .update(schema.replyImages)
-            .set({ replyId: createdId, usedAt: new Date() })
-            .where(and(
-              eq(schema.replyImages.userId, user.id),
-              inArray(schema.replyImages.id, imageIds),
-              sql`${schema.replyImages.usedAt} IS NULL`,
-            ))
-            .returning({ id: schema.replyImages.id });
-          if (claimed.length !== imageIds.length) {
-            throw new Error('图片占用冲突');
-          }
-        }
+        await syncReplyImageLinks(tx, {
+          replyId: createdId,
+          userId: user.id,
+          content,
+          imageIds,
+        });
 
         return { id: createdId, total };
       });
@@ -316,6 +299,9 @@ export async function POST(request: Request) {
       if (code === '23505' || constraint?.includes('replies_topic_floor')) {
         await ensureFloorCounter(topicId);
         continue;
+      }
+      if (err instanceof AttachmentLinkError) {
+        return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
       }
       console.error('[replies] 插入失败:', {
         code,

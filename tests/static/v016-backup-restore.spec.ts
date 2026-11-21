@@ -24,14 +24,15 @@ import path from 'node:path';
  *
  * 1. **备份侧**：`pg_dump` 没带 `--clean --if-exists` ⇒ dump 里只有
  *    `CREATE TABLE` / `CREATE SCHEMA`，恢复到**已有对象**的库上必然撞车。
- * 2. **恢复侧**：`psql` 没带 `-v ON_ERROR_STOP=1` ⇒
- *    `--single-transaction` 只保证「全成或全回滚」，**不会**因单条失败而中止；
- *    psql 一路报错、最后仍退出 0 ⇒ 脚本判定成功。
+ * 2. **恢复侧**：旧实现用 `psql` 且没有 `ON_ERROR_STOP=1`，导致单条失败后
+ *    仍继续执行并最终退出 0。v0.0.20 改为 custom-format dump +
+ *    `pg_restore --single-transaction --exit-on-error`，任一恢复调用失败都必须
+ *    进入 `die` 分支。
  *
  * 换句话说：**这是「报了一堆错却说成功、数据没回来」的假成功**。
  * 它比「报错并失败」危险得多 —— 会让运维以为备份恢复可用。
  *
- * 本护栏锁住这两点，任何一边被改回去都会判红。
+ * 本护栏锁住这些性质，任何一边被改回去都会判红。
  */
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -68,24 +69,26 @@ describe('v0.0.16 备份/恢复：必须能真正覆盖式恢复', () => {
     );
   });
 
-  it('psql 恢复必须带 ON_ERROR_STOP=1（否则报错也会「成功」）', () => {
-    const idx = RESTORE.indexOf('psql');
-    expect(idx, '找不到 psql 调用').toBeGreaterThan(0);
-    const block = RESTORE.slice(idx, idx + 500);
-    expect(
-      /ON_ERROR_STOP\s*=\s*1/.test(block),
-      'restore.sh 的 psql 缺 `-v ON_ERROR_STOP=1` —— ' +
-        '`--single-transaction` 不会因单条失败而中止，' +
-        'psql 会一路报错并最终退出 0 ⇒ 脚本打印「恢复完成」但数据没回来',
-    ).toBe(true);
-  });
-
-  it('恢复失败必须走 die（不得只打日志就继续）', () => {
-    const idx = RESTORE.indexOf('ON_ERROR_STOP');
-    const tail = RESTORE.slice(idx, idx + 400);
-    expect(
-      /die\s+/.test(tail),
-      '恢复失败分支必须 `die`（非零退出），不能只打印一行日志',
-    ).toBe(true);
+  it('custom dump 恢复必须带 --single-transaction 与 --exit-on-error', () => {
+    let cursor = 0;
+    let restoreCalls = 0;
+    while ((cursor = RESTORE.indexOf('pg_restore', cursor)) >= 0) {
+      restoreCalls += 1;
+      const block = RESTORE.slice(cursor, cursor + 700);
+      expect(
+        block.includes('--single-transaction'),
+        `第 ${restoreCalls} 个 pg_restore 调用缺 --single-transaction`,
+      ).toBe(true);
+      expect(
+        block.includes('--exit-on-error'),
+        `第 ${restoreCalls} 个 pg_restore 调用缺 --exit-on-error`,
+      ).toBe(true);
+      expect(
+        /die\s+/.test(block),
+        `第 ${restoreCalls} 个 pg_restore 失败分支必须 die（非零退出）`,
+      ).toBe(true);
+      cursor += 'pg_restore'.length;
+    }
+    expect(restoreCalls, 'restore.sh 应包含 scratch 与目标两次 pg_restore 调用').toBe(2);
   });
 });

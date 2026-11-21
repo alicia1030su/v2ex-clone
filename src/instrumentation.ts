@@ -49,6 +49,12 @@ export async function register(): Promise<void> {
   const http = await import('node:http');
   const { countMetric, recordSlowRequest, normalizeApiPath } = await import('@/lib/observability');
 
+  // 生产/开发运行时启动附件清理 worker；构建期与测试期不得连接数据库。
+  if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV !== 'test') {
+    const { startAttachmentPurgeWorker } = await import('@/server/attachment-purge');
+    startAttachmentPurgeWorker();
+  }
+
   type ServerResponseLike = import('node:http').ServerResponse;
 
   const proto = http.ServerResponse.prototype as unknown as {

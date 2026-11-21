@@ -231,15 +231,15 @@ jobs:
           set -o pipefail
           bash scripts/release/verify-upgrade-v008.sh 2>&1 | tee /tmp/v008-upgrade.log
 
-      - name: 双基线升级验证（v0.0.4 → v0.0.19 与 v0.0.17 → v0.0.19）
-        # v0.0.19 更新。与上一条（v008 脚本）的分工：
+      - name: 双基线升级验证（v0.0.4 → v0.0.20 与 v0.0.19 → v0.0.20）
+        # v0.0.20 更新。与上一条（v008 脚本）的分工：
         #   · v008：单基线 + 迁移幂等，覆盖「结构变更」路径；
         #   · 本条：**双基线**（最早的 v0.0.4 与上一版的 v0.0.17），
         #     覆盖「从很远的老版本升上来」与「从上一版升上来」两种真实场景，
         #     并做备份 → 恢复到**独立库** → 指纹比对（回滚路径）。
         #
-        # 版本依据：v0.0.19 新增 `0005_v019_reply_threads`，因此本项同时断言
-        # 新列/新表存在、历史回复父关联保持 NULL、业务指纹不变、迁移幂等。
+        # 版本依据：v0.0.20 新增 `0006_v020_attachment_lifecycle`，因此本项同时断言
+        # 附件状态列/引用表/purge 队列、历史引用保守回填、业务指纹不变、迁移幂等。
         #
         # ⚠️ 基线迁移集从 **tag** 里导出，不是用当前工作区复制一份冒充。
         env:
@@ -253,7 +253,7 @@ jobs:
           # 先证明 tag 真的可见。若 checkout 是浅克隆且未取 tag，
           # `git archive` 只会给一句 `Not a valid object name`，
           # 在管道里看不出根因 —— 这里把判据提前并写清修法。
-          for t in v0.0.4 v0.0.17; do
+          for t in v0.0.4 v0.0.19; do
             if ! git rev-parse --verify --quiet "refs/tags/$t" >/dev/null; then
               echo "::error::取不到 tag $t —— checkout 必须是 fetch-depth: 0 + fetch-tags: true"
               git tag -l | tail -5 || true
@@ -262,14 +262,14 @@ jobs:
           done
           echo "  ✓ 两个基线 tag 均可解析"
 
-          rm -rf /tmp/mig-v004 /tmp/mig-v017
-          mkdir -p /tmp/mig-v004 /tmp/mig-v017
+          rm -rf /tmp/mig-v004 /tmp/mig-v019
+          mkdir -p /tmp/mig-v004 /tmp/mig-v019
           git archive v0.0.4 drizzle | tar -x -C /tmp/mig-v004 --strip-components=1
-          git archive v0.0.17 drizzle | tar -x -C /tmp/mig-v017 --strip-components=1
-          echo "  基线迁移文件数：v0.0.4 = $(ls /tmp/mig-v004/*.sql | wc -l)，v0.0.17 = $(ls /tmp/mig-v017/*.sql | wc -l)"
-          bash scripts/release/verify-upgrade-v0019.sh \
+          git archive v0.0.19 drizzle | tar -x -C /tmp/mig-v019 --strip-components=1
+          echo "  基线迁移文件数：v0.0.4 = $(ls /tmp/mig-v004/*.sql | wc -l)，v0.0.19 = $(ls /tmp/mig-v019/*.sql | wc -l)"
+          bash scripts/release/verify-upgrade-v0020.sh \
             --v004-migrations /tmp/mig-v004 \
-            --v017-migrations /tmp/mig-v017 2>&1 | tee /tmp/v0019-upgrade.log
+            --v019-migrations /tmp/mig-v019 2>&1 | tee /tmp/v0020-upgrade.log
 
       - name: 上传升级验证日志
         if: always()
@@ -279,8 +279,8 @@ jobs:
           path: |
             /tmp/v008-upgrade.log
             /tmp/v008-migrate*.log
-            /tmp/v0019-upgrade.log
-            /tmp/v0019-migrate*.log
+            /tmp/v0020-upgrade.log
+            /tmp/v0020-migrate*.log
           retention-days: 7
           if-no-files-found: warn
 

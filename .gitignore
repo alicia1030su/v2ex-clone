@@ -125,6 +125,8 @@ next-env.d.ts.bak
 #
 # 注：Docker 部署时 uploads 目录由容器卷挂载提供，不依赖仓库内文件。
 public/uploads/
+# v0.0.20：私有上传根目录，绝不能进入版本库或公开发布物。
+/data/uploads/
 
 # 日志
 npm-debug.log*

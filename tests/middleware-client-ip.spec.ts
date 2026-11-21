@@ -136,3 +136,28 @@ describe('middleware 客户端 IP 注入', () => {
     expect(injected.get(INTERNAL_CLIENT_IP_HEADER)).not.toBe('6.6.6.6');
   });
 });
+
+describe('middleware 附件图片优化器边界', () => {
+  it.each([
+    'http://localhost:3000/_next/image?url=%2Fuploads%2Freplies%2F1%2Faaaaaaaa.png&w=640&q=75',
+    'http://localhost:3000/_next/image?url=%252Fuploads%252Freplies%252F1%252Faaaaaaaa.png&w=640&q=75',
+    'http://localhost:3000/_next/image?url=http%3A%2F%2Flocalhost%3A3000%2Fuploads%2Favatars%2F1%2Faaaaaaaa.png&w=640&q=75',
+  ])('阻断可能绕过附件授权的优化器目标：%s', async (url) => {
+    const { middleware } = await import('../src/middleware');
+    const response = await middleware(new NextRequest(url));
+    expect(response.status).toBe(404);
+  });
+
+  it('优化器 matcher 必须显式包含 /_next/image', async () => {
+    const { config } = await import('../src/middleware');
+    expect(config.matcher).toContain('/_next/image');
+  });
+
+  it('不拦截与附件无关的优化器目标', async () => {
+    const { middleware } = await import('../src/middleware');
+    const response = await middleware(new NextRequest(
+      'http://localhost:3000/_next/image?url=%2Flogo.png&w=640&q=75',
+    ));
+    expect(response.status).not.toBe(404);
+  });
+});

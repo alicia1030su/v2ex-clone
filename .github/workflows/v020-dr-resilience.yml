@@ -1,0 +1,130 @@
+name: v0.0.20 Disaster Recovery Resilience
+
+# P0-B 的真实 Docker 取证通道：DB 断连、磁盘不足、卷切换后 SIGTERM、
+# Docker 守护进程重启。只使用本地镜像与临时卷，不推送 registry、不创建 Tag/Release。
+
+on:
+  push:
+    branches:
+      - 'release/v0.0.20-stable'
+  workflow_dispatch:
+
+concurrency:
+  group: v020-dr-resilience-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: ${{ format('v020-dr-{0}-pg-not-real', github.run_id) }}
+  POSTGRES_DB: v2ex_v020_dr
+  REDIS_PASSWORD: ${{ format('v020-dr-{0}-redis-not-real', github.run_id) }}
+  SESSION_SECRET: ${{ format('v020-dr-{0}-session-secret', github.run_id) }}
+  SEED_ADMIN_USERNAME: admin
+  SEED_ADMIN_EMAIL: admin@v020-dr.local
+  SEED_ADMIN_PASSWORD: ${{ format('v020-dr-{0}-admin-not-real', github.run_id) }}
+  SEED_DEMO_USERS: '0'
+  APP_PORT: '3000'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  APP_URL: http://localhost:3000
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  COMPOSE_PROJECT_NAME: v2ex-dr
+  V2EX_IMAGE: v2ex-clone:v020-dr
+
+jobs:
+  dr-resilience:
+    name: 真实容器灾难恢复韧性
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 环境信息
+        run: |
+          echo "  Commit : ${{ github.sha }}"
+          echo "  Docker : $(docker --version)"
+          echo "  Compose: $(docker compose version)"
+          echo "  Disk   : $(df -h / | tail -1 | awk '{print $4}')"
+
+      - name: 构建本地生产镜像
+        run: |
+          set -euo pipefail
+          docker build -t v2ex-clone:v020-dr .
+          docker images v2ex-clone:v020-dr --format '  {{.Repository}}:{{.Tag}} {{.Size}} {{.ID}}'
+
+      - name: 创建隔离环境
+        run: |
+          set -euo pipefail
+          cat > .env.dr <<EOF
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          SESSION_SECRET=${SESSION_SECRET}
+          SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME}
+          SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+          SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+          SEED_DEMO_USERS=${SEED_DEMO_USERS}
+          APP_PORT=${APP_PORT}
+          APP_RUNTIME_ENV=${APP_RUNTIME_ENV}
+          TEST_ENV_ISOLATED=${TEST_ENV_ISOLATED}
+          APP_URL=${APP_URL}
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+          V2EX_IMAGE=${V2EX_IMAGE}
+          EOF
+          chmod 600 .env.dr
+          docker compose --env-file .env.dr up -d --build
+
+      - name: 运行 DR 韧性演练
+        id: matrix
+        run: |
+          set -o pipefail
+          bash scripts/ci/v020-dr-resilience.sh 2>&1 | tee /tmp/v020-dr-resilience.log
+
+      - name: 生成结论
+        if: always()
+        env:
+          MATRIX_OUTCOME: ${{ steps.matrix.outcome }}
+        run: |
+          {
+            echo '# v0.0.20 P0-B Workflow 结论'
+            echo
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Matrix: ${MATRIX_OUTCOME:-unknown}"
+          } >> /tmp/v020-dr-resilience.summary.md 2>/dev/null || true
+          cat /tmp/v020-dr-resilience.summary.md 2>/dev/null || true
+
+      - name: 上传 DR 证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v020-dr-resilience-evidence
+          path: |
+            /tmp/v020-dr-resilience.log
+            /tmp/v020-dr-resilience.summary.md
+            /tmp/v020-dr-db-outage.log
+            /tmp/v020-dr-disk.log
+            /tmp/v020-dr-sigterm.log
+            /tmp/v020-dr-reconcile.log
+            /tmp/v020-dr-reconcile-restart.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Compose 日志
+        if: always()
+        run: docker compose --env-file .env.dr logs --tail 250 || true
+
+      - name: 清理隔离栈
+        if: always()
+        run: |
+          docker compose --env-file .env.dr down -v || true
+          for v in $(docker volume ls --format '{{.Name}}' | grep "${COMPOSE_PROJECT_NAME}.*uploads-data.*pre-restore-" || true); do
+            docker volume rm "$v" || true
+          done
+          rm -f .env.dr

@@ -2,6 +2,7 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { UPLOAD_ROOT } from '@/lib/upload-storage';
 
 /**
  * 头像上传的校验与落盘
@@ -18,7 +19,8 @@ import path from 'node:path';
  *
  * ## 存储布局
  *
- * 二进制文件放在 `public/uploads/avatars/<userId>/<random>.<ext>`，
+ * 二进制文件放在私有 uploads 卷的 `avatars/<userId>/<random>.<ext>`，
+ * 仅通过授权路由 `/uploads/avatars/...` 读取。
  * 数据库 `avatars.storage_path` 记录相对路径（如 `avatars/3/a1b2….png`），
  * `users.avatar` 保存可访问的 URL（`/uploads/avatars/3/a1b2….png`）。
  */
@@ -34,8 +36,8 @@ export const MAX_AVATAR_BYTES = Number(process.env.AVATAR_MAX_BYTES ?? 2 * 1024 
 /** 头像输出边长（正方形，与原站一致） */
 export const AVATAR_SIZE = Number(process.env.AVATAR_SIZE ?? 256);
 
-/** 文件存放根目录（public 下的 uploads） */
-export const AVATAR_UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads');
+/** 文件存放根目录（Docker 私有卷；URL 仍为 /uploads/...） */
+export const AVATAR_UPLOAD_ROOT = UPLOAD_ROOT;
 
 /** 头像文件在 public/uploads 下的子目录 */
 const AVATAR_SUBDIR = 'avatars';
@@ -170,7 +172,6 @@ async function loadSharp(): Promise<typeof import('sharp').default | null> {
     return null;
   }
 }
-
 export type ProcessedAvatar = {
   /** 最终落盘的字节 */
   data: Buffer;
@@ -197,8 +198,8 @@ export async function processAvatar(
 ): Promise<ProcessedAvatar> {
   const sharp = await loadSharp();
   if (!sharp) {
-    const dims = readDimensionsFallback(buffer, format);
-    return { data: buffer, format, width: dims.width, height: dims.height, resized: false };
+    // fail-closed：无法重编码就无法保证剥离 EXIF/GPS 等隐私元数据。
+    throw new Error('服务端图片处理能力不可用');
   }
 
   try {
@@ -258,7 +259,6 @@ export async function processAvatar(
       width: AVATAR_SIZE,
       height: AVATAR_SIZE,
       resized: true,
-      /** 源图的像素尺寸（裁剪前），用于日志与调试 */
       sourceWidth: meta.width ?? null,
       sourceHeight: meta.height ?? null,
     };
@@ -332,15 +332,15 @@ export async function writeAvatarFile(
   return storagePath;
 }
 
-/** 删除磁盘上的头像文件（失败时静默忽略） */
+/** 删除磁盘上的头像文件；仅“文件不存在”可幂等忽略，其它 IO 错误必须上抛。 */
 export async function deleteAvatarFile(storagePath: string | null): Promise<void> {
   if (!storagePath) return;
   const absolute = resolveStoragePath(storagePath);
-  if (!absolute) return;
+  if (!absolute) throw new Error('非法头像存储路径');
   try {
     await unlink(absolute);
-  } catch {
-    /* 文件不存在时无需处理 */
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 }
 

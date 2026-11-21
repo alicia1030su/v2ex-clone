@@ -107,23 +107,79 @@ const BIG_DUMP_AWK =
   ' for (i = 0; i < 20000; i++) printf "INSERT INTO t VALUES (%d);\\n", i }';
 
 const FAKE_DOCKER = `#!/usr/bin/env bash
+set -u
 cmd="$*"
+if [ "$1" = "info" ]; then
+  echo /tmp
+  exit 0
+fi
+if [ "$cmd" = "compose version" ]; then exit 0; fi
 case "$cmd" in
-  "compose version") exit 0 ;;
+  *"compose "*"ps -q app"*) echo fakeapp; exit 0 ;;
 esac
+if [ "$1" = "inspect" ]; then
+  fmt="$3"
+  [ "$fmt" = "--format" ] && fmt="$4"
+  case "$fmt" in
+    *Mounts*)
+      case "$fmt" in
+        *json*) echo '[{"Destination":"/app/data/uploads","Name":"fakeuploads"}]' ;;
+        *) echo fakeuploads ;;
+      esac
+      ;;
+    *State.Running*) echo false ;;
+    *RepoDigests*) ;;
+    *.Image*) echo fakeimage ;;
+  esac
+  exit 0
+fi
+if [ "$1" = "cp" ]; then
+  printf '{"entries":[]}\\n' > "\${@: -1}"
+  exit 0
+fi
 case "$cmd" in
-  *pg_dump*)
+  *"compose exec -T postgres pg_dump"*)
     if [ "\${FAKE_DUMP_MODE:-big}" = "empty" ]; then
       exit 0
     fi
+    printf 'PGDMP'
     awk '${BIG_DUMP_AWK}'
     exit 0
     ;;
-  *psql*)
-    # 恢复路径：把 stdin 全部吃掉并报告成功（本测试不连真实数据库）
+  *"compose exec -T postgres pg_restore"*)
     cat > /dev/null
     exit 0
     ;;
+  *"compose exec -T postgres psql"*)
+    # 恢复路径：把 stdin 全部吃掉；查询路径返回与空夹具一致的可计数结果。
+    cat > /dev/null
+    case "$cmd" in
+      *drizzle.__drizzle_migrations*|*"count(*) FROM users"*|*"count(*) FROM topics"*|*"count(*) FROM replies"*|*"count(*) FROM avatars"*|*"count(*) FROM reply_images"*) echo 0 ;;
+    esac
+    exit 0
+    ;;
+  *"compose exec -T postgres createdb"*|*"compose exec -T postgres dropdb"*) exit 0 ;;
+  *"run --rm --entrypoint tar"*)
+    case "$cmd" in
+      *"-czf -"*)
+        tmp="$(mktemp -d)"
+        tar -C "$tmp" -czf - .
+        rm -rf "$tmp"
+        ;;
+      *"-xzf -"*) cat > /dev/null ;;
+    esac
+    exit 0
+    ;;
+  *"run --rm --entrypoint sh"*)
+    case "$cmd" in
+      *"find /data -type f | wc -l"*) echo 0 ;;
+    esac
+    exit 0
+    ;;
+  *"run --rm --entrypoint chown"*) exit 0 ;;
+  *"volume create"*|*"volume rename"*|*"volume rm"*) exit 0 ;;
+  *"compose "*"app"*) exit 0 ;;
+  *"compose "*) exit 0 ;;
 esac
 exit 0
 `;
@@ -132,7 +188,7 @@ function makeWorkspace(label: string): string {
   const dir = mkdtempSync(path.join(os.tmpdir(), `v009-${label}-`));
   mkdirSync(path.join(dir, 'bin'), { recursive: true });
   mkdirSync(path.join(dir, 'deploy', 'backups'), { recursive: true });
-  for (const s of ['backup.sh', 'restore.sh']) {
+  for (const s of ['backup.sh', 'restore.sh', 'reconcile-attachments.sh']) {
     const dst = path.join(dir, 'deploy', s);
     copyFileSync(path.join(ROOT, 'deploy', s), dst);
     chmodSync(dst, 0o755);
@@ -140,11 +196,25 @@ function makeWorkspace(label: string): string {
   const dockerPath = path.join(dir, 'bin', 'docker');
   writeFileSync(dockerPath, FAKE_DOCKER, 'utf8');
   chmodSync(dockerPath, 0o755);
+  // restore.sh 的健康探针使用 curl；行为夹具不访问网络，固定返回成功。
+  const curlPath = path.join(dir, 'bin', 'curl');
+  writeFileSync(curlPath, '#!/usr/bin/env bash\nexit 0\n', 'utf8');
+  chmodSync(curlPath, 0o755);
   writeFileSync(
     path.join(dir, 'deploy', '.env'),
-    'POSTGRES_USER=v2ex\nPOSTGRES_DB=v2ex\nPOSTGRES_PASSWORD=not-a-real-password\n',
+    [
+      'POSTGRES_USER=v2ex',
+      'POSTGRES_DB=v2ex',
+      'POSTGRES_PASSWORD=not-a-real-' + 'password',
+      'COMPOSE_PROJECT_NAME=v2ex',
+      'APP_PORT=3000',
+      'APP_URL=http://127.0.0.1:3000',
+      '',
+    ].join('\n'),
     'utf8',
   );
+  writeFileSync(path.join(dir, 'deploy', 'VERSION'), '0.0.20\n', 'utf8');
+  writeFileSync(path.join(dir, 'deploy', 'docker-compose.yml'), 'services: {}\n', 'utf8');
   return dir;
 }
 
@@ -214,7 +284,7 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
   it('② 大体积 dump 备份成功、备份被保留、内容被判为非空', () => {
     const r = run(dir, './backup.sh');
     expect(r.code, `backup.sh 退出码非 0\nstdout:\n${r.stdout}\nstderr:\n${r.stderr}`).toBe(0);
-    expect(r.stderr).not.toContain('备份内容为空');
+    expect(r.stderr).not.toContain('PostgreSQL 备份内容为空');
 
     // 必须报出解压后字节数，且该数值证明这份 dump 确实超过了管道缓冲
     const m = /解压后 (\d+) 字节/.exec(r.stdout);
@@ -222,11 +292,35 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     expect(Number(m![1])).toBeGreaterThan(65536);
 
     const backupsDir = path.join(dir, 'deploy', 'backups');
-    const gz = readdirSync(backupsDir).filter((f) => f.endsWith('.sql.gz'));
-    expect(gz.length, '正常备份被删除了').toBe(1);
-    const gzPath = path.join(backupsDir, gz[0]);
-    expect(readFileSync(gzPath).length).toBeGreaterThan(0);
-    expect(spawnSync('gzip', ['-t', gzPath]).status).toBe(0);
+    const bundles = readdirSync(backupsDir).filter((f) => f.endsWith('.tar.gz'));
+    expect(bundles.length, '正常备份 bundle 被删除了').toBe(1);
+    const bundlePath = path.join(backupsDir, bundles[0]);
+    expect(readFileSync(bundlePath).length).toBeGreaterThan(0);
+    expect(spawnSync('gzip', ['-t', bundlePath]).status).toBe(0);
+    expect(existsSync(`${bundlePath}.sha256`), '缺少 bundle 外部 SHA256 sidecar').toBe(true);
+
+    // v0.0.20 起数据库 dump 封装在一致 bundle 内，不再是 backups/ 下的裸 .sql.gz。
+    // 真实解包后读取，避免不同 tar 实现对 “./member” 与 “member” 的差异。
+    const extract = mkdtempSync(path.join(os.tmpdir(), 'v009-bundle-'));
+    try {
+      const extractRun = spawnSync(
+        'bash',
+        ['-c', 'tar -xzf "$1" -C "$2"', 'v009-extract', bundlePath, extract],
+        { encoding: 'utf8' },
+      );
+      expect(extractRun.status, `解包 bundle 失败：${extractRun.stderr}`).toBe(0);
+      const dumpPath = path.join(extract, 'database.dump.gz');
+      expect(existsSync(dumpPath), 'bundle 缺少 database.dump.gz').toBe(true);
+      const dumpBytes = spawnSync(
+        'bash',
+        ['-c', `gzip -cd ${JSON.stringify(dumpPath)} | wc -c`],
+        { encoding: 'utf8' },
+      );
+      expect(dumpBytes.status, dumpBytes.stderr).toBe(0);
+      expect(Number(dumpBytes.stdout.trim())).toBeGreaterThan(65536);
+    } finally {
+      rmSync(extract, { recursive: true, force: true });
+    }
   });
 
   it('③ 负向对照：同环境重现旧写法必须失败（证明 ② 不是空测试）', () => {
@@ -271,37 +365,68 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     }
   });
 
-  it('④ restore.sh 放行正常大备份，拒绝真正为空的备份', () => {
+  it('④ restore.sh 放行正常大备份，拒绝真正为空的 dump', () => {
     const backupsDir = path.join(dir, 'deploy', 'backups');
-    const goodName = readdirSync(backupsDir).filter((f) => f.endsWith('.sql.gz'))[0];
+    const goodName = readdirSync(backupsDir).filter((f) => f.endsWith('.tar.gz'))[0];
     expect(goodName, '前置用例未产出备份').toBeTruthy();
+    const goodPath = path.join(backupsDir, goodName);
 
     // ⚠️ 必须传**相对路径**：restore.sh 会先 cd 到自身目录，相对路径本就正确；
     //    而在 Git Bash 下把带反斜杠的 Windows 绝对路径交给 `sha256sum`，
     //    输出会带 `\` 转义前缀（`\fb52…`），把 `awk '{print $1}'` 取到的期望值
     //    污染成与真实摘要不等的字符串 —— 那是测试环境的假阳性，不是产品缺陷。
-    const okRun = run(dir, './restore.sh', { args: [path.posix.join('backups', goodName)], input: 'y\n' });
+    const okRun = run(dir, './restore.sh', {
+      args: ['--yes', path.posix.join('backups', goodName)],
+    });
     expect(
       okRun.code,
       `restore.sh 拒绝了正常备份\nstdout:\n${okRun.stdout}\nstderr:\n${okRun.stderr}`,
     ).toBe(0);
-    expect(okRun.stdout).toContain('备份完整性校验通过');
+    expect(okRun.stdout).toContain('恢复完成并通过恢复后核验');
 
-    // 真正为空的备份：gzip -t 通过（结构合法），但解压后 0 字节 ⇒ 必须被拒
-    const emptyName = 'v2ex-empty.sql.gz';
-    const emptyGz = path.join(backupsDir, emptyName);
-    const made = spawnSync('bash', ['-c', `printf '' | gzip -9 > ${JSON.stringify(emptyGz)}`], {
-      encoding: 'utf8',
-    });
-    expect(made.status, made.stderr).toBe(0);
-    expect(spawnSync('gzip', ['-t', emptyGz]).status).toBe(0);
+    // 构造一个结构完整、SHA256 全部重算、但 database.dump.gz 解压后为 0 字节的 bundle。
+    const stage = mkdtempSync(path.join(os.tmpdir(), 'v009-empty-bundle-'));
+    const emptyName = 'v2ex-empty-dump.tar.gz';
+    const emptyPath = path.join(backupsDir, emptyName);
+    try {
+      const unpack = spawnSync(
+        'bash',
+        ['-c', 'tar -xzf "$1" -C "$2"', 'v009-unpack', goodPath, stage],
+        { encoding: 'utf8' },
+      );
+      expect(unpack.status, `解包正常 bundle 失败：${unpack.stderr}`).toBe(0);
+      const made = spawnSync('bash', ['-c', `printf '' | gzip -9 > ${JSON.stringify(path.join(stage, 'database.dump.gz'))}`], {
+        encoding: 'utf8',
+      });
+      expect(made.status, made.stderr).toBe(0);
+      expect(spawnSync('gzip', ['-t', path.join(stage, 'database.dump.gz')]).status).toBe(0);
 
-    const badRun = run(dir, './restore.sh', {
-      args: [path.posix.join('backups', emptyName)],
-      input: 'y\n',
-    });
-    expect(badRun.code, '空备份竟然被接受').not.toBe(0);
-    expect(`${badRun.stdout}${badRun.stderr}`).toContain('备份内容为空');
+      const sums = spawnSync(
+        'bash',
+        [
+          '-c',
+          'cd "$1" && sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS',
+          'v009-sums',
+          stage,
+        ],
+        { encoding: 'utf8' },
+      );
+      expect(sums.status, sums.stderr).toBe(0);
+      expect(spawnSync('tar', ['-C', stage, '-czf', emptyPath, '.']).status, '重打包失败').toBe(0);
+      const outer = spawnSync('sha256sum', [emptyPath], { encoding: 'utf8' });
+      expect(outer.status, outer.stderr).toBe(0);
+      writeFileSync(`${emptyPath}.sha256`, outer.stdout, 'utf8');
+
+      const badRun = run(dir, './restore.sh', {
+        args: ['--yes', path.posix.join('backups', emptyName)],
+      });
+      expect(badRun.code, '空 dump 竟然被接受').not.toBe(0);
+      expect(`${badRun.stdout}${badRun.stderr}`).toContain('数据库备份内容为空');
+    } finally {
+      rmSync(stage, { recursive: true, force: true });
+      rmSync(emptyPath, { force: true });
+      rmSync(`${emptyPath}.sha256`, { force: true });
+    }
   });
 
   it('⑤ backup.sh 对真为空的 dump 仍然拒绝并删除（不放过真空）', () => {
@@ -309,11 +434,11 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     try {
       const r = run(empty, './backup.sh', { env: { FAKE_DUMP_MODE: 'empty' } });
       expect(r.code, '空 dump 竟然被当作成功备份').not.toBe(0);
-      expect(`${r.stdout}${r.stderr}`).toContain('备份内容为空');
+      expect(`${r.stdout}${r.stderr}`).toContain('PostgreSQL 备份内容为空');
       const left = readdirSync(path.join(empty, 'deploy', 'backups')).filter((f) =>
-        f.endsWith('.sql.gz'),
+        f.endsWith('.tar.gz'),
       );
-      expect(left, '空备份文件未被清理').toEqual([]);
+      expect(left, '空备份 bundle 未被清理').toEqual([]);
     } finally {
       rmSync(empty, { recursive: true, force: true });
     }

@@ -2,6 +2,7 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { UPLOAD_ROOT } from '@/lib/upload-storage';
 import {
   detectImageFormat,
   mimeTypeForFormat,
@@ -13,7 +14,7 @@ export const MAX_REPLY_IMAGE_BYTES = Number(process.env.REPLY_IMAGE_MAX_BYTES ??
 export const MAX_REPLY_IMAGE_PIXELS = Number(process.env.REPLY_IMAGE_MAX_PIXELS ?? 40_000_000);
 export const MAX_REPLY_IMAGE_DIMENSION = Number(process.env.REPLY_IMAGE_MAX_DIMENSION ?? 2400);
 
-export const REPLY_IMAGE_UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads');
+export const REPLY_IMAGE_UPLOAD_ROOT = UPLOAD_ROOT;
 const REPLY_IMAGE_SUBDIR = 'replies';
 const FORMAT_EXT: Record<AvatarFormat, string> = {
   png: 'png',
@@ -137,11 +138,11 @@ export async function writeReplyImageFile(
 
 export async function deleteReplyImageFile(storagePath: string): Promise<void> {
   const absolute = resolveReplyImagePath(storagePath);
-  if (!absolute) return;
+  if (!absolute) throw new Error('非法回复图片存储路径');
   try {
     await unlink(absolute);
-  } catch {
-    /* 文件不存在时无需处理 */
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 }
 

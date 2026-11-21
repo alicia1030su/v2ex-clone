@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
-import { and, desc, eq, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, ne, sql } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { rateLimitByUser, rateLimitSlidingByUser } from '@/lib/rate-limit';
 import {
   MAX_REPLY_IMAGE_BYTES,
-  deleteReplyImageFile,
   processReplyImage,
   publicUrlForReplyImage,
   replyImageMime,
   validateReplyImageBytes,
   writeReplyImageFile,
 } from '@/lib/reply-images';
+import { enqueueAttachmentPurge, purgeAttachmentQueue } from '@/server/attachment-purge';
 import { listRecentReplyImages } from '@/server/reply-threads';
 
 export const dynamic = 'force-dynamic';
@@ -24,46 +24,77 @@ function expectedExtensions(format: string): string[] {
   return format === 'jpeg' ? ['jpg', 'jpeg'] : [format];
 }
 
+/**
+ * 把超时或超出保留上限的未绑定图片交给 purge worker。
+ *
+ * 这里只做数据库状态变更与入队，绝不直接删除物理文件：worker 必须先成功
+ * claim（locked_at 已提交），才能在事务外删文件，最后再提交 purged tombstone。
+ */
 async function cleanupUnusedReplyImages(userId: number): Promise<void> {
   const cutoff = new Date(Date.now() - UNUSED_TTL_MS);
-  const rows = await db
-    .select({
-      id: schema.replyImages.id,
-      storagePath: schema.replyImages.storagePath,
-      createdAt: schema.replyImages.createdAt,
-    })
-    .from(schema.replyImages)
-    .where(and(
-      eq(schema.replyImages.userId, userId),
-      or(
-        and(isNull(schema.replyImages.usedAt), lt(schema.replyImages.createdAt, cutoff)),
-        and(
-          isNotNull(schema.replyImages.usedAt),
-          isNull(schema.replyImages.replyId),
-          lt(schema.replyImages.usedAt, cutoff),
-        ),
-      ),
-    ))
-    .orderBy(desc(schema.replyImages.createdAt));
+  await db.transaction(async (tx) => {
+    const expired = await tx
+      .select({ id: schema.replyImages.id, storagePath: schema.replyImages.storagePath })
+      .from(schema.replyImages)
+      .where(and(
+        eq(schema.replyImages.userId, userId),
+        eq(schema.replyImages.state, 'active'),
+        isNull(schema.replyImages.usedAt),
+        lt(schema.replyImages.createdAt, cutoff),
+      ));
 
-  for (const row of rows) {
-    await deleteReplyImageFile(row.storagePath);
-    await db.delete(schema.replyImages).where(eq(schema.replyImages.id, row.id));
-  }
+    const excess = await tx
+      .select({ id: schema.replyImages.id, storagePath: schema.replyImages.storagePath })
+      .from(schema.replyImages)
+      .where(and(
+        eq(schema.replyImages.userId, userId),
+        eq(schema.replyImages.state, 'active'),
+        isNull(schema.replyImages.usedAt),
+      ))
+      .orderBy(desc(schema.replyImages.createdAt))
+      .offset(MAX_UNUSED_KEPT);
 
-  const remaining = await db
-    .select({
-      id: schema.replyImages.id,
-      storagePath: schema.replyImages.storagePath,
-    })
-    .from(schema.replyImages)
-    .where(and(eq(schema.replyImages.userId, userId), isNull(schema.replyImages.usedAt)))
-    .orderBy(desc(schema.replyImages.createdAt))
-    .offset(MAX_UNUSED_KEPT);
-  for (const row of remaining) {
-    await deleteReplyImageFile(row.storagePath);
-    await db.delete(schema.replyImages).where(eq(schema.replyImages.id, row.id));
-  }
+    const candidates = new Map(
+      [...expired, ...excess].map((row) => [row.id, row]),
+    );
+    const now = new Date();
+
+    for (const row of candidates.values()) {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${row.storagePath}, 0))`);
+
+      const linked = await tx
+        .select({ attachmentId: schema.replyImageLinks.attachmentId })
+        .from(schema.replyImageLinks)
+        .where(eq(schema.replyImageLinks.attachmentId, row.id))
+        .limit(1);
+      if (linked[0]) continue;
+
+      const locked = await tx
+        .select({ id: schema.attachmentPurgeQueue.id })
+        .from(schema.attachmentPurgeQueue)
+        .where(and(
+          eq(schema.attachmentPurgeQueue.storagePath, row.storagePath),
+          eq(schema.attachmentPurgeQueue.kind, 'reply_image'),
+          sql`${schema.attachmentPurgeQueue.lockedAt} IS NOT NULL`,
+        ))
+        .limit(1);
+      if (locked[0]) continue;
+
+      await tx
+        .update(schema.replyImages)
+        .set({ state: 'superseded', purgeAfter: now })
+        .where(and(
+          eq(schema.replyImages.id, row.id),
+          eq(schema.replyImages.state, 'active'),
+        ));
+      await enqueueAttachmentPurge(tx, {
+        storagePath: row.storagePath,
+        kind: 'reply_image',
+        userId,
+        purgeAfter: now,
+      });
+    }
+  });
 }
 
 export async function GET(request: Request) {
@@ -225,8 +256,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (err) {
-    await deleteReplyImageFile(storagePath);
-    console.error('[reply-images] 元数据写入失败', err);
+    // 提交结果未知时绝不先删物理文件，否则可能留下 active 元数据指向缺失文件。
+    // 最坏情况是孤立文件，由恢复后/定期对账安全回收。
+    console.error('[reply-images] 元数据写入失败；保留文件待对账', err);
     return NextResponse.json({ ok: false, error: '图片保存失败' }, { status: 500 });
   }
 }
@@ -257,23 +289,81 @@ export async function DELETE(request: Request) {
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ ok: false, error: '图片 ID 无效' }, { status: 400 });
   }
-  const rows = await db
-    .select({
-      id: schema.replyImages.id,
-      storagePath: schema.replyImages.storagePath,
-      usedAt: schema.replyImages.usedAt,
-    })
-    .from(schema.replyImages)
-    .where(and(eq(schema.replyImages.id, id), eq(schema.replyImages.userId, user.id)))
-    .limit(1);
-  const row = rows[0];
-  if (!row) {
+  type DeleteOutcome = 'ok' | 'not_found' | 'linked' | 'busy';
+  let outcome: DeleteOutcome;
+  try {
+    outcome = await db.transaction(async (tx): Promise<DeleteOutcome> => {
+      const candidates = await tx
+        .select({ storagePath: schema.replyImages.storagePath })
+        .from(schema.replyImages)
+        .where(and(eq(schema.replyImages.id, id), eq(schema.replyImages.userId, user.id)))
+        .limit(1);
+      const candidate = candidates[0];
+      if (!candidate) return 'not_found';
+
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${candidate.storagePath}, 0))
+      `);
+
+      const rows = await tx
+        .select({
+          id: schema.replyImages.id,
+          storagePath: schema.replyImages.storagePath,
+          state: schema.replyImages.state,
+        })
+        .from(schema.replyImages)
+        .where(and(eq(schema.replyImages.id, id), eq(schema.replyImages.userId, user.id)))
+        .limit(1)
+        .for('update');
+      const row = rows[0];
+      if (!row || row.state === 'purged') return 'not_found';
+
+      const linked = await tx
+        .select({ attachmentId: schema.replyImageLinks.attachmentId })
+        .from(schema.replyImageLinks)
+        .where(eq(schema.replyImageLinks.attachmentId, row.id))
+        .limit(1);
+      if (linked[0]) return 'linked';
+
+      const locked = await tx
+        .select({ id: schema.attachmentPurgeQueue.id })
+        .from(schema.attachmentPurgeQueue)
+        .where(and(
+          eq(schema.attachmentPurgeQueue.storagePath, row.storagePath),
+          eq(schema.attachmentPurgeQueue.kind, 'reply_image'),
+          sql`${schema.attachmentPurgeQueue.lockedAt} IS NOT NULL`,
+        ))
+        .limit(1);
+      if (locked[0]) return 'busy';
+
+      const now = new Date();
+      await tx
+        .update(schema.replyImages)
+        .set({ state: 'deleted', purgeAfter: now })
+        .where(eq(schema.replyImages.id, row.id));
+      await enqueueAttachmentPurge(tx, {
+        storagePath: row.storagePath,
+        kind: 'reply_image',
+        userId: user.id,
+        purgeAfter: now,
+      });
+      return 'ok';
+    });
+  } catch (err) {
+    console.error('[reply-images] 删除失败', err);
+    return NextResponse.json({ ok: false, error: '删除失败，请重试' }, { status: 500 });
+  }
+
+  if (outcome === 'not_found') {
     return NextResponse.json({ ok: false, error: '图片不存在' }, { status: 404 });
   }
-  if (row.usedAt) {
-    return NextResponse.json({ ok: false, error: '已使用的图片不能删除' }, { status: 409 });
+  if (outcome === 'linked') {
+    return NextResponse.json({ ok: false, error: '已绑定的图片不能直接删除' }, { status: 409 });
   }
-  await deleteReplyImageFile(row.storagePath);
-  await db.delete(schema.replyImages).where(eq(schema.replyImages.id, row.id));
+  if (outcome === 'busy') {
+    return NextResponse.json({ ok: false, error: '图片正在清理，请稍后重试' }, { status: 409 });
+  }
+
+  void purgeAttachmentQueue(20).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }

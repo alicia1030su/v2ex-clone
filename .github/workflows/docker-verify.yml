@@ -141,6 +141,7 @@ jobs:
           cd "${{ github.workspace }}"
           cat > .env.opscheck <<'EOF'
           POSTGRES_USER=v2ex
+          COMPOSE_PROJECT_NAME=v2ex-clone
           POSTGRES_PASSWORD=ci-postgres-password-not-real
           POSTGRES_DB=v2ex_ops
           REDIS_PASSWORD=ci-redis-password-not-real
@@ -316,15 +317,16 @@ jobs:
           EXPECTED_SCRIPTS='/app/scripts/admin-cli.ts
           /app/scripts/db-admin.mjs
           /app/scripts/docker-entrypoint.sh
+          /app/scripts/migrate-legacy-uploads.mjs
           /app/scripts/seed.ts
           /app/scripts/wait-for-db.mjs'
           ACTUAL_COUNT=$(wc -l < /tmp/img_scripts.txt | tr -d ' ')
-          if [ "${ACTUAL_COUNT}" != "5" ]; then
-            echo "  ✗ 镜像内 scripts 文件数为 ${ACTUAL_COUNT}，期望 5"
+          if [ "${ACTUAL_COUNT}" != "6" ]; then
+            echo "  ✗ 镜像内 scripts 文件数为 ${ACTUAL_COUNT}，期望 6"
             echo "  ⇒ 多余文件说明 .dockerignore 或 Dockerfile 白名单被放宽了"
             exit 1
           fi
-          echo "  ✓ 镜像内 scripts 恰为 5 个运行时脚本"
+          echo "  ✓ 镜像内 scripts 恰为 6 个运行时脚本"
 
           echo "===== 9e. 镜像内迁移物完整性 ====="
           docker run --rm --entrypoint sh v2ex-clone:dv -c 'ls -la /app/drizzle/ /app/drizzle/meta/'

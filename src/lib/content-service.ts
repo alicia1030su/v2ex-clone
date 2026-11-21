@@ -15,6 +15,10 @@ import {
 import type { SessionUser } from '@/lib/auth';
 import { canModifyOwnContent, withinEditWindow } from '@/lib/permissions';
 import { grantCredits, creditAmounts } from '@/lib/credit-service';
+import {
+  AttachmentLinkError,
+  syncReplyImageLinks,
+} from '@/server/attachment-links';
 
 /**
  * 内容服务层（v0.0.3）
@@ -293,7 +297,7 @@ export async function restoreTopic(
 export async function editReply(
   user: SessionUser,
   replyId: number,
-  input: { content?: string },
+  input: { content?: string; imageIds?: number[] },
 ): Promise<ReplyEditResult> {
   const rows = await db
     .select({
@@ -340,26 +344,40 @@ export async function editReply(
   }
 
   const now = new Date();
-  const updated = await db
-    .update(schema.replies)
-    .set({
-      content: newContent,
-      editedAt: now,
-      editCount: sql`${schema.replies.editCount} + 1`,
-      updatedAt: now,
-    })
-    .where(eq(schema.replies.id, replyId))
-    .returning({
-      editCount: schema.replies.editCount,
-      editedAt: schema.replies.editedAt,
+  const imageIds = [...new Set((input.imageIds ?? [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0))].slice(0, 20);
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(schema.replies)
+      .set({
+        content: newContent,
+        editedAt: now,
+        editCount: sql`${schema.replies.editCount} + 1`,
+        updatedAt: now,
+      })
+      .where(eq(schema.replies.id, replyId))
+      .returning({
+        editCount: schema.replies.editCount,
+        editedAt: schema.replies.editedAt,
+      });
+
+    await tx.insert(schema.editHistory).values({
+      targetType: 'reply',
+      targetId: replyId,
+      editorId: user.id,
+      previousContent: reply.content,
+      newContent,
     });
 
-  await db.insert(schema.editHistory).values({
-    targetType: 'reply',
-    targetId: replyId,
-    editorId: user.id,
-    previousContent: reply.content,
-    newContent,
+    await syncReplyImageLinks(tx, {
+      replyId,
+      userId: reply.authorId,
+      content: newContent,
+      imageIds,
+    });
+
+    return rows;
   });
 
   return {

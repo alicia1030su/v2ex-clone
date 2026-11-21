@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.19 — 运维体检脚本
+# V2EX Clone v0.0.20 — 运维体检脚本
 #
 # 用途：**不依赖应用进程**的独立健康巡检（任务书 §六）。
 # 可以放进 cron / systemd timer / 监控探针里。
@@ -9,9 +9,10 @@
 #   1. 容器状态与健康（app / postgres / redis）
 #   2. 应用就绪探针（/api/health/ready）
 #   3. 数据库与 Redis 可用性
-#   4. 磁盘空间（低于阈值告警）
-#   5. 备份存在性与完整性（gzip 结构 + SHA256）
-#   6. 最近一次备份的时间（超过 N 天告警）
+#   4. 附件数据库引用与 uploads 物理文件双向对账
+#   5. 磁盘空间（低于阈值告警）
+#   6. 备份存在性与完整性（gzip 结构 + SHA256）
+#   7. 最近一次备份的时间（超过 N 天告警）
 #
 # 用法：
 #   ./health-check.sh            # 检查并输出报告
@@ -34,7 +35,6 @@ BACKUP_DIR="$SCRIPT_DIR/backups"
 # 阈值
 DISK_WARN_PERCENT="${DISK_WARN_PERCENT:-85}"   # 磁盘使用率超过 85% 告警
 BACKUP_STALE_DAYS="${BACKUP_STALE_DAYS:-7}"    # 备份超过 7 天未更新告警
-APP_PORT="${APP_PORT:-3000}"
 
 QUIET=0
 [ "${1:-}" = "--quiet" ] && QUIET=1
@@ -59,6 +59,9 @@ read_env_value() {
   [ -f "$ENV_FILE" ] || return 0
   grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/^["'"'"']//; s/["'"'"']$//'
 }
+APP_PORT="$(read_env_value APP_PORT)"; APP_PORT="${APP_PORT:-3000}"
+READY_TMP="$(mktemp "${TMPDIR:-/tmp}/v2ex-health-ready.XXXXXX")"
+trap 'rm -f "$READY_TMP"' EXIT
 
 cd "$SCRIPT_DIR" || exit 1
 
@@ -76,8 +79,12 @@ fi
 
 info ""
 info "${C_BLD}容器状态${C_RST}"
+APP_CID=""
 for svc in app postgres redis; do
   cid="$(docker compose --env-file "$ENV_FILE" ps -q "$svc" 2>/dev/null | head -1)"
+  if [ "$svc" = "app" ]; then
+    APP_CID="$cid"
+  fi
   if [ -z "$cid" ]; then
     err "$svc 容器不存在（未启动？）"
     continue
@@ -95,10 +102,25 @@ for svc in app postgres redis; do
   fi
 done
 
+set +e
+docker compose --env-file "$ENV_FILE" exec -T app test -e /app/public/uploads >/dev/null 2>&1
+LEGACY_UPLOADS_RC=$?
+case "$LEGACY_UPLOADS_RC" in
+  0) err "app 容器存在 legacy /app/public/uploads 静态上传目录（可能绕过授权）" ;;
+  1)
+    if [ -n "$APP_CID" ]; then
+      ok "不存在 legacy /app/public/uploads 静态上传目录"
+    else
+      err "无法检查 app 容器 legacy /app/public/uploads（app 容器上下文不可用）"
+    fi
+    ;;
+  *) err "无法检查 app 容器 legacy /app/public/uploads（退出码 ${LEGACY_UPLOADS_RC}）" ;;
+esac
+
 # --- 2. 应用就绪探针 --------------------------------------------------------
 info ""
 info "${C_BLD}应用就绪${C_RST}"
-READY_CODE="$(curl -s -o /tmp/v2ex-health.json -w '%{http_code}' --max-time 8 "http://127.0.0.1:${APP_PORT}/api/health/ready" 2>/dev/null || echo 000)"
+READY_CODE="$(curl -s -o "$READY_TMP" -w '%{http_code}' --max-time 8 "http://127.0.0.1:${APP_PORT}/api/health/ready" 2>/dev/null || echo 000)"
 if [ "$READY_CODE" = "200" ]; then
   ok "就绪探针 HTTP 200"
 elif [ "$READY_CODE" = "503" ]; then
@@ -130,6 +152,26 @@ else
   info "  （未配置 REDIS_PASSWORD，跳过 Redis 检查）"
 fi
 
+# --- 3b. 附件数据库引用与物理文件对账 --------------------------------------
+info ""
+info "${C_BLD}附件对账${C_RST}"
+if [ -x "$SCRIPT_DIR/reconcile-attachments.sh" ] || [ -f "$SCRIPT_DIR/reconcile-attachments.sh" ]; then
+  RECONCILE_LOG="$(bash "$SCRIPT_DIR/reconcile-attachments.sh" 2>&1)"
+  RECONCILE_RC=$?
+  if [ "$RECONCILE_RC" -eq 0 ]; then
+    ok "附件引用与物理文件一致"
+    if printf '%s\n' "$RECONCILE_LOG" | grep -q '\[警告\]'; then
+      printf '%s\n' "$RECONCILE_LOG" | grep '\[警告\]' >&2 || true
+      warn "存在无引用附件文件（已保留，未自动删除）"
+    fi
+  else
+    printf '%s\n' "$RECONCILE_LOG" >&2
+    err "附件对账失败（数据库引用与 uploads 卷不一致）"
+  fi
+else
+  err "缺少 reconcile-attachments.sh，无法完成附件对账"
+fi
+
 # --- 4. 磁盘空间 ------------------------------------------------------------
 info ""
 info "${C_BLD}磁盘空间${C_RST}"
@@ -153,34 +195,80 @@ check_disk "/var/lib/docker" "Docker 数据目录" 2>/dev/null || true
 # --- 5 & 6. 备份存在性与完整性 ---------------------------------------------
 info ""
 info "${C_BLD}备份${C_RST}"
-LATEST="$(ls -t "$BACKUP_DIR"/v2ex-*.sql.gz 2>/dev/null | head -1)"
-if [ -z "$LATEST" ]; then
-  err "没有任何备份文件（$BACKUP_DIR）—— 建议立即执行 ./backup.sh"
-else
-  ok "最新备份：$(basename "$LATEST")（$(date -r "$LATEST" '+%Y-%m-%d %H:%M')）"
-
-  if gzip -t "$LATEST" 2>/dev/null; then
-    ok "gzip 结构完整"
+LATEST_BUNDLE="$(ls -t "$BACKUP_DIR"/v2ex-backup-*.tar.gz 2>/dev/null | head -1 || true)"
+LEGACY_DUMP="$(ls -t "$BACKUP_DIR"/v2ex-*.sql.gz 2>/dev/null | head -1 || true)"
+if [ -z "$LATEST_BUNDLE" ]; then
+  if [ -n "$LEGACY_DUMP" ]; then
+    err "只找到旧版数据库备份：$(basename "$LEGACY_DUMP")"
+    err "旧版备份不含 uploads 附件卷，不能作为完整灾难恢复包；请运行 ./backup.sh 生成新 bundle。"
   else
-    err "备份文件 gzip 结构损坏（可能被截断）"
+    err "没有任何备份文件（$BACKUP_DIR）—— 建议立即执行 ./backup.sh"
+  fi
+else
+  ok "最新一致备份：$(basename "$LATEST_BUNDLE")（$(date -r "$LATEST_BUNDLE" '+%Y-%m-%d %H:%M')）"
+
+  if gzip -t "$LATEST_BUNDLE" 2>/dev/null; then
+    ok "bundle gzip 结构完整"
+  else
+    err "备份 bundle gzip 结构损坏（可能被截断）"
   fi
 
-  SHA_FILE="${LATEST}.sha256"
+  SHA_FILE="${LATEST_BUNDLE}.sha256"
   if [ -f "$SHA_FILE" ] && command -v sha256sum >/dev/null 2>&1; then
-    EXPECTED="$(awk '{print $1}' "$SHA_FILE" | head -1)"
-    ACTUAL="$(sha256sum "$LATEST" | awk '{print $1}')"
+    EXPECTED="$(awk 'NR==1 {print $1}' "$SHA_FILE")"
+    ACTUAL="$(sha256sum "$LATEST_BUNDLE" | awk '{print $1}')"
     if [ "$EXPECTED" = "$ACTUAL" ]; then
-      ok "SHA256 校验通过"
+      ok "bundle SHA256 校验通过"
     else
-      err "SHA256 不匹配（备份可能被改动）"
+      err "bundle SHA256 不匹配（备份可能被改动）"
     fi
   else
-    warn "没有 .sha256 校验文件（本次备份之前生成，或工具不可用）"
+    err "bundle 缺少 .sha256 sidecar（完整性保护降级）"
   fi
 
-  AGE_DAYS=$(( ( $(date +%s) - $(date -r "$LATEST" +%s) ) / 86400 ))
+  VERIFY_TMP="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-health.XXXXXX")"
+  chmod 700 "$VERIFY_TMP"
+  ARCHIVE_SAFE=1
+  HEALTH_LIST_CMD=(tar -tzf "$LATEST_BUNDLE")
+  HEALTH_META_CMD=(tar -tvzf "$LATEST_BUNDLE")
+  HEALTH_EXTRACT_CMD=(tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP")
+  if command -v timeout >/dev/null 2>&1; then
+    HEALTH_LIST_CMD=(timeout 60 tar -tzf "$LATEST_BUNDLE")
+    HEALTH_META_CMD=(timeout 60 tar -tvzf "$LATEST_BUNDLE")
+    HEALTH_EXTRACT_CMD=(timeout 120 tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP")
+  fi
+  if ! "${HEALTH_LIST_CMD[@]}" | awk '
+      { entries++; if (entries > 10000) bad=1
+        entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
+        if (entry ~ /^\// || entry == ".." || entry ~ /(^|\/)\.\.(\/|$)/) bad=1 }
+      END { exit bad ? 1 : 0 }'; then
+    ARCHIVE_SAFE=0
+    err "备份 bundle 包含绝对路径、.. 路径穿越、过多成员或解压超时"
+  fi
+  if ! "${HEALTH_META_CMD[@]}" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
+    ARCHIVE_SAFE=0
+    err "备份 bundle 包含符号链接、硬链接、设备文件、FIFO 或解压超时"
+  fi
+  if [ "$ARCHIVE_SAFE" -eq 1 ] \
+      && "${HEALTH_EXTRACT_CMD[@]}" 2>/dev/null \
+      && [ -f "$VERIFY_TMP/SHA256SUMS" ] \
+      && [ -f "$VERIFY_TMP/manifest.env" ] \
+      && [ -f "$VERIFY_TMP/database.dump.gz" ] \
+      && [ -f "$VERIFY_TMP/uploads.tar.gz" ] \
+      && [ -f "$VERIFY_TMP/uploads-files.tsv" ] \
+      && [ -f "$VERIFY_TMP/migration-journal.json" ] \
+      && gzip -t "$VERIFY_TMP/database.dump.gz" 2>/dev/null \
+      && gzip -t "$VERIFY_TMP/uploads.tar.gz" 2>/dev/null \
+      && ( cd "$VERIFY_TMP" && sha256sum -c SHA256SUMS >/dev/null 2>&1 ); then
+    ok "bundle 内 manifest 与成员 SHA256 校验通过"
+  elif [ "$ARCHIVE_SAFE" -eq 1 ]; then
+    err "bundle 内成员校验失败（manifest/SHA256SUMS 缺失或不匹配）"
+  fi
+  rm -rf "$VERIFY_TMP"
+
+  AGE_DAYS=$(( ( $(date +%s) - $(date -r "$LATEST_BUNDLE" +%s) ) / 86400 ))
   if [ "$AGE_DAYS" -ge "$BACKUP_STALE_DAYS" ]; then
-    err "最新备份已 ${AGE_DAYS} 天未更新（阈值 ${BACKUP_STALE_DAYS} 天）"
+    err "最新一致备份已 ${AGE_DAYS} 天未更新（阈值 ${BACKUP_STALE_DAYS} 天）"
   else
     ok "备份新鲜度 ${AGE_DAYS} 天"
   fi
@@ -193,7 +281,7 @@ if [ "$PROBLEMS" -gt 0 ]; then
   exit 1
 elif [ "$WARNINGS" -gt 0 ]; then
   printf '%s体检结果：全部关键项正常，%s 个告警%s\n' "$C_YEL" "$WARNINGS" "$C_RST"
-  exit 0
+  exit 1
 else
   printf '%s体检结果：全部正常%s\n' "$C_GRN" "$C_RST"
   exit 0

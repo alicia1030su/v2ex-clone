@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# V2EX Clone v0.0.19 — 一键安装脚本（Linux / macOS）
+# V2EX Clone v0.0.20 — 一键安装脚本（Linux / macOS）
 #
 # 用法：
 #   chmod +x install.sh && ./install.sh
@@ -23,8 +23,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_VERSION="0.0.19"
-DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.19"
+APP_VERSION="0.0.20"
+DEFAULT_IMAGE="ghcr.io/alicia1030su/v2ex-clone:v0.0.20"
 # 允许调用方通过环境变量指定镜像（例如 CI 用本地构建的镜像验证安装流程）。
 # 之前这里硬编码写回 DEFAULT_IMAGE，会**静默忽略**调用方的取值，
 # 导致「用本地镜像跑安装验证」的 CI 场景必然拉取远端不存在的镜像而失败。
@@ -429,6 +429,6 @@ printf '\n常用命令（在本目录执行）：\n'
 printf '  ./start.sh          启动服务\n'
 printf '  ./stop.sh           停止服务（保留数据卷）\n'
 printf '  ./update.sh         升级到新版本\n'
-printf '  ./backup.sh         备份数据库与配置\n'
+printf '  ./backup.sh         一致备份数据库、附件与配置\n'
 printf '  docker compose logs -f app   查看应用日志\n'
 printf '\n'

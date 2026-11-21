@@ -204,13 +204,10 @@ describe('v0.0.16 候选包四角色验收：链路结构', () => {
     expect(SRC, '缺少空值判断').toMatch(/\[\s*-n\s+"\$P"\s*\]/);
   });
 
-  it('恢复脚本必须被喂入确认输入，且不得截断失败输出', () => {
+  it('恢复脚本必须显式跳过交互确认，且不得截断失败输出', () => {
     /*
-     * `restore.sh` 开头有交互式确认（`read -r reply`）。CI 非交互 ⇒ 读到 EOF
-     * ⇒ 回落到 N ⇒ `die "已取消。"` ⇒ 退出码 1。
-     * 实测 run 44334123573 就是这样判红的，且因为用了 `| tail -8`，
-     * 真实的「已取消」被截掉，日志里只剩一句 exit code 1 ——
-     * 看起来像「恢复功能坏了」。
+     * v0.0.20 起 restore.sh 提供 --yes；CI 必须显式使用它（或等价地喂 y），
+     * 否则非交互 shell 会读到 EOF 并取消。恢复输出不得再用 `| tail` 截断。
      */
     const block = stepBlock(SRC, '备份 → 恢复 → 重启持久化');
     expect(block, '找不到备份恢复步骤 —— 结构已变，本用例需重写').not.toBe('');
@@ -218,18 +215,13 @@ describe('v0.0.16 候选包四角色验收：链路结构', () => {
       .split('\n')
       .find((l) => l.includes('restore.sh')) ?? '';
     expect(restoreLine, '找不到调用 restore.sh 的行').not.toBe('');
-    /*
-     * ⚠️ 正则要匹配**字面**的反斜杠 + n（源码里就是 `printf 'y\n'`），
-     * 不是真的换行。写成 `/printf\s+'y\n'/` 会去找换行符 ⇒ 恒假。
-     * （这类「转义层级数错一层」的错误，本仓已出现过多次。）
-     */
     expect(
-      restoreLine.includes("printf 'y") || /echo\s+y\s*\|/.test(restoreLine),
-      'restore.sh 必须被显式喂入 y —— 它有交互式确认，CI 里没人回答就会取消',
+      restoreLine.includes("printf 'y") || /echo\s+y\s*\|/.test(restoreLine) || /--yes/.test(restoreLine),
+      'restore.sh 必须被显式喂入 y 或使用 --yes',
     ).toBe(true);
     expect(
       /restore\.sh[^\n]*\|\s*tail/.test(restoreLine),
-      '恢复输出不得用 `| tail` 截断 —— 那会把「已取消」这类真实原因吞掉',
+      '恢复输出不得用 `| tail` 截断',
     ).toBe(false);
   });
 

@@ -42,6 +42,10 @@ tmp
 logs
 *.log
 .pid
+# 私有上传卷：运行时用户数据，绝不能进入构建上下文或镜像层。
+data/uploads/
+# v0.0.19 及更早版本的遗留静态目录也必须排除，避免升级构建时重新注入。
+public/uploads/
 
 # 备份与归档（本地备份可能含真实凭据，绝不能进镜像）
 _backups
@@ -91,6 +95,7 @@ scripts/*
 !scripts/docker-entrypoint.sh
 !scripts/seed.ts
 !scripts/wait-for-db.mjs
+!scripts/migrate-legacy-uploads.mjs
 !scripts/admin-cli.ts
 !scripts/db-admin.mjs
 

@@ -33,14 +33,9 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 # public/ 可能为空目录（Git 不跟踪空目录），COPY 空目录会失败。
 # 这里用「先建目录再复制」的方式，保证该目录在镜像中一定存在。
 RUN mkdir -p /app/public
-# v0.0.5：预创建**运行时**上传目录（头像）。
-#
-# 背景：头像文件在**运行时**写入 `public/uploads/avatars/...`，
-# 而不是构建期存在 ⇒ `public/` 的内容不会被 COPY 进镜像。
-# 若不预创建，首次上传会因目录不存在而失败（ENOENT）。
-#
-# 权限：容器以 `nextjs`（uid 1001）运行 ⇒ 目录必须对它可写。
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
+# 用户上传文件必须放在 public 之外，避免 next start 的静态资源快照绕过授权路由。
+# Docker 部署把 uploads named volume 挂载到 /app/data/uploads。
+RUN mkdir -p /app/data/uploads && chown -R nextjs:nodejs /app/data/uploads
 COPY --from=builder --chown=nextjs:nodejs /app/public/ /app/public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
@@ -62,7 +57,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 #   · `scripts/release/*` 是**发布机**上的工具（打包 / 校验 / 升级演练），
 #     在容器里跑没有意义，还会把发布流程细节暴露进镜像。
 #
-# 因此改为**显式白名单**：只拷容器内真实执行的四个脚本 + 一个目录。
+# 因此改为**显式白名单**：只拷容器内真实执行的六个脚本。
 # 白名单的好处是「新增脚本默认不进镜像」——漏掉必须靠加白名单才会坏，
 # 而整目录 COPY 是「新增脚本默认进镜像」，两种默认值的安全方向相反。
 #
@@ -70,6 +65,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 #   · docker-entrypoint.sh  ← ENTRYPOINT（阶段 1 迁移 / 阶段 2 初始化 / 启动）
 #   · seed.ts               ← entrypoint 阶段 2（node tsx scripts/seed.ts）
 #   · wait-for-db.mjs       ← entrypoint 阶段 1 就绪探测
+#   · migrate-legacy-uploads.mjs ← package.json prestart / 旧目录安全迁移
 #   · admin-cli.ts          ← INSTALL.md:493 指导用户在容器内重置口令
 #   · db-admin.mjs          ← 运维脚本（Dockerfile 下方注释已声明）
 #
@@ -79,6 +75,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/seed.ts ./scripts/seed.ts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/wait-for-db.mjs ./scripts/wait-for-db.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-legacy-uploads.mjs ./scripts/migrate-legacy-uploads.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/admin-cli.ts ./scripts/admin-cli.ts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/db-admin.mjs ./scripts/db-admin.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts

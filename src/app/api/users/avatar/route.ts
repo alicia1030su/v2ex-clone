@@ -2,19 +2,22 @@ import { NextResponse } from 'next/server';
 import { guardCsrf } from '@/lib/csrf-guard';
 import { getSessionUser } from '@/lib/auth';
 import { db, schema } from '@/db';
-import { eq, desc } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import {
   detectImageFormat,
   processAvatar,
   resolveStoragePath,
   writeAvatarFile,
-  deleteAvatarFile,
   publicUrlForStoragePath,
   MAX_AVATAR_BYTES,
   AVATAR_SIZE,
 } from '@/lib/avatar';
 import { rateLimitByUser } from '@/lib/rate-limit';
 import { guardCommunityAction } from '@/lib/community-rate-limit';
+import {
+  enqueueAttachmentPurge,
+  purgeAttachmentQueue,
+} from '@/server/attachment-purge';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,44 +105,66 @@ export async function POST(request: Request) {
   // 存储路径由服务端生成（writeAvatarFile 内部生成随机路径，不接收任何用户可控片段）
   const storagePath = await writeAvatarFile(user.id, processed.format, processed.data);
 
-  // 记录元数据
-  await db.insert(schema.avatars).values({
-    userId: user.id,
-    storagePath,
-    originalName: typeof blob.name === 'string' ? blob.name.slice(0, 255) : null,
-    mimeType:
-      processed.format === 'jpeg'
-        ? 'image/jpeg'
-        : processed.format === 'png'
-          ? 'image/png'
-          : processed.format === 'webp'
-            ? 'image/webp'
-            : 'image/gif',
-    size: processed.data.length,
-    width: processed.width,
-    height: processed.height,
-  });
-
-  // 更新用户头像字段
+  // 记录元数据、切换当前头像、撤销旧头像并入队，全部在一个事务内完成。
   const publicUrl = publicUrlForStoragePath(storagePath);
-  await db
-    .update(schema.users)
-    .set({ avatar: publicUrl })
-    .where(eq(schema.users.id, user.id));
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.avatars).values({
+        userId: user.id,
+        storagePath,
+        originalName: typeof blob.name === 'string' ? blob.name.slice(0, 255) : null,
+        mimeType:
+          processed.format === 'jpeg'
+            ? 'image/jpeg'
+            : processed.format === 'png'
+              ? 'image/png'
+              : processed.format === 'webp'
+                ? 'image/webp'
+                : 'image/gif',
+        size: processed.data.length,
+        width: processed.width,
+        height: processed.height,
+      });
 
-  // 删除旧头像文件（保留数据库元数据作为历史）
-  const oldRows = await db
-    .select({ storagePath: schema.avatars.storagePath })
-    .from(schema.avatars)
-    .where(eq(schema.avatars.userId, user.id))
-    .orderBy(desc(schema.avatars.id))
-    .limit(20);
+      await tx
+        .update(schema.users)
+        .set({ avatar: publicUrl })
+        .where(eq(schema.users.id, user.id));
 
-  const oldPaths = oldRows.map((r) => r.storagePath).filter((p) => p !== storagePath);
-  for (const p of oldPaths) {
-    const abs = resolveStoragePath(p);
-    if (abs) await deleteAvatarFile(abs);
+      const oldRows = await tx
+        .select({ storagePath: schema.avatars.storagePath })
+        .from(schema.avatars)
+        .where(and(
+          eq(schema.avatars.userId, user.id),
+          ne(schema.avatars.storagePath, storagePath),
+        ));
+      for (const old of oldRows) {
+        await enqueueAttachmentPurge(tx, {
+          storagePath: old.storagePath,
+          kind: 'avatar',
+          userId: user.id,
+        });
+      }
+      await tx
+        .delete(schema.avatars)
+        .where(and(
+          eq(schema.avatars.userId, user.id),
+          ne(schema.avatars.storagePath, storagePath),
+        ));
+    });
+  } catch (err) {
+    // 新文件尚未形成可见引用，可直接回滚落盘。
+    try {
+      const { deleteAvatarFile } = await import('@/lib/avatar');
+      await deleteAvatarFile(storagePath);
+    } catch {
+      /* 保留孤立文件供 purge/人工回收，不掩盖原始错误 */
+    }
+    console.error('[avatar] 元数据写入失败', err);
+    return NextResponse.json({ ok: false, error: '图片保存失败' }, { status: 500 });
   }
+
+  void purgeAttachmentQueue(20).catch(() => undefined);
 
   return NextResponse.json({
     ok: true,
@@ -169,17 +194,28 @@ export async function DELETE(request: Request) {
   const rl = await guardCommunityAction('collection', user?.id ?? null);
   if (rl) return rl;
 
-  const rows = await db
-    .select({ storagePath: schema.avatars.storagePath })
-    .from(schema.avatars)
-    .where(eq(schema.avatars.userId, user.id));
+  try {
+    await db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ storagePath: schema.avatars.storagePath })
+        .from(schema.avatars)
+        .where(eq(schema.avatars.userId, user.id));
 
-  for (const r of rows) {
-    const abs = resolveStoragePath(r.storagePath);
-    if (abs) await deleteAvatarFile(abs);
+      await tx.delete(schema.avatars).where(eq(schema.avatars.userId, user.id));
+      await tx.update(schema.users).set({ avatar: null }).where(eq(schema.users.id, user.id));
+      for (const row of rows) {
+        await enqueueAttachmentPurge(tx, {
+          storagePath: row.storagePath,
+          kind: 'avatar',
+          userId: user.id,
+        });
+      }
+    });
+  } catch (err) {
+    console.error('[avatar] 删除失败', err);
+    return NextResponse.json({ ok: false, error: '删除失败' }, { status: 500 });
   }
 
-  await db.update(schema.users).set({ avatar: null }).where(eq(schema.users.id, user.id));
-
+  void purgeAttachmentQueue(20).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }
