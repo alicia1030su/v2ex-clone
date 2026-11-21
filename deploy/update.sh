@@ -822,10 +822,21 @@ else
     rollback "升级后 uploads 不可写" "image"
     die "升级后 /app/data/uploads 对 app 用户不可写，已回滚。"
   fi
-  if docker compose exec -T app test -e /app/public/uploads >/dev/null 2>&1; then
-    rollback "升级后出现 legacy public/uploads" "image"
-    die "升级后出现 /app/public/uploads 静态上传目录，已回滚。"
-  fi
+  set +e
+  docker compose exec -T app test -e /app/public/uploads >/dev/null 2>&1
+  LEGACY_UPLOADS_RC=$?
+  set -e
+  case "$LEGACY_UPLOADS_RC" in
+    0)
+      rollback "升级后出现 legacy public/uploads" "image"
+      die "升级后出现 /app/public/uploads 静态上传目录，已回滚。"
+      ;;
+    1) ;;
+    *)
+      rollback "升级后无法检查 legacy public/uploads" "image"
+      die "升级后无法检查 /app/public/uploads（退出码 ${LEGACY_UPLOADS_RC}），已回滚。"
+      ;;
+  esac
   ok "uploads 私有卷挂载与权限正常：${UPLOADS_MOUNT} / ${UPLOADS_OWNER} / 可写"
 fi
 

@@ -96,11 +96,15 @@ for svc in app postgres redis; do
   fi
 done
 
-if docker compose --env-file "$ENV_FILE" exec -T app test -e /app/public/uploads >/dev/null 2>&1; then
-  err "app 容器存在 legacy /app/public/uploads 静态上传目录（可能绕过授权）"
-else
-  ok "不存在 legacy /app/public/uploads 静态上传目录"
-fi
+set +e
+docker compose --env-file "$ENV_FILE" exec -T app test -e /app/public/uploads >/dev/null 2>&1
+LEGACY_UPLOADS_RC=$?
+set -e
+case "$LEGACY_UPLOADS_RC" in
+  0) err "app 容器存在 legacy /app/public/uploads 静态上传目录（可能绕过授权）" ;;
+  1) ok "不存在 legacy /app/public/uploads 静态上传目录" ;;
+  *) err "无法检查 app 容器 legacy /app/public/uploads（退出码 ${LEGACY_UPLOADS_RC}）" ;;
+esac
 
 # --- 2. 应用就绪探针 --------------------------------------------------------
 info ""
