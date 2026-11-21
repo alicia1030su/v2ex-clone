@@ -231,16 +231,15 @@ jobs:
           set -o pipefail
           bash scripts/release/verify-upgrade-v008.sh 2>&1 | tee /tmp/v008-upgrade.log
 
-      - name: 双基线升级验证（v0.0.4 → v0.0.18 与 v0.0.17 → v0.0.18）
-        # v0.0.18 更新。与上一条（v008 脚本）的分工：
+      - name: 双基线升级验证（v0.0.4 → v0.0.19 与 v0.0.17 → v0.0.19）
+        # v0.0.19 更新。与上一条（v008 脚本）的分工：
         #   · v008：单基线 + 迁移幂等，覆盖「结构变更」路径；
         #   · 本条：**双基线**（最早的 v0.0.4 与上一版的 v0.0.17），
         #     覆盖「从很远的老版本升上来」与「从上一版升上来」两种真实场景，
         #     并做备份 → 恢复到**独立库** → 指纹比对（回滚路径）。
         #
-        # 版本依据：v0.0.18 **没有新增迁移**（drizzle/ 仍是 5 个 SQL），
-        # 因此本项证明的是「数据在升级过程中不被破坏、迁移可安全重放」，
-        # **不**证明「本版引入了需要升级的新结构」—— 结论不得过度解读。
+        # 版本依据：v0.0.19 新增 `0005_v019_reply_threads`，因此本项同时断言
+        # 新列/新表存在、历史回复父关联保持 NULL、业务指纹不变、迁移幂等。
         #
         # ⚠️ 基线迁移集从 **tag** 里导出，不是用当前工作区复制一份冒充。
         env:
@@ -268,9 +267,9 @@ jobs:
           git archive v0.0.4 drizzle | tar -x -C /tmp/mig-v004 --strip-components=1
           git archive v0.0.17 drizzle | tar -x -C /tmp/mig-v017 --strip-components=1
           echo "  基线迁移文件数：v0.0.4 = $(ls /tmp/mig-v004/*.sql | wc -l)，v0.0.17 = $(ls /tmp/mig-v017/*.sql | wc -l)"
-          bash scripts/release/verify-upgrade-v0018.sh \
+          bash scripts/release/verify-upgrade-v0019.sh \
             --v004-migrations /tmp/mig-v004 \
-            --v017-migrations /tmp/mig-v017 2>&1 | tee /tmp/v0018-upgrade.log
+            --v017-migrations /tmp/mig-v017 2>&1 | tee /tmp/v0019-upgrade.log
 
       - name: 上传升级验证日志
         if: always()
@@ -280,8 +279,8 @@ jobs:
           path: |
             /tmp/v008-upgrade.log
             /tmp/v008-migrate*.log
-            /tmp/v0018-upgrade.log
-            /tmp/v0018-migrate*.log
+            /tmp/v0019-upgrade.log
+            /tmp/v0019-migrate*.log
           retention-days: 7
           if-no-files-found: warn
 

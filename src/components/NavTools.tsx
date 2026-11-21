@@ -1,4 +1,5 @@
 import { buildNavLinks, type NavUser } from '@/lib/nav-links';
+import ThemeToggle from '@/components/ThemeToggle';
 
 /**
  * 导航栏右侧工具区（v0.0.4）
@@ -39,6 +40,7 @@ export default function NavTools({
 
   return (
     <div className="tools">
+      <ThemeToggle />
       {links.map((l) => (
         <a key={`${l.href}:${l.label}`} href={l.href} className="top">
           {l.label}

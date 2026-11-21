@@ -101,7 +101,13 @@ jobs:
       - name: 静态链检查 + 负向对照（每一项都必须真的判红）
         env:
           INPUT_VERSION: ${{ inputs.version }}
-        run: node scripts/release/preflight-dryrun.mjs --mode=static
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            args+=(--version="$INPUT_VERSION")
+          fi
+          node scripts/release/preflight-dryrun.mjs --mode=static "${args[@]}"
 
   # ===========================================================================
   # 2. 发布输入缺失的负向测试（工作流级）
@@ -159,7 +165,13 @@ jobs:
       - name: 抽出目标版本段落并渲染 Notes（不创建 Release）
         env:
           INPUT_VERSION: ${{ inputs.version }}
-        run: node scripts/release/preflight-dryrun.mjs --mode=notes
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            args+=(--version="$INPUT_VERSION")
+          fi
+          node scripts/release/preflight-dryrun.mjs --mode=notes "${args[@]}"
 
       - name: 负向：不存在的版本必须失败
         run: |

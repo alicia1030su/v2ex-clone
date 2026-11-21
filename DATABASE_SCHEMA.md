@@ -3,9 +3,11 @@
 > 本表由**运行中的数据库**读取生成（`information_schema` / `pg_catalog`），
 > 与 `src/db/schema.ts` 及 `drizzle/*.sql` 迁移保持一致。
 
-- 表总数：**26**
+- 表总数：**29**
 - 枚举类型：**12**
-- 迁移文件：`drizzle/0000_init.sql`（v0.0.2 基线）、`drizzle/0001_striped_magdalene.sql`（v0.0.3）
+- 迁移文件：`drizzle/0000_init.sql`（v0.0.2 基线）、`drizzle/0001_striped_magdalene.sql`（v0.0.3）、
+  `drizzle/0002_v004_perf_indexes.sql`、`drizzle/0003_v005_reports.sql`、
+  `drizzle/0004_v014_categories.sql`、`drizzle/0005_v019_reply_threads.sql`
 
 ## 枚举类型
 
@@ -44,8 +46,10 @@
 | `nodes` | 12 | id | 节点（归属分类，可有父节点） |
 | `notifications` | 9 | id | 通知（已读/未读） |
 | `password_reset_tokens` | 8 | id | ★ v0.0.3 密码重置令牌（只存哈希） |
-| `rate_limit_buckets` | 3 | key | 限流桶（PostgreSQL 降级存储） |
-| `replies` | 14 | id | 回复（楼层号唯一索引；v0.0.3 加软删除与编辑字段） |
+| `rate_limit_buckets` | 3 | key | 固定窗口限流桶（PostgreSQL 降级存储） |
+| `rate_limit_sliding_hits` | 3 | id | ★ v0.0.19 滑动窗口命中记录 |
+| `replies` | 16 | id | 回复（楼层号唯一索引；v0.0.19 加父回复与请求幂等键） |
+| `reply_images` | 11 | id | ★ v0.0.19 回复图片元数据 |
 | `reports` | 10 | id | ★ v0.0.3 举报与处理记录 |
 | `sessions` | 6 | id | 会话 |
 | `tags` | 2 | id | 标签 |
@@ -53,6 +57,7 @@
 | `topic_tags` | 2 | topic_id, tag_id | 主题-标签关联 |
 | `topics` | 19 | id | 主题（v0.0.3 加软删除与编辑字段） |
 | `users` | 14 | id | 用户（余额、角色、状态、头像、资料） |
+| `user_preferences` | 4 | user_id | ★ v0.0.19 回复展示与主题偏好 |
 | `votes` | 5 | id | 主题投票（一人一主题唯一） |
 
 ## v0.0.3 新增字段
@@ -70,11 +75,24 @@
 | `replies` | `edited_at` | timestamptz | 最后编辑时间 |
 | `replies` | `edit_count` | integer | 编辑次数 |
 
+## v0.0.19 新增字段与表
+
+| 表 | 字段 / 表 | 类型 | 用途 |
+|---|---|---|---|
+| `replies` | `parent_reply_id` | integer → replies(id) | 真实父回复；NULL 表示直接回复主题 |
+| `replies` | `client_request_id` | varchar(64) | 客户端请求幂等键；部分唯一索引 |
+| `user_preferences` | 新表 | user_id PK | `reply_display_mode` 与 `theme_preference` |
+| `reply_images` | 新表 | serial PK | 回复图片存储路径、MIME、尺寸、归属与使用状态 |
+| `rate_limit_sliding_hits` | 新表 | serial PK | PostgreSQL 降级滑动窗口命中记录 |
+
 ## 关键索引与约束
 
 | 名称 | 表 | 类型 | 作用 |
 |---|---|---|---|
 | ✅ `replies_topic_floor_uidx` | `replies` | UNIQUE | 保证同一主题内楼层号不重复（并发回复安全） |
+| ✅ `replies_client_request_uidx` | `replies` | UNIQUE PARTIAL | 同一客户端请求只创建一条回复 |
+| ✅ `replies_parent_topic_idx` | `replies` | INDEX | 按主题 + 父回复 + 楼层读取楼中楼 |
+| ✅ `replies_validate_parent_trigger` | `replies` | TRIGGER | 强制父回复同主题、拒绝自引用与环形关系 |
 | ✅ `votes_user_topic_uidx` | `votes` | UNIQUE | 一人一主题只有一票（投票幂等） |
 | ✅ `thanks_user_reply_uidx` | `thanks` | UNIQUE | 一人一回复只感谢一次（感谢幂等） |
 | ✅ `credit_ledger_idem_uidx` | `credit_ledger` | UNIQUE | 积分幂等键（重复请求不重复发放） |

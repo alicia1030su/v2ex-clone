@@ -140,6 +140,9 @@ on:
       #     本行只保证未来若获单独授权，Tag 能触发流水线；当前未创建 Tag、
       #     未建 Release、未推 GHCR 正式标签，preflight 也会因缺少本版裁决而中止。
       - 'v0.0.18'
+      # ⚠️ v0.0.19：白名单只保证 Tag 能触发流水线；公开发布仍由
+      #    docs/RISK_DECISION_v0.0.19.md 的 A3 + B1 单独授权。
+      - 'v0.0.19'
   workflow_dispatch:
     inputs:
       version:

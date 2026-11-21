@@ -23,6 +23,7 @@ export type ReplyData = {
   editCount: number;
   deleted: boolean;
   quoteId: number | null;
+  parentReplyId: number | null;
   authorId: number;
   authorName: string;
   createdAt: string;
@@ -43,6 +44,7 @@ type Props = {
   /** 主题是否锁定（锁定时禁止回复操作） */
   topicLocked?: boolean;
   onChanged?: () => void;
+  onReply?: () => void;
   /**
    * 是否由本组件渲染正文。
    * false = 只渲染操作区（正文由页面用 markdown_body 渲染，保持原站视觉结构）。
@@ -57,6 +59,7 @@ export default function ReplyItem({
   quoted,
   topicLocked,
   onChanged,
+  onReply,
   renderContent = false,
 }: Props) {
   const [pending, setPending] = useState<string | null>(null);
@@ -229,6 +232,16 @@ export default function ReplyItem({
         {/* 操作区 */}
         {!reply.deleted && (
           <div className="reply_row">
+            {user && !topicLocked && onReply ? (
+              <button
+                type="button"
+                className="button"
+                onClick={onReply}
+                aria-label={`回复 ${reply.floor} 楼`}
+              >
+                回复
+              </button>
+            ) : null}
             <button
               type="button"
               className="button"

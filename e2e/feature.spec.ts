@@ -86,11 +86,10 @@ test.describe('收藏与通知', () => {
     const otherPage = await other.newPage();
     await login(otherPage, USER_B.username, USER_B.password);
     await otherPage.goto(topicUrl);
-    await otherPage.fill('textarea[name="content"]', '这是一条用于触发通知的回复。');
-    await Promise.all([
-      otherPage.waitForURL(/\/t\/\d+/, { timeout: 30_000 }),
-      otherPage.click('form button[type="submit"]'),
-    ]);
+    const replyText = '这是一条用于触发通知的回复。';
+    await otherPage.fill('#reply-content', replyText);
+    await otherPage.getByRole('button', { name: '提交回复' }).click();
+    await expect(otherPage.getByText(replyText, { exact: true })).toBeVisible();
     await other.close();
 
     // 作者应收到通知

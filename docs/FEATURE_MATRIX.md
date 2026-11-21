@@ -336,3 +336,27 @@
 
 测试过程中发现并修复的真实产品缺陷累计 **100+ 条**，逐条取证见 `BUG_REGISTER.md`
 （v0.0.4 ~ v0.0.13，编号 V4-xx / V5-xx / V6-xx / V7-xx / V8-xx / V9-xx / V10-xx）。
+
+## 15. v0.0.19 · V2EX 2026 年 11 月更新对照
+
+> 官方来源、精确行为与无法验证项见 `docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md`。
+> 本节只记录当前源码与测试证据，不声称像素级一致。
+
+| 功能 | 状态 | 实现位置 | 验证证据 |
+|---|---|---|---|
+| 真实父回复关联 | ✅ 已实现且已验证 | `replies.parent_reply_id`、`0005_v019_reply_threads.sql`、`POST /api/replies` | 真库 10/10；跨主题/自引用/环均被拒 |
+| 经典平铺（默认） | ✅ 已实现且已验证 | `ReplyList.tsx` `classic` | E2E：无父引用 |
+| 引用条 | ✅ 已实现且已验证 | `ReplyList.tsx` `quote` | E2E 七模式 |
+| 角标 + 悬浮预览 | ✅ 已实现且已验证 | `ReplyList.tsx` `badge` | E2E；移动端点击可达 |
+| 楼中楼 | ✅ 已实现且已验证 | `ReplyList.tsx` `nested` | E2E；跨页按需加载 |
+| 树形缩进 | ✅ 已实现且已验证 | `ReplyList.tsx` `tree` | 最大 4 层、可展开收起 |
+| 对话连线 | ✅ 已实现且已验证 | `ReplyList.tsx` `lines` | 桌面 hover / 键盘焦点高亮 |
+| 引用楼层 | ✅ 已实现且已验证 | `ReplyList.tsx` `excerpt` | 父回复摘要折叠 |
+| 跨页父子关系 | ✅ 已实现且已验证 | `/api/topics/[id]/replies/[replyId]/context` | 100/500/2000 条真库；101 楼 E2E |
+| 无刷新回复 | ✅ 已实现且已验证 | `ReplyComposer.tsx`、`POST /api/replies` | E2E：无整页刷新、计数与定位更新 |
+| 草稿保护与幂等重试 | ✅ 已实现且已验证 | localStorage + `client_request_id` 唯一索引 | E2E 失败保留；真库重复请求同 `replyId` |
+| 回复图片快捷插入 | ✅ 已实现且已验证 | `/api/reply-images`、`ReplyComposer.tsx` | E2E 上传/插入/发布；SVG 与路径穿越拒绝 |
+| Light / Dark / System | ✅ 已实现且已验证 | `user_preferences`、`ThemeToggle.tsx`、首屏脚本 | E2E 刷新保持与系统跟随 |
+| 滑动窗口限流 | ✅ 已实现且已验证 | `src/lib/kv.ts`、`src/lib/rate-limit.ts` | 3/3；20 并发计数连续 |
+| 官方示意图与像素级视觉 | ◻️ 原站行为无法确认 | 未复制官方素材 | 保持 `UNVERIFIED`，不做像素一致性声明 |
+| 官方 `/i` 最近图片权限 | 🔶 独立实现 | 所有登录用户可用 + 安全限流 | 官方未公开 `/i` 判定规则 |

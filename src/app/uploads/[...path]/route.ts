@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createReadStream, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { resolveStoragePath } from '@/lib/avatar';
+import { resolveReplyImagePath } from '@/lib/reply-images';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,10 @@ export async function GET(
   }
 
   const storagePath = segments.join('/');
-  const absolute = resolveStoragePath(storagePath);
+  const isReplyImage = segments[0] === 'replies';
+  const absolute = isReplyImage
+    ? resolveReplyImagePath(storagePath)
+    : resolveStoragePath(storagePath);
   if (!absolute) {
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }

@@ -525,3 +525,16 @@
 | 本机 Docker 守护进程 | 仍不可用（WSL2 后端被安全策略阻止 + 无管理员权限） | Docker 相关门禁一律走 GitHub Actions ubuntu runner |
 | 本机 `CODEBUDDY_SAFE_DELETE_ENABLED=1` | `rm -rf` 遇到含盘符前缀路径会被拦截（`SAFE_DELETE_INVALID_PATH`），`filter-branch` 清理 `.git-rewrite` 时被拦 | 脚本内写成 `rm -rf ... 2>/dev/null \|\| true`，且**不让清理失败污染退出码**（校验脚本的退出码只应反映内容，不应反映清理环境） |
 | `/tmp` 与 Windows 路径不通用 | `curl -o /tmp/x` 写的是 MSYS 的 `/tmp`，而 `python` 读 `/tmp/x` 会 `FileNotFoundError` | 跨工具传文件落在**仓库内**的临时目录，且该目录进 `.gitignore` |
+
+## v0.0.19 新发现并修复的缺陷
+
+| ID | 级别 | 缺陷 | 发现方式 | 修法 | 验证 |
+|---|---|---|---|---|---|
+| **V19-01** | **严重（功能缺失）** | 回复使用原生表单整页 303；`replies.quoteId` 只读不写，没有真实父回复契约 | 对照官方 2026-11 帮助页与源码 | 新增 `parent_reply_id`、数据库同主题/防环触发器、服务端二次校验与兼容迁移 | 真库 10/10；双基线升级 30/30 |
+| **V19-02** | **严重（交互缺陷）** | 回复卡片内部隐式递归渲染子回复，嵌套/树形调用层又渲染一次，非嵌套模式出现重复父引用 | 浏览器七模式用例 | 移除组件内部隐式递归，由模式调用层显式控制 | E2E 七模式通过 |
+| **V19-03** | 一般（草稿/幂等） | 原生提交失败即离开页面；网络超时无法区分成功与失败，重试可能重复回复 | 官方无刷新回复行为复核 | JSON 本地追加、localStorage 草稿、`client_request_id` 唯一索引、超时核对端点 | E2E 失败草稿、无刷新、幂等真库测试通过 |
+| **V19-04** | 一般（多图上传） | 连续上传多张图片时，追加 Markdown 使用闭包中的旧 `content`，后一张覆盖前一张 | 代码复审 | 在单次上传循环内累计 `nextContent` 并逐次写入 | TypeScript / 构建 / 浏览器单图与最近图片通过；多图路径由静态契约锁定 |
+| **V19-05** | 一般（安全） | 新增 `DELETE /api/reply-images` 最初未接入写端点限流静态审计 | 完整单元测试 `v005-security-audit` | 增加用户级 30/小时删除限流 | 安全审计 21/21 |
+| **V19-06** | **严重（发布链路假检查）** | `release-dryrun.yml` 把 `INPUT_VERSION` 放入环境变量，却未传给 `preflight-dryrun.mjs`，手动预演实际仍检查 `package.json` 旧版本 | 发布链路审计 | 非空输入真实拼为 `--version` 参数；静态护栏锁定两个 mode | `v019-reply-threads` 静态测试通过 |
+| **V19-07** | 一般（发行文档） | Release Notes 模板把升级证据写死为 v0.0.18 双基线，后续版本会冒充旧结论 | 模板审查 | 改为引用本版 `docs/release-facts.json` 的 `upgrade` 段 | Notes 渲染与静态反向断言通过 |
+| **V19-08** | 一般（升级验证假证据） | 用当前 seed 灌旧基线库会因新列失败；探针 SQL 在空库上仍返回成功，可能形成“空库指纹一致” | 首次 v0.0.19 双基线升级实跑 | 改用两版共有列固定夹具，并核验 users/topics/replies/collections/thanks/votes 实际行数 | 两条基线均 PASS=30 / FAIL=0，45 项业务指纹一致 |

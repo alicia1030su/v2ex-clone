@@ -20,6 +20,7 @@ interface KV {
   set(key: string, value: string, ttlSeconds?: number): Promise<void>;
   del(key: string): Promise<void>;
   incrWindow(key: string, windowSeconds: number): Promise<CounterResult>;
+  slidingWindow(key: string, windowSeconds: number): Promise<CounterResult>;
   ping(): Promise<boolean>;
   /**
    * 清空全部键（调试端点用）。
@@ -60,6 +61,37 @@ class RedisKV implements KV {
     return { count, resetAt: Date.now() + Math.max(ttl, 0) * 1000 };
   }
 
+  async slidingWindow(key: string, windowSeconds: number): Promise<CounterResult> {
+    const now = Date.now();
+    const cutoff = now - windowSeconds * 1000;
+    const member = `${now}:${Math.random().toString(36).slice(2)}`;
+    const script = `
+      redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, ARGV[1])
+      redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3])
+      local count = redis.call('ZCARD', KEYS[1])
+      local first = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+      redis.call('EXPIRE', KEYS[1], ARGV[4])
+      if #first == 0 then
+        return { count, ARGV[2] }
+      end
+      return { count, first[2] }
+    `;
+    const result = await this.client.eval(
+      script,
+      1,
+      key,
+      String(cutoff),
+      String(now),
+      member,
+      String(windowSeconds + 1),
+    ) as [number | string, number | string];
+    const oldest = Number(result[1] ?? now);
+    return {
+      count: Number(result[0] ?? 1),
+      resetAt: oldest + windowSeconds * 1000,
+    };
+  }
+
   async ping() {
     try {
       return (await this.client.ping()) === 'PONG';
@@ -97,6 +129,7 @@ class PgKV implements KV {
     await db.execute(sql`DELETE FROM kv_store WHERE key = ${key}`);
     // 限流计数器与通用 KV 使用同一键空间，需一并清除
     await db.execute(sql`DELETE FROM rate_limit_buckets WHERE key = ${key}`);
+    await db.execute(sql`DELETE FROM rate_limit_sliding_hits WHERE key = ${key}`);
   }
 
   async incrWindow(key: string, windowSeconds: number): Promise<CounterResult> {
@@ -133,6 +166,34 @@ class PgKV implements KV {
     return { count: Number(extractRows<{ count: number }>(res)[0]?.count ?? 1), resetAt };
   }
 
+  async slidingWindow(key: string, windowSeconds: number): Promise<CounterResult> {
+    return await db.transaction(async (tx) => {
+      const now = new Date();
+      const cutoff = new Date(now.getTime() - windowSeconds * 1000);
+      // 同一 key 的滑动窗口操作串行化，避免并发事务互相看不到未提交命中。
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))
+      `);
+      await tx.execute(sql`
+        DELETE FROM rate_limit_sliding_hits
+        WHERE key = ${key} AND hit_at <= ${cutoff.toISOString()}::timestamptz
+      `);
+      await tx.execute(sql`
+        INSERT INTO rate_limit_sliding_hits (key, hit_at)
+        VALUES (${key}, ${now.toISOString()}::timestamptz)
+      `);
+      const rows = await tx.execute(sql`
+        SELECT count(*)::int AS count, min(hit_at) AS oldest
+        FROM rate_limit_sliding_hits
+        WHERE key = ${key}
+      `);
+      const row = extractRows<{ count: number; oldest: string | null }>(rows)[0];
+      const count = Number(row?.count ?? 1);
+      const oldestMs = row?.oldest ? new Date(row.oldest).getTime() : now.getTime();
+      return { count, resetAt: oldestMs + windowSeconds * 1000 };
+    });
+  }
+
   async ping() {
     try {
       await db.execute(sql`SELECT 1`);
@@ -145,6 +206,7 @@ class PgKV implements KV {
   async clearAll() {
     // 限流计数器与通用 KV 都在数据库里，两张表都要清。
     await db.execute(sql`DELETE FROM rate_limit_buckets`);
+    await db.execute(sql`DELETE FROM rate_limit_sliding_hits`);
     await db.execute(sql`DELETE FROM kv_store`);
   }
 }
