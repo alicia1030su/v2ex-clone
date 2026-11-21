@@ -117,7 +117,12 @@ if [ "$1" = "inspect" ]; then
   fmt="$3"
   [ "$fmt" = "--format" ] && fmt="$4"
   case "$fmt" in
-    *Mounts*) echo fakeuploads ;;
+    *Mounts*)
+      case "$fmt" in
+        *json*) echo '[{"Destination":"/app/data/uploads","Name":"fakeuploads"}]' ;;
+        *) echo fakeuploads ;;
+      esac
+      ;;
     *State.Running*) echo false ;;
     *RepoDigests*) ;;
     *.Image*) echo fakeimage ;;

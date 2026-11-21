@@ -16,7 +16,8 @@
 #   4. 校验版本兼容性与磁盘空间。
 #   5. 若目标已有数据，先自动生成 pre-restore 安全备份。
 #   6. 单事务恢复 PostgreSQL；uploads 先恢复到新 named volume 并复核。
-#   7. 仅在新卷校验通过后切换 volume 名称，再启动 app 并做恢复后核验。
+#   7. 备份原卷后，把新卷受控复制回原挂载名并再次复核，再启动 app。
+#      PostgreSQL 与 uploads 不是跨资源原子事务；失败时保留备份卷并明确人工边界。
 #
 # 注意：bundle 内含明文凭据，必须保持 600 权限并安全存储。
 # ---------------------------------------------------------------------------
@@ -400,13 +401,56 @@ fi
 ok "新 uploads 卷校验通过（${UPLOAD_FILE_COUNT} 个文件）。"
 
 OLD_VOLUME_BACKUP="${UPLOADS_VOLUME}.pre-restore-${STAMP}"
-info "切换 uploads volume：${UPLOADS_VOLUME} → ${NEW_VOLUME}"
-docker volume rename "$UPLOADS_VOLUME" "$OLD_VOLUME_BACKUP"
-if ! docker volume rename "$NEW_VOLUME" "$UPLOADS_VOLUME"; then
-  docker volume rename "$OLD_VOLUME_BACKUP" "$UPLOADS_VOLUME" || true
-  NEW_VOLUME=""
-  die "新 uploads 卷切换失败；已尝试回滚原卷。"
+volume_file_count() {
+  docker run --rm --entrypoint sh -v "$1:/data:ro" postgres:17-alpine -c 'find /data -type f | wc -l' \
+    | tr -d ' \r\n'
+}
+
+info "备份原 uploads 卷到 ${OLD_VOLUME_BACKUP}..."
+docker volume create "$OLD_VOLUME_BACKUP" >/dev/null
+if ! docker run --rm \
+      -v "${UPLOADS_VOLUME}:/old:ro" \
+      -v "${OLD_VOLUME_BACKUP}:/backup" \
+      postgres:17-alpine sh -c 'cp -a /old/. /backup/'; then
+  die "原 uploads 卷备份失败；目标卷尚未改动。"
 fi
+ORIGINAL_COUNT="$(volume_file_count "$UPLOADS_VOLUME")"
+BACKUP_COUNT="$(volume_file_count "$OLD_VOLUME_BACKUP")"
+[ "$ORIGINAL_COUNT" = "$BACKUP_COUNT" ] \
+  || die "原 uploads 卷备份数量不一致（原=${ORIGINAL_COUNT} 备份=${BACKUP_COUNT}）。"
+ok "原 uploads 卷已备份（${BACKUP_COUNT} 个文件）。"
+
+# Docker CLI 没有 volume rename。这里采用“备份原卷 → 清空原挂载名 → 复制新卷”
+# 的受控切换，并在复制后再次逐文件校验。它明确不是跨资源原子事务。
+info "受控切换 uploads 内容：${NEW_VOLUME} → ${UPLOADS_VOLUME}"
+if ! docker run --rm \
+      -v "${UPLOADS_VOLUME}:/target" \
+      -v "${NEW_VOLUME}:/source:ro" \
+      postgres:17-alpine sh -c 'rm -rf /target/* /target/.[!.]* /target/..?*; cp -a /source/. /target/'; then
+  NEW_VOLUME=""
+  die "uploads 受控复制失败；原卷可能已部分覆盖，备份卷与新卷均保留，需人工处置。"
+fi
+docker run --rm --entrypoint chown -v "${UPLOADS_VOLUME}:/data" postgres:17-alpine -R 1001:1001 /data >/dev/null
+
+TARGET_VOLUME_LIST="$STAGE/target-volume-files.tsv"
+docker run --rm --entrypoint sh -v "${UPLOADS_VOLUME}:/data:ro" postgres:17-alpine -c '
+  set -eu
+  find /data -type f | LC_ALL=C sort | while IFS= read -r f; do
+    rel=${f#/data/}
+    size=$(wc -c < "$f")
+    sha=$(sha256sum "$f" | cut -d " " -f 1)
+    printf "%s\t%s\t%s\n" "$rel" "$size" "$sha"
+  done
+' > "$TARGET_VOLUME_LIST"
+sort "$TARGET_VOLUME_LIST" > "$STAGE/target-volume-files.sorted.tsv"
+if ! diff -u "$STAGE/uploads-files.expected.sorted.tsv" "$STAGE/target-volume-files.sorted.tsv" > "$STAGE/target-volume.diff"; then
+  cat "$STAGE/target-volume.diff"
+  NEW_VOLUME=""
+  die "目标 uploads 卷复制后校验失败；备份卷与新卷均保留，需人工处置。"
+fi
+ok "uploads 卷受控切换完成（${UPLOAD_FILE_COUNT} 个文件，逐文件 SHA256 已核验）。"
+echo "SWITCH_COMPLETE uploads=${UPLOADS_VOLUME} backup=${OLD_VOLUME_BACKUP}"
+docker volume rm "$NEW_VOLUME" >/dev/null
 NEW_VOLUME=""
 RESTART_APP=1
 

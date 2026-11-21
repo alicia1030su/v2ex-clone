@@ -88,7 +88,9 @@ fi
 SCRATCH_DB="v2ex_legacy_verify_$(date -u +%s)"
 cleanup() {
   local rc=$?
-  "${COMPOSE[@]}" exec -T postgres dropdb --if-exists --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null 2>&1 || true
+  if [ -n "$SCRATCH_DB" ]; then
+    "${COMPOSE[@]}" exec -T postgres dropdb --if-exists --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null 2>&1 || true
+  fi
   return "$rc"
 }
 on_exit() {

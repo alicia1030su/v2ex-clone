@@ -424,21 +424,32 @@ describe('v0.0.20 附件引用状态机', () => {
           imageIds: [image.id],
         })),
       ]);
-      expect(purged.status).toBe('fulfilled');
 
       const [row] = await db.select().from(schema.replyImages).where(eq(schema.replyImages.id, image.id));
       const fileExists = existsSync(path.resolve(UPLOAD_ROOT, image.storagePath));
+      const queue = await db.select().from(schema.attachmentPurgeQueue);
       if (row.state === 'active') {
         expect(
           relink.status,
           relink.status === 'rejected' ? String(relink.reason) : 'relink unexpectedly fulfilled',
         ).toBe('fulfilled');
         expect(fileExists).toBe(true);
-        expect(await db.select().from(schema.attachmentPurgeQueue)).toHaveLength(0);
+        expect(queue).toHaveLength(0);
       } else if (row.state === 'purged') {
         expect(relink.status).toBe('rejected');
         expect(fileExists).toBe(false);
-        expect(await db.select().from(schema.attachmentPurgeQueue)).toHaveLength(0);
+        expect(queue).toHaveLength(0);
+      } else if (row.state === 'superseded') {
+        // 并发死锁可能安全中止双方：DB 仍是 superseded、文件仍在、queue 仍在。
+        // 这不是最终安全漏洞，但 worker 必须能在下一轮收敛，不能永远卡住。
+        expect(relink.status).toBe('rejected');
+        expect(purged.status).toBe('rejected');
+        expect(fileExists).toBe(true);
+        expect(queue).toHaveLength(1);
+        expect(await runActualPurge()).toBe(1);
+        const [retried] = await db.select().from(schema.replyImages).where(eq(schema.replyImages.id, image.id));
+        expect(retried.state).toBe('purged');
+        expect(existsSync(path.resolve(UPLOAD_ROOT, image.storagePath))).toBe(false);
       } else {
         throw new Error(`非法并发终态：${row.state}`);
       }

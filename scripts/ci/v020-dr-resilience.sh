@@ -136,7 +136,8 @@ RESTORE_PID=$!
 set -e
 SWITCHED=0
 for _ in $(seq 1 120); do
-  if docker volume inspect "$ORIGINAL_UPLOADS_VOLUME" >/dev/null 2>&1 \
+  if grep -q 'SWITCH_COMPLETE' /tmp/v020-dr-sigterm.log 2>/dev/null \
+      && docker volume inspect "$ORIGINAL_UPLOADS_VOLUME" >/dev/null 2>&1 \
       && docker volume ls --format '{{.Name}}' | grep -q "${COMPOSE_PROJECT_NAME}.*uploads-data.*pre-restore-"; then
     SWITCHED=1
     break
