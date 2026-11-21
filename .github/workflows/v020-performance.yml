@@ -1,0 +1,90 @@
+name: v0.0.20 Performance and Query Plans
+
+# P1 真实 PostgreSQL 容量与索引取证。只起临时本地栈，不推送 registry。
+on:
+  push:
+    branches:
+      - 'release/v0.0.20-stable'
+  workflow_dispatch:
+
+concurrency:
+  group: v020-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: ${{ format('v020-perf-{0}-pg-not-real', github.run_id) }}
+  POSTGRES_DB: v2ex_v020_perf
+  REDIS_PASSWORD: ${{ format('v020-perf-{0}-redis-not-real', github.run_id) }}
+  SESSION_SECRET: ${{ format('v020-perf-{0}-session-secret', github.run_id) }}
+  SEED_ADMIN_USERNAME: admin
+  SEED_ADMIN_EMAIL: admin@v020-perf.local
+  SEED_ADMIN_PASSWORD: ${{ format('v020-perf-{0}-admin-not-real', github.run_id) }}
+  SEED_DEMO_USERS: '0'
+  APP_PORT: '3000'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  APP_URL: http://localhost:3000
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  explain:
+    name: 10000 回复与索引计划
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 构建并启动隔离栈
+        run: |
+          set -euo pipefail
+          cat > .env.perf <<EOF
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          SESSION_SECRET=${SESSION_SECRET}
+          SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME}
+          SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+          SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+          SEED_DEMO_USERS=${SEED_DEMO_USERS}
+          APP_PORT=${APP_PORT}
+          APP_RUNTIME_ENV=${APP_RUNTIME_ENV}
+          TEST_ENV_ISOLATED=${TEST_ENV_ISOLATED}
+          APP_URL=${APP_URL}
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          EOF
+          chmod 600 .env.perf
+          docker compose --env-file .env.perf up -d --build
+          for i in $(seq 1 90); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health/ready || echo 000)"
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          [ "$code" = "200" ] || { docker compose --env-file .env.perf logs --tail 120; exit 1; }
+
+      - name: 运行 EXPLAIN ANALYZE 取证
+        id: explain
+        run: |
+          set -o pipefail
+          bash scripts/ci/v020-explain-analyze.sh 2>&1 | tee /tmp/v020-explain.log
+
+      - name: 上传性能证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v020-performance-evidence
+          path: |
+            /tmp/v020-explain.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: 清理
+        if: always()
+        run: |
+          docker compose --env-file .env.perf down -v || true
+          rm -f .env.perf

@@ -1,10 +1,11 @@
 import 'server-only';
-import { and, asc, count, desc, eq, gt, inArray, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { PUBLIC_NODE_CONDITION } from '@/lib/node-visibility';
 import { PUBLIC_REPLY_CONDITION, PUBLIC_TOPIC_CONDITION } from '@/lib/content-visibility';
 import { stripMarkdown, renderMarkdown } from '@/lib/markdown';
 import { avatarUrl } from '@/components/Avatar';
+import { extractRows } from '@/server/sql-rows';
 
 export type ReplyRelationSummary = {
   id: number;
@@ -155,14 +156,35 @@ export async function getReplyContext(
   if (!reply) return null;
 
   const parentChain: ReplyRelationSummary[] = [];
-  let cursor = reply.parentReplyId;
+  // 一次递归 CTE 取父链 ID，再一次 IN 查询批量取可见摘要；避免逐层 N+1。
+  const chainRows = extractRows<{ id: number; depth: number }>(await db.execute(sql`
+    WITH RECURSIVE chain AS (
+      SELECT id, parent_reply_id, 0::int AS depth
+      FROM replies
+      WHERE id = ${reply.id}
+      UNION ALL
+      SELECT r.id, r.parent_reply_id, chain.depth + 1
+      FROM chain
+      JOIN replies r ON r.id = chain.parent_reply_id
+      WHERE chain.depth < ${MAX_PARENT_CHAIN}
+    )
+    SELECT id, depth
+    FROM chain
+    WHERE depth > 0
+    ORDER BY depth
+  `));
+  const parentIds = chainRows.map((row) => row.id);
+  const visibleParents = new Map(
+    (await selectRelationRows(topicId, parentIds, includeDeleted)).map((row) => [row.id, row]),
+  );
   const seen = new Set<number>([reply.id]);
-  while (cursor && parentChain.length < MAX_PARENT_CHAIN && !seen.has(cursor)) {
-    seen.add(cursor);
-    const parent = await findVisibleReply(topicId, cursor, includeDeleted);
-    if (!parent) {
+  for (const row of chainRows) {
+    if (seen.has(row.id)) break;
+    seen.add(row.id);
+    const summary = visibleParents.get(row.id);
+    if (!summary) {
       parentChain.push({
-        id: cursor,
+        id: row.id,
         floor: 0,
         authorName: null,
         excerpt: null,
@@ -172,18 +194,7 @@ export async function getReplyContext(
       });
       break;
     }
-    const summaries = await selectRelationRows(topicId, [parent.id], includeDeleted);
-    const summary = summaries[0] ?? {
-      id: parent.id,
-      floor: parent.floor,
-      authorName: null,
-      excerpt: null,
-      deleted: false,
-      inaccessible: true,
-      createdAt: null,
-    };
     parentChain.push(summary);
-    cursor = parent.parentReplyId;
   }
 
   const childConditions: SQL[] = [

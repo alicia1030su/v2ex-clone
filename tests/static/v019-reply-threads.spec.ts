@@ -81,6 +81,8 @@ describe('v0.0.19 七种回复展示与跨页契约', () => {
       expect(list).toContain(`value: '${mode}'`);
     }
     expect(list).toContain("initialMode: ReplyDisplayMode");
+    expect(list).toContain('const MAX_LINES_DOM_ITEMS = 1000');
+    expect(list).toContain('items.slice(0, MAX_LINES_DOM_ITEMS)');
     const page = read('src/app/t/[id]/page.tsx');
     expect(page).toContain("initialMode={preferences?.replyDisplayMode ?? 'classic'}");
   });

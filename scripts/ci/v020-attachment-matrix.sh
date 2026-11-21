@@ -92,6 +92,32 @@ write_upload() {
     "mkdir -p \"/app/data/uploads/$(dirname "$rel")\" && printf %s probe > \"/app/data/uploads/$rel\""
 }
 
+benchmark_attachment_get() {
+  local url="$1"
+  local samples="/tmp/v020-attachment-latency.$$"
+  local n=200
+  for _ in $(seq 1 "$n"); do
+    curl -sS -o /dev/null --max-time 10 -w '%{time_total}\n' "$url" || true
+  done | LC_ALL=C sort -n > "$samples"
+
+  local p50 p95 p99
+  read -r p50 p95 p99 < <(awk -v n="$n" '
+    { v[NR]=$1 }
+    END {
+      printf "%.6f %.6f %.6f", v[int(n*0.50)], v[int(n*0.95)], v[int(n*0.99)]
+    }' "$samples")
+  printf '  INFO  attachment GET latency: P50=%.1fms P95=%.1fms P99=%.1fms (n=%s)\n' \
+    "$(awk -v v="$p50" 'BEGIN {print v*1000}')" \
+    "$(awk -v v="$p95" 'BEGIN {print v*1000}')" \
+    "$(awk -v v="$p99" 'BEGIN {print v*1000}')" "$n"
+  if awk -v p50="$p50" -v p99="$p99" 'BEGIN { exit !(p50 < 0.5 && p99 < 2.0) }'; then
+    PASS=$((PASS + 1))
+  else
+    FAIL=$((FAIL + 1))
+  fi
+  rm -f "$samples"
+}
+
 echo '===== v0.0.20 P0-A 附件授权攻击矩阵 ====='
 echo "BASE_URL=${BASE_URL}"
 echo "PROXY_URL=${PROXY_URL}"
@@ -265,6 +291,7 @@ probe 'pending / anonymous' 404 "${BASE_URL}/uploads/${PENDING_PATH}"
 
 probe 'active public / anonymous' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" '' 'public, max-age=60, must-revalidate'
 probe 'active public / other user' 200 "${BASE_URL}/uploads/${ACTIVE_PATH}" 'v020-other-session' 'public, max-age=60, must-revalidate'
+benchmark_attachment_get "${BASE_URL}/uploads/${ACTIVE_PATH}"
 probe 'superseded stale link / owner' 200 "${BASE_URL}/uploads/${SUPERSEDED_PATH}" 'v020-owner-session' 'private, no-store'
 probe 'superseded stale link / anonymous' 404 "${BASE_URL}/uploads/${SUPERSEDED_PATH}"
 probe 'soft-deleted reply / owner' 200 "${BASE_URL}/uploads/${SOFT_PATH}" 'v020-owner-session' 'private, no-store'

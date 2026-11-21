@@ -130,7 +130,7 @@ echo '===== [B4] 卷切换后 SIGTERM：保留旧卷，不伪装跨资源原子�
 cp -a "$DR_DEPLOY" "$DR_DEPLOY_BADAPP"
 sed -i 's#^APP_URL=.*#APP_URL=http://127.0.0.1:9#' "$DR_DEPLOY_BADAPP/.env"
 set +e
-(cd "$DR_DEPLOY_BADAPP" && bash restore.sh --yes "$NORMAL_BUNDLE") >/tmp/v020-dr-sigterm.log 2>&1 &
+(cd "$DR_DEPLOY_BADAPP" && bash restore.sh --force --yes "$NORMAL_BUNDLE") >/tmp/v020-dr-sigterm.log 2>&1 &
 RESTORE_PID=$!
 set -e
 SWITCHED=0

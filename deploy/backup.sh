@@ -90,6 +90,7 @@ if command -v flock >/dev/null 2>&1; then
 fi
 
 TIMESTAMP="$(date -u +%Y%m%d-%H%M%S)"
+SCRIPT_START_NS="$(date +%s%N)"
 BUNDLE_NAME="v2ex-backup-${TIMESTAMP}.tar.gz"
 if [ -n "$OUTPUT_OVERRIDE" ]; then
   case "$OUTPUT_OVERRIDE" in
@@ -130,10 +131,12 @@ COMPOSE_PROJECT="${COMPOSE_PROJECT:-v2ex}"
 
 if [ "$(docker inspect --format '{{.State.Running}}' "$APP_CID" 2>/dev/null || echo false)" = "true" ]; then
   info "停止 app 容器，进入一致备份窗口..."
+  CONSISTENCY_WINDOW_START_NS="$(date +%s%N)"
   docker compose stop app >/dev/null
   APP_WAS_RUNNING=1
 else
   info "app 容器已停止；继续生成一致备份。"
+  CONSISTENCY_WINDOW_START_NS="$(date +%s%N)"
 fi
 
 # --- 1. PostgreSQL ---------------------------------------------------------
@@ -316,15 +319,21 @@ if [ "$APP_WAS_RUNNING" -eq 1 ]; then
   if ! docker compose start app >/dev/null; then
     die "备份已生成，但 app 容器恢复失败。请执行 ./start.sh 并检查日志。"
   fi
+  CONSISTENCY_WINDOW_END_NS="$(date +%s%N)"
+  WRITE_PAUSE_MS=$(( (CONSISTENCY_WINDOW_END_NS - CONSISTENCY_WINDOW_START_NS) / 1000000 ))
   APP_WAS_RUNNING=0
+else
+  WRITE_PAUSE_MS=0
 fi
 
+TOTAL_MS=$(( ($(date +%s%N) - SCRIPT_START_NS) / 1000000 ))
 ok "一致备份完成：${BUNDLE_PATH}"
 printf '  SHA256 : %s\n' "$BUNDLE_SHA"
 printf '  版本   : %s（迁移 %s 条）\n' "$APP_VERSION" "$MIGRATIONS"
 printf '  数据   : users=%s topics=%s replies=%s avatars=%s reply_images=%s\n' \
   "$DB_USERS" "$DB_TOPICS" "$DB_REPLIES" "$DB_AVATARS" "$DB_REPLY_IMAGES"
 printf '  上传   : %s 个文件 / %s 字节\n' "$UPLOAD_FILE_COUNT" "$UPLOAD_BYTES"
+printf '  耗时   : 总 %s ms / 停写窗口 %s ms\n' "$TOTAL_MS" "$WRITE_PAUSE_MS"
 printf '\n'
 info "异机保存示例（请改用你的安全主机与密钥）："
 info "  scp -p ${BUNDLE_PATH} ${BUNDLE_PATH}.sha256 user@secure-host:/secure/path/"

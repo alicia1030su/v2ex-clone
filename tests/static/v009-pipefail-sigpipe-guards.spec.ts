@@ -171,7 +171,7 @@ function makeWorkspace(label: string): string {
   const dir = mkdtempSync(path.join(os.tmpdir(), `v009-${label}-`));
   mkdirSync(path.join(dir, 'bin'), { recursive: true });
   mkdirSync(path.join(dir, 'deploy', 'backups'), { recursive: true });
-  for (const s of ['backup.sh', 'restore.sh']) {
+  for (const s of ['backup.sh', 'restore.sh', 'reconcile-attachments.sh']) {
     const dst = path.join(dir, 'deploy', s);
     copyFileSync(path.join(ROOT, 'deploy', s), dst);
     chmodSync(dst, 0o755);

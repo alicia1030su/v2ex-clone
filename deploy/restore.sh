@@ -22,6 +22,7 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 umask 077
+RESTORE_START_NS="$(date +%s%N)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -32,6 +33,7 @@ VERSION_FILE="$SCRIPT_DIR/VERSION"
 FORCE=0
 ASSUME_YES=0
 RESTORE_ENV=0
+LEGACY_DB_ONLY=0
 BUNDLE=""
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -47,11 +49,12 @@ die()  { printf '%s[错误]%s %s\n' "$C_RED" "$C_RST" "$*" >&2; exit 1; }
 usage() {
   cat >&2 <<'EOF'
 用法：
-  ./restore.sh [--yes] [--force] [--restore-env] [bundle.tar.gz]
+  ./restore.sh [--yes] [--force] [--restore-env] [--legacy-db-only] [bundle.tar.gz]
 
-  --yes          跳过交互确认（CI 使用）
-  --force        允许覆盖已有数据；允许恢复比当前部署更新的备份
-  --restore-env  同时用 bundle 内 .env 覆盖当前 .env（默认不覆盖）
+  --yes             跳过交互确认（CI 使用）
+  --force           允许覆盖已有数据；允许恢复比当前部署更新的备份
+  --restore-env     同时用 bundle 内 .env 覆盖当前 .env（默认不覆盖）
+  --legacy-db-only  显式恢复 v0.0.19 纯数据库 dump；uploads 卷保持不动
 EOF
   exit 2
 }
@@ -61,6 +64,7 @@ while [ $# -gt 0 ]; do
     --yes) ASSUME_YES=1; shift ;;
     --force) FORCE=1; shift ;;
     --restore-env) RESTORE_ENV=1; shift ;;
+    --legacy-db-only) LEGACY_DB_ONLY=1; shift ;;
     -h|--help) usage ;;
     -*) die "未知参数：$1" ;;
     *)
@@ -102,6 +106,17 @@ if [ -z "$BUNDLE" ]; then
   info "未指定 bundle，使用最新备份：${BUNDLE}"
 fi
 [ -f "$BUNDLE" ] || die "备份 bundle 不存在：${BUNDLE}"
+
+# v0.0.19 旧备份只是普通 PostgreSQL gzip，不是 tar bundle。只有显式标志
+# 才进入兼容恢复；默认必须明确拒绝，绝不能把旧 dump 误判成完整 DR bundle。
+if [ "$LEGACY_DB_ONLY" -eq 1 ]; then
+  LEGACY_ARGS=()
+  [ "$ASSUME_YES" -eq 1 ] && LEGACY_ARGS+=(--yes)
+  exec bash "$SCRIPT_DIR/restore-legacy-db.sh" "${LEGACY_ARGS[@]}" "$BUNDLE"
+fi
+if gzip -t "$BUNDLE" 2>/dev/null && ! tar -tzf "$BUNDLE" >/dev/null 2>&1; then
+  die "检测到 v0.0.19 旧版纯数据库 dump；它不含 uploads，不能作为完整 bundle。如确认只恢复数据库，请使用 --legacy-db-only。"
+fi
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -325,6 +340,7 @@ if [ "$RESTORE_ENV" -eq 1 ]; then
 fi
 
 info "停止并移除 app 容器（保留数据卷）..."
+APP_STOP_NS="$(date +%s%N)"
 docker compose stop app >/dev/null
 docker compose rm -f app >/dev/null
 APP_REMOVED=1
@@ -397,6 +413,7 @@ for _ in $(seq 1 80); do
   sleep 3
 done
 [ "$READY" -eq 1 ] || die "app 未在 240 秒内就绪。"
+APP_READY_NS="$(date +%s%N)"
 RESTART_APP=0
 
 info "执行恢复后数据库计数核验..."
@@ -420,6 +437,9 @@ fi
 ok "恢复完成并通过恢复后核验。"
 printf '  数据库 : users=%s topics=%s replies=%s\n' "$DB_USERS_AFTER" "$DB_TOPICS_AFTER" "$DB_REPLIES_AFTER"
 printf '  上传   : %s 个文件（逐文件 SHA256 已核验）\n' "$UPLOADS_AFTER"
+printf '  耗时   : 总 %s ms / 停写窗口 %s ms\n' \
+  "$(( ($(date +%s%N) - RESTORE_START_NS) / 1000000 ))" \
+  "$(( (APP_READY_NS - APP_STOP_NS) / 1000000 ))"
 if [ -n "$OLD_VOLUME_BACKUP" ]; then
   printf '  原卷   : %s（确认无误后可手工删除）\n' "$OLD_VOLUME_BACKUP"
 fi

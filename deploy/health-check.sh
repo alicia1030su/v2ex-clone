@@ -207,12 +207,25 @@ else
 
   VERIFY_TMP="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-health.XXXXXX")"
   chmod 700 "$VERIFY_TMP"
-  if tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP" 2>/dev/null \
+  ARCHIVE_SAFE=1
+  if ! tar -tzf "$LATEST_BUNDLE" | awk '
+      { entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
+        if (entry ~ /^\// || entry == ".." || entry ~ /(^|\/)\.\.(\/|$)/) bad=1 }
+      END { exit bad ? 1 : 0 }'; then
+    ARCHIVE_SAFE=0
+    err "备份 bundle 包含绝对路径或 .. 路径穿越"
+  fi
+  if ! tar -tvzf "$LATEST_BUNDLE" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
+    ARCHIVE_SAFE=0
+    err "备份 bundle 包含符号链接、硬链接、设备文件或 FIFO"
+  fi
+  if [ "$ARCHIVE_SAFE" -eq 1 ] \
+      && tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP" 2>/dev/null \
       && [ -f "$VERIFY_TMP/SHA256SUMS" ] \
       && [ -f "$VERIFY_TMP/manifest.env" ] \
       && ( cd "$VERIFY_TMP" && sha256sum -c SHA256SUMS >/dev/null 2>&1 ); then
     ok "bundle 内 manifest 与成员 SHA256 校验通过"
-  else
+  elif [ "$ARCHIVE_SAFE" -eq 1 ]; then
     err "bundle 内成员校验失败（manifest/SHA256SUMS 缺失或不匹配）"
   fi
   rm -rf "$VERIFY_TMP"

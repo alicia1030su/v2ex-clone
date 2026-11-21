@@ -275,7 +275,7 @@ jobs:
           echo "--- 从备份恢复 ---"
           # v0.0.20 起恢复对象是一致 bundle；--yes 只替代人工回答，
           # gzip/tar/SHA256/scratch DB/附件对账等核心校验全部照常执行。
-          bash restore.sh --yes "$BK"
+          bash restore.sh --force --yes "$BK"
 
           echo "--- 恢复后比对数据量 ---"
           docker compose -p "${CANDIDATE_PROJECT}" exec -T postgres \
