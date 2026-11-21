@@ -163,16 +163,18 @@ describe('生产镜像卫生（v0.0.15）', () => {
     ).toEqual([]);
   });
 
-  it('容器运行必需的 5 个脚本必须都在镜像里', () => {
+  it('容器运行必需的 6 个脚本必须都在镜像里', () => {
     // 依据（不是猜的）：
     //   docker-entrypoint.sh ← ENTRYPOINT
     //   seed.ts / wait-for-db.mjs ← entrypoint 的阶段 1 / 阶段 2
+    //   migrate-legacy-uploads.mjs ← package.json prestart / 源码升级兼容
     //   admin-cli.ts ← deploy/INSTALL.md 指导用户在容器内重置口令
     //   db-admin.mjs ← Dockerfile 注释声明的运维脚本
     const required = [
       'scripts/docker-entrypoint.sh',
       'scripts/seed.ts',
       'scripts/wait-for-db.mjs',
+      'scripts/migrate-legacy-uploads.mjs',
       'scripts/admin-cli.ts',
       'scripts/db-admin.mjs',
     ];

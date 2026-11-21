@@ -57,7 +57,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 #   · `scripts/release/*` 是**发布机**上的工具（打包 / 校验 / 升级演练），
 #     在容器里跑没有意义，还会把发布流程细节暴露进镜像。
 #
-# 因此改为**显式白名单**：只拷容器内真实执行的四个脚本 + 一个目录。
+# 因此改为**显式白名单**：只拷容器内真实执行的六个脚本。
 # 白名单的好处是「新增脚本默认不进镜像」——漏掉必须靠加白名单才会坏，
 # 而整目录 COPY 是「新增脚本默认进镜像」，两种默认值的安全方向相反。
 #
@@ -65,6 +65,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 #   · docker-entrypoint.sh  ← ENTRYPOINT（阶段 1 迁移 / 阶段 2 初始化 / 启动）
 #   · seed.ts               ← entrypoint 阶段 2（node tsx scripts/seed.ts）
 #   · wait-for-db.mjs       ← entrypoint 阶段 1 就绪探测
+#   · migrate-legacy-uploads.mjs ← package.json prestart / 旧目录安全迁移
 #   · admin-cli.ts          ← INSTALL.md:493 指导用户在容器内重置口令
 #   · db-admin.mjs          ← 运维脚本（Dockerfile 下方注释已声明）
 #
@@ -74,6 +75,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/seed.ts ./scripts/seed.ts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/wait-for-db.mjs ./scripts/wait-for-db.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-legacy-uploads.mjs ./scripts/migrate-legacy-uploads.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/admin-cli.ts ./scripts/admin-cli.ts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/db-admin.mjs ./scripts/db-admin.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts

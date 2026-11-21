@@ -95,6 +95,7 @@ scripts/*
 !scripts/docker-entrypoint.sh
 !scripts/seed.ts
 !scripts/wait-for-db.mjs
+!scripts/migrate-legacy-uploads.mjs
 !scripts/admin-cli.ts
 !scripts/db-admin.mjs
 
