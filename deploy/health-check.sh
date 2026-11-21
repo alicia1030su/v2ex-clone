@@ -96,6 +96,12 @@ for svc in app postgres redis; do
   fi
 done
 
+if docker compose --env-file "$ENV_FILE" exec -T app test -e /app/public/uploads >/dev/null 2>&1; then
+  err "app 容器存在 legacy /app/public/uploads 静态上传目录（可能绕过授权）"
+else
+  ok "不存在 legacy /app/public/uploads 静态上传目录"
+fi
+
 # --- 2. 应用就绪探针 --------------------------------------------------------
 info ""
 info "${C_BLD}应用就绪${C_RST}"
