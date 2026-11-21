@@ -68,22 +68,30 @@ describe('v0.0.16 结构护栏 ①：主题页不得出现 .box > .cell > .cell 
     ).toBe(false);
   });
 
-  it('回复头 cell 内不得再嵌套 cell（只有 fr 的标签与计数文本）', () => {
-    const src = stripComments(read(FILE));
-    const repliesIdx = src.indexOf('id="topic-replies"');
-    const afterReplies = src.slice(repliesIdx);
+  it('回复头 cell 内不得再嵌套 cell（只有标签、计数与展示模式控件）', () => {
+    // v0.0.19：回复头已从 page.tsx 内联结构搬入 ReplyList，
+    // 但历史缺陷约束不变：头部仍然只能是一个平铺 cell，不得再嵌 cell。
+    const src = stripComments(read('src/components/ReplyList.tsx'));
+    const headerStart = src.indexOf('<div className="cell reply-list-header">');
+    expect(headerStart, 'ReplyList 里找不到回复头 cell —— 锚点失效').toBeGreaterThanOrEqual(0);
 
-    // 取回复区第一个 .box 的头部：从 `<div className="cell">` 到「条回复」
-    const headStart = afterReplies.indexOf('<div className="cell">');
-    expect(headStart, '回复区第一个 cell 不存在 —— 锚点失效').toBeGreaterThanOrEqual(0);
-    const headEnd = afterReplies.indexOf('条回复', headStart);
-    expect(headEnd, '回复头里找不到「条回复」—— 锚点失效').toBeGreaterThan(0);
+    const modeStart = src.indexOf('reply-mode-bar', headerStart);
+    expect(modeStart, '回复头里找不到展示模式控件 —— 锚点失效').toBeGreaterThan(headerStart);
+    const headerEnd = src.indexOf('</label>', modeStart);
+    expect(headerEnd, '回复头展示模式控件没有闭合 —— 结构不完整').toBeGreaterThan(modeStart);
 
-    const head = afterReplies.slice(headStart + '<div className="cell">'.length, headEnd);
+    const head = src.slice(
+      headerStart + '<div className="cell reply-list-header">'.length,
+      headerEnd + '</label>'.length,
+    );
     expect(
       head.includes('<div className="cell"'),
       '回复头内部又嵌套了一个 <div className="cell"> —— 这就是被修掉的嵌套缺陷',
     ).toBe(false);
+    expect(
+      head.includes('id="reply-total-count"'),
+      '回复头缺少可动态更新的回复计数锚点 —— 无刷新提交计数会失效',
+    ).toBe(true);
   });
 });
 

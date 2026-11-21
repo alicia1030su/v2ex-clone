@@ -55,12 +55,14 @@ describe('v0.0.19 限流窗口语义', () => {
     const id = key('sliding');
     const slidingKey = `ratelimit-sliding:v019-sliding:${id}`;
     await db.delete(schema.rateLimitSlidingHits).where(eq(schema.rateLimitSlidingHits.key, slidingKey));
+    // 用 30 秒窗口，避免 CI 调度抖动让“窗口内”样本在断言前恰好过期。
+    // 60 秒前的样本必须被删除；200ms 前的样本必须保留；新增一次后计数为 2。
     await db.insert(schema.rateLimitSlidingHits).values([
-      { key: slidingKey, hitAt: new Date(Date.now() - 5_000) },
+      { key: slidingKey, hitAt: new Date(Date.now() - 60_000) },
       { key: slidingKey, hitAt: new Date(Date.now() - 200) },
     ]);
 
-    const result = await rateLimitSliding('v019-sliding', id, 5, 1);
+    const result = await rateLimitSliding('v019-sliding', id, 5, 30);
     expect(result.count).toBe(2);
 
     const rows = await db
