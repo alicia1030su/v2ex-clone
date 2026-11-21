@@ -38,16 +38,16 @@
 
 ---
 
-## 当前版本状态（v0.0.19 Stable Release 已发布）
+## 当前版本状态（v0.0.20 候选开发中；v0.0.19 Stable 已发布）
 
-> **本版 = v0.0.19**（已正式发布，Stable / Latest）。
-> **版本载体**：`0.0.19`
-> （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
-> 已同步到 `0.0.19`；本版已获一次性稳定版发布授权，实际发布结果以 Tag / Release / GHCR 核验为准。）
+> **当前仓库载体 = `0.0.20`（候选，尚未发布）。**
+> **当前实际公开版本 = `v0.0.19`（Stable / Latest）。**
+> v0.0.20 尚未取得专属 A3/B1 发布授权，因此没有创建 Tag、正式 GHCR 镜像或公开 Release。
 
 > | | 版本 | 状态 |
 > |---|---|---|
-> | **当前已公开发布** | `v0.0.19` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
+> | **当前实际公开发布** | `v0.0.19` | GitHub **Stable Release**（`draft=false`、`prerelease=false`、Latest） |
+> | **当前候选载体** | `v0.0.20` | 开发/验收分支，未发布 |
 > | 上一已发布版本 | `v0.0.18` | GitHub **Stable Release** |
 > | 再上一版 | `v0.0.17` | GitHub **Stable Release** |
 > | 更早版本 | `v0.0.16` | GitHub Pre-release，2026-11-19 |
@@ -55,17 +55,17 @@
 | 项 | 值 |
 |---|---|
 | **当前实际公开版本** | **`v0.0.19`**（[**Stable Release**](https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.19)，含部署 ZIP 与 GHCR 镜像） |
-| **上一已发布版本** | `v0.0.18`（Stable Release） |
+| **当前候选载体** | `0.0.20`（由 `sync-version.mjs` 全量同步并复验；不代表已发布） |
+| 上一已发布版本 | `v0.0.18`（Stable Release） |
 | 再上一版 | `v0.0.17`（Stable Release） |
-| 版本载体 | `0.0.19`（已由 `sync-version.mjs` 全量同步并复验） |
-| **本版** | **`v0.0.19` 稳定版已发布** —— 官方更新对照、实施与测试见 [`docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md`](docs/V2EX_NOVEMBER_2026_FEATURE_REVIEW.md)、[`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) |
-| 本版发布授权 | **已取得并执行**（2026-11-21，A3 + B1，一次性、仅限 v0.0.19）；记录见 [`docs/RISK_DECISION_v0.0.19.md`](docs/RISK_DECISION_v0.0.19.md) |
-| 发布形态 | **Stable Release**（`prerelease=false`、`draft=false`、Latest），由 `docs/RELEASE_CHANNELS.json` 统一解析 |
+| **本版** | **`v0.0.20` 候选** —— 附件统一授权、状态机与灾难恢复、楼中楼容量优化；验收见 [`docs/TEST_REPORT_v0.0.20.md`](docs/TEST_REPORT_v0.0.20.md) 与 [`docs/UPGRADE_VERIFICATION_v0.0.20.md`](docs/UPGRADE_VERIFICATION_v0.0.20.md) |
+| 本版发布授权 | **未取得**。v0.0.19 的一次性 A3+B1 授权不延续到 v0.0.20 |
+| 发布形态 | 未发布；授权后由 `docs/RELEASE_CHANNELS.json` 逐版本解析 |
 | 语义化版本位置 | `0.0.x` —— **API 仍不承诺向后兼容**（见下方「关于稳定版与 0.x 的说明」） |
 | 许可证 | MIT（附商标声明与第三方内容声明） |
 | 当前可拉取镜像 | `ghcr.io/alicia1030su/v2ex-clone:v0.0.19`（匿名可拉，linux/amd64；Digest `sha256:279324de…f41d49e`） |
 | 部署 ZIP | `v2ex-clone-v0.0.19-deploy.zip`（144,346 字节；SHA256 `693fb742…b88ae4e`） |
-| 数据库迁移 | `drizzle/` 下 6 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories` / `0005_v019_reply_threads`），容器启动时幂等执行 |
+| 数据库迁移 | `drizzle/` 下 7 个 SQL（`0000_init` / `0001_striped_magdalene` / `0002_v004_perf_indexes` / `0003_v005_reports` / `0004_v014_categories` / `0005_v019_reply_threads` / `0006_v020_attachment_lifecycle`），容器启动时幂等执行 |
 
 > **v0.0.14 定位**：安全收口 + 链路补齐。本版**不新增产品功能**。
 > `v0.0.13` **从未发布**（无 Tag / Release / 镜像），其成果由 v0.0.14 一次性包含。

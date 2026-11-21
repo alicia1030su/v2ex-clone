@@ -4,11 +4,11 @@
     "",
     "更新规则：只在本版本实测完成后写入真实数字，并附 evidence。禁止预估、禁止照抄上一版。",
     "`version` 是载体版本；`measurementVersion` 是数字的实测归属版本。",
-    "本文件记录 v0.0.19 正式发布后的实测结果；visual 小节仍为 v0.0.10 历史快照，并已单独标注。"
+    "当前载体已同步为 v0.0.20，但本文件数字仍属于 v0.0.19 正式发布快照；因此 status 必须保持 historical-snapshot，直到 v0.0.20 全量实测完成。"
   ],
-  "version": "0.0.19",
+  "version": "0.0.20",
   "measurementVersion": "0.0.19",
-  "status": "released",
+  "status": "historical-snapshot",
   "measuredAt": "2026-11-21",
   "unit": {
     "files": 90,
