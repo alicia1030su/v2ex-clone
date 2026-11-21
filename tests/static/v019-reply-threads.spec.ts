@@ -149,6 +149,13 @@ describe('v0.0.19 图片上传与三态主题', () => {
     expect(template).toContain('docs/release-facts.json');
   });
 
+  it('发行一致性优先读取本版本升级报告，不再固定旧文档', () => {
+    const script = read('scripts/release/verify-release-consistency.sh');
+    expect(script).toContain('docs/UPGRADE_VERIFICATION_v${EXPECT}.md');
+    expect(script).toContain('if [ ! -f "$upgrade_report" ]');
+    expect(read('docs/UPGRADE_VERIFICATION_v0.0.19.md')).toContain('45 项');
+  });
+
   it('滑动窗口原语在 Redis 与 PostgreSQL 降级实现中都存在', () => {
     const kv = read('src/lib/kv.ts');
     expect(kv).toContain('slidingWindow(key: string, windowSeconds: number)');

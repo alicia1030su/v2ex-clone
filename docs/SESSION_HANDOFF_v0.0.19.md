@@ -6,7 +6,9 @@
 > 日期：2026-11-21（GMT+8）
 > 状态：**研发与本地验证进行中；尚未创建 Tag、GHCR v0.0.19 或 GitHub Release。**
 
-## 一、授权与边界
+## 一、授权边界
+
+> HEAD（业务实现提交）：`ebfabdc`。
 
 - 项目所有者对 v0.0.19 单独作出 **A3 + B1** 裁决：保留历史并强化披露，R-01 维持 `DEFERRED`；授权本版发布 Stable Release。
 - 授权记录：`docs/RISK_DECISION_v0.0.19.md`，已通过 `verify-risk-decision.mjs`。
@@ -87,35 +89,41 @@
 - 官方示意图未复制，本项目使用独立文本选择器。
 - 官方最近图片限 `/i` 用户；本项目无 `/i` 等级，改为所有登录用户可用并保留安全限流。
 
-## 四、当前测试证据
+## 四、当前测试基线与证据
 
-- TypeScript：`tsc --noEmit` 通过。
-- Next.js 生产构建：曾通过；滑动窗口与多图上传修正后需重建。
-- 静态契约：`tests/static/v019-reply-threads.spec.ts` **14/14**。
+- TypeScript：通过。
+- Next.js 生产构建：通过。
+- 完整单元：**90 文件 / 1085 用例通过**，0 failed / 0 skipped。
+- 全量静态：**43 文件 / 501 用例通过**，0 failed / 0 skipped。
+- 完整 Chromium E2E：**29 文件 / 295 用例通过**。
+- v0.0.19 回复浏览器专项：**8/8**。
+- 静态契约：`tests/static/v019-reply-threads.spec.ts` **17/17**。
 - 真库/API：`tests/v019-reply-threads.spec.ts` **10/10**。
-- 100 / 500 / 2000 条回复分页与跨页父链：通过。
+- 100 / 500 / 2000 条回复容量：通过。
+- 双基线升级：两条基线各 **PASS=30 / FAIL=0**，45 项业务指纹一致。
 - 固定/滑动窗口与 20 并发：`tests/rate-limit-window.spec.ts` **3/3**。
-- 浏览器：`e2e/v019-reply-experience.spec.ts` 待运行。
+- 发行一致性：**PASS=19 / FAIL=0**。
+- 发布预演：static **23/23**、notes **20/20**。
+- 生产依赖审计：0 漏洞。
 
-## 五、发布链路待修项
+## 五、版本冻结状态
 
-在冻结/打 Tag 前必须完成：
+- 业务实现提交：`ebfabdc`。
+- 版本载体已按 G-VER-01 同步到 `0.0.19` 并通过 20 项写后复验。
+- v0.0.19 已登记为 Stable；v0.0.20 未预登记。
+- Release Notes 升级证据改为读取本版 `docs/UPGRADE_VERIFICATION_v0.0.19.md`。
+- 当前尚需完成最终提交、PR CI、候选安装/四角色/soak、正式发布与发布后验收。
 
-1. `release.yml` 的 `on.push.tags` 加入 `v0.0.19`，并加“目标版本不在白名单则推 Tag 前失败”的可执行护栏。
-2. 检查 `release.yml` 幂等补救构建输入白名单，至少覆盖 `scripts/`、`drizzle/`、`drizzle.config.ts`。
-3. `release.yml` 的 Notes 标题必须使用 `needs.preflight.outputs.version`，不能沿用 v0.0.18 字面量。
-4. Release Notes 模板的升级段改为引用 `CHANGELOG.md` 的 v0.0.19 实测，不沿用 v0.0.18 的 20 项断言。
-5. 版本载体在所有业务代码冻结后按 G-VER-01 同步到 `0.0.19`。
-6. 新增 v0.0.18 → v0.0.19 与 v0.0.4 → v0.0.19 真实升级脚本/工作流。
-7. 新增回复系统独立发布后验收计数，不复用旧四角色 30/30。
+## 六、Go/No-Go 与下一步
 
-## 六、下一步
+- **Go**：业务代码冻结、版本载体同步、本地完整测试与发布预演均通过。
+- **No-Go（暂缓）**：最终 master CI、候选安装、四角色、1 小时 soak 与正式发布后验收尚未完成。
+- **永久边界**：R-01 保持 `DEFERRED / A3`；24 小时单实例连续运行保持 `not-completed`。
 
-1. 完成并运行 v0.0.19 E2E。
-2. 跑完整单元、静态、跨浏览器与生产构建。
-3. 修复发布链路上述缺口并做 notes/static 预演。
-4. 冻结业务代码，同步版本载体，合并 PR，固定最终 master SHA。
-5. 在最终 SHA 上跑候选安装、升级、 soak 与发布预演。
-6. 创建并推送一次 annotated `v0.0.19` Tag，监控正式发布。
-7. 用全新 Runner 做匿名安装、GHCR、ZIP、四角色、七模式、图片、主题、隐私、备份恢复与 v0.0.18→v0.0.19 升级验收。
-8. 回填 `release-facts.json`、README、CHANGELOG、测试报告与最终交付报告。
+1. 提交版本同步与发布事实回填。
+2. 推送分支并创建 PR，等待完整 CI 与跨浏览器矩阵。
+3. 合并后固定最终 master SHA。
+4. 在最终 SHA 上跑候选安装、四角色、1 小时 soak 与发布预演。
+5. 创建并推送一次 annotated `v0.0.19` Tag，监控正式发布。
+6. 用全新 Runner 做匿名安装、GHCR、ZIP、四角色、七模式、图片、主题、隐私、备份恢复与 v0.0.18→v0.0.19 升级验收。
+7. 回填 `release-facts.json`、README、CHANGELOG、测试报告与最终交付报告。

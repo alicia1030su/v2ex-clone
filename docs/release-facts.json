@@ -1,61 +1,61 @@
 {
   "_comment": [
-    "v0.0.18 发布事实的单一事实来源（Single Source of Truth）。",
+    "v0.0.19 发布事实的单一事实来源（Single Source of Truth）。",
     "",
     "更新规则：只在本版本实测完成后写入真实数字，并附 evidence。禁止预估、禁止照抄上一版。",
-    "`version` 是载体版本；`measurementVersion` 是数字的实测归属版本。二者不同时，",
-    "status 必须为 historical-snapshot，且 README 标注为历史实测、Release Notes 不得写死这些数字。",
-    "本文件当前记录 v0.0.18 实测；visual 小节仍为 v0.0.10 历史快照，并已单独标注。"
+    "`version` 是载体版本；`measurementVersion` 是数字的实测归属版本。",
+    "本文件当前记录 v0.0.19 候选态实测；visual 小节仍为 v0.0.10 历史快照，并已单独标注。",
+    "soak / officialUpgrade / postRelease 在正式发布完成前保持 pending。"
   ],
-  "version": "0.0.18",
-  "measurementVersion": "0.0.18",
+  "version": "0.0.19",
+  "measurementVersion": "0.0.19",
   "status": "measured",
-  "measuredAt": "2026-11-20",
+  "measuredAt": "2026-11-21",
   "unit": {
-    "files": 87,
-    "tests": 1056,
-    "passed": 1056,
+    "files": 90,
+    "tests": 1085,
+    "passed": 1085,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，类型检查 / 单元测试 job）"
+    "evidence": "本机隔离 PostgreSQL 55440 全量 vitest；90 文件 / 1085 passed / 0 failed / 0 skipped"
   },
   "static": {
-    "files": 42,
-    "tests": 485,
-    "passed": 485,
+    "files": 43,
+    "tests": 501,
+    "passed": 501,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，静态测试步骤）"
+    "evidence": "本机 vitest.static.config.ts 全量；43 文件 / 501 passed / 0 failed / 0 skipped"
   },
   "e2e": {
-    "files": 28,
-    "tests": 283,
-    "passed": 283,
+    "files": 29,
+    "tests": 295,
+    "passed": 295,
     "failed": 0,
     "skipped": 0,
-    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，E2E 测试 job，Chromium）"
+    "evidence": "本机 next start + Playwright Chromium 全量；295 passed / 0 failed（含 v0.0.19 回复体验 8 组）"
   },
   "upgrade": {
     "baselines": [
       "v0.0.4",
       "v0.0.17"
     ],
-    "businessFingerprintItems": 46,
-    "assertions": 20,
+    "businessFingerprintItems": 45,
+    "assertions": 30,
     "failed": 0,
     "v004": {
       "migrationsBefore": 3,
-      "migrationsAfter": 5,
+      "migrationsAfter": 6,
       "indexesBefore": 76,
-      "indexesAfter": 79
+      "indexesAfter": 89
     },
     "v017": {
       "migrationsBefore": 5,
-      "migrationsAfter": 5,
+      "migrationsAfter": 6,
       "indexesBefore": 79,
-      "indexesAfter": 79
+      "indexesAfter": 89
     },
-    "evidence": "GitHub Actions CI run 44823003971（最终 master be0831c，双基线升级验证，PASS=20 / FAIL=0 ×2）"
+    "evidence": "scripts/release/verify-upgrade-v0019.sh；两条基线各 PASS=30 / FAIL=0，45 项业务指纹逐字节一致，迁移幂等 3 次，备份恢复指纹一致"
   },
   "visual": {
     "pages": 12,
@@ -63,62 +63,34 @@
     "viewports": 4,
     "measurementVersion": "0.0.10",
     "status": "historical-snapshot",
-    "evidence": "docs/evidence/visual/pages-audit.json"
+    "evidence": "docs/evidence/visual/pages-audit.json",
+    "v019Note": "官方 2026-11 楼中楼与主题更新未取得可合法复现的像素规格；详见 docs/VISUAL_DIFF_v0.0.19.md，相关细节保持 UNVERIFIED。"
   },
   "roles": {
     "steps": 30,
     "passed": 30,
     "failed": 0,
-    "measurementVersion": "0.0.18",
-    "evidence": "GitHub Actions 官方包四角色真实用户验收 run 44840648812（正式 Release 资产，30 PASS / 0 FAIL）"
+    "measurementVersion": "v0.0.18",
+    "status": "historical-snapshot",
+    "evidence": "GitHub Actions 官方包四角色真实用户验收 run 44840648812（v0.0.18 正式 Release 资产）"
   },
   "soak": {
-    "oneHour": "passed",
+    "oneHour": "pending",
     "twentyFourHour": "not-completed",
-    "evidence": "GitHub Actions soak-test.yml run 44823003899（最终 master be0831c，真实 1h1m3s）",
-    "note": "GitHub-hosted runner 单 job 上限 6 小时；24 小时单实例连续运行仍未完成。稳定版承诺的是发布工程质量，不含长期运行时长。"
+    "evidence": "待最终候选 SHA 触发 soak-test.yml",
+    "note": "24 小时单实例连续运行仍未完成；1 小时 soak 不得替代 24 小时单实例连续运行。"
   },
   "officialUpgrade": {
-    "from": "v0.0.17",
-    "to": "v0.0.18",
-    "checks": 10,
-    "passed": 10,
-    "failed": 0,
-    "fingerprintLines": 13,
-    "fingerprintIdentical": true,
-    "evidence": "GitHub Actions 官方公开资产升级验收 run 44840653969"
+    "from": "v0.0.18",
+    "to": "v0.0.19",
+    "status": "pending",
+    "evidence": "待 v0.0.19 正式 Release 发布后运行 official-upgrade.yml"
   },
   "postRelease": {
-    "run": 44842628787,
-    "items": 13,
-    "failed": 0,
-    "warnings": 1,
-    "warning": "通知写入路径需第二用户且管理员登录受强制验证码保护，本环境无法自动化；已由官方包四角色验收覆盖。",
-    "evidence": "全新 ubuntu runner；匿名下载、SHA256、官方 install.sh、备份恢复、重启持久化全部通过"
+    "status": "pending",
+    "evidence": "待 v0.0.19 正式 Release 发布后运行 post-release-verify.yml 与 official-acceptance.yml"
   },
   "releaseForm": "stable",
-  "releasedAt": "2026-11-20T23:57:05Z",
-  "release": {
-    "id": 453305532,
-    "tag": "v0.0.18",
-    "tagObject": "d593436fbcc19c1539f434c4cfe0c6ba5c569065",
-    "targetCommit": "be0831cec0ba24d80740a941f04916b51146c524",
-    "url": "https://github.com/alicia1030su/v2ex-clone/releases/tag/v0.0.18",
-    "draft": false,
-    "prerelease": false,
-    "latest": true,
-    "image": "ghcr.io/alicia1030su/v2ex-clone:v0.0.18",
-    "imageDigest": "sha256:95f7725bb94a201fb3e797dcce39d61cfe057bc4001c0c71f4e5b85e758baeb3",
-    "platforms": [
-      "linux/amd64"
-    ],
-    "zip": "v2ex-clone-v0.0.18-deploy.zip",
-    "zipBytes": 144346,
-    "zipSha256": "f31625827393f936e3f9b1429997ffa18886420ba08f53e66e0ae55e17279588",
-    "sha256sumsSha256": "524ed398550cdf4370362823af887f25ed4479dd9dc3cea151b6b56d9cd7d03c",
-    "releaseRun": 44838838391,
-    "initialTagRun": 44831729786,
-    "initialTagRunResult": "failure-before-release-created",
-    "note": "首次 Tag 触发的 Release Notes 因 shell 变量未 export 给 Node 子进程而失败；镜像与安装包已成功，未创建 Release。修复后以 workflow_dispatch 幂等补救，复用原镜像并成功公开发布。"
-  }
+  "releasedAt": null,
+  "release": null
 }

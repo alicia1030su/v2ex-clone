@@ -40,6 +40,7 @@
 
 ## 当前版本状态（v0.0.19 稳定版发布候选）
 
+> **本版候选 = v0.0.19**（已授权 Stable Release，发布门禁执行中）。
 > **版本载体**：`0.0.19`
 > （机器可校验的版本锚点，由 `scripts/release/sync-version.mjs` 维护。
 > 已同步到 `0.0.19`；本版已获一次性稳定版发布授权，实际发布结果以 Tag / Release / GHCR 核验为准。）
@@ -477,11 +478,11 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > `ENV_FILE=.env.test npx vitest run` / `ENV_FILE=.env.test LOCAL_BASE=http://localhost:3010 npx playwright test`。
 >
 > ⚠️ **上表是 v0.0.12 的历史记录（历史实测，非当前结论）。**
-> **v0.0.18（本版稳定版候选）的当前测试基线**以
-> [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 为唯一口径；
-> 完整交接见 [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)；
-> v0.0.17 已发布基线见
-> [`docs/SESSION_HANDOFF_v0.0.17.md`](docs/SESSION_HANDOFF_v0.0.17.md)。
+> **v0.0.19（本版稳定版候选）的当前测试基线**以
+> [`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) 为唯一口径；
+> 完整交接见 [`docs/SESSION_HANDOFF_v0.0.19.md`](docs/SESSION_HANDOFF_v0.0.19.md)；
+> v0.0.18 已发布基线见
+> [`docs/SESSION_HANDOFF_v0.0.18.md`](docs/SESSION_HANDOFF_v0.0.18.md)。
 > 发行门禁会与 CI 实际跑次交叉核对，禁止沿用旧表数字。
 >
 > v0.0.16 的历史基线见
@@ -492,7 +493,7 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 > [`docs/SESSION_HANDOFF_v0.0.14.md`](docs/SESSION_HANDOFF_v0.0.14.md)。
 > 更早的「单元 103 / E2E 67」「190 / 194」等均为当时快照，仅供追溯。
 
-### v0.0.18 当前实测
+### v0.0.18 历史实测（非当前结论）
 
 | 套件 | 用例数 | 证据 | 结果 |
 |---|---|---|---|
@@ -507,7 +508,21 @@ LOCAL_BASE=http://localhost:3000 npm run test:e2e   # E2E 测试
 | 发布后匿名独立验收 | 13 项 | GitHub Actions run `44842628787` | **0 FAIL**（1 个已披露 WARN：通知写入需强验证码环境） |
 | 1 小时持续运行 | 真实 1h1m3s | GitHub Actions run `44823003899` | **通过**；24h 单实例连续运行仍为 `not-completed` |
 
-> 当前口径以 [`docs/TEST_REPORT_v0.0.18.md`](docs/TEST_REPORT_v0.0.18.md) 与
+### v0.0.19 当前实测
+
+| 套件 | 用例数 | 证据 | 结果 |
+|---|---|---|---|
+| 单元测试（vitest，含静态） | **1085**（90 个 spec 文件） | 本机隔离 PostgreSQL 全量 + 用例计数门禁 | **1085 passed / 0 failed / 0 skipped** |
+| 全量静态 | **501**（43 个文件） | `vitest.static.config.ts` 全量 | **501 passed / 0 failed / 0 skipped** |
+| E2E（Playwright / Chromium） | **295**（29 个 spec 文件） | 本机 `next start` 全量 | **295 passed / 0 failed** |
+| v0.0.19 回复体验 | **8** | `e2e/v019-reply-experience.spec.ts` | **8 passed** |
+| 回复真库/API | **10** | `tests/v019-reply-threads.spec.ts` | **10 passed** |
+| 固定/滑动窗口限流 | **3** | `tests/rate-limit-window.spec.ts` | **3 passed**，20 并发计数连续 |
+| 双基线升级与恢复 | **30 项断言 × 2 基线** | `verify-upgrade-v0019.sh` | **PASS=30 / FAIL=0 ×2**，45 项业务指纹逐字节一致 |
+| 1 小时持续运行 | pending | 最终候选 CI | 待执行；24h 仍为 `not-completed` |
+| 官方公开资产升级 | pending | v0.0.18 → v0.0.19 | 待正式发布后执行 |
+
+> 当前口径以 [`docs/TEST_REPORT_v0.0.19.md`](docs/TEST_REPORT_v0.0.19.md) 与
 > [`docs/release-facts.json`](docs/release-facts.json) 为准；24 小时单实例连续运行仍为
 > **`not-completed`**，不得把 1 小时冒烟或分段累计写成 24 小时通过。
 

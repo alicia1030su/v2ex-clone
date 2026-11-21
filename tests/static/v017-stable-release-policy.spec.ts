@@ -232,11 +232,12 @@ describe('v0.0.17 发布形态：白名单判定的真实行为（执行，不�
     expect(isStable('v0.0.17')).toBe(true);
   });
 
-  it('已登记版本 v0.0.17 / v0.0.18 均为稳定版，未登记版本不是', () => {
+  it('已登记版本 v0.0.17 / v0.0.18 / v0.0.19 均为稳定版，未登记版本不是', () => {
     expect(isStable('v0.0.17')).toBe(true);
     expect(isStable('v0.0.18')).toBe(true);
+    expect(isStable('v0.0.19')).toBe(true);
     expect(isStable('v0.0.16'), 'v0.0.16 未登记却被判为稳定版').toBe(false);
-    expect(isStable('v0.0.19'), 'v0.0.19 未登记却被判为稳定版').toBe(false);
+    expect(isStable('v0.0.20'), 'v0.0.20 未登记却被判为稳定版').toBe(false);
   });
 
   it('大小写/空格/前缀都不该被宽松匹配', () => {
