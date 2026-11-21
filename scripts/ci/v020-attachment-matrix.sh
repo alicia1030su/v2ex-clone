@@ -35,7 +35,9 @@ psql_exec() {
 }
 
 psql_value() {
-  psql_exec -t -A -c "$1" | tr -d '\r'
+  # -q 必须显式加上：psql 对 INSERT ... RETURNING 在 -t -A 下仍会输出
+  # “INSERT 0 1”命令标签；不静默就会把它误当成 ID 拼进下一条 SQL。
+  psql_exec -q -t -A -c "$1" | tr -d '\r\n'
 }
 
 wait_app_ready() {
