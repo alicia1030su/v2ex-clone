@@ -157,13 +157,11 @@ if ! awk '
   die "旧版 dump 安全扫描失败；目标数据库尚未修改。"
 fi
 
-ROLE_EXISTS="$("${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d postgres -X -q -t -A -c \
-  "SELECT 1 FROM pg_roles WHERE rolname='${ROLE}'" | tr -d ' \r\n')"
-if [ "$ROLE_EXISTS" != "1" ]; then
-  "${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d postgres -X -q -v ON_ERROR_STOP=1 -c \
-    "CREATE ROLE ${ROLE} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS" >/dev/null
-  ROLE_CREATED=1
-fi
+"${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d postgres -X -q -v ON_ERROR_STOP=1 -c \
+  "DROP ROLE IF EXISTS ${ROLE}" >/dev/null
+"${COMPOSE[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d postgres -X -q -v ON_ERROR_STOP=1 -c \
+  "CREATE ROLE ${ROLE} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS" >/dev/null
+ROLE_CREATED=1
 
 info "在隔离 scratch DB 以非超级用户重放旧版 dump..."
 "${COMPOSE[@]}" exec -T postgres dropdb --if-exists --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null 2>&1 || true

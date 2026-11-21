@@ -179,6 +179,22 @@ if ! docker run --rm --entrypoint tar \
   die "uploads 卷备份失败。"
 fi
 gzip -t "$TMP_DIR/uploads.tar.gz" 2>/dev/null || die "uploads 归档 gzip 结构损坏。"
+UPLOADS_LIST_CMD=(tar -tzf "$TMP_DIR/uploads.tar.gz")
+UPLOADS_META_CMD=(tar -tvzf "$TMP_DIR/uploads.tar.gz")
+if command -v timeout >/dev/null 2>&1; then
+  UPLOADS_LIST_CMD=(timeout 60 tar -tzf "$TMP_DIR/uploads.tar.gz")
+  UPLOADS_META_CMD=(timeout 60 tar -tvzf "$TMP_DIR/uploads.tar.gz")
+fi
+if ! "${UPLOADS_LIST_CMD[@]}" | awk '
+    { entries++; if (entries > 10000) bad=1
+      entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
+      if (entry ~ /^\// || entry == ".." || entry ~ /(^|\/)\.\.(\/|$)/) bad=1 }
+    END { exit bad ? 1 : 0 }'; then
+  die "uploads 归档包含绝对路径、.. 路径穿越、过多成员或解压超时。"
+fi
+if ! "${UPLOADS_META_CMD[@]}" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
+  die "uploads 归档包含符号链接、硬链接、设备文件或 FIFO。"
+fi
 
 # 从刚生成的归档解包后计算清单，确保清单与归档内容一致，而不是在 app 停止后
 # 再次读取可能被外部进程改动的 volume。

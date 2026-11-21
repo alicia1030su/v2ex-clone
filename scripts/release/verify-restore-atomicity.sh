@@ -153,6 +153,63 @@ set -e
 [ "$RC_INNER" -ne 0 ] && ok "损坏内层 dump gzip ⇒ 非零（${RC_INNER}）" || bad "损坏内层 dump 被接受"
 grep -qi "gzip 结构损坏" /tmp/v020-r-inner.log && ok "内层损坏被 gzip 前置校验拦截" || bad "内层损坏未被预期校验拦截"
 
+step "5b. manifest 命令替换、路径穿越、符号链接与解压上限"
+RECOVERY_MARKER="backups/.restore-in-progress"
+
+MANIFEST_EVIL_STAGE="$(mktemp -d /tmp/v020-manifest-evil.XXXXXX)"
+MANIFEST_EVIL="/tmp/v020-manifest-evil.tar.gz"
+tar --no-same-owner -xzf "$BASE_BUNDLE" -C "$MANIFEST_EVIL_STAGE"
+awk -F= 'BEGIN { OFS="=" } $1 == "APP_VERSION" { print "APP_VERSION", "$(touch /tmp/v020-manifest-pwned)"; next } { print }' \
+  "$MANIFEST_EVIL_STAGE/manifest.env" > "$MANIFEST_EVIL_STAGE/manifest.env.new"
+mv "$MANIFEST_EVIL_STAGE/manifest.env.new" "$MANIFEST_EVIL_STAGE/manifest.env"
+(
+  cd "$MANIFEST_EVIL_STAGE"
+  sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS
+)
+tar -C "$MANIFEST_EVIL_STAGE" -czf "$MANIFEST_EVIL" .
+sha256sum "$MANIFEST_EVIL" > "$MANIFEST_EVIL.sha256"
+rm -f /tmp/v020-manifest-pwned
+set +e
+bash restore.sh --yes "$MANIFEST_EVIL" >/tmp/v020-r-manifest-evil.log 2>&1
+RC_MANIFEST_EVIL=$?
+set -e
+[ "$RC_MANIFEST_EVIL" -ne 0 ] && ok "恶意 manifest ⇒ 非零（${RC_MANIFEST_EVIL}）" || bad "恶意 manifest 被接受"
+[ ! -e /tmp/v020-manifest-pwned ] && ok "manifest 命令替换未执行" || bad "manifest 命令替换被执行"
+[ ! -e "$RECOVERY_MARKER" ] && ok "恶意 manifest 未进入恢复不确定区" || bad "恶意 manifest 写入了 recovery marker"
+
+TRAV_ROOT="$(mktemp -d /tmp/v020-traversal.XXXXXX)"
+mkdir -p "$TRAV_ROOT/sub"
+printf 'escape' > "$TRAV_ROOT/escape"
+TRAV_BUNDLE="/tmp/v020-traversal.tar.gz"
+tar -P -C "$TRAV_ROOT/sub" -czf "$TRAV_BUNDLE" ../escape
+sha256sum "$TRAV_BUNDLE" > "$TRAV_BUNDLE.sha256"
+set +e
+bash restore.sh --yes "$TRAV_BUNDLE" >/tmp/v020-r-traversal.log 2>&1
+RC_TRAV=$?
+set -e
+[ "$RC_TRAV" -ne 0 ] && ok ".. 路径穿越 bundle ⇒ 非零（${RC_TRAV}）" || bad ".. 路径穿越 bundle 被接受"
+grep -qi "路径穿越" /tmp/v020-r-traversal.log && ok ".. 路径穿越被前置校验拦截" || bad ".. 路径穿越未被预期校验拦截"
+
+LINK_ROOT="$(mktemp -d /tmp/v020-symlink.XXXXXX)"
+ln -s /etc/passwd "$LINK_ROOT/upload-link"
+LINK_BUNDLE="/tmp/v020-symlink.tar.gz"
+tar -P -C "$LINK_ROOT" -czf "$LINK_BUNDLE" upload-link
+sha256sum "$LINK_BUNDLE" > "$LINK_BUNDLE.sha256"
+set +e
+bash restore.sh --yes "$LINK_BUNDLE" >/tmp/v020-r-symlink.log 2>&1
+RC_LINK=$?
+set -e
+[ "$RC_LINK" -ne 0 ] && ok "符号链接 bundle ⇒ 非零（${RC_LINK}）" || bad "符号链接 bundle 被接受"
+grep -qi "符号链接" /tmp/v020-r-symlink.log && ok "符号链接被前置校验拦截" || bad "符号链接未被预期校验拦截"
+
+set +e
+MAX_BUNDLE_UNCOMPRESSED_BYTES=1024 bash restore.sh --yes "$BASE_BUNDLE" >/tmp/v020-r-bomb.log 2>&1
+RC_BOMB=$?
+set -e
+[ "$RC_BOMB" -ne 0 ] && ok "解压上限超限 ⇒ 非零（${RC_BOMB}）" || bad "解压上限超限被接受"
+grep -qi "超过上限" /tmp/v020-r-bomb.log && ok "解压上限被前置校验拦截" || bad "解压上限未被预期校验拦截"
+[ ! -e "$RECOVERY_MARKER" ] && ok "攻击面负向用例均未写入 recovery marker" || bad "攻击面负向用例写入 recovery marker"
+
 step "6. 重启后应用与指纹仍正常"
 docker compose -p "$PROJECT" restart >/dev/null 2>&1 || true
 sleep 8

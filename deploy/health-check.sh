@@ -208,19 +208,28 @@ else
   VERIFY_TMP="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-health.XXXXXX")"
   chmod 700 "$VERIFY_TMP"
   ARCHIVE_SAFE=1
-  if ! tar -tzf "$LATEST_BUNDLE" | awk '
-      { entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
+  HEALTH_LIST_CMD=(tar -tzf "$LATEST_BUNDLE")
+  HEALTH_META_CMD=(tar -tvzf "$LATEST_BUNDLE")
+  HEALTH_EXTRACT_CMD=(tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP")
+  if command -v timeout >/dev/null 2>&1; then
+    HEALTH_LIST_CMD=(timeout 60 tar -tzf "$LATEST_BUNDLE")
+    HEALTH_META_CMD=(timeout 60 tar -tvzf "$LATEST_BUNDLE")
+    HEALTH_EXTRACT_CMD=(timeout 120 tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP")
+  fi
+  if ! "${HEALTH_LIST_CMD[@]}" | awk '
+      { entries++; if (entries > 10000) bad=1
+        entry=$0; sub(/^\.\//, "", entry); if (entry == "") next
         if (entry ~ /^\// || entry == ".." || entry ~ /(^|\/)\.\.(\/|$)/) bad=1 }
       END { exit bad ? 1 : 0 }'; then
     ARCHIVE_SAFE=0
-    err "备份 bundle 包含绝对路径或 .. 路径穿越"
+    err "备份 bundle 包含绝对路径、.. 路径穿越、过多成员或解压超时"
   fi
-  if ! tar -tvzf "$LATEST_BUNDLE" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
+  if ! "${HEALTH_META_CMD[@]}" | awk 'substr($1,1,1) ~ /^[lhcbps]$/ { bad=1 } END { exit bad ? 1 : 0 }'; then
     ARCHIVE_SAFE=0
-    err "备份 bundle 包含符号链接、硬链接、设备文件或 FIFO"
+    err "备份 bundle 包含符号链接、硬链接、设备文件、FIFO 或解压超时"
   fi
   if [ "$ARCHIVE_SAFE" -eq 1 ] \
-      && tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP" 2>/dev/null \
+      && "${HEALTH_EXTRACT_CMD[@]}" 2>/dev/null \
       && [ -f "$VERIFY_TMP/SHA256SUMS" ] \
       && [ -f "$VERIFY_TMP/manifest.env" ] \
       && [ -f "$VERIFY_TMP/database.dump.gz" ] \

@@ -194,7 +194,9 @@ esac
 [ "$MAX_BUNDLE_UNCOMPRESSED_BYTES" -gt 0 ] || die "MAX_BUNDLE_UNCOMPRESSED_BYTES 必须大于 0。"
 BUNDLE_BOMB_CMD=(gzip -dc "$BUNDLE")
 if command -v timeout >/dev/null 2>&1; then BUNDLE_BOMB_CMD=(timeout 120 gzip -dc "$BUNDLE"); fi
-BUNDLE_UNCOMPRESSED_BYTES="$("${BUNDLE_BOMB_CMD[@]}" | wc -c | tr -d ' ')"
+if ! BUNDLE_UNCOMPRESSED_BYTES="$("${BUNDLE_BOMB_CMD[@]}" | wc -c | tr -d ' ')"; then
+  die "bundle 解压失败或超时；拒绝继续。"
+fi
 [ "$BUNDLE_UNCOMPRESSED_BYTES" -le "$MAX_BUNDLE_UNCOMPRESSED_BYTES" ] \
   || die "bundle 解压后 ${BUNDLE_UNCOMPRESSED_BYTES} 字节，超过上限 ${MAX_BUNDLE_UNCOMPRESSED_BYTES}。"
 info "bundle 解压大小 ${BUNDLE_UNCOMPRESSED_BYTES} 字节（上限 ${MAX_BUNDLE_UNCOMPRESSED_BYTES}）。"
