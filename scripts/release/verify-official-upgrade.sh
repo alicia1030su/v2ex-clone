@@ -195,7 +195,6 @@ SELECT 'marker_topic|' || id || '|' || title || '|' || content
 FROM topics WHERE title = '官方公开资产升级探针主题';
 SELECT 'marker_reply|' || id || '|' || content
 FROM replies WHERE content = '官方公开资产升级探针回复';
-SELECT 'migrations|' || count(*) FROM drizzle.__drizzle_migrations;
 SQL
 fingerprint() {
   ( cd "$INSTALL_DIR" && docker compose --env-file .env exec -T postgres \
@@ -206,9 +205,11 @@ fingerprint() {
 fingerprint > "$WORK/fingerprint-before.txt"
 grep -q '^marker_topic|' "$WORK/fingerprint-before.txt" || fail "升级前探针主题" "指纹中不存在"
 grep -q '^marker_reply|' "$WORK/fingerprint-before.txt" || fail "升级前探针回复" "指纹中不存在"
-MIGRATIONS_BEFORE="$(grep '^migrations|' "$WORK/fingerprint-before.txt" | cut -d'|' -f2)"
-[ -n "$MIGRATIONS_BEFORE" ] || fail "升级前迁移记录" "读取失败"
-pass "升级前业务指纹" "$(wc -l < "$WORK/fingerprint-before.txt") 行 / 迁移 $MIGRATIONS_BEFORE 条 / 探针数据已写入"
+MIGRATIONS_BEFORE="$(PSQL 'SELECT count(*) FROM drizzle.__drizzle_migrations;' | tr -d ' \r\n')"
+case "$MIGRATIONS_BEFORE" in
+  ''|*[!0-9]*) fail "升级前迁移记录" "读取失败：$MIGRATIONS_BEFORE" ;;
+esac
+pass "升级前业务指纹" "$(wc -l < "$WORK/fingerprint-before.txt") 行业务数据逐字节记录 / 迁移 $MIGRATIONS_BEFORE 条 / 探针数据已写入"
 
 printf '\n--- 用 %s 包内 update.sh 升级到 %s ---\n' "$FROM_VERSION" "$TO_VERSION"
 set +e
@@ -237,14 +238,26 @@ pass "匿名目标镜像" "$ENV_IMAGE / imageId=$TARGET_IMAGE_ID / ${TARGET_REPO
 
 fingerprint > "$WORK/fingerprint-after.txt"
 if diff -u "$WORK/fingerprint-before.txt" "$WORK/fingerprint-after.txt" >"$WORK/fingerprint.diff"; then
-  pass "升级前后业务指纹" "$(wc -l < "$WORK/fingerprint-after.txt") 行逐字节一致"
+  pass "升级前后业务指纹" "$(wc -l < "$WORK/fingerprint-after.txt") 行业务数据逐字节一致"
 else
   cat "$WORK/fingerprint.diff"
-  fail "升级前后业务指纹" "发生变化"
+  fail "升级前后业务指纹" "业务数据发生变化"
 fi
-MIGRATIONS_AFTER="$(grep '^migrations|' "$WORK/fingerprint-after.txt" | cut -d'|' -f2)"
-[ "$MIGRATIONS_AFTER" = "$MIGRATIONS_BEFORE" ] \
-  || fail "迁移记录数" "升级前 $MIGRATIONS_BEFORE / 升级后 $MIGRATIONS_AFTER（本版无新增迁移，必须一致）"
+
+MIGRATIONS_AFTER="$(PSQL 'SELECT count(*) FROM drizzle.__drizzle_migrations;' | tr -d ' \r\n')"
+case "$MIGRATIONS_AFTER" in
+  ''|*[!0-9]*) fail "升级后迁移记录" "读取失败：$MIGRATIONS_AFTER" ;;
+esac
+# 目标镜像携带迁移 journal；升级后数据库必须恰好应用目标镜像声明的全部迁移。
+# 这比“升级前后条数必须相同”更准确：v0.0.19 本来就有新增迁移。
+TARGET_MIGRATIONS="$(docker run --rm --entrypoint node "ghcr.io/${REPO}:${TO_VERSION}" \
+  -e "const j=require('/app/drizzle/meta/_journal.json'); process.stdout.write(String(j.entries.length))" 2>/dev/null | tr -d ' \r\n')"
+case "$TARGET_MIGRATIONS" in
+  ''|*[!0-9]*) fail "目标镜像迁移清单" "无法读取 /app/drizzle/meta/_journal.json" ;;
+esac
+[ "$MIGRATIONS_AFTER" = "$TARGET_MIGRATIONS" ] \
+  || fail "迁移记录数" "升级前 $MIGRATIONS_BEFORE / 升级后 $MIGRATIONS_AFTER / 目标镜像声明 $TARGET_MIGRATIONS"
+pass "迁移记录数" "升级前 $MIGRATIONS_BEFORE / 升级后 $MIGRATIONS_AFTER / 目标镜像声明 $TARGET_MIGRATIONS"
 
 BACKUP_FILE="$(find "$INSTALL_DIR/backups" -maxdepth 1 -type f -name 'v2ex-*.sql.gz' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
 [ -n "$BACKUP_FILE" ] && [ -s "$BACKUP_FILE" ] || fail "升级前备份" "未找到非空 v2ex-*.sql.gz"
