@@ -89,9 +89,23 @@ SCRATCH_DB="v2ex_legacy_verify_$(date -u +%s)"
 cleanup() {
   local rc=$?
   "${COMPOSE[@]}" exec -T postgres dropdb --if-exists --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null 2>&1 || true
+  return "$rc"
+}
+on_exit() {
+  local rc=$?
+  cleanup
   exit "$rc"
 }
-trap cleanup EXIT INT TERM
+on_signal() {
+  local sig="$1"
+  trap - EXIT INT TERM
+  cleanup || true
+  if [ "$sig" = "INT" ]; then exit 130; fi
+  exit 143
+}
+trap on_exit EXIT
+trap 'on_signal INT' INT
+trap 'on_signal TERM' TERM
 
 info "在 scratch DB 重放旧版 dump..."
 "${COMPOSE[@]}" exec -T postgres createdb --username="$POSTGRES_USER" "$SCRATCH_DB" >/dev/null

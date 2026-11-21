@@ -18,10 +18,12 @@ TOPIC_ID="$(psql_db -q -t -A -c "INSERT INTO topics (title, content, node_id, au
 [ -n "$TOPIC_ID" ] || { echo '无法创建性能主题' >&2; exit 1; }
 psql_db -q -c "
   INSERT INTO replies (topic_id, author_id, content, floor, parent_reply_id)
+  VALUES (${TOPIC_ID}, (SELECT id FROM users ORDER BY id LIMIT 1), 'v020 performance reply 1', 1, NULL);
+  INSERT INTO replies (topic_id, author_id, content, floor, parent_reply_id)
   SELECT ${TOPIC_ID}, (SELECT id FROM users ORDER BY id LIMIT 1),
     'v020 performance reply ' || g, g,
-    CASE WHEN g = 5001 THEN 1 ELSE NULL END
-  FROM generate_series(1, 10000) AS g;
+    CASE WHEN g = 5001 THEN (SELECT id FROM replies WHERE topic_id = ${TOPIC_ID} AND floor = 1) ELSE NULL END
+  FROM generate_series(2, 10000) AS g;
   UPDATE topics SET replies_count = 10000 WHERE id = ${TOPIC_ID};
 "
 

@@ -135,7 +135,10 @@ RESTORE_PID=$!
 set -e
 SWITCHED=0
 for _ in $(seq 1 120); do
-  if grep -q '切换 uploads volume' /tmp/v020-dr-sigterm.log 2>/dev/null; then SWITCHED=1; break; fi
+  if docker volume ls --format '{{.Name}}' | grep -q "${COMPOSE_PROJECT_NAME}.*uploads-data.*pre-restore-"; then
+    SWITCHED=1
+    break
+  fi
   sleep 1
 done
 if [ "$SWITCHED" -eq 1 ]; then

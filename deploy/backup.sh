@@ -116,9 +116,23 @@ cleanup() {
     docker compose start app >/dev/null 2>&1 || true
   fi
   rm -rf "$TMP_DIR" 2>/dev/null || true
+  return "$rc"
+}
+on_exit() {
+  local rc=$?
+  cleanup
   exit "$rc"
 }
-trap cleanup EXIT INT TERM
+on_signal() {
+  local sig="$1"
+  trap - EXIT INT TERM
+  cleanup || true
+  if [ "$sig" = "INT" ]; then exit 130; fi
+  exit 143
+}
+trap on_exit EXIT
+trap 'on_signal INT' INT
+trap 'on_signal TERM' TERM
 
 APP_CID="$(docker compose ps -q app 2>/dev/null || true)"
 [ -n "$APP_CID" ] || die "找不到 app 容器。请先运行 ./install.sh 或 ./start.sh。"

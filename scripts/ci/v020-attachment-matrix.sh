@@ -104,7 +104,7 @@ benchmark_attachment_get() {
   read -r p50 p95 p99 < <(awk -v n="$n" '
     { v[NR]=$1 }
     END {
-      printf "%.6f %.6f %.6f", v[int(n*0.50)], v[int(n*0.95)], v[int(n*0.99)]
+      printf "%.6f %.6f %.6f\n", v[int(n*0.50)], v[int(n*0.95)], v[int(n*0.99)]
     }' "$samples")
   printf '  INFO  attachment GET latency: P50=%.1fms P95=%.1fms P99=%.1fms (n=%s)\n' \
     "$(awk -v v="$p50" 'BEGIN {print v*1000}')" \

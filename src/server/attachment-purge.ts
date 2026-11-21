@@ -55,6 +55,7 @@ async function claimPurgeItems(limit: number, workerId: string): Promise<QueueRo
         AND (locked_at IS NULL OR locked_at < now() - ${LOCK_TIMEOUT_MS} * interval '1 millisecond')
       ORDER BY purge_after, id
       LIMIT ${Math.max(1, Math.min(limit, 200))}
+      FOR UPDATE SKIP LOCKED
     `));
 
     const claimed: QueueRow[] = [];
@@ -179,7 +180,9 @@ export async function purgeAttachmentQueue(limit = 50): Promise<number> {
 
 export function startAttachmentPurgeWorker(): void {
   const run = () => {
-    void purgeAttachmentQueue(50).catch(() => undefined);
+    void purgeAttachmentQueue(50).catch((err) => {
+      console.error('[attachment-purge] worker run failed', err);
+    });
   };
   run();
   const timer = setInterval(run, 60 * 60 * 1000);
