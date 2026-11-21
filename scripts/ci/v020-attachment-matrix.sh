@@ -122,6 +122,13 @@ else
   echo '  PASS  uploads-data 未挂载到 /app/public/uploads'
   PASS=$((PASS + 1))
 fi
+if "${COMPOSE[@]}" exec -T app sh -c 'test ! -w /app/public'; then
+  echo '  PASS  非 root 运行用户不能写入 /app/public'
+  PASS=$((PASS + 1))
+else
+  echo '  FAIL  非 root 运行用户可写入 /app/public'
+  FAIL=$((FAIL + 1))
+fi
 
 echo '===== [A2] 构造真实数据库与文件夹具 ====='
 psql_exec <<'SQL'
@@ -245,6 +252,8 @@ if [ "$PROXY_CODE" = "200" ]; then
   PASS=$((PASS + 1))
 else
   echo "  FAIL  Nginx 反向代理未就绪（HTTP ${PROXY_CODE}）"
+  docker ps -a --filter name=v2ex-matrix-proxy --format '  state={{.Status}} ports={{.Ports}}' || true
+  docker logs --tail 80 v2ex-matrix-proxy 2>&1 || true
   FAIL=$((FAIL + 1))
 fi
 
@@ -291,13 +300,13 @@ probe 'restart pending / owner' 200 "${BASE_URL}/uploads/${PENDING_PATH}" 'v020-
 
 echo '===== [A8] 静态 public/uploads 负向对照（测试后立即删除） ====='
 CANARY_REL="replies/${OWNER_ID}/deadbeefdeadbeefdeadbeefdeadbeef.png"
-"${COMPOSE[@]}" exec -T app sh -c \
+"${COMPOSE[@]}" exec -u root -T app sh -c \
   "mkdir -p '/app/public/uploads/$(dirname "$CANARY_REL")' && printf %s canary > '/app/public/uploads/$CANARY_REL'"
 "${COMPOSE[@]}" restart app >/dev/null
 wait_app_ready '静态 canary 重启后应用'
 probe 'public canary is statically visible (sensitivity)' 200 "${BASE_URL}/uploads/${CANARY_REL}"
 
-"${COMPOSE[@]}" exec -T app sh -c \
+"${COMPOSE[@]}" exec -u root -T app sh -c \
   "rm -f '/app/public/uploads/$CANARY_REL' && rmdir '/app/public/uploads/$(dirname "$CANARY_REL")' 2>/dev/null || true"
 "${COMPOSE[@]}" restart app >/dev/null
 wait_app_ready '删除 canary 后应用'
