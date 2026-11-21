@@ -1,0 +1,123 @@
+name: v0.0.20 Attachment Attack Matrix
+
+# P0-A 的唯一真实容器取证通道。
+# 本工作流只构建本地镜像并运行临时 Compose 栈：不登录 registry、不推送 GHCR、
+# 不创建 Tag、不创建 Release、不改写仓库历史。
+
+on:
+  push:
+    branches:
+      - 'release/v0.0.20-stable'
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: v020-attachment-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  POSTGRES_USER: v2ex
+  POSTGRES_PASSWORD: ${{ format('v020-matrix-{0}-pg-not-real', github.run_id) }}
+  POSTGRES_DB: v2ex_v020_matrix
+  REDIS_PASSWORD: ${{ format('v020-matrix-{0}-redis-not-real', github.run_id) }}
+  SESSION_SECRET: ${{ format('v020-matrix-{0}-session-secret', github.run_id) }}
+  SEED_ADMIN_USERNAME: admin
+  SEED_ADMIN_EMAIL: admin@v020-matrix.local
+  SEED_ADMIN_PASSWORD: ${{ format('v020-matrix-{0}-admin-not-real', github.run_id) }}
+  SEED_DEMO_USERS: '0'
+  APP_PORT: '3000'
+  APP_RUNTIME_ENV: test
+  TEST_ENV_ISOLATED: '1'
+  APP_URL: http://localhost:3000
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  attack-matrix:
+    name: 生产镜像附件授权矩阵
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 环境信息
+        run: |
+          echo "  Commit : ${{ github.sha }}"
+          echo "  Docker : $(docker --version)"
+          echo "  Compose: $(docker compose version)"
+          echo "  Disk   : $(df -h / | tail -1 | awk '{print $4}')"
+
+      - name: 构建真实生产镜像
+        run: |
+          set -euo pipefail
+          docker build -t v2ex-clone:v020-matrix .
+          docker images v2ex-clone:v020-matrix --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  {{.Id}}'
+
+      - name: 创建隔离 Compose 环境
+        run: |
+          set -euo pipefail
+          cat > .env.matrix <<EOF
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          SESSION_SECRET=${SESSION_SECRET}
+          SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME}
+          SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+          SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+          SEED_DEMO_USERS=${SEED_DEMO_USERS}
+          APP_PORT=${APP_PORT}
+          APP_RUNTIME_ENV=${APP_RUNTIME_ENV}
+          TEST_ENV_ISOLATED=${TEST_ENV_ISOLATED}
+          APP_URL=${APP_URL}
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          EOF
+          chmod 600 .env.matrix
+          docker compose --env-file .env.matrix up -d --build
+
+      - name: 运行附件授权攻击矩阵
+        id: matrix
+        run: |
+          set -o pipefail
+          bash scripts/ci/v020-attachment-matrix.sh 2>&1 | tee /tmp/v020-attachment-matrix.log
+
+      - name: 生成结论
+        if: always()
+        env:
+          MATRIX_OUTCOME: ${{ steps.matrix.outcome }}
+        run: |
+          {
+            echo '# v0.0.20 P0-A Workflow 结论'
+            echo
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Matrix step: ${MATRIX_OUTCOME:-unknown}"
+          } >> /tmp/v020-attachment-matrix.summary.md 2>/dev/null || true
+          cat /tmp/v020-attachment-matrix.summary.md 2>/dev/null || true
+
+      - name: 上传攻击矩阵证据
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v020-attachment-matrix-evidence
+          path: |
+            /tmp/v020-attachment-matrix.log
+            /tmp/v020-attachment-matrix.summary.md
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Compose 日志
+        if: always()
+        run: docker compose --env-file .env.matrix logs --tail 250 || true
+
+      - name: 清理隔离栈
+        if: always()
+        run: |
+          docker rm -f v2ex-matrix-proxy >/dev/null 2>&1 || true
+          docker compose --env-file .env.matrix down -v || true
+          rm -f .env.matrix

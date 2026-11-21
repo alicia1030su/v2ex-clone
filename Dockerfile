@@ -33,14 +33,9 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 # public/ 可能为空目录（Git 不跟踪空目录），COPY 空目录会失败。
 # 这里用「先建目录再复制」的方式，保证该目录在镜像中一定存在。
 RUN mkdir -p /app/public
-# v0.0.5：预创建**运行时**上传目录（头像）。
-#
-# 背景：头像文件在**运行时**写入 `public/uploads/avatars/...`，
-# 而不是构建期存在 ⇒ `public/` 的内容不会被 COPY 进镜像。
-# 若不预创建，首次上传会因目录不存在而失败（ENOENT）。
-#
-# 权限：容器以 `nextjs`（uid 1001）运行 ⇒ 目录必须对它可写。
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
+# 用户上传文件必须放在 public 之外，避免 next start 的静态资源快照绕过授权路由。
+# Docker 部署把 uploads named volume 挂载到 /app/data/uploads。
+RUN mkdir -p /app/data/uploads && chown -R nextjs:nodejs /app/data/uploads
 COPY --from=builder --chown=nextjs:nodejs /app/public/ /app/public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json

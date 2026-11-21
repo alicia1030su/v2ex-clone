@@ -88,8 +88,7 @@ export const runtime = 'nodejs';
  * - 账号维度的限流（例如登录的 `ip|username`）仍然有效，
  *   因此针对**同一账号**的暴力破解仍会被拦截。
  */
-function resolveIncomingIp(request: NextRequest): string {
-  if (process.env.TRUST_PROXY_HEADERS === '1') {
+function resolveIncomingIp(request: NextRequest): string {  if (process.env.TRUST_PROXY_HEADERS === '1') {
     const forwarded = request.headers.get('x-forwarded-for');
     if (forwarded) {
       const first = forwarded.split(',')[0]?.trim();
@@ -101,7 +100,40 @@ function resolveIncomingIp(request: NextRequest): string {
   return '127.0.0.1';
 }
 
+/** 判断图片优化器目标是否指向受授权路由保护的 /uploads/*。 */
+function isUploadOptimizerTarget(raw: string | null): boolean {
+  if (!raw) return false;
+
+  // 最多解码三次，覆盖普通编码与重复编码；任何一步失败都按非目标处理，
+  // 后续由 Next 自身拒绝畸形 URL。
+  let decoded = raw;
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+
+  try {
+    const parsed = new URL(decoded, 'http://attachments.invalid');
+    const pathname = parsed.pathname.replace(/\\/g, '/');
+    return pathname === '/uploads' || pathname.startsWith('/uploads/');
+  } catch {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
+  // v0.0.20：Next 图片优化器可能按 URL 缓存并重复提供旧字节，且其内部回源
+  // 不携带终端用户会话。附件没有使用 next/image，因此对指向 /uploads/*
+  // 的优化器请求一律 fail-closed；所有附件必须经过授权路由实时判定。
+  if (request.nextUrl.pathname === '/_next/image' && isUploadOptimizerTarget(request.nextUrl.searchParams.get('url'))) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   // ---- 1. 剥离客户端伪造的内部头，再写入本次请求的来源地址 ----
   // 必须**先删后写**：否则客户端自带 x-v2-client-ip 会覆盖我们注入的值，
   // 从而操纵限流分桶。
@@ -185,6 +217,8 @@ export const config = {
     // API 路由也需要注入客户端 IP（限流依赖它），因此不再排除 api/
     // 静态资源与图片不需要 CSRF cookie，也不需要 IP —— 排除掉以减少开销。
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$).*)',
+    // v0.0.20：图片优化器必须单独匹配，用于阻断 url=/uploads/* 的缓存绕过。
+    '/_next/image',
   ],
 };
 

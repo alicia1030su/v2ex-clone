@@ -43,6 +43,13 @@
       "when": 1795227096921,
       "tag": "0005_v019_reply_threads",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795266821995,
+      "tag": "0006_v020_attachment_lifecycle",
+      "breakpoints": true
     }
   ]
 }

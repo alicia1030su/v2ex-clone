@@ -153,34 +153,52 @@ check_disk "/var/lib/docker" "Docker 数据目录" 2>/dev/null || true
 # --- 5 & 6. 备份存在性与完整性 ---------------------------------------------
 info ""
 info "${C_BLD}备份${C_RST}"
-LATEST="$(ls -t "$BACKUP_DIR"/v2ex-*.sql.gz 2>/dev/null | head -1)"
-if [ -z "$LATEST" ]; then
-  err "没有任何备份文件（$BACKUP_DIR）—— 建议立即执行 ./backup.sh"
-else
-  ok "最新备份：$(basename "$LATEST")（$(date -r "$LATEST" '+%Y-%m-%d %H:%M')）"
-
-  if gzip -t "$LATEST" 2>/dev/null; then
-    ok "gzip 结构完整"
+LATEST_BUNDLE="$(ls -t "$BACKUP_DIR"/v2ex-backup-*.tar.gz 2>/dev/null | head -1 || true)"
+LEGACY_DUMP="$(ls -t "$BACKUP_DIR"/v2ex-*.sql.gz 2>/dev/null | head -1 || true)"
+if [ -z "$LATEST_BUNDLE" ]; then
+  if [ -n "$LEGACY_DUMP" ]; then
+    warn "只找到旧版数据库备份：$(basename "$LEGACY_DUMP")"
+    warn "旧版备份不含 uploads 附件卷，不能作为完整灾难恢复包；请运行 ./backup.sh 生成新 bundle。"
   else
-    err "备份文件 gzip 结构损坏（可能被截断）"
+    err "没有任何备份文件（$BACKUP_DIR）—— 建议立即执行 ./backup.sh"
+  fi
+else
+  ok "最新一致备份：$(basename "$LATEST_BUNDLE")（$(date -r "$LATEST_BUNDLE" '+%Y-%m-%d %H:%M')）"
+
+  if gzip -t "$LATEST_BUNDLE" 2>/dev/null; then
+    ok "bundle gzip 结构完整"
+  else
+    err "备份 bundle gzip 结构损坏（可能被截断）"
   fi
 
-  SHA_FILE="${LATEST}.sha256"
+  SHA_FILE="${LATEST_BUNDLE}.sha256"
   if [ -f "$SHA_FILE" ] && command -v sha256sum >/dev/null 2>&1; then
-    EXPECTED="$(awk '{print $1}' "$SHA_FILE" | head -1)"
-    ACTUAL="$(sha256sum "$LATEST" | awk '{print $1}')"
+    EXPECTED="$(awk 'NR==1 {print $1}' "$SHA_FILE")"
+    ACTUAL="$(sha256sum "$LATEST_BUNDLE" | awk '{print $1}')"
     if [ "$EXPECTED" = "$ACTUAL" ]; then
-      ok "SHA256 校验通过"
+      ok "bundle SHA256 校验通过"
     else
-      err "SHA256 不匹配（备份可能被改动）"
+      err "bundle SHA256 不匹配（备份可能被改动）"
     fi
   else
-    warn "没有 .sha256 校验文件（本次备份之前生成，或工具不可用）"
+    warn "bundle 缺少 .sha256 sidecar（完整性保护降级）"
   fi
 
-  AGE_DAYS=$(( ( $(date +%s) - $(date -r "$LATEST" +%s) ) / 86400 ))
+  VERIFY_TMP="$(mktemp -d "${TMPDIR:-/tmp}/v2ex-health.XXXXXX")"
+  chmod 700 "$VERIFY_TMP"
+  if tar --no-same-owner -xzf "$LATEST_BUNDLE" -C "$VERIFY_TMP" 2>/dev/null \
+      && [ -f "$VERIFY_TMP/SHA256SUMS" ] \
+      && [ -f "$VERIFY_TMP/manifest.env" ] \
+      && ( cd "$VERIFY_TMP" && sha256sum -c SHA256SUMS >/dev/null 2>&1 ); then
+    ok "bundle 内 manifest 与成员 SHA256 校验通过"
+  else
+    err "bundle 内成员校验失败（manifest/SHA256SUMS 缺失或不匹配）"
+  fi
+  rm -rf "$VERIFY_TMP"
+
+  AGE_DAYS=$(( ( $(date +%s) - $(date -r "$LATEST_BUNDLE" +%s) ) / 86400 ))
   if [ "$AGE_DAYS" -ge "$BACKUP_STALE_DAYS" ]; then
-    err "最新备份已 ${AGE_DAYS} 天未更新（阈值 ${BACKUP_STALE_DAYS} 天）"
+    err "最新一致备份已 ${AGE_DAYS} 天未更新（阈值 ${BACKUP_STALE_DAYS} 天）"
   else
     ok "备份新鲜度 ${AGE_DAYS} 天"
   fi

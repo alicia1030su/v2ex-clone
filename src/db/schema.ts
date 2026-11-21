@@ -651,7 +651,8 @@ export const nodeRequests = pgTable(
 /**
  * 头像文件元数据
  *
- * 实际图片二进制存于磁盘（public/uploads/avatars/），此表记录元数据与归属。
+ * 实际图片二进制存于 Docker 私有 uploads 卷（/app/data/uploads/avatars/），
+ * 仅通过授权路由 /uploads/* 读取；此表记录元数据与归属。
  * 存储路径由服务端生成（不含用户可控部分），杜绝路径穿越。
  */
 export const avatars = pgTable(
@@ -700,8 +701,8 @@ export const userPreferences = pgTable('user_preferences', {
 /**
  * 回复图片元数据（v0.0.19）
  *
- * 二进制存于 public/uploads/replies/<userId>/<random>.<ext>；
- * 回复成功后通过 reply_id / used_at 标记已使用，未使用文件由受控清理任务回收。
+ * 二进制存于 Docker 私有 uploads 卷（/app/data/uploads/replies/）；
+ * 当前引用由 reply_image_links 维护，reply_id/used_at 仅保留历史归属。
  */
 export const replyImages = pgTable(
   'reply_images',
@@ -710,6 +711,7 @@ export const replyImages = pgTable(
     userId: integer('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    /** 历史归属字段；当前引用关系见 replyImageLinks。 */
     replyId: integer('reply_id').references(() => replies.id, { onDelete: 'set null' }),
     storagePath: varchar('storage_path', { length: 256 }).notNull(),
     originalName: varchar('original_name', { length: 255 }),
@@ -717,14 +719,60 @@ export const replyImages = pgTable(
     size: integer('size').notNull(),
     width: integer('width'),
     height: integer('height'),
+    /** 历史“首次使用”时间；当前引用关系见 replyImageLinks。 */
     usedAt: timestamp('used_at', { withTimezone: true }),
+    state: varchar('state', { length: 16 }).notNull().default('active'),
+    purgeAfter: timestamp('purge_after', { withTimezone: true }),
+    purgedAt: timestamp('purged_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('reply_images_storage_path_uidx').on(t.storagePath),
     index('reply_images_user_created_idx').on(t.userId, t.createdAt),
     index('reply_images_reply_idx').on(t.replyId),
+    index('reply_images_state_purge_idx').on(t.state, t.purgeAfter),
   ],
+);
+
+/** 回复图片的当前引用关系；同一附件可被多回复引用。 */
+export const replyImageLinks = pgTable(
+  'reply_image_links',
+  {
+    replyId: integer('reply_id')
+      .notNull()
+      .references(() => replies.id, { onDelete: 'cascade' }),
+    attachmentId: integer('attachment_id')
+      .notNull()
+      .references(() => replyImages.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.replyId, t.attachmentId] }),
+    index('reply_image_links_attachment_idx').on(t.attachmentId, t.replyId),
+  ],
+);
+
+/**
+ * 附件延迟清理队列（v0.0.20）。
+ *
+ * 数据库状态先撤销，再入队；文件删除由后台 worker 重试。
+ * 这样不会出现“DB 已删但文件删除失败”或“文件已删但 DB 仍可引用”的窗口。
+ */
+export const attachmentPurgeQueue = pgTable(
+  'attachment_purge_queue',
+  {
+    id: serial('id').primaryKey(),
+    storagePath: varchar('storage_path', { length: 256 }).notNull().unique(),
+    kind: varchar('kind', { length: 16 }).notNull(),
+    userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+    purgeAfter: timestamp('purge_after', { withTimezone: true }).notNull().defaultNow(),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
+    lockedBy: varchar('locked_by', { length: 64 }),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('attachment_purge_queue_due_idx').on(t.purgeAfter, t.id)],
 );
 
 /**

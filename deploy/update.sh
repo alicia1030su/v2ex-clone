@@ -789,7 +789,7 @@ if [ -z "$VOLUME_LIST" ]; then
   warn "无法列出数据卷（docker volume ls 无输出），跳过数据卷校验。"
 else
   VOLUME_MISSING=0
-  for v in postgres-data redis-data; do
+  for v in postgres-data redis-data uploads-data; do
     if printf '%s\n' "$VOLUME_LIST" | grep -q -- "$v"; then
       ok "数据卷仍在：$(printf '%s\n' "$VOLUME_LIST" | grep -- "$v" | tr '\n' ' ')"
     else
@@ -801,6 +801,28 @@ else
     rollback "升级后数据卷缺失" "image"
     die "升级后数据卷缺失，已回滚。请立即检查数据卷与备份。"
   fi
+
+  # uploads 必须挂在 public 之外的私有路径，且 app 用户可写。
+  UPGRADE_APP_CID="$(docker compose ps -q app 2>/dev/null || true)"
+  if [ -z "$UPGRADE_APP_CID" ]; then
+    rollback "升级后 app 容器不存在" "image"
+    die "升级后 app 容器不存在，已回滚。"
+  fi
+  UPLOADS_MOUNT="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/app/data/uploads"}}{{.Name}}{{end}}{{end}}' "$UPGRADE_APP_CID")"
+  if [ -z "$UPLOADS_MOUNT" ]; then
+    rollback "升级后 uploads 私有卷未挂载" "image"
+    die "升级后 /app/data/uploads 未挂载 named volume，已回滚。"
+  fi
+  UPLOADS_OWNER="$(docker compose exec -T app stat -c '%u:%g' /app/data/uploads 2>/dev/null | tr -d '[:space:]')"
+  if [ "$UPLOADS_OWNER" != "1001:1001" ]; then
+    rollback "升级后 uploads 属主异常" "image"
+    die "升级后 /app/data/uploads 属主为 ${UPLOADS_OWNER:-unknown}（应为 1001:1001），已回滚。"
+  fi
+  if ! docker compose exec -T app test -w /app/data/uploads >/dev/null 2>&1; then
+    rollback "升级后 uploads 不可写" "image"
+    die "升级后 /app/data/uploads 对 app 用户不可写，已回滚。"
+  fi
+  ok "uploads 私有卷挂载与权限正常：${UPLOADS_MOUNT} / ${UPLOADS_OWNER} / 可写"
 fi
 
 # --- 6.2 管理员账号仍在、口令未被覆盖 -------------------------------------

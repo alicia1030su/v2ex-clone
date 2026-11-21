@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -24,12 +24,22 @@ describe('v0.0.19 回复父子数据契约', () => {
     expect(sql).toContain('CREATE INDEX IF NOT EXISTS rate_limit_sliding_key_time_idx');
   });
 
-  it('journal 与迁移文件数一致', () => {
+  it('journal 与迁移文件按顺序一一对应', () => {
     const journal = JSON.parse(read('drizzle/meta/_journal.json')) as {
       entries: Array<{ idx: number; tag: string }>;
     };
-    const last = journal.entries.at(-1);
-    expect(last).toMatchObject({ idx: 5, tag: '0005_v019_reply_threads' });
+    const migrationFiles = readdirSync(path.join(ROOT, 'drizzle'))
+      .filter((name) => /^\d+_.*\.sql$/.test(name))
+      .sort();
+    const expectedTags = migrationFiles.map((name) => name.replace(/\.sql$/, ''));
+
+    // 不硬编码“最后一个是 0005”：v0.0.20 起允许继续追加迁移。
+    // 不变量是 journal 必须按真实迁移文件顺序完整登记，且 v0.0.19 的 0005 仍在。
+    expect(journal.entries.map((entry) => entry.tag)).toEqual(expectedTags);
+    expect(journal.entries.map((entry) => entry.idx)).toEqual(
+      expectedTags.map((_tag, index) => index),
+    );
+    expect(journal.entries.some((entry) => entry.tag === '0005_v019_reply_threads')).toBe(true);
   });
 
   it('ORM schema 与迁移字段一致', () => {
@@ -40,13 +50,16 @@ describe('v0.0.19 回复父子数据契约', () => {
     expect(schema).toContain("export const replyImages = pgTable(");
   });
 
-  it('回复 API 服务端校验父回复、幂等与图片归属', () => {
+  it('回复 API 通过统一状态机校验父回复、幂等与图片归属', () => {
     const route = read('src/app/api/replies/route.ts');
+    const links = read('src/server/attachment-links.ts');
     expect(route).toContain('loadOwnedReplyByClientRequest');
     expect(route).toContain('PUBLIC_REPLY_CONDITION');
     expect(route).toContain("error: '父回复不存在或不可见'");
     expect(route).toContain('imageIds');
-    expect(route).toContain("eq(schema.replyImages.userId, user.id)");
+    expect(route).toContain('syncReplyImageLinks');
+    expect(links).toContain('eq(schema.replyImages.userId, input.userId)');
+    expect(links).toContain('pg_advisory_xact_lock');
     expect(route).toContain('clientRequestId');
     expect(route).toContain('serializeCreatedReply');
     expect(route).toContain('const MAX_REPLY_PARENT_DEPTH = 32');

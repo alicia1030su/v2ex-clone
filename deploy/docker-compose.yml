@@ -120,16 +120,18 @@ services:
       TRUST_PROXY_HEADERS: '${TRUST_PROXY_HEADERS:-0}'
     ports:
       - '${APP_PORT:-3000}:3000'
-    # v0.0.5：用户上传的头像持久化。
+    # v0.0.20：用户上传文件使用私有卷，URL 由应用授权路由提供。
     #
-    # 背景：头像文件写在 `public/uploads/avatars/<userId>/<hash>.<ext>`，
-    # 属于**运行时用户数据**（.gitignore 里已注明）——
-    # 不挂卷的话，`docker compose down` / 重建容器后头像**全部丢失**。
+    # 背景：文件曾写在 `public/uploads/...`。Next.js 在 `next start` 启动时会
+    # 快照 public 文件，容器重启后静态资源可能绕过 `/uploads/*` 的数据库授权。
+    # 因此 v0.0.20 起迁移到 `/app/data/uploads`；named volume 名称保持不变，
+    # 既有 Docker 卷数据在升级后仍可从新挂载点访问。
     #
-    # 用 named volume（而非 bind mount）避免宿主机路径与权限差异；
-    # 目录属主由 Dockerfile 预创建时设定为 nextjs(1001)。
+    # 目录属主由 Dockerfile 预创建并设为 nextjs(1001)。
     volumes:
-      - uploads-data:/app/public/uploads
+      # 私有上传卷：URL 仍由授权路由 /uploads/* 提供。
+      # 不能挂到 public/，否则 next start 的静态资源可能绕过数据库授权。
+      - uploads-data:/app/data/uploads
     networks:
       - v2ex-net
     healthcheck:

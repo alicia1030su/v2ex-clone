@@ -8,6 +8,7 @@ import {
 } from '@/lib/content-service';
 import { writeAuditLog, AuditAction } from '@/lib/audit';
 import { guardCommunityAction } from '@/lib/community-rate-limit';
+import { AttachmentLinkError } from '@/server/attachment-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,13 +39,21 @@ export async function PUT(
     return NextResponse.json({ ok: false, error: '回复 ID 无效' }, { status: 400 });
   }
 
-  const body = (await request.json().catch(() => null)) as { content?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    content?: string;
+    imageIds?: number[];
+  } | null;
   if (!body || body.content === undefined) {
     return NextResponse.json({ ok: false, error: '没有需要修改的内容' }, { status: 400 });
   }
+  const imageIds = Array.isArray(body.imageIds)
+    ? [...new Set(body.imageIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0))].slice(0, 20)
+    : [];
 
   try {
-    const result = await editReply(user, replyId, { content: body.content });
+    const result = await editReply(user, replyId, { content: body.content, imageIds });
 
     // v0.0.5：补写**操作审计**（同主题编辑 —— 详见该文件的注释）
     await writeAuditLog(user.id, {
@@ -58,6 +67,9 @@ export async function PUT(
   } catch (err) {
     if (err instanceof ContentError) {
       return NextResponse.json({ ok: false, error: err.message }, { status: err.status });
+    }
+    if (err instanceof AttachmentLinkError) {
+      return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
     }
     console.error('[replies] 编辑失败:', err);
     return NextResponse.json({ ok: false, error: '编辑失败，请重试' }, { status: 500 });
