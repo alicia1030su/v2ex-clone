@@ -141,6 +141,7 @@ jobs:
           cd "${{ github.workspace }}"
           cat > .env.opscheck <<'EOF'
           POSTGRES_USER=v2ex
+          COMPOSE_PROJECT_NAME=v2ex-clone
           POSTGRES_PASSWORD=ci-postgres-password-not-real
           POSTGRES_DB=v2ex_ops
           REDIS_PASSWORD=ci-redis-password-not-real

@@ -60,6 +60,8 @@ read_env_value() {
   grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/^["'"'"']//; s/["'"'"']$//'
 }
 APP_PORT="$(read_env_value APP_PORT)"; APP_PORT="${APP_PORT:-3000}"
+READY_TMP="$(mktemp "${TMPDIR:-/tmp}/v2ex-health-ready.XXXXXX")"
+trap 'rm -f "$READY_TMP"' EXIT
 
 cd "$SCRIPT_DIR" || exit 1
 
@@ -77,8 +79,12 @@ fi
 
 info ""
 info "${C_BLD}容器状态${C_RST}"
+APP_CID=""
 for svc in app postgres redis; do
   cid="$(docker compose --env-file "$ENV_FILE" ps -q "$svc" 2>/dev/null | head -1)"
+  if [ "$svc" = "app" ]; then
+    APP_CID="$cid"
+  fi
   if [ -z "$cid" ]; then
     err "$svc 容器不存在（未启动？）"
     continue
@@ -99,17 +105,22 @@ done
 set +e
 docker compose --env-file "$ENV_FILE" exec -T app test -e /app/public/uploads >/dev/null 2>&1
 LEGACY_UPLOADS_RC=$?
-set -e
 case "$LEGACY_UPLOADS_RC" in
   0) err "app 容器存在 legacy /app/public/uploads 静态上传目录（可能绕过授权）" ;;
-  1) ok "不存在 legacy /app/public/uploads 静态上传目录" ;;
+  1)
+    if [ -n "$APP_CID" ]; then
+      ok "不存在 legacy /app/public/uploads 静态上传目录"
+    else
+      err "无法检查 app 容器 legacy /app/public/uploads（app 容器上下文不可用）"
+    fi
+    ;;
   *) err "无法检查 app 容器 legacy /app/public/uploads（退出码 ${LEGACY_UPLOADS_RC}）" ;;
 esac
 
 # --- 2. 应用就绪探针 --------------------------------------------------------
 info ""
 info "${C_BLD}应用就绪${C_RST}"
-READY_CODE="$(curl -s -o /tmp/v2ex-health.json -w '%{http_code}' --max-time 8 "http://127.0.0.1:${APP_PORT}/api/health/ready" 2>/dev/null || echo 000)"
+READY_CODE="$(curl -s -o "$READY_TMP" -w '%{http_code}' --max-time 8 "http://127.0.0.1:${APP_PORT}/api/health/ready" 2>/dev/null || echo 000)"
 if [ "$READY_CODE" = "200" ]; then
   ok "就绪探针 HTTP 200"
 elif [ "$READY_CODE" = "503" ]; then
@@ -270,7 +281,7 @@ if [ "$PROBLEMS" -gt 0 ]; then
   exit 1
 elif [ "$WARNINGS" -gt 0 ]; then
   printf '%s体检结果：全部关键项正常，%s 个告警%s\n' "$C_YEL" "$WARNINGS" "$C_RST"
-  exit 0
+  exit 1
 else
   printf '%s体检结果：全部正常%s\n' "$C_GRN" "$C_RST"
   exit 0
