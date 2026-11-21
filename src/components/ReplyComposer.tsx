@@ -40,6 +40,22 @@ type ReplyResponse = {
 const DRAFT_PREFIX = 'v2ex-reply-draft:';
 const IMAGE_MARKDOWN_PREFIX = '![图片](';
 
+/**
+ * 跨浏览器读取 DataTransfer 中的文件。
+ *
+ * Firefox 在部分合成/真实路径下会把 File 放在 `items` 里，而 `files` 仍为空；
+ * 只读 `.files` 会表现为“粘贴/拖拽完全没反应”。因此先读 files，再回退 items。
+ */
+function filesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
+  if (!dataTransfer) return [];
+  const direct = Array.from(dataTransfer.files ?? []);
+  if (direct.length > 0) return direct;
+  return Array.from(dataTransfer.items ?? [])
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null);
+}
+
 export default function ReplyComposer({
   topicId,
   topicLocked,
@@ -277,7 +293,7 @@ export default function ReplyComposer({
         onDrop={(event) => {
           event.preventDefault();
           setDragging(false);
-          void uploadFiles([...event.dataTransfer.files]);
+          void uploadFiles(filesFromDataTransfer(event.dataTransfer));
         }}
       >
         <textarea
@@ -293,7 +309,7 @@ export default function ReplyComposer({
           disabled={topicLocked}
           onChange={(event) => updateContent(event.target.value)}
           onPaste={(event) => {
-            const files = [...event.clipboardData.files].filter((file) => file.type.startsWith('image/'));
+            const files = filesFromDataTransfer(event.clipboardData).filter((file) => file.type.startsWith('image/'));
             if (files.length > 0) {
               event.preventDefault();
               void uploadFiles(files);

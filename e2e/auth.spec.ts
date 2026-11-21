@@ -99,16 +99,20 @@ test.describe('账号体系', () => {
   });
 
   test('登录限流生效', async ({ page }) => {
-    const ip = '127.0.0.1';
+    await clearRateLimits(page);
+    const username = `ratelimit_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     let sawRateLimit = false;
 
-    for (let i = 0; i < 15; i++) {
-      const res = await apiPost(page, '/api/auth/signin', { username: `ratelimit_${ip}`, password: 'wrong-password' });
+    // 固定窗口可能在尝试中途跨过整分钟边界。30 次尝试保证即使发生一次边界，
+    // 新窗口内仍会有足够请求超过阈值；这不是放宽阈值，而是消除测试窗口竞态。
+    for (let i = 0; i < 30; i++) {
+      const res = await apiPost(page, '/api/auth/signin', { username, password: 'wrong-password' });
       if (res.status() === 429) {
         sawRateLimit = true;
         expect(res.headers()['retry-after']).toBeTruthy();
         break;
       }
+      expect(res.status(), '触发 429 前的错误登录必须真实到达鉴权路径').toBe(401);
     }
 
     expect(sawRateLimit, '连续错误登录应触发 429 限流').toBe(true);

@@ -223,11 +223,11 @@ test.describe('v0.0.19 回复与主题体验', () => {
     await page.locator('#reply-content').evaluate((el, payload) => {
       const transfer = new DataTransfer();
       transfer.items.add(new File([new Uint8Array(payload.bytes)], payload.name, { type: 'image/png' }));
-      el.dispatchEvent(new ClipboardEvent('paste', {
-        clipboardData: transfer,
-        bubbles: true,
-        cancelable: true,
-      }));
+      // Firefox 的 ClipboardEvent 构造器不保留传入的 clipboardData；
+      // 用标准 Event + 显式属性模拟浏览器原生 paste，三引擎语义一致。
+      const event = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', { value: transfer });
+      el.dispatchEvent(event);
     }, { bytes, name: 'paste.png' });
     await expect
       .poll(() => page.locator('#reply-content').inputValue().then((value) => (value.match(/!\[图片\]/g) ?? []).length))
@@ -236,11 +236,10 @@ test.describe('v0.0.19 回复与主题体验', () => {
     await page.locator('.reply-composer-drop').evaluate((el, payload) => {
       const transfer = new DataTransfer();
       transfer.items.add(new File([new Uint8Array(payload.bytes)], payload.name, { type: 'image/png' }));
-      el.dispatchEvent(new DragEvent('drop', {
-        dataTransfer: transfer,
-        bubbles: true,
-        cancelable: true,
-      }));
+      // 与 paste 同理：不依赖各浏览器对 DragEvent 构造参数的支持差异。
+      const event = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'dataTransfer', { value: transfer });
+      el.dispatchEvent(event);
     }, { bytes, name: 'drop.png' });
     await expect
       .poll(() => page.locator('#reply-content').inputValue().then((value) => (value.match(/!\[图片\]/g) ?? []).length))
