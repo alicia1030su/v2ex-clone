@@ -202,6 +202,19 @@ async function signUp(context, user) {
   return { page, ok, url };
 }
 
+/** 用浏览器会话持有的 CSRF Cookie 调真实 API（生产模式调试端点不可用）。 */
+async function apiPostCsrf(page, path, data) {
+  const token = await page.evaluate(() => {
+    const m = document.cookie.match(/(?:^|; )v2_csrf=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  });
+  if (!token) throw new Error(`读取 CSRF Cookie 失败：${page.url()}`);
+  return page.request.post(`${APP_URL}${path}`, {
+    headers: { 'content-type': 'application/json', 'x-csrf-token': token },
+    data,
+  });
+}
+
 async function main() {
   mkdirSync(ARTIFACT_DIR, { recursive: true });
 
@@ -210,6 +223,7 @@ async function main() {
     a: { username: `accA${stamp}`, email: `accA${stamp}@example.test`, password: 'Accept-A-2026!' },
     b: { username: `accB${stamp}`, email: `accB${stamp}@example.test`, password: 'Accept-B-2026!' },
     m: { username: `accM${stamp}`, email: `accM${stamp}@example.test`, password: 'Accept-M-2026!' },
+    v: { username: `accV${stamp}`, email: `accV${stamp}@example.test`, password: 'Accept-V-2026!' },
   };
 
   const browser = await chromium.launch({ channel: CHANNEL, headless: HEADLESS });
@@ -217,9 +231,10 @@ async function main() {
   const ctxA = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' });
   const ctxB = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' });
   const ctxM = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' });
+  const ctxV = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' });
 
   const consoleErrors = [];
-  for (const ctx of [guestCtx, ctxA, ctxB, ctxM]) {
+  for (const ctx of [guestCtx, ctxA, ctxB, ctxM, ctxV]) {
     ctx.on('page', (p) => {
       p.on('console', (m) => {
         if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 160));
@@ -601,7 +616,122 @@ async function main() {
       ? pass('两个独立会话同时在线', '双方导航栏都有各自的个人主页链接')
       : fail('两个独立会话同时在线', `A=${aName} B=${bName}`);
 
-    // ── ⑥ 页面健康（验收视角的最后一关） ──
+    // ── ⑦ v0.0.19 回复与主题专项（只针对已发布安装包） ──
+    console.log('\n⑦ v0.0.19 回复与主题专项');
+    const regV = await signUp(ctxV, U.v);
+    regV.ok ? pass('v0.0.19 专项用户注册并登录', regV.url.replace(APP_URL, '')) : fail('v0.0.19 专项用户注册并登录', regV.url);
+    const pageV = regV.page;
+
+    const topicRes = await apiPostCsrf(pageV, '/api/topics', {
+      nodeId,
+      title: `v0.0.19 专项主题 ${stamp}`,
+      content: '正式安装包上的父子回复、七种展示模式、三态主题与回复图片验收正文。',
+    });
+    const topicBody = await topicRes.json().catch(() => ({}));
+    const topicV = Number(topicBody.topicId ?? topicBody.id ?? String(topicBody.redirect ?? '').replace('/t/', ''));
+    Number.isInteger(topicV) && topicV > 0
+      ? pass('v0.0.19 专项发帖', `topicId=${topicV}`)
+      : fail('v0.0.19 专项发帖', `HTTP ${topicRes.status()} / ${JSON.stringify(topicBody).slice(0, 160)}`);
+
+    const parentRes = await apiPostCsrf(pageV, '/api/replies', {
+      topicId: topicV,
+      content: '正式包父子回复：父楼层内容',
+      clientRequestId: `official-parent-${stamp}`,
+    });
+    const parentBody = await parentRes.json().catch(() => ({}));
+    const parentReplyV = Number(parentBody.replyId);
+    Number.isInteger(parentReplyV) && parentReplyV > 0
+      ? pass('v0.0.19 父回复写入', `replyId=${parentReplyV}`)
+      : fail('v0.0.19 父回复写入', `HTTP ${parentRes.status()} / ${JSON.stringify(parentBody).slice(0, 160)}`);
+
+    const childRes = await apiPostCsrf(pageV, '/api/replies', {
+      topicId: topicV,
+      content: '正式包父子回复：子楼层内容',
+      parentReplyId: parentReplyV,
+      clientRequestId: `official-child-${stamp}`,
+    });
+    const childBody = await childRes.json().catch(() => ({}));
+    const childReplyV = Number(childBody.replyId);
+    const childParentDb = childReplyV > 0
+      ? sql(`select parent_reply_id from replies where id=${childReplyV};`)
+      : '';
+    Number.isInteger(childReplyV) && childReplyV > 0 && Number(childParentDb) === parentReplyV
+      ? pass('v0.0.19 子回复真实关联父楼层', `child=${childReplyV} -> parent=${parentReplyV}`)
+      : fail('v0.0.19 子回复真实关联父楼层', `HTTP ${childRes.status()} / db.parent=${childParentDb}`);
+
+    await gotoStable(pageV, `${APP_URL}/t/${topicV}`, { waitUntil: 'networkidle' });
+    const modeSelect = pageV.locator('#reply-display-mode');
+    const modes = ['classic', 'quote', 'badge', 'nested', 'tree', 'lines', 'excerpt'];
+    for (const mode of modes) {
+      await modeSelect.selectOption(mode);
+      const visible = await pageV.locator(`.reply-list-${mode}`).isVisible().catch(() => false);
+      if (!visible) fail('v0.0.19 七种回复展示模式', `${mode} 未生效`);
+    }
+    pass('v0.0.19 七种回复展示模式', modes.join(' / '));
+
+    await modeSelect.selectOption('classic');
+    const classicParentRefs = await pageV.locator('.reply-parent-reference').count();
+    await modeSelect.selectOption('quote');
+    const quoteParentRefs = await pageV.locator('.reply-parent-reference').count();
+    classicParentRefs === 0 && quoteParentRefs > 0
+      ? pass('v0.0.19 经典模式无父引用、引用模式显示父引用', `classic=${classicParentRefs} / quote=${quoteParentRefs}`)
+      : fail('v0.0.19 父引用模式语义', `classic=${classicParentRefs} / quote=${quoteParentRefs}`);
+
+    const themeSelect = pageV.getByLabel('主题外观');
+    await themeSelect.selectOption('dark');
+    await pageV.waitForFunction(
+      () => document.documentElement.dataset.theme === 'dark' && document.documentElement.dataset.effectiveTheme === 'dark',
+      null,
+      { timeout: 5_000 },
+    );
+    let themeCookie = '';
+    for (let i = 0; i < 30; i += 1) {
+      themeCookie = (await pageV.context().cookies()).find((c) => c.name === 'v2_theme')?.value ?? '';
+      if (themeCookie === 'dark') break;
+      await pageV.waitForTimeout(100);
+    }
+    themeCookie === 'dark' ? pass('v0.0.19 Dark 主题即时生效并写 Cookie', 'v2_theme=dark') : fail('v0.0.19 Dark 主题持久化', `cookie=${themeCookie || 'missing'}`);
+    await pageV.reload({ waitUntil: 'domcontentloaded' });
+    await pageV.waitForFunction(
+      () => document.documentElement.dataset.theme === 'dark' && document.documentElement.dataset.effectiveTheme === 'dark',
+      null,
+      { timeout: 5_000 },
+    );
+    pass('v0.0.19 Dark 主题刷新后保持', 'SSR 首屏属性正确');
+
+    await themeSelect.selectOption('light');
+    await pageV.waitForFunction(() => document.documentElement.dataset.theme === 'light', null, { timeout: 5_000 });
+    pass('v0.0.19 Light 主题即时生效', 'data-theme=light');
+    await pageV.emulateMedia({ colorScheme: 'dark' });
+    await themeSelect.selectOption('system');
+    await pageV.waitForFunction(
+      () => document.documentElement.dataset.theme === 'system' && document.documentElement.dataset.effectiveTheme === 'dark',
+      null,
+      { timeout: 5_000 },
+    );
+    pass('v0.0.19 System 主题跟随系统', 'prefers-color-scheme=dark -> effective=dark');
+
+    const tinyPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+    const recentBeforeV = await pageV.locator('.reply-recent-thumb').count();
+    await pageV.locator('input[type=file]').setInputFiles({
+      name: 'official-v019.png',
+      mimeType: 'image/png',
+      buffer: tinyPng,
+    });
+    await pageV.waitForFunction(
+      () => (document.querySelector('#reply-content')?.value ?? '').includes('![图片](/uploads/replies/'),
+      null,
+      { timeout: 10_000 },
+    );
+    const recentAfterV = await pageV.locator('.reply-recent-thumb').count();
+    recentAfterV === recentBeforeV + 1
+      ? pass('v0.0.19 回复图片上传并插入 Markdown', `recent ${recentBeforeV} -> ${recentAfterV}`)
+      : fail('v0.0.19 回复图片最近列表', `${recentBeforeV} -> ${recentAfterV}`);
+
+    // ── ⑧ 页面健康（验收视角的最后一关） ──
     const overflow = await Promise.all(
       [pageA, pageB, pageM].map((p) =>
         p.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - document.documentElement.clientWidth),
@@ -616,6 +746,7 @@ async function main() {
     await pageA.screenshot({ path: path.join(ARTIFACT_DIR, 'A-topic.png'), fullPage: false }).catch(() => {});
     await pageB.screenshot({ path: path.join(ARTIFACT_DIR, 'B-inbox.png'), fullPage: false }).catch(() => {});
     await pageM.screenshot({ path: path.join(ARTIFACT_DIR, 'M-dashboard.png'), fullPage: false }).catch(() => {});
+    await pageV.screenshot({ path: path.join(ARTIFACT_DIR, 'V-v019-topic.png'), fullPage: false }).catch(() => {});
   } finally {
     await browser.close();
   }
