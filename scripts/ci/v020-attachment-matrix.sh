@@ -225,16 +225,13 @@ echo "  owner_id=${OWNER_ID} other_id=${OTHER_ID}"
 echo '===== [A3] 启动真实反向代理 ====='
 NETWORK=$(docker inspect v2ex-app --format '{{range $name,$_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
 cat > /tmp/v020-nginx.conf <<'NGINX'
-events {}
-http {
-  server {
-    listen 80;
-    location / {
-      proxy_pass http://v2ex-app:3000;
-      proxy_set_header Host $host;
-      proxy_set_header X-Forwarded-For $remote_addr;
-      proxy_set_header Cookie $http_cookie;
-    }
+server {
+  listen 80;
+  location / {
+    proxy_pass http://v2ex-app:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header Cookie $http_cookie;
   }
 }
 NGINX
