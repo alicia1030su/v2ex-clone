@@ -11,6 +11,7 @@ import { LeaseStore, OwnershipLease } from '../../tools/dev-memory/lib/ownership
 import { ProcessTable, verifyProcessIdentity } from '../../tools/dev-memory/lib/process-table.mjs';
 import { LinuxProcessTable } from '../../tools/dev-memory/lib/process-table-linux.mjs';
 import { WorktreeIdentityService } from '../../tools/dev-memory/lib/worktree.mjs';
+import { ReportStore } from '../../tools/dev-memory/report-store.mjs';
 import { RunOrchestrator } from '../../tools/dev-memory/run.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -354,6 +355,36 @@ describe('QA independent monitor failure handling', () => {
     expect(fs.existsSync(path.join(reports.directory, 'cleanup.json'))).toBe(true);
     expect(reports.cleanup.decision).not.toBe('ABORTED');
     expect(rootAliveAfterRun).toBe(false);
+  }, 20_000);
+
+  it('still cleans the child when writing the monitor report fails', async () => {
+    const directory = temporaryDirectory('wb qa monitor report failure ');
+    const jsonDir = path.join(directory, 'reports');
+    const realReportStore = new ReportStore();
+    const reportStore = {
+      writeAtomic(filePath: string, value: unknown) {
+        if (filePath.endsWith('monitor.json')) throw new Error('INJECTED_REPORT_WRITE_FAILURE');
+        realReportStore.writeAtomic(filePath, value);
+      },
+      read: realReportStore.read.bind(realReportStore),
+    };
+    const orchestrator = new RunOrchestrator({ reportStore });
+    try {
+      const exitCode = await orchestrator.run({
+        profile: 'vitest',
+        command: [process.execPath, '-e', 'setTimeout(()=>{},800)'],
+        worktree: ROOT,
+        jsonDir,
+        quiet: true,
+      });
+      expect(exitCode).toBe(3);
+      const runDir = runDirectories(jsonDir)[0];
+      const lease = JSON.parse(fs.readFileSync(path.join(runDir, 'lease.json'), 'utf8'));
+      expect(fs.existsSync(path.join(runDir, 'cleanup.json'))).toBe(true);
+      expect(orchestrator.processTable.snapshotOne(lease.root.pid)).toBeNull();
+    } finally {
+      orchestrator.processTable.impl?.dispose?.();
+    }
   }, 20_000);
 
   it('requires command in the monitor JSON schema', () => {
