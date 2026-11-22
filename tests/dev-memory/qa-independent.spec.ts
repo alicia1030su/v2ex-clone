@@ -489,13 +489,13 @@ describe('QA independent supervisor boundaries', () => {
     }
   }, 20_000);
 
-  it('can launch npm through the same exact-argv path used by package low entries', async () => {
-    const directory = temporaryDirectory('wb qa npm spawn ');
+  it('launches the direct Next binary used by the cross-platform low entries', async () => {
+    const directory = temporaryDirectory('wb qa direct next spawn ');
     const orchestrator = new RunOrchestrator();
     try {
       const exitCode = await orchestrator.run({
         profile: 'vitest',
-        command: ['npm', '--version'],
+        command: [process.execPath, 'node_modules/next/dist/bin/next', '--version'],
         worktree: ROOT,
         jsonDir: path.join(directory, 'reports'),
         quiet: true,
