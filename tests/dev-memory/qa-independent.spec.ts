@@ -17,7 +17,76 @@ import { RunOrchestrator } from '../../tools/dev-memory/run.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const children = new Set<ChildProcess>();
-const tempDirectories = new Set<string>();
+
+interface TempDirectoryIdentity {
+  dev: bigint;
+  ino: bigint;
+  birthtimeMs: number;
+}
+
+const tempDirectories = new Map<string, TempDirectoryIdentity>();
+
+function isStrictlyInside(parent: string, candidate: string) {
+  const relative = path.relative(parent, candidate);
+  return relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative);
+}
+
+function lstatDirectory(directory: string) {
+  return fs.lstatSync(directory, { bigint: true });
+}
+
+function assertSafeTempDirectory(directory: string, expected: TempDirectoryIdentity) {
+  const current = lstatDirectory(directory);
+  if (!current.isDirectory() || current.isSymbolicLink()) {
+    throw new Error(`QA temporary path is no longer a real directory: ${directory}`);
+  }
+  if (
+    current.dev !== expected.dev ||
+    current.ino !== expected.ino ||
+    current.birthtimeMs !== expected.birthtimeMs
+  ) {
+    throw new Error(`QA temporary directory identity changed: ${directory}`);
+  }
+
+  const temporaryRoot = fs.realpathSync(os.tmpdir());
+  const resolvedDirectory = fs.realpathSync(directory);
+  if (!isStrictlyInside(temporaryRoot, resolvedDirectory)) {
+    throw new Error(`QA temporary directory escaped os.tmpdir(): ${directory}`);
+  }
+  return resolvedDirectory;
+}
+
+function cleanupTemporaryDirectories() {
+  const errors: string[] = [];
+  for (const [directory, expected] of tempDirectories) {
+    try {
+      let current: fs.BigIntStats;
+      try {
+        current = lstatDirectory(directory);
+      } catch (error) {
+        if (error?.code === 'ENOENT') {
+          tempDirectories.delete(directory);
+          continue;
+        }
+        throw error;
+      }
+      if (!current.isDirectory() || current.isSymbolicLink()) {
+        throw new Error(`QA temporary path is no longer a real directory: ${directory}`);
+      }
+      const resolvedDirectory = assertSafeTempDirectory(directory, expected);
+      fs.rmSync(resolvedDirectory, { recursive: true, force: false });
+      tempDirectories.delete(directory);
+    } catch (error) {
+      errors.push(`${directory}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, 'Unsafe QA temporary directory cleanup');
+  }
+}
 
 afterEach(() => {
   for (const child of children) {
@@ -30,15 +99,20 @@ afterEach(() => {
     }
   }
   children.clear();
-  for (const directory of tempDirectories) {
-    fs.rmSync(directory, { recursive: true, force: true });
-  }
-  tempDirectories.clear();
+  cleanupTemporaryDirectories();
 });
 
 function temporaryDirectory(prefix: string) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  tempDirectories.add(directory);
+  const stats = lstatDirectory(directory);
+  if (!stats.isDirectory() || stats.isSymbolicLink()) {
+    throw new Error(`QA temporary directory was not created as a real directory: ${directory}`);
+  }
+  tempDirectories.set(directory, {
+    dev: stats.dev,
+    ino: stats.ino,
+    birthtimeMs: stats.birthtimeMs,
+  });
   return directory;
 }
 
