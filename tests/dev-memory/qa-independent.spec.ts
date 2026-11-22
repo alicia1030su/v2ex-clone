@@ -168,6 +168,27 @@ describe('QA independent budget boundaries', () => {
     expect(result.unsafe).toBe(false);
   });
 
+  it('fails closed when an existing cgroup limit cannot be read', () => {
+    const probe = new MemoryProbe({
+      platform: 'linux',
+      cgroupRoot: '/cg',
+      procRoot: '/proc',
+      os: {
+        totalmem: () => 8192 * MIB,
+        freemem: () => 4096 * MIB,
+      },
+      fs: {
+        existsSync: (filePath) => String(filePath) === '/cg/memory.max',
+        readFileSync: () => {
+          throw Object.assign(new Error('EACCES'), { code: 'EACCES' });
+        },
+      },
+    });
+    const snapshot = probe.probe();
+
+    expect(snapshot.errors.join('\n')).toContain('CGROUP_LIMIT_UNMEASURABLE');
+  });
+
   it('fails closed when cgroup current usage cannot be read for a finite limit', () => {
     const files = new Map<string, string>([['/cg/memory.max', '4294967296\n']]);
     const probe = new MemoryProbe({
