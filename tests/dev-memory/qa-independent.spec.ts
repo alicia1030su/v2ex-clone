@@ -10,6 +10,7 @@ import { ProcessMonitor } from '../../tools/dev-memory/lib/monitor-core.mjs';
 import { LeaseStore, OwnershipLease } from '../../tools/dev-memory/lib/ownership-lease.mjs';
 import { ProcessTable, verifyProcessIdentity } from '../../tools/dev-memory/lib/process-table.mjs';
 import { LinuxProcessTable } from '../../tools/dev-memory/lib/process-table-linux.mjs';
+import { SafeCleaner } from '../../tools/dev-memory/lib/safe-cleaner.mjs';
 import { WorktreeIdentityService } from '../../tools/dev-memory/lib/worktree.mjs';
 import { ReportStore } from '../../tools/dev-memory/report-store.mjs';
 import { RunOrchestrator } from '../../tools/dev-memory/run.mjs';
@@ -272,6 +273,54 @@ describe('QA independent identity fencing', () => {
     malformed.root.exe = null;
 
     expect(() => OwnershipLease.validate(malformed)).toThrow(/identity/i);
+  });
+
+  it('aborts without signaling when the root identity changes after a descendant exits', async () => {
+    const root = processIdentity();
+    const child = processIdentity({
+      pid: 101,
+      ppid: 100,
+      start_time: '2026-01-01T00:00:01.000Z',
+      start_ticks: 1001,
+      identity_hash: 'sha256:child',
+    });
+    const reusedRoot = processIdentity({
+      start_ticks: 9999,
+      start_time: '2026-01-02T00:00:00.000Z',
+      identity_hash: 'sha256:reused-root',
+    });
+    const live = new Map<number, Record<string, unknown>>([[100, root], [101, child]]);
+    const signals: Array<[number, string]> = [];
+    const processTable = {
+      snapshotOne: (pid: number) => live.get(pid) ?? null,
+      snapshotFresh: () => [...live.values()],
+      isAlive: (pid: number) => live.has(pid),
+      signal: (pid: number, signal: string) => {
+        signals.push([pid, signal]);
+        if (pid === 101) {
+          live.delete(101);
+          live.set(100, reusedRoot);
+        } else {
+          live.delete(pid);
+        }
+      },
+    };
+    const cleaner = new SafeCleaner({
+      processTable,
+      protectedRegistry: { snapshot: () => [], assertNoProtectedTargets: () => undefined },
+      leaseStore: {
+        verifyCurrentWorktree: () => ({ ok: true }),
+        update: () => undefined,
+      },
+      graceMs: 10,
+      pollMs: 1,
+    });
+
+    const report = await cleaner.cleanup(lease(root), 'root-changed-after-child');
+
+    expect(report.decision).toBe('ABORTED');
+    expect(report.errors).toContain('IDENTITY_MISMATCH:100');
+    expect(signals).toEqual([[101, 'SIGTERM']]);
   });
 });
 
