@@ -190,6 +190,36 @@ describe('QA independent budget boundaries', () => {
     expect(snapshot.errors.join('\n')).toContain('CGROUP_LIMIT_UNMEASURABLE');
   });
 
+  it('fails closed when the process cgroup path cannot be read', () => {
+    const files = new Map<string, string>([
+      ['/cg/memory.max', 'max\n'],
+      ['/cg/memory.current', '1048576\n'],
+    ]);
+    const probe = new MemoryProbe({
+      platform: 'linux',
+      cgroupRoot: '/cg',
+      procRoot: '/proc',
+      os: {
+        totalmem: () => 8192 * MIB,
+        freemem: () => 4096 * MIB,
+      },
+      fs: {
+        existsSync: (filePath) => files.has(String(filePath)) || String(filePath) === '/proc/self/cgroup',
+        readFileSync: (filePath) => {
+          if (String(filePath) === '/proc/self/cgroup') {
+            throw Object.assign(new Error('EACCES'), { code: 'EACCES' });
+          }
+          const value = files.get(String(filePath));
+          if (value === undefined) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          return value;
+        },
+      },
+    });
+    const snapshot = probe.probe();
+
+    expect(snapshot.errors.join('\n')).toMatch(/CGROUP/);
+  });
+
   it('fails closed when cgroup current usage cannot be read for a finite limit', () => {
     const files = new Map<string, string>([['/cg/memory.max', '4294967296\n']]);
     const probe = new MemoryProbe({
