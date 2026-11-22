@@ -1,80 +1,155 @@
 classDiagram
     direction LR
 
-    class ResolvedTestEnv {
-        +string databaseUrl
-        +string endpoint
-        +string database
-        +string fingerprint
-        +string source
+    class RunOrchestrator {
+      +run(options) Promise~number~
+      +spawnExact(command) ChildProcess
+      +bindLease(child) OwnershipLease
+      +handleSignal(signal) void
+    }
+    class PreflightService {
+      +preflight(profile, worktree, command) PreflightReport
+    }
+    class MemoryProbe {
+      +probe() MemorySnapshot
+      +readCgroup() CgroupSnapshot
+      +machineId() string
+    }
+    class BudgetPlanner {
+      +plan(snapshot, profile, activeBudgets) BudgetPlan
+      +deriveRuntime(plan) RuntimeDerivation
+      +acquireSlot(runId, plan) void
+      +releaseSlot(runId) void
+    }
+    class ProcessTable {
+      <<interface>>
+      +snapshot() ProcessInfo[]
+      +snapshotOne(pid) ProcessInfo
+      +isAlive(pid) boolean
+    }
+    class LinuxProcessTable
+    class WindowsProcessTable
+    class OwnershipLease {
+      +runId string
+      +worktree WorktreeIdentity
+      +root ProcessIdentity
+      +observed ProcessIdentity[]
+      +protected ProcessIdentity[]
+      +state LeaseState
+    }
+    class LeaseStore {
+      +create(input) OwnershipLease
+      +read(path) OwnershipLease
+      +update(path, lease) void
+      +verifyCurrentWorktree(lease) boolean
+    }
+    class ProtectedProcessRegistry {
+      +snapshot() ProcessIdentity[]
+      +assertNoProtectedTargets(targets) void
+    }
+    class ProcessMonitor {
+      +sample(lease) MonitorSample
+      +run(lease, reportPath) Promise~MonitorReport~
+      +summarize(samples) MonitorSummary
+    }
+    class SafeCleaner {
+      +cleanup(lease, reason) CleanupReport
+      +verifyIdentity(target, fresh) boolean
+      +confirmDescendants(root) ProcessInfo[]
+    }
+    class ReportStore {
+      +writeAtomic(path, value) void
+      +read(path) object
+    }
+    class BenchmarkRunner {
+      +run(task, mode, count) BenchmarkResult
+      +evaluate(before, after) AcceptanceResult
     }
 
-    class TestEnvResolver {
-        +static resolve(options) ResolvedTestEnv
-        +static fingerprintOf(url) string
-        +static ensureLocalEnvFile() void
-        +static loadFile(path) Record~string,string~
+    class VisualPageSpec {
+      +pageClass string
+      +routes string[]
+      +states string[]
+      +roles string[]
+      +probes string[]
+    }
+    class ReferenceManifestEntry {
+      +referenceId string
+      +kind ReferenceKind
+      +legalBasis string
+      +eligibleForOfficialPixelClaim boolean
+    }
+    class ProbeSuite {
+      +geometry(page) object
+      +computedStyle(page) object
+      +domA11y(page) object
+      +interaction(page) object
+      +responsive(page) object
+    }
+    class EvidenceBundle {
+      +gapId string
+      +phase BeforeOrAfter
+      +metadata object
+      +files string[]
+      +sha256 string
+    }
+    class FidelityMatrixRecord {
+      +gapId string
+      +pageClass string
+      +viewport string
+      +layer string
+      +classification string
+      +severity string
+      +status string
+      +p0Blocking boolean
+      +closureAllowed boolean
+    }
+    class MatrixStore {
+      +generate(specs) FidelityMatrixRecord[]
+      +upsert(record) void
+      +validate() ValidationResult
+      +renderMarkdown() string
+    }
+    class VisualAuditRunner {
+      +run(options) Promise~number~
+      +loadFixtures() void
+      +capture(record, phase) EvidenceBundle
+    }
+    class SuiteBaselineGate {
+      +assertUnit(count) void
+      +assertStatic(count) void
+      +assertChromiumE2E(count) void
+      +assertCrossBrowser(shards) void
+      +assertCandidateAcceptance(items) void
+    }
+    class ReleaseGate {
+      +verifyVersionCarriers() void
+      +verifyRiskDecision(version) void
+      +assertNoPrematureRelease() void
     }
 
-    class TestDbGuard {
-        +static assertSafeTestTarget(databaseUrl, dbName) void
-        +static assertEndpointAllowed(endpoint) void
-        +static assertDatabaseAllowed(dbName) void
-        +static isDeletableTestDatabase(dbName) boolean
-        +static isProtectedEvidenceDatabase(dbName) boolean
-    }
+    RunOrchestrator --> PreflightService
+    PreflightService --> MemoryProbe
+    PreflightService --> BudgetPlanner
+    RunOrchestrator --> LeaseStore
+    RunOrchestrator --> ProcessMonitor
+    RunOrchestrator --> SafeCleaner
+    LeaseStore --> OwnershipLease
+    ProcessMonitor --> ProcessTable
+    SafeCleaner --> ProcessTable
+    SafeCleaner --> ProtectedProcessRegistry
+    SafeCleaner --> LeaseStore
+    ProcessTable <|.. LinuxProcessTable
+    ProcessTable <|.. WindowsProcessTable
+    BenchmarkRunner --> RunOrchestrator
+    BenchmarkRunner --> ReportStore
+    ProcessMonitor --> ReportStore
+    SafeCleaner --> ReportStore
 
-    class DbPhaseTiming {
-        +string file
-        +string db
-        +string endpoint
-        +number dropMs
-        +number createMs
-        +number migrateMs
-        +number seedMs
-        +number totalMs
-    }
-
-    class TestDbLifecycle {
-        +provisionTestDatabase(options) Promise~DbPhaseTiming~
-        +dropTestDatabase(adminUrl, dbName) Promise~void~
-        +createTestDatabase(adminUrl, dbName, template) Promise~void~
-        +runMigrate(childEnv) void
-        +runSeed(childEnv) void
-    }
-
-    class LocalBinRunner {
-        +runDrizzleKit(args, env) string
-        +runTsx(scriptPath, env) string
-        +buildChildEnv(dbName) NodeJS.ProcessEnv
-        +static resolvePackageBin(pkgName) object
-    }
-
-    class PgInstanceManager {
-        +string pgDataDir
-        +number port
-        +string baseUrl
-        +initInstance() void
-        +ensureRunning() boolean
-        +isAlive() boolean
-        +stopInstance(mode) void
-        +listOccupiedPids() number[]
-        +cleanupTestDatabases(pattern) string[]
-    }
-
-    class TestSpecBase {
-        +string TEST_DB
-        +adminUrlFor(dbName) string
-        +testDatabaseUrl(dbName) string
-    }
-    <<interface>> TestSpecBase
-
-    ResolvedTestEnv <-- TestEnvResolver : creates
-    TestEnvResolver ..> TestDbGuard : uses endpoint/db allowlist
-    TestDbLifecycle ..> TestDbGuard : asserts before DROP/CREATE
-    TestDbLifecycle ..> LocalBinRunner : spawns migrate/seed
-    TestDbLifecycle ..> DbPhaseTiming : produces
-    LocalBinRunner ..> TestEnvResolver : reuses fingerprintOf
-    PgInstanceManager ..> TestDbGuard : shares db-name policy
-    TestSpecBase ..> TestDbLifecycle : calls provisionTestDatabase
-    TestSpecBase ..> TestEnvResolver : resolves connection base
+    VisualAuditRunner --> VisualPageSpec
+    VisualAuditRunner --> ReferenceManifestEntry
+    VisualAuditRunner --> ProbeSuite
+    VisualAuditRunner --> EvidenceBundle
+    VisualAuditRunner --> MatrixStore
+    MatrixStore --> FidelityMatrixRecord
+    ReleaseGate --> SuiteBaselineGate

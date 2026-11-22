@@ -1,0 +1,593 @@
+[
+  {
+    "CapturedAt": "2026-11-22T21:04:07.8452463+08:00",
+    "FreePhysical": 3901644,
+    "CategorySummary": [
+      {
+        "Category": "browser",
+        "Count": 19,
+        "WorkingSetSum": 447987712,
+        "PrivateSum": 656355328
+      },
+      {
+        "Category": "workbuddy",
+        "Count": 19,
+        "WorkingSetSum": 2753798144,
+        "PrivateSum": 4311724032
+      },
+      {
+        "Category": "node",
+        "Count": 9,
+        "WorkingSetSum": 617541632,
+        "PrivateSum": 739696640
+      },
+      {
+        "Category": "agent",
+        "Count": 6,
+        "WorkingSetSum": 1983606784,
+        "PrivateSum": 1977278464
+      }
+    ],
+    "TopProcesses": [
+      {
+        "Category": "workbuddy",
+        "PID": 15828,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329519317)/",
+        "WorkingSet": 1291059200,
+        "PrivateBytes": 2073542656,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "agent",
+        "PID": 16920,
+        "PPID": 8792,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346044070)/",
+        "WorkingSet": 958291968,
+        "PrivateBytes": 1018744832,
+        "Role": "agent"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 24724,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329519390)/",
+        "WorkingSet": 562978816,
+        "PrivateBytes": 775430144,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 25900,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329518902)/",
+        "WorkingSet": 201080832,
+        "PrivateBytes": 584896512,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "agent",
+        "PID": 18512,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346041482)/",
+        "WorkingSet": 510332928,
+        "PrivateBytes": 488710144,
+        "Role": "agent"
+      },
+      {
+        "Category": "agent",
+        "PID": 14484,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346041450)/",
+        "WorkingSet": 474865664,
+        "PrivateBytes": 449912832,
+        "Role": "agent"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 25788,
+        "PPID": 23384,
+        "Name": "sandbox-center.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\vendor\\sandbox\\5.11.4\\sandbox-center.exe",
+        "Started": "/Date(1795329523875)/",
+        "WorkingSet": 65843200,
+        "PrivateBytes": 309256192,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 23384,
+        "PPID": 6904,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329518227)/",
+        "WorkingSet": 183054336,
+        "PrivateBytes": 203800576,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 8792,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329540680)/",
+        "WorkingSet": 105889792,
+        "PrivateBytes": 196296704,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "browser",
+        "PID": 6988,
+        "PPID": 3008,
+        "Name": "msedgewebview2.exe",
+        "Exe": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\157.0.4341.60\\msedgewebview2.exe",
+        "Started": "/Date(1795280830736)/",
+        "WorkingSet": 28573696,
+        "PrivateBytes": 139886592,
+        "Role": "browser"
+      },
+      {
+        "Category": "node",
+        "PID": 5712,
+        "PPID": 24724,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795329523867)/",
+        "WorkingSet": 105136128,
+        "PrivateBytes": 134737920,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 12052,
+        "PPID": 24724,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795352376623)/",
+        "WorkingSet": 93581312,
+        "PrivateBytes": 100057088,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 22000,
+        "PPID": 14704,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346049175)/",
+        "WorkingSet": 67493888,
+        "PrivateBytes": 91439104,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 5680,
+        "PPID": 26016,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346354758)/",
+        "WorkingSet": 66265088,
+        "PrivateBytes": 90009600,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 10244,
+        "PPID": 7272,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346316706)/",
+        "WorkingSet": 65908736,
+        "PrivateBytes": 89169920,
+        "Role": "node"
+      }
+    ]
+  },
+  {
+    "CapturedAt": "2026-11-22T21:04:13.5105785+08:00",
+    "FreePhysical": 3953128,
+    "CategorySummary": [
+      {
+        "Category": "browser",
+        "Count": 19,
+        "WorkingSetSum": 448487424,
+        "PrivateSum": 656969728
+      },
+      {
+        "Category": "workbuddy",
+        "Count": 19,
+        "WorkingSetSum": 2709520384,
+        "PrivateSum": 4265664512
+      },
+      {
+        "Category": "node",
+        "Count": 9,
+        "WorkingSetSum": 606343168,
+        "PrivateSum": 736657408
+      },
+      {
+        "Category": "agent",
+        "Count": 6,
+        "WorkingSetSum": 1973035008,
+        "PrivateSum": 1968267264
+      }
+    ],
+    "TopProcesses": [
+      {
+        "Category": "workbuddy",
+        "PID": 15828,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329519317)/",
+        "WorkingSet": 1308635136,
+        "PrivateBytes": 2091610112,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "agent",
+        "PID": 16920,
+        "PPID": 8792,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346044070)/",
+        "WorkingSet": 920944640,
+        "PrivateBytes": 981270528,
+        "Role": "agent"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 24724,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329519390)/",
+        "WorkingSet": 502960128,
+        "PrivateBytes": 713920512,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 25900,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329518902)/",
+        "WorkingSet": 199196672,
+        "PrivateBytes": 583004160,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "agent",
+        "PID": 18512,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346041482)/",
+        "WorkingSet": 536358912,
+        "PrivateBytes": 516108288,
+        "Role": "agent"
+      },
+      {
+        "Category": "agent",
+        "PID": 14484,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346041450)/",
+        "WorkingSet": 475615232,
+        "PrivateBytes": 450977792,
+        "Role": "agent"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 25788,
+        "PPID": 23384,
+        "Name": "sandbox-center.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\vendor\\sandbox\\5.11.4\\sandbox-center.exe",
+        "Started": "/Date(1795329523875)/",
+        "WorkingSet": 65843200,
+        "PrivateBytes": 309256192,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 23384,
+        "PPID": 6904,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329518227)/",
+        "WorkingSet": 183578624,
+        "PrivateBytes": 204070912,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 8792,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329540680)/",
+        "WorkingSet": 105889792,
+        "PrivateBytes": 196296704,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "browser",
+        "PID": 6988,
+        "PPID": 3008,
+        "Name": "msedgewebview2.exe",
+        "Exe": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\157.0.4341.60\\msedgewebview2.exe",
+        "Started": "/Date(1795280830736)/",
+        "WorkingSet": 28577792,
+        "PrivateBytes": 139890688,
+        "Role": "browser"
+      },
+      {
+        "Category": "node",
+        "PID": 5712,
+        "PPID": 24724,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795329523867)/",
+        "WorkingSet": 91648000,
+        "PrivateBytes": 129552384,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 12052,
+        "PPID": 24724,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795352376623)/",
+        "WorkingSet": 95834112,
+        "PrivateBytes": 102203392,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 22000,
+        "PPID": 14704,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346049175)/",
+        "WorkingSet": 67493888,
+        "PrivateBytes": 91439104,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 5680,
+        "PPID": 26016,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346354758)/",
+        "WorkingSet": 66285568,
+        "PrivateBytes": 89976832,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 10244,
+        "PPID": 7272,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346316706)/",
+        "WorkingSet": 65908736,
+        "PrivateBytes": 89169920,
+        "Role": "node"
+      }
+    ]
+  },
+  {
+    "CapturedAt": "2026-11-22T21:04:18.7921916+08:00",
+    "FreePhysical": 3949864,
+    "CategorySummary": [
+      {
+        "Category": "browser",
+        "Count": 19,
+        "WorkingSetSum": 447877120,
+        "PrivateSum": 656191488
+      },
+      {
+        "Category": "workbuddy",
+        "Count": 19,
+        "WorkingSetSum": 2703433728,
+        "PrivateSum": 4258062336
+      },
+      {
+        "Category": "node",
+        "Count": 9,
+        "WorkingSetSum": 606343168,
+        "PrivateSum": 736657408
+      },
+      {
+        "Category": "agent",
+        "Count": 6,
+        "WorkingSetSum": 1995653120,
+        "PrivateSum": 1992339456
+      }
+    ],
+    "TopProcesses": [
+      {
+        "Category": "workbuddy",
+        "PID": 15828,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329519317)/",
+        "WorkingSet": 1310883840,
+        "PrivateBytes": 2092863488,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "agent",
+        "PID": 16920,
+        "PPID": 8792,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346044070)/",
+        "WorkingSet": 941907968,
+        "PrivateBytes": 1003548672,
+        "Role": "agent"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 24724,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329519390)/",
+        "WorkingSet": 502927360,
+        "PrivateBytes": 713547776,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 25900,
+        "PPID": 23384,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329518902)/",
+        "WorkingSet": 193269760,
+        "PrivateBytes": 577052672,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "agent",
+        "PID": 18512,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346041482)/",
+        "WorkingSet": 538136576,
+        "PrivateBytes": 518139904,
+        "Role": "agent"
+      },
+      {
+        "Category": "agent",
+        "PID": 14484,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795346041450)/",
+        "WorkingSet": 475492352,
+        "PrivateBytes": 450740224,
+        "Role": "agent"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 25788,
+        "PPID": 23384,
+        "Name": "sandbox-center.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\vendor\\sandbox\\5.11.4\\sandbox-center.exe",
+        "Started": "/Date(1795329523875)/",
+        "WorkingSet": 65843200,
+        "PrivateBytes": 309256192,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 23384,
+        "PPID": 6904,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329518227)/",
+        "WorkingSet": 181198848,
+        "PrivateBytes": 201555968,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "workbuddy",
+        "PID": 8792,
+        "PPID": 24724,
+        "Name": "WorkBuddy.exe",
+        "Exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+        "Started": "/Date(1795329540680)/",
+        "WorkingSet": 105889792,
+        "PrivateBytes": 196296704,
+        "Role": "workbuddy"
+      },
+      {
+        "Category": "browser",
+        "PID": 6988,
+        "PPID": 3008,
+        "Name": "msedgewebview2.exe",
+        "Exe": "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\157.0.4341.60\\msedgewebview2.exe",
+        "Started": "/Date(1795280830736)/",
+        "WorkingSet": 28577792,
+        "PrivateBytes": 139890688,
+        "Role": "browser"
+      },
+      {
+        "Category": "node",
+        "PID": 5712,
+        "PPID": 24724,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795329523867)/",
+        "WorkingSet": 91648000,
+        "PrivateBytes": 129552384,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 12052,
+        "PPID": 24724,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795352376623)/",
+        "WorkingSet": 95834112,
+        "PrivateBytes": 102203392,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 22000,
+        "PPID": 14704,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346049175)/",
+        "WorkingSet": 67493888,
+        "PrivateBytes": 91439104,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 5680,
+        "PPID": 26016,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346354758)/",
+        "WorkingSet": 66285568,
+        "PrivateBytes": 89976832,
+        "Role": "node"
+      },
+      {
+        "Category": "node",
+        "PID": 10244,
+        "PPID": 7272,
+        "Name": "node.exe",
+        "Exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "Started": "/Date(1795346316706)/",
+        "WorkingSet": 65908736,
+        "PrivateBytes": 89169920,
+        "Role": "node"
+      }
+    ]
+  }
+]
