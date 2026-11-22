@@ -1,0 +1,130 @@
+name: Dev Memory Guards
+
+on:
+  push:
+    branches:
+      - master
+      - 'release/**'
+    paths:
+      - 'tools/dev-memory/**'
+      - 'tests/dev-memory/**'
+      - 'tests/static/v021-dev-memory-guards.spec.ts'
+      - 'package.json'
+      - 'next.config.mjs'
+      - 'vitest.low.config.ts'
+      - 'playwright.low.config.ts'
+      - '.github/workflows/dev-memory.yml'
+      - 'docs/DEV_MEMORY_v0.0.21.md'
+  pull_request:
+    paths:
+      - 'tools/dev-memory/**'
+      - 'tests/dev-memory/**'
+      - 'tests/static/v021-dev-memory-guards.spec.ts'
+      - 'package.json'
+      - 'next.config.mjs'
+      - 'vitest.low.config.ts'
+      - 'playwright.low.config.ts'
+      - '.github/workflows/dev-memory.yml'
+      - 'docs/DEV_MEMORY_v0.0.21.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-memory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    name: Dev-memory guards (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    env:
+      NODE_VERSION: '22.23.4'
+      WORKBUDDY_MEMORY_TEST: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Enforce approved Node runtime
+        shell: bash
+        run: |
+          actual="$(node --version)"
+          test "$actual" = "v22.23.4"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Type-check application configuration
+        run: npm exec tsc -- --noEmit
+
+      - name: Run dev-memory unit and static guards
+        run: >-
+          npm exec vitest -- run
+          tests/dev-memory/*.spec.ts
+          tests/static/v021-dev-memory-guards.spec.ts
+          --config vitest.low.config.ts
+
+      - name: Produce standalone preflight JSON
+        shell: bash
+        run: |
+          mkdir -p test-results/dev-memory/workflow
+          node tools/dev-memory/preflight.mjs \
+            --profile vitest \
+            --worktree . \
+            --json test-results/dev-memory/workflow/preflight.json \
+            -- node -e "setTimeout(()=>{},1200)"
+
+      - name: Run guarded supervisor smoke
+        shell: bash
+        run: |
+          node tools/dev-memory/run.mjs \
+            --profile vitest \
+            --json-dir test-results/dev-memory/workflow/smoke \
+            -- node -e "setTimeout(()=>{},1500)"
+
+      - name: Validate JSON and invoke standalone cleanup CLI
+        shell: bash
+        run: |
+          node -e "
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const cp=require('node:child_process');
+          const root=path.resolve('test-results/dev-memory/workflow');
+          const preflight=JSON.parse(fs.readFileSync(path.join(root,'preflight.json'),'utf8'));
+          if (!['ALLOW','ALLOW_UNSAFE'].includes(preflight.decision)) throw new Error('preflight denied');
+          const smoke=path.join(root,'smoke');
+          const dirs=fs.readdirSync(smoke,{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name).sort();
+          if(dirs.length!==1) throw new Error('expected one smoke run');
+          const run=path.join(smoke,dirs[0]);
+          for(const file of ['preflight.json','lease.json','monitor.json','cleanup.json']){
+            JSON.parse(fs.readFileSync(path.join(run,file),'utf8'));
+          }
+          const cleanupReport=path.join(run,'cleanup-standalone.json');
+          const result=cp.spawnSync(process.execPath,[
+            'tools/dev-memory/cleanup.mjs',
+            '--lease',path.join(run,'lease.json'),
+            '--report',cleanupReport,
+            '--reason','workflow-post-smoke'
+          ],{encoding:'utf8'});
+          if(result.status!==0) throw new Error(result.stderr || 'cleanup CLI failed');
+          const cleanup=JSON.parse(fs.readFileSync(cleanupReport,'utf8'));
+          if(cleanup.decision==='ABORTED') throw new Error('cleanup aborted');
+          "
+
+      - name: Upload dev-memory reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dev-memory-reports-${{ matrix.os }}
+          path: test-results/dev-memory/
+          if-no-files-found: warn
+          retention-days: 14

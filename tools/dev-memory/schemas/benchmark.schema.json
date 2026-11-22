@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbuddy-dev-memory/benchmark/v1",
+  "title": "WorkBuddy dev-memory before/after benchmark",
+  "type": "object",
+  "required": [
+    "schema",
+    "task",
+    "environment",
+    "before",
+    "after",
+    "aggregate",
+    "acceptance"
+  ],
+  "properties": {
+    "schema": { "const": "workbuddy-dev-memory/benchmark/v1" },
+    "task": { "enum": ["next-build", "vitest", "playwright", "visual-audit"] },
+    "environment": {
+      "type": "object",
+      "required": [
+        "commit",
+        "tree",
+        "dependency_lock_sha256",
+        "node_version",
+        "machine_id",
+        "env_fingerprint",
+        "warmup_id"
+      ],
+      "properties": {
+        "commit": { "type": "string" },
+        "tree": { "type": "string" },
+        "dependency_lock_sha256": { "type": "string" },
+        "node_version": { "type": "string" },
+        "machine_id": { "type": "string" },
+        "db_fixture_sha256": { "type": ["string", "null"] },
+        "warmup_id": { "type": "string" },
+        "env_fingerprint": { "type": "string" }
+      }
+    },
+    "before": { "$ref": "#/$defs/modeResult" },
+    "after": { "$ref": "#/$defs/modeResult" },
+    "aggregate": {
+      "type": "object",
+      "required": [
+        "before_peak_median_mb",
+        "after_peak_max_mb",
+        "before_wall_median_ms",
+        "after_wall_max_ms"
+      ],
+      "properties": {
+        "before_peak_median_mb": { "type": "number", "minimum": 0 },
+        "after_peak_max_mb": { "type": "number", "minimum": 0 },
+        "before_wall_median_ms": { "type": "number", "minimum": 0 },
+        "after_wall_max_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "required": ["peak_pass", "wall_pass", "tests_pass", "formula", "conclusion"],
+      "properties": {
+        "peak_pass": { "type": "boolean" },
+        "wall_pass": { "type": "boolean" },
+        "tests_pass": { "type": "boolean" },
+        "formula": { "type": "string" },
+        "conclusion": { "enum": ["completed", "not-completed"] }
+      }
+    }
+  },
+  "$defs": {
+    "modeResult": {
+      "type": "object",
+      "required": ["mode", "samples"],
+      "properties": {
+        "mode": { "enum": ["standard", "low"] },
+        "samples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["run_id", "exit_code", "peak_tree_rss_mb", "wall_clock_ms", "reports"],
+            "properties": {
+              "run_id": { "type": "string" },
+              "exit_code": { "type": "integer" },
+              "peak_tree_rss_mb": { "type": "number", "minimum": 0 },
+              "wall_clock_ms": { "type": "number", "minimum": 0 },
+              "reports": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

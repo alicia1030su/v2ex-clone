@@ -10,11 +10,23 @@ import { createRequire } from 'node:module';
  */
 const pkg = createRequire(import.meta.url)('./package.json');
 
+/**
+ * v0.0.21：Next 构建并发只接受一个受控环境变量。
+ *
+ * 该值由 tools/dev-memory/run.mjs 从同一个动态任务预算派生，并只注入子进程。
+ * 不使用 Next 私有环境变量，也不在仓库或用户系统中永久修改 NODE_OPTIONS。
+ */
+const configuredNextCpus = Number(process.env.WORKBUDDY_NEXT_CPUS);
+const lowMemoryNextCpus = Number.isInteger(configuredNextCpus) && configuredNextCpus > 0
+  ? configuredNextCpus
+  : null;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ['postgres', 'ioredis'],
+  ...(lowMemoryNextCpus === null ? {} : { experimental: { cpus: lowMemoryNextCpus } }),
 
   // ---------------------------------------------------------------------
   // v0.0.9：启用 instrumentation 钩子（任务书 §六）

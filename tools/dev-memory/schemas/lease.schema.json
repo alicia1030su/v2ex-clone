@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbuddy-dev-memory/lease/v1",
+  "title": "WorkBuddy dev-memory ownership lease",
+  "type": "object",
+  "required": [
+    "schema",
+    "run_id",
+    "created_at",
+    "state",
+    "profile",
+    "worktree",
+    "command",
+    "budget_mb",
+    "root",
+    "observed",
+    "protected",
+    "fence"
+  ],
+  "properties": {
+    "schema": { "const": "workbuddy-dev-memory/lease/v1" },
+    "run_id": { "type": "string", "minLength": 16 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": ["string", "null"], "format": "date-time" },
+    "state": { "enum": ["ACTIVE", "FINISHED", "ABORTED"] },
+    "profile": { "enum": ["next-dev", "next-build", "vitest", "playwright", "visual-audit"] },
+    "worktree": { "type": "object" },
+    "command": {
+      "type": "object",
+      "required": ["argv", "cwd", "env_fingerprint"],
+      "properties": {
+        "argv": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "cwd": { "type": "string" },
+        "env_fingerprint": { "type": "string" }
+      }
+    },
+    "budget_mb": { "type": "integer", "minimum": 1 },
+    "root": { "$ref": "#/$defs/processIdentity" },
+    "observed": { "type": "array", "items": { "$ref": "#/$defs/processIdentity" } },
+    "protected": { "type": "array", "items": { "$ref": "#/$defs/processIdentity" } },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "fence": {
+      "type": "object",
+      "required": ["worktree_hash", "created_monotonic_ns"],
+      "properties": {
+        "worktree_hash": { "type": "string" },
+        "created_monotonic_ns": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "processIdentity": {
+      "type": "object",
+      "required": ["pid", "ppid", "start_time", "start_ticks", "exe", "identity_hash"],
+      "properties": {
+        "pid": { "type": "integer", "minimum": 1 },
+        "ppid": { "type": "integer", "minimum": 0 },
+        "start_time": { "type": ["string", "null"], "format": "date-time" },
+        "start_ticks": { "type": ["integer", "null"], "minimum": 0 },
+        "exe": { "type": ["string", "null"] },
+        "cwd": { "type": "string" },
+        "name": { "type": "string" },
+        "identity_hash": { "type": "string" }
+      }
+    }
+  }
+}

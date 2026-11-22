@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbuddy-dev-memory/monitor/v1",
+  "title": "WorkBuddy dev-memory monitor report",
+  "type": "object",
+  "required": [
+    "schema",
+    "run_id",
+    "started_at",
+    "ended_at",
+    "interval_ms",
+    "samples",
+    "summary"
+  ],
+  "properties": {
+    "schema": { "const": "workbuddy-dev-memory/monitor/v1" },
+    "run_id": { "type": "string", "minLength": 16 },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "interval_ms": { "type": "integer", "minimum": 100 },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["at", "elapsed_ms", "processes", "tree_rss_mb", "max_process_rss_mb"],
+        "properties": {
+          "at": { "type": "string", "format": "date-time" },
+          "monotonic_ns": { "type": "string" },
+          "elapsed_ms": { "type": "number", "minimum": 0 },
+          "processes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pid", "ppid", "name", "rss_mb", "start_time"],
+              "properties": {
+                "pid": { "type": "integer", "minimum": 1 },
+                "ppid": { "type": "integer", "minimum": 0 },
+                "name": { "type": "string" },
+                "rss_mb": { "type": "number", "minimum": 0 },
+                "start_time": { "type": ["string", "null"] },
+                "identity_hash": { "type": "string" }
+              }
+            }
+          },
+          "tree_rss_mb": { "type": "number", "minimum": 0 },
+          "max_process_rss_mb": { "type": "number", "minimum": 0 },
+          "error": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "root_pid",
+        "peak_tree_rss_mb",
+        "peak_process_rss_mb",
+        "p95_tree_rss_mb",
+        "sample_count",
+        "wall_clock_ms",
+        "exit_code",
+        "signal",
+        "commit",
+        "profile",
+        "machine_id",
+        "monitor_errors"
+      ],
+      "properties": {
+        "root_pid": { "type": "integer", "minimum": 1 },
+        "peak_tree_rss_mb": { "type": "number", "minimum": 0 },
+        "peak_process_rss_mb": { "type": "number", "minimum": 0 },
+        "p95_tree_rss_mb": { "type": "number", "minimum": 0 },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "wall_clock_ms": { "type": "number", "minimum": 0 },
+        "exit_code": { "type": ["integer", "null"] },
+        "signal": { "type": ["string", "null"] },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "commit": { "type": ["string", "null"] },
+        "profile": { "type": ["string", "null"] },
+        "machine_id": { "type": ["string", "null"] },
+        "monitor_errors": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

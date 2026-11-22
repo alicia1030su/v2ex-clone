@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbuddy-dev-memory/cleanup/v1",
+  "title": "WorkBuddy dev-memory cleanup report",
+  "type": "object",
+  "required": [
+    "schema",
+    "run_id",
+    "decision",
+    "reason",
+    "root_verification",
+    "targets",
+    "skipped",
+    "protected_intact",
+    "artifacts_intact",
+    "errors"
+  ],
+  "properties": {
+    "schema": { "const": "workbuddy-dev-memory/cleanup/v1" },
+    "run_id": { "type": "string", "minLength": 16 },
+    "decision": { "enum": ["NOOP", "CLEANED", "ABORTED"] },
+    "reason": { "type": "string" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "root_verification": {
+      "type": "object",
+      "required": ["ok", "pid", "identity_hash"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "pid": { "type": "integer", "minimum": 1 },
+        "identity_hash": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pid", "identity_ok", "signal", "result", "verified_at"],
+        "properties": {
+          "pid": { "type": "integer", "minimum": 1 },
+          "identity_hash": { "type": "string" },
+          "identity_ok": { "type": "boolean" },
+          "signal": { "type": ["string", "null"] },
+          "result": { "type": "string" },
+          "verified_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pid", "reason"],
+        "properties": {
+          "pid": { "type": "integer", "minimum": 1 },
+          "identity_hash": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "outside_probe": {
+      "type": ["object", "null"],
+      "required": ["pid", "alive"],
+      "properties": {
+        "pid": { "type": "integer", "minimum": 1 },
+        "alive": { "type": "boolean" }
+      }
+    },
+    "protected_intact": { "type": "boolean" },
+    "artifacts_intact": { "type": "boolean" },
+    "errors": { "type": "array", "items": { "type": "string" } }
+  }
+}

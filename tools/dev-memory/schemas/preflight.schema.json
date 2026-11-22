@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbuddy-dev-memory/preflight/v1",
+  "title": "WorkBuddy dev-memory preflight report",
+  "type": "object",
+  "required": [
+    "schema",
+    "run_id",
+    "decision",
+    "unsafe",
+    "profile",
+    "measured_at",
+    "machine",
+    "worktree",
+    "limits",
+    "plan",
+    "command"
+  ],
+  "properties": {
+    "schema": { "const": "workbuddy-dev-memory/preflight/v1" },
+    "run_id": { "type": "string", "minLength": 16 },
+    "decision": { "enum": ["ALLOW", "ALLOW_UNSAFE", "DENY"] },
+    "unsafe": { "type": "boolean" },
+    "reason_codes": { "type": "array", "items": { "type": "string" } },
+    "profile": { "enum": ["next-dev", "next-build", "vitest", "playwright", "visual-audit"] },
+    "measured_at": { "type": "string", "format": "date-time" },
+    "machine": {
+      "type": "object",
+      "required": ["id", "platform", "arch", "node_version", "cpu_count"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "platform": { "enum": ["win32", "linux"] },
+        "arch": { "type": "string", "minLength": 1 },
+        "node_version": { "type": "string", "minLength": 1 },
+        "cpu_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "worktree": {
+      "type": "object",
+      "required": ["root", "git_head", "git_tree", "branch"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 },
+        "git_head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "git_tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "branch": { "type": "string", "minLength": 1 }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": [
+        "physical_mb",
+        "cgroup",
+        "cgroup_limit_mb",
+        "effective_limit_mb",
+        "host_reserve_mb",
+        "available_mb",
+        "current_available_mb",
+        "user_ceiling_mb"
+      ],
+      "properties": {
+        "physical_mb": { "type": "integer", "minimum": 0 },
+        "cgroup": { "type": ["object", "null"] },
+        "cgroup_limit_mb": { "type": ["integer", "null"], "minimum": 0 },
+        "effective_limit_mb": { "type": "integer", "minimum": 0 },
+        "host_reserve_mb": { "type": "integer", "minimum": 1024 },
+        "available_mb": { "type": "integer", "minimum": 0 },
+        "current_available_mb": { "type": "integer", "minimum": 0 },
+        "user_ceiling_mb": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "task_floor_mb",
+        "task_share",
+        "active_budgets_mb",
+        "task_budget_mb",
+        "sum_task_budgets_plus_reserve_mb",
+        "runtime"
+      ],
+      "properties": {
+        "task_floor_mb": { "type": "integer", "minimum": 1 },
+        "task_share": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "active_budgets_mb": { "type": "integer", "minimum": 0 },
+        "task_budget_mb": { "type": "integer", "minimum": 1 },
+        "sum_task_budgets_plus_reserve_mb": { "type": "integer", "minimum": 1 },
+        "runtime": {
+          "type": "object",
+          "required": [
+            "node_max_old_space_mb",
+            "vitest_max_workers",
+            "vitest_file_parallelism",
+            "vitest_pool",
+            "playwright_workers",
+            "playwright_fully_parallel",
+            "next_build_cpus"
+          ],
+          "properties": {
+            "node_max_old_space_mb": { "type": "integer", "minimum": 256 },
+            "vitest_max_workers": { "const": 1 },
+            "vitest_file_parallelism": { "const": false },
+            "vitest_pool": { "const": "forks" },
+            "playwright_workers": { "const": 1 },
+            "playwright_fully_parallel": { "const": false },
+            "next_build_cpus": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["argv", "cwd", "env_fingerprint"],
+      "properties": {
+        "argv": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "cwd": { "type": "string", "minLength": 1 },
+        "env_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "raw_memory": { "type": "object" }
+  }
+}
