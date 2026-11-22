@@ -6,12 +6,16 @@ import { hashProcessIdentity } from './process-table-linux.mjs';
 export const LEASE_SCHEMA = 'workbuddy-dev-memory/lease/v1';
 
 function normalizeIdentity(identity, platform) {
-  if (!identity || !Number.isSafeInteger(Number(identity.pid))) {
+  if (!identity || !Number.isSafeInteger(Number(identity.pid)) || Number(identity.pid) <= 0) {
     throw new Error('lease process identity requires a valid pid');
+  }
+  const ppid = Number(identity.ppid ?? 0);
+  if (!Number.isSafeInteger(ppid) || ppid < 0) {
+    throw new Error('lease process identity requires a valid ppid');
   }
   const normalized = {
     pid: Number(identity.pid),
-    ppid: Number(identity.ppid ?? 0),
+    ppid,
     start_time: identity.start_time ?? null,
     start_ticks: identity.start_ticks ?? null,
     exe: identity.exe ?? null,
@@ -20,6 +24,28 @@ function normalizeIdentity(identity, platform) {
     identity_hash: identity.identity_hash ?? hashProcessIdentity(identity, platform),
   };
   return normalized;
+}
+
+function validateRootIdentity(root, platform) {
+  if (!root || !Number.isSafeInteger(root.pid) || root.pid <= 0) {
+    throw new Error('lease root identity is invalid');
+  }
+  if (!Number.isSafeInteger(root.ppid) || root.ppid < 0) {
+    throw new Error('lease root identity ppid is invalid');
+  }
+  if (typeof root.exe !== 'string' || root.exe.length === 0) {
+    throw new Error('lease root identity requires an executable fence');
+  }
+  if (platform === 'win32') {
+    if (
+      typeof root.start_time !== 'string' ||
+      !Number.isFinite(Date.parse(root.start_time))
+    ) {
+      throw new Error('lease root identity requires a Windows creation-time fence');
+    }
+  } else if (!Number.isSafeInteger(root.start_ticks) || root.start_ticks < 0) {
+    throw new Error('lease root identity requires a Linux start-ticks fence');
+  }
 }
 
 /**
@@ -49,6 +75,7 @@ export class OwnershipLease {
     }
     const platform = input.platform ?? process.platform;
     const root = normalizeIdentity(input.root, platform);
+    validateRootIdentity(root, platform);
     // On Windows the supervisor-captured command cwd is authoritative; the
     // standard process API cannot reread an arbitrary process cwd.
     root.cwd = input.command.cwd;
@@ -101,6 +128,7 @@ export class OwnershipLease {
     if (!lease.root || !Number.isSafeInteger(lease.root.pid)) {
       throw new Error('lease root identity is invalid');
     }
+    validateRootIdentity(lease.root, process.platform);
     if (!Array.isArray(lease.command?.argv) || lease.command.argv.length === 0) {
       throw new Error('lease command argv is invalid');
     }

@@ -153,12 +153,9 @@ export class LinuxProcessTable {
 
   /** @returns {object[]} */
   snapshot() {
-    let entries;
-    try {
-      entries = this.fs.readdirSync(this.procRoot);
-    } catch {
-      return [];
-    }
+    // Failure to enumerate /proc is a monitoring failure, not evidence that
+    // every process exited. Let the caller record and fail closed.
+    const entries = this.fs.readdirSync(this.procRoot);
     const processes = [];
     for (const entry of entries) {
       if (!/^\d+$/.test(entry)) continue;

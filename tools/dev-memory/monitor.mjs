@@ -58,7 +58,13 @@ export async function main(argv = process.argv.slice(2)) {
         }
       },
     });
-    process.stdout.write(`${JSON.stringify(report.summary)}\n`);
+    const timedOut = deadline !== null && Date.now() >= deadline;
+    if (timedOut) {
+      report.timed_out = true;
+      report.summary.timed_out = true;
+      new ReportStore().writeAtomic(reportPath, report);
+    }
+    process.stdout.write(`${JSON.stringify({ ...report.summary, timed_out: timedOut })}\n`);
     return report.summary.monitor_errors.length > 0 ? 3 : 0;
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

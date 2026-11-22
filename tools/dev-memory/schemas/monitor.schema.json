@@ -59,6 +59,7 @@
         "wall_clock_ms",
         "exit_code",
         "signal",
+        "command",
         "commit",
         "profile",
         "machine_id",

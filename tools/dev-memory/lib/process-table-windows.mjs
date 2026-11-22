@@ -363,7 +363,22 @@ export class WindowsProcessTable {
    * @returns {object|null}
    */
   snapshotOne(pid) {
-    return this.query(pid)[0] ?? null;
+    return this.query(pid).find((entry) => entry.pid === pid) ?? null;
+  }
+
+  /**
+   * Fast direct-child identity for the spawn -> lease window. The supervisor
+   * supplies the authoritative PPID; cleanup still performs a CIM recheck.
+   *
+   * @param {number} pid
+   * @param {number} ppid
+   * @returns {object|null}
+   */
+  snapshotDirectChild(pid, ppid) {
+    const line = this.exchange(`fast:${pid}:${ppid}`);
+    const decoded = JSON.parse(line);
+    if (decoded.error) return null;
+    return parseWindowsSnapshot(line).find((entry) => entry.pid === pid) ?? null;
   }
 
   /**

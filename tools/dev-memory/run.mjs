@@ -44,6 +44,62 @@ function withHeapLimit(existing, heapMB) {
   return `${withoutExisting}${withoutExisting ? ' ' : ''}--max-old-space-size=${heapMB}`;
 }
 
+/**
+ * Resolve platform shims to real executable argv without invoking a shell.
+ * `node` always uses the approved supervisor runtime; Windows `npm` is mapped
+ * to Node + npm-cli.js because CreateProcess cannot execute npm.cmd directly.
+ *
+ * @param {string[]} command
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string[]}
+ */
+function resolveExactCommand(command, env) {
+  const executable = path.basename(command[0]).toLowerCase();
+  if (executable === 'node' || executable === 'node.exe') {
+    return [process.execPath, ...command.slice(1)];
+  }
+  if (process.platform !== 'win32' || (executable !== 'npm' && executable !== 'npm.cmd')) {
+    return [...command];
+  }
+
+  const candidates = [];
+  if (env.npm_execpath) candidates.push(env.npm_execpath);
+  for (const directory of String(env.PATH ?? '').split(';')) {
+    if (!directory) continue;
+    const cleanDirectory = directory.replace(/^"|"$/g, '');
+    for (const name of ['npm.cmd', 'npm.bat']) {
+      candidates.push(path.join(cleanDirectory, name));
+    }
+  }
+  candidates.push(
+    path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'nodejs', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  );
+
+  for (const candidate of candidates) {
+    try {
+      if (!fs.statSync(candidate).isFile()) continue;
+      if (candidate.toLowerCase().endsWith('.js')) {
+        return [process.execPath, candidate, ...command.slice(1)];
+      }
+      const shim = fs.readFileSync(candidate, 'utf8');
+      const match = /([^\s"']*npm-cli\.js)/i.exec(shim);
+      if (!match) continue;
+      let cliPath = match[1]
+        .replace(/^["']|["']$/g, '')
+        .replace(/%dp0%/gi, path.dirname(candidate))
+        .replace(/%~dp0/gi, path.dirname(candidate));
+      if (!path.isAbsolute(cliPath)) cliPath = path.resolve(path.dirname(candidate), cliPath);
+      if (fs.statSync(cliPath).isFile()) {
+        return [process.execPath, cliPath, ...command.slice(1)];
+      }
+    } catch {
+      // Try the next PATH candidate.
+    }
+  }
+  throw new Error('npm.cmd was found but npm-cli.js could not be resolved without a shell');
+}
+
 function waitForStream(stream) {
   return new Promise((resolve, reject) => {
     stream.once('finish', resolve);
@@ -72,6 +128,37 @@ export class RunOrchestrator {
     this.reportStore = dependencies.reportStore ?? new ReportStore();
     this.leaseStore = dependencies.leaseStore ?? new LeaseStore({ reportStore: this.reportStore });
     this.spawn = dependencies.spawn ?? spawn;
+  }
+
+  /**
+   * @param {string} runId
+   * @param {number} rootPid
+   * @param {string} reason
+   * @param {string[]} errors
+   * @returns {object}
+   */
+  failureCleanup(runId, rootPid, reason, errors) {
+    return {
+      schema: 'workbuddy-dev-memory/cleanup/v1',
+      run_id: runId,
+      decision: 'NOOP',
+      reason,
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+      root_verification: {
+        ok: false,
+        pid: rootPid,
+        identity_hash: 'sha256:unavailable',
+        reason: 'NO_LEASED_CHILD_PROCESS',
+      },
+      root_pid_source: rootPid === process.pid ? 'supervisor-fallback' : 'spawned-child',
+      targets: [],
+      skipped: [],
+      outside_probe: null,
+      protected_intact: true,
+      artifacts_intact: true,
+      errors,
+    };
   }
 
   /**
@@ -115,10 +202,11 @@ export class RunOrchestrator {
 
     const envAdditions = options.envAdditions ?? {};
     const childEnv = { ...process.env, ...envAdditions };
+    const command = resolveExactCommand(options.command, childEnv);
     const preflight = this.preflight.preflight({
       profile: options.profile,
       worktree: worktreeInput,
-      argv: options.command,
+      argv: command,
       unsafeOverride: options.unsafeOverride,
       reserveMB: options.reserveMB,
       userCeilingMB: options.userCeilingMB,
@@ -205,7 +293,7 @@ export class RunOrchestrator {
     const logFinished = waitForStream(logStream).catch(() => undefined);
     let child;
     try {
-      child = this.spawn(options.command[0], options.command.slice(1), {
+      child = this.spawn(command[0], command.slice(1), {
         cwd: preflight.worktree.root,
         env: childEnv,
         shell: false,
@@ -247,8 +335,11 @@ export class RunOrchestrator {
     const spawnedAtMs = Date.now();
     const bindDeadline = spawnedAtMs + 5_000;
     while (root === null && Date.now() < bindDeadline && childResult.code === null) {
-      const candidate = this.processTable.snapshotOne(child.pid);
-      if (candidate !== null) {
+      let candidate = typeof this.processTable.snapshotDirectChild === 'function'
+        ? this.processTable.snapshotDirectChild(child.pid, process.pid)
+        : null;
+      if (candidate === null) candidate = this.processTable.snapshotOne(child.pid);
+      if (candidate !== null && candidate.pid === child.pid) {
         // Let the child exit event run once more before accepting an identity.
         // This closes the spawn -> CIM query race in which a short-lived PID
         // could already have exited and been recycled.
@@ -258,6 +349,8 @@ export class RunOrchestrator {
       if (root === null) await sleep(25);
     }
     if (root === null) {
+      const failedRootPid = child.pid ?? process.pid;
+      const spawnError = childResult.error;
       if (childResult.code === null) {
         try {
           child.kill('SIGKILL');
@@ -268,6 +361,9 @@ export class RunOrchestrator {
       await childExit.catch(() => undefined);
       logStream.end();
       planner.releaseSlot(runId);
+      const monitorErrors = spawnError
+        ? [`SPAWN_FAILED:${spawnError.code ?? spawnError.message}`]
+        : ['ROOT_IDENTITY_UNMEASURABLE'];
       const monitorFailure = {
         schema: 'workbuddy-dev-memory/monitor/v1',
         run_id: runId,
@@ -276,7 +372,8 @@ export class RunOrchestrator {
         interval_ms: options.intervalMs ?? 1_000,
         samples: [],
         summary: {
-          root_pid: child.pid,
+          root_pid: failedRootPid,
+          root_pid_source: child.pid === undefined ? 'supervisor-fallback' : 'spawned-child',
           peak_tree_rss_mb: 0,
           peak_process_rss_mb: 0,
           p95_tree_rss_mb: 0,
@@ -284,15 +381,24 @@ export class RunOrchestrator {
           wall_clock_ms: 0,
           exit_code: childResult.code,
           signal: childResult.signal,
-          command: [...options.command],
+          command: [...command],
           commit: preflight.worktree.git_head,
           profile: options.profile,
           machine_id: machineId({ platform: process.platform }),
-          monitor_errors: ['ROOT_IDENTITY_UNMEASURABLE'],
+          monitor_errors: monitorErrors,
         },
       };
       this.reportStore.writeAtomic(monitorPath, monitorFailure);
-      emit({ preflight: preflightPath, monitor: monitorPath, exit_code: 3 });
+      this.reportStore.writeAtomic(
+        cleanupPath,
+        this.failureCleanup(
+          runId,
+          failedRootPid,
+          spawnError ? 'spawn-failed' : 'root-identity-unmeasurable',
+          monitorErrors,
+        ),
+      );
+      emit({ preflight: preflightPath, monitor: monitorPath, cleanup: cleanupPath, exit_code: 3 });
       return 3;
     }
 
@@ -336,7 +442,7 @@ export class RunOrchestrator {
           wall_clock_ms: 0,
           exit_code: childResult.code,
           signal: childResult.signal,
-          command: [...options.command],
+          command: [...command],
           commit: preflight.worktree.git_head,
           profile: options.profile,
           machine_id: machineId({ platform: process.platform }),
@@ -344,7 +450,16 @@ export class RunOrchestrator {
         },
       };
       this.reportStore.writeAtomic(monitorPath, monitorFailure);
-      emit({ preflight: preflightPath, monitor: monitorPath, exit_code: 3 });
+      this.reportStore.writeAtomic(
+        cleanupPath,
+        this.failureCleanup(
+          runId,
+          child.pid,
+          'lease-creation-failed',
+          monitorFailure.summary.monitor_errors,
+        ),
+      );
+      emit({ preflight: preflightPath, monitor: monitorPath, cleanup: cleanupPath, exit_code: 3 });
       return 3;
     }
 
@@ -421,6 +536,37 @@ export class RunOrchestrator {
           await initiateCleanup('budget-exceeded');
         },
       });
+    } catch (error) {
+      const reason = `MONITOR_REPORT_FAILED:${error instanceof Error ? error.message : String(error)}`;
+      monitorReport = {
+        schema: 'workbuddy-dev-memory/monitor/v1',
+        run_id: lease.run_id,
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+        interval_ms: options.intervalMs ?? 1_000,
+        samples: [],
+        summary: {
+          root_pid: lease.root.pid,
+          peak_tree_rss_mb: 0,
+          peak_process_rss_mb: 0,
+          p95_tree_rss_mb: 0,
+          sample_count: 0,
+          wall_clock_ms: 0,
+          exit_code: childResult.code,
+          signal: childResult.signal,
+          command: [...command],
+          commit: lease.worktree.git_head,
+          profile: lease.profile,
+          machine_id: machineId({ platform: process.platform }),
+          monitor_errors: [reason],
+        },
+      };
+      try {
+        this.reportStore.writeAtomic(monitorPath, monitorReport);
+      } catch {
+        // The injected/storage failure is already represented in the summary;
+        // cleanup must still run and the supervisor must return 3.
+      }
     } finally {
       if (timeout) clearTimeout(timeout);
       process.removeListener('SIGINT', signalHandler);
@@ -433,13 +579,20 @@ export class RunOrchestrator {
       // post-run cleanup identity check. This closes the Windows PID-reuse
       // race without ever signaling a recycled PID.
       if (childResult.code === null && childResult.signal === null) {
-        await Promise.race([childExit, sleep(250)]);
+        const waitMs = monitorReport.summary.monitor_errors.length > 0 ? 1_000 : 250;
+        await Promise.race([childExit, sleep(waitMs)]);
       }
       if (monitorReport.summary.exit_code === null && monitorReport.summary.signal === null) {
         monitorReport.summary.exit_code = childResult.code;
         monitorReport.summary.signal = childResult.signal;
         monitorReport.ended_at = new Date().toISOString();
-        this.reportStore.writeAtomic(monitorPath, monitorReport);
+        try {
+          this.reportStore.writeAtomic(monitorPath, monitorReport);
+        } catch (error) {
+          monitorReport.summary.monitor_errors.push(
+            `MONITOR_REPORT_FAILED:${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
       const reason = monitorReport.summary.monitor_errors.length > 0
         ? 'monitor-failed'
@@ -470,7 +623,8 @@ export class RunOrchestrator {
       child.stderr.destroy();
       logStream.end();
       await logFinished;
-      planner.releaseSlot(runId);
+      // Keep the machine-level slot: the protected target is still running and
+      // must continue to consume its reserved budget.
       const summary = {
         run_id: runId,
         exit_code: 4,
@@ -502,7 +656,7 @@ export class RunOrchestrator {
         child.stderr.destroy();
         logStream.end();
         await logFinished;
-        planner.releaseSlot(runId);
+        // The child is still alive, so its reservation must remain active.
         emit({
           run_id: runId,
           exit_code: 4,
@@ -524,6 +678,18 @@ export class RunOrchestrator {
     }
 
     await childExit.catch(() => undefined);
+    if (monitorReport.summary.exit_code === null && monitorReport.summary.signal === null) {
+      monitorReport.summary.exit_code = childResult.code;
+      monitorReport.summary.signal = childResult.signal;
+      monitorReport.ended_at = new Date().toISOString();
+      try {
+        this.reportStore.writeAtomic(monitorPath, monitorReport);
+      } catch (error) {
+        monitorReport.summary.monitor_errors.push(
+          `MONITOR_REPORT_FAILED:${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
     logStream.end();
     try {
       await logFinished;

@@ -48,6 +48,7 @@ sum(activeTaskBudgetsMB) + taskBudgetMB + hostReserveMB <= effectiveLimitMB
 - `max` 或明显超过物理内存的哨兵值视为无 cgroup 限制。
 - 当前可用量取 `os.freemem()` 与 cgroup 可用量的较小值。
 - 环境变量必须是有限非负数；解析失败直接 `DENY`，不静默回退。
+- 已存在的 cgroup 路径、limit 或 finite limit 对应的 current 不可读/损坏时记录 `CGROUP_*_UNMEASURABLE` 并结构性 `DENY`；`--unsafe-override` 不能绕过测量失败。
 - 机器级槽位位于系统临时目录的 `workbuddy-dev-memory-slots/`。只有精确 owner/root 身份已消失时才回收陈旧槽位。
 - `--unsafe-override` 只能绕过“任务预算低于 profile 下限”。无法测量内存、槽位冲突、lease 无法建立或清理身份不确定时仍然失败。
 
@@ -64,7 +65,7 @@ nodeMaxOldSpaceMB = max(256, floor(taskBudgetMB × 0.60))
 nextBuildCpus     = clamp(floor(taskBudgetMB / 512), 1, min(cpuCount, 4))
 ```
 
-`NODE_OPTIONS` 只写入 `run.mjs` 创建的子进程环境；父 shell、用户配置和系统配置不被修改。`next.config.mjs` 只从 `WORKBUDDY_NEXT_CPUS` 派生 `experimental.cpus`。
+`NODE_OPTIONS` 只写入 `run.mjs` 创建的子进程环境；父 shell、用户配置和系统配置不被修改。`next.config.mjs` 只从 `WORKBUDDY_NEXT_CPUS` 派生 `experimental.cpus`。`node` 命令统一使用 supervisor 的受控运行时；Windows 的 `npm`/`npm.cmd` 通过读取 PATH 中的 shim 解析为 `node + npm-cli.js`，不启用 shell。
 
 ## 3. 进程归属与清理边界
 
@@ -112,7 +113,7 @@ nextBuildCpus     = clamp(floor(taskBudgetMB / 512), 1, min(cpuCount, 4))
 
 ## 5. 测试与 CI
 
-普通工具单测覆盖公式、fail-closed、UNSAFE 标记、Linux/Windows 解析、lease fencing、监控数学、supervisor 正常/非零退出/信号退出，以及真实进程树清理。真实清理测试不使用平台条件跳过；它在 Windows 与 Linux 上都会验证：
+普通工具单测覆盖公式、fail-closed、UNSAFE 标记、Linux/Windows 解析、lease fencing、监控数学、supervisor 正常/非零退出/信号退出、采样/报告写入失败，以及真实进程树清理。真实清理测试不使用平台条件跳过；它在 Windows 与 Linux 上都会验证：
 
 - 正常完成与精确身份；
 - 树外探针存活；

@@ -223,7 +223,21 @@ export class ProcessMonitor {
     };
 
     while (true) {
-      const sample = this.sample(lease);
+      let sample;
+      try {
+        sample = this.sample(lease);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        sample = {
+          at: new Date().toISOString(),
+          monotonic_ns: process.hrtime.bigint().toString(),
+          elapsed_ms: 0,
+          processes: [],
+          tree_rss_mb: 0,
+          max_process_rss_mb: 0,
+          error: `SAMPLING_FAILED:${reason}`,
+        };
+      }
       const sampleNs = BigInt(sample.monotonic_ns);
       if (previousSampleNs !== null) {
         sample.elapsed_ms = Number(sampleNs - previousSampleNs) / 1_000_000;

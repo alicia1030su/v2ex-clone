@@ -12,6 +12,7 @@ const CGROUP_SENTINEL_RATIO = 1.5;
  * @property {number|null} limit_bytes
  * @property {number|null} current_bytes
  * @property {string} source
+ * @property {string[]} errors
  */
 
 /**
@@ -35,6 +36,8 @@ function bytesToMB(bytes) {
 function parseFiniteBytes(value, label) {
   const text = String(value).trim();
   if (text === '' || text === 'max') return null;
+  // cgroup v1 commonly reports this sentinel for an unlimited hierarchy.
+  if (text === '9223372036854771712') return null;
   if (!/^\d+$/.test(text)) throw new Error(`${label} is not a byte count: ${text}`);
   const parsed = Number(text);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
@@ -99,12 +102,69 @@ export class MemoryProbe {
   }
 
   /**
+   * Read one cgroup limit/current pair without hiding measurement failures.
+   *
+   * @param {1|2} version
+   * @param {string} limitPath
+   * @param {string} currentPath
+   * @returns {CgroupSnapshot}
+   */
+  readCgroupCandidate(version, limitPath, currentPath) {
+    /** @type {string[]} */
+    const errors = [];
+    let limitBytes = null;
+    let currentBytes = null;
+    const limitText = this.readText(limitPath);
+    if (limitText === null) {
+      errors.push('CGROUP_LIMIT_UNMEASURABLE');
+    } else {
+      try {
+        limitBytes = parseFiniteBytes(limitText, `cgroup v${version} memory limit`);
+      } catch {
+        errors.push('CGROUP_LIMIT_UNMEASURABLE');
+      }
+    }
+
+    if (limitBytes !== null) {
+      const currentText = this.readText(currentPath);
+      if (currentText === null) {
+        errors.push('CGROUP_CURRENT_UNMEASURABLE');
+      } else {
+        try {
+          currentBytes = parseFiniteBytes(currentText, `cgroup v${version} memory current`);
+          if (currentBytes === null) errors.push('CGROUP_CURRENT_UNMEASURABLE');
+        } catch {
+          errors.push('CGROUP_CURRENT_UNMEASURABLE');
+        }
+      }
+    }
+
+    return {
+      version,
+      limit_bytes: limitBytes,
+      current_bytes: currentBytes,
+      source: limitPath,
+      errors,
+    };
+  }
+
+  /**
    * Read Linux cgroup v2 or v1 memory information.
    *
    * @returns {CgroupSnapshot|null}
    */
   readCgroup() {
     if (this.platform !== 'linux') return null;
+    const selfCgroupPath = `${this.procRoot}/self/cgroup`;
+    if (this.fs.existsSync(selfCgroupPath) && this.readText(selfCgroupPath) === null) {
+      return {
+        version: null,
+        limit_bytes: null,
+        current_bytes: null,
+        source: selfCgroupPath,
+        errors: ['CGROUP_PATH_UNMEASURABLE'],
+      };
+    }
     const selfPaths = this.readSelfCgroupPaths();
 
     const v2Candidates = [];
@@ -115,21 +175,8 @@ export class MemoryProbe {
     v2Candidates.push(`${this.cgroupRoot}/memory.max`, `${this.cgroupRoot}/memory.current`);
 
     for (let index = 0; index < v2Candidates.length; index += 2) {
-      const limitText = this.readText(v2Candidates[index]);
-      if (limitText === null) continue;
-      const currentText = this.readText(v2Candidates[index + 1]);
-      try {
-        return {
-          version: 2,
-          limit_bytes: parseFiniteBytes(limitText, 'cgroup v2 memory.max'),
-          current_bytes: currentText === null
-            ? null
-            : parseFiniteBytes(currentText, 'cgroup v2 memory.current'),
-          source: v2Candidates[index],
-        };
-      } catch {
-        return { version: 2, limit_bytes: null, current_bytes: null, source: v2Candidates[index] };
-      }
+      if (!this.fs.existsSync(v2Candidates[index])) continue;
+      return this.readCgroupCandidate(2, v2Candidates[index], v2Candidates[index + 1]);
     }
 
     const v1Candidates = [];
@@ -143,26 +190,8 @@ export class MemoryProbe {
     );
 
     for (let index = 0; index < v1Candidates.length; index += 2) {
-      const limitText = this.readText(v1Candidates[index]);
-      if (limitText === null) continue;
-      const currentText = this.readText(v1Candidates[index + 1]);
-      try {
-        return {
-          version: 1,
-          limit_bytes: parseFiniteBytes(limitText, 'cgroup v1 memory.limit_in_bytes'),
-          current_bytes: currentText === null
-            ? null
-            : parseFiniteBytes(currentText, 'cgroup v1 memory.usage_in_bytes'),
-          source: v1Candidates[index],
-        };
-      } catch {
-        return {
-          version: 1,
-          limit_bytes: null,
-          current_bytes: null,
-          source: v1Candidates[index],
-        };
-      }
+      if (!this.fs.existsSync(v1Candidates[index])) continue;
+      return this.readCgroupCandidate(1, v1Candidates[index], v1Candidates[index + 1]);
     }
 
     return null;
@@ -187,6 +216,7 @@ export class MemoryProbe {
     }
 
     const cgroup = this.readCgroup();
+    if (cgroup?.errors?.length) errors.push(...cgroup.errors);
     let cgroupLimitBytes = cgroup?.limit_bytes ?? null;
     if (
       cgroupLimitBytes !== null &&

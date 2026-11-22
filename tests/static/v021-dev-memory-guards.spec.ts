@@ -92,6 +92,7 @@ describe('v0.0.21 dev-memory static guards', () => {
       'tests/dev-memory/monitor-math.spec.ts',
       'tests/dev-memory/cleanup-safety.spec.ts',
       'tests/dev-memory/run-orchestrator.spec.ts',
+      'tests/dev-memory/qa-independent.spec.ts',
       '.github/workflows/dev-memory.yml',
       'docs/DEV_MEMORY_v0.0.21.md',
       'vitest.low.config.ts',

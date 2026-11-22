@@ -133,7 +133,11 @@ export class BudgetPlanner {
     const sumTaskBudgetsPlusReserveMB = activeBudgetsMB + taskBudgetMB + reserveMB;
 
     let slotConflict = false;
-    if (shareBudgetMB < profile.taskFloorMB || availableMB < profile.taskFloorMB) {
+    if (
+      taskBudgetMB < profile.taskFloorMB ||
+      shareBudgetMB < profile.taskFloorMB ||
+      availableMB < profile.taskFloorMB
+    ) {
       reasons.push('BELOW_TASK_FLOOR');
     }
     if (currentAvailableMB < profile.taskFloorMB) {

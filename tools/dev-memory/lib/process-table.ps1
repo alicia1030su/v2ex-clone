@@ -33,6 +33,25 @@ function Get-WorkBuddyProcessRows {
   return @(Get-WmiObject -Class 'Win32_Process' -Property $script:ProcessProperties)
 }
 
+function Get-WorkBuddyFastProcessRow {
+  param([int]$TargetProcessId, [int]$ParentProcessId)
+
+  # Get-Process is dramatically faster than CIM for the spawn -> lease bind
+  # window. The supervisor already knows this is its direct child, so PPID is
+  # authoritative; cleanup still revalidates with full CIM identity.
+  $process = Get-Process -Id $TargetProcessId -ErrorAction Stop
+  $executable = $null
+  try { $executable = $process.MainModule.FileName } catch { }
+  return [pscustomobject]@{
+    ProcessId = [uint32]$process.Id
+    ParentProcessId = [uint32]$ParentProcessId
+    Name = [string]$process.ProcessName
+    ExecutablePath = $executable
+    CreationDate = $process.StartTime.ToUniversalTime()
+    WorkingSetSize = [uint64]$process.WorkingSet64
+  }
+}
+
 function ConvertTo-WorkBuddySnapshot {
   param([object[]]$Processes)
 
@@ -76,12 +95,26 @@ if ($Mode -eq 'Serve') {
 
     try {
       $targetPid = 0
-      if ($request -ne 'all') {
+      $parentPid = 0
+      $fast = $false
+      if ($request -like 'fast:*') {
+        $parts = $request.Split(':')
+        if ($parts.Length -ne 3 -or
+            -not [int]::TryParse($parts[1], [ref]$targetPid) -or
+            -not [int]::TryParse($parts[2], [ref]$parentPid)) {
+          throw "invalid fast process-table request: $request"
+        }
+        $fast = $true
+      } elseif ($request -ne 'all') {
         if (-not [int]::TryParse($request, [ref]$targetPid)) {
           throw "invalid process-table request: $request"
         }
       }
-      $snapshot = ConvertTo-WorkBuddySnapshot -Processes (Get-WorkBuddyProcessRows -TargetProcessId $targetPid)
+      if ($fast) {
+        $snapshot = ConvertTo-WorkBuddySnapshot -Processes @(Get-WorkBuddyFastProcessRow -TargetProcessId $targetPid -ParentProcessId $parentPid)
+      } else {
+        $snapshot = ConvertTo-WorkBuddySnapshot -Processes (Get-WorkBuddyProcessRows -TargetProcessId $targetPid)
+      }
       [Console]::Out.WriteLine(($snapshot | ConvertTo-Json -Compress -Depth 6))
     } catch {
       $failure = [pscustomobject]@{

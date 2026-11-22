@@ -326,6 +326,17 @@ export class SafeCleaner {
                   continue;
                 }
                 if (!this.verifyIdentity(expected, fresh)) {
+                  if (target.pid === freshRoot.pid && options.rootExitConfirmed) {
+                    // The direct root exited or its PID was recycled while
+                    // descendants were being terminated. No root signal is
+                    // needed; skipping is safe and completes the cleanup.
+                    skipped.push({
+                      pid: target.pid,
+                      identity_hash: expected.identity_hash,
+                      reason: 'ROOT_EXITED_OR_REUSED_BEFORE_SIGNAL',
+                    });
+                    continue;
+                  }
                   decision = 'ABORTED';
                   errors.push(`IDENTITY_MISMATCH:${target.pid}`);
                   skipped.push({

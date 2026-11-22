@@ -60,6 +60,17 @@ export class ProcessTable {
 
   /**
    * @param {number} pid
+   * @param {number} ppid
+   * @returns {object|null}
+   */
+  snapshotDirectChild(pid, ppid) {
+    return typeof this.impl.snapshotDirectChild === 'function'
+      ? this.impl.snapshotDirectChild(pid, ppid)
+      : this.impl.snapshotOne(pid);
+  }
+
+  /**
+   * @param {number} pid
    * @returns {boolean}
    */
   isAlive(pid) {
@@ -130,10 +141,23 @@ export function confirmedDescendants(root, processes) {
 export function verifyProcessIdentity(expected, fresh, platform = process.platform) {
   if (!expected || !fresh) return false;
   if (expected.pid !== fresh.pid || expected.ppid !== fresh.ppid) return false;
+  if (platform === 'win32') {
+    // Windows has no Linux-style start ticks. A missing creation time removes
+    // the only portable PID-reuse fence and must never compare equal.
+    if (typeof expected.start_time !== 'string' || typeof fresh.start_time !== 'string') {
+      return false;
+    }
+    if (!Number.isFinite(Date.parse(expected.start_time)) || !Number.isFinite(Date.parse(fresh.start_time))) {
+      return false;
+    }
+    if (Date.parse(expected.start_time) !== Date.parse(fresh.start_time)) return false;
+  } else {
+    if (!Number.isSafeInteger(expected.start_ticks) || expected.start_ticks < 0) return false;
+    if (expected.start_ticks !== fresh.start_ticks) return false;
+  }
   if (expected.start_ticks !== null && expected.start_ticks !== undefined) {
     if (expected.start_ticks !== fresh.start_ticks) return false;
   }
-  if (expected.start_time && fresh.start_time && expected.start_time !== fresh.start_time) return false;
   const normalizeExe = (value) => {
     if (value === null || value === undefined) return null;
     return platform === 'win32' ? String(value).toLowerCase() : String(value);
