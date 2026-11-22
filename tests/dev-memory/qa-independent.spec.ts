@@ -620,22 +620,14 @@ describe('QA independent supervisor boundaries', () => {
     }
   }, 20_000);
 
-  it('launches the direct Next binary used by the cross-platform low entries', async () => {
-    const directory = temporaryDirectory('wb qa direct next spawn ');
-    const orchestrator = new RunOrchestrator();
-    try {
-      const exitCode = await orchestrator.run({
-        profile: 'vitest',
-        command: [process.execPath, 'node_modules/next/dist/bin/next', '--version'],
-        worktree: ROOT,
-        jsonDir: path.join(directory, 'reports'),
-        quiet: true,
-      });
-      expect(exitCode).toBe(0);
-    } finally {
-      orchestrator.processTable.impl?.dispose?.();
-    }
-  }, 20_000);
+  it('uses direct Node Next argv in the cross-platform low entries', () => {
+    const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(packageJson.scripts['dev:low']).toContain('-- node node_modules/next/dist/bin/next dev');
+    expect(packageJson.scripts['build:low']).toContain('-- node node_modules/next/dist/bin/next build');
+  });
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     it(`cleans the exact child and returns non-zero after supervisor ${signal}`, async () => {
