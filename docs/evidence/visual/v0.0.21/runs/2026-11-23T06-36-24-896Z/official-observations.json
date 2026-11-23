@@ -1,0 +1,52 @@
+[
+  {
+    "url": "https://www.v2ex.com/",
+    "final_url": "https://www.v2ex.com/?__cf_chl_rt_tk=pt3OXj2vVh_JtbLGl_PW_pz3y_RDTklxvmfMk9RJuj8-1795415821-1.0.1.1-hYfP_yybC8IZIBp85BEsdaQzBtC0AxuA.yITMYDR.C8",
+    "http_status": 403,
+    "status": "http-403",
+    "captured_at": "2026-11-23T06:36:30.764Z",
+    "legal_basis": "Public page live observation; numeric geometry and computed style only; no source or assets copied.",
+    "eligible_for_official_pixel_claim": false,
+    "page_errors": [],
+    "observation": {
+      "title": "Just a moment...",
+      "lang": "en-US",
+      "viewport": {
+        "width": 1280,
+        "height": 900,
+        "dpr": 1
+      },
+      "document": {
+        "scrollWidth": 1280,
+        "clientWidth": 1280
+      },
+      "boxes": {
+        "top": null,
+        "wrapper": null,
+        "main": null,
+        "rightbar": null,
+        "firstTopic": null
+      },
+      "styles": {
+        "body": {
+          "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "18.4px",
+          "color": "rgb(49, 49, 49)",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "main": null,
+        "firstTopic": null
+      }
+    }
+  },
+  {
+    "url": "https://livid.v2ex.com/design.html",
+    "status": "unavailable",
+    "captured_at": "2026-11-23T06:37:30.899Z",
+    "legal_basis": "Public official page could not be observed; no source or assets copied.",
+    "eligible_for_official_pixel_claim": false,
+    "error": "page.goto: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://livid.v2ex.com/design.html\", waiting until \"domcontentloaded\"\u001b[22m\n"
+  }
+]

@@ -6,6 +6,7 @@ import { createCaptcha, captchaFieldName } from '@/server/captcha';
 import { isCaptchaDisabled } from '@/lib/runtime-flags';
 import SignInForm from '@/components/SignInForm';
 import NavTools from '@/components/NavTools';
+import SearchBox from '@/components/SearchBox';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +38,7 @@ export default async function SignInPage({
             <a href="/" title="way to explore">
               <Logo />
             </a>
-            <div id="search-container">
-              <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
-            </div>
+            <SearchBox />
             <NavTools user={null} />
           </div>
         </div>

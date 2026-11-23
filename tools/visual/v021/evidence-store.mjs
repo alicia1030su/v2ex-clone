@@ -17,8 +17,8 @@ export function writeJson(filePath, value) {
 /**
  * Write shared page/viewport evidence once; all six layer records reference it.
  */
-export function writeSharedEvidence({ pageClass, viewport, role = 'guest', evidence, environment, commit, capturedAt }) {
-  const directory = path.join(EVIDENCE_ROOT, 'before', '_shared', pageClass.slug, viewport.name, role);
+export function writeSharedEvidence({ pageClass, viewport, role = 'guest', phase = 'before', variant = 'default', evidence, environment, commit, capturedAt }) {
+  const directory = path.join(EVIDENCE_ROOT, phase, '_shared', pageClass.slug, viewport.name, role, ...(variant === 'default' ? [] : [variant]));
   fs.mkdirSync(directory, { recursive: true });
   const files = {};
   const payloads = {
@@ -53,7 +53,7 @@ export function writeSharedEvidence({ pageClass, viewport, role = 'guest', evide
   if (fs.existsSync(screenshotPath) && fs.statSync(screenshotPath).isFile()) {
     files['page.png'] = screenshotPath;
   }
-  return { directory, files, status: evidence.status, role };
+  return { directory, files, status: evidence.status, role, variant };
 }
 
 /**
@@ -61,8 +61,8 @@ export function writeSharedEvidence({ pageClass, viewport, role = 'guest', evide
  * evidence file. The record remains UNVERIFIED when no official reference
  * exists, regardless of whether current probes succeeded.
  */
-export function writeGapMetadata({ record, shared, referenceManifestPath, environment }) {
-  const directory = path.join(EVIDENCE_ROOT, 'before', record.gap_id);
+export function writeGapMetadata({ record, shared, referenceManifestPath, environment, phase = 'before' }) {
+  const directory = path.join(EVIDENCE_ROOT, phase, record.gap_id);
   fs.mkdirSync(directory, { recursive: true });
   const layerFile = {
     L1: 'metadata.json',
@@ -92,6 +92,7 @@ export function writeGapMetadata({ record, shared, referenceManifestPath, enviro
     collection_status: sharedEntries.map((entry) => entry.status ?? 'recorded'),
     role_coverage: sharedEntries.map((entry) => ({
       role: entry.role ?? 'guest',
+      variant: entry.variant ?? 'default',
       status: entry.status ?? 'recorded',
       metadata: path.relative(ROOT, entry.files['metadata.json']).split(path.sep).join('/'),
     })),
@@ -104,8 +105,8 @@ export function writeGapMetadata({ record, shared, referenceManifestPath, enviro
   return metadataPath;
 }
 
-export function writeReferenceManifest({ commit, environment, capturedAt, baselinePath = null, officialObservationsPath = null }) {
-  const manifestPath = path.join(EVIDENCE_ROOT, 'reference-manifest.json');
+export function writeReferenceManifest({ commit, environment, capturedAt, baselinePath = null, officialObservationsPath = null, fileName = 'reference-manifest.json' }) {
+  const manifestPath = path.join(EVIDENCE_ROOT, fileName);
   const baselineRelative = baselinePath
     ? path.relative(ROOT, baselinePath).split(path.sep).join('/')
     : 'docs/evidence/visual/v0.0.21/before/_shared';

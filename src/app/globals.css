@@ -19,12 +19,12 @@
   --button-background-color: #f0f0f0;
   --button-background-hover-color: #f5f5f5;
   --button-background-active-color: #e0e0e0;
-  --button-foreground-color: #666;
+  --button-foreground-color: #5f666c;
   --button-foreground-hover-color: #333;
   --button-border-color: #ddd;
   --button-border-hover-color: #c0c0c0;
   --menu-shadow-color: rgba(0, 0, 0, 0.2);
-  --link-color: #778087;
+  --link-color: #6b747b;
   --link-visited-color: #afb9c1;
   --link-hover-color: #4d5256;
   --color-foreground: #000;
@@ -70,6 +70,11 @@ a:visited {
   color: var(--link-color);
 }
 
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--v2ex-focus-ring);
+  outline-offset: 2px;
+}
+
 /* ------------------------------ Top bar ------------------------------ */
 
 #Top {
@@ -80,7 +85,7 @@ a:visited {
      ⇒ 导航换行后**内容高度超过 45px** ⇒ 溢出向下**覆盖节点头部**
      （实测 320/375/390px：深色横幅上半部被白色顶栏遮住）。
      改用 min-height + 允许增长，溢出问题消失。 */
-  min-height: 45px;
+  min-height: var(--v2ex-topbar-min-height);
   height: auto;
   font-size: 15px;
   font-weight: 500;
@@ -90,7 +95,7 @@ a:visited {
 }
 
 #Top > .content {
-  max-width: 1060px;
+  max-width: var(--v2ex-topbar-content-width);
   margin: 0 auto;
   height: 100%;
 }
@@ -246,7 +251,7 @@ a:visited {
 }
 
 #Wrapper > .content {
-  max-width: 1100px;
+  max-width: var(--v2ex-content-max-width);
   margin: 0 auto;
   text-align: left;
 }
@@ -257,14 +262,14 @@ a:visited {
 }
 
 #Rightbar {
-  width: 270px;
+  width: var(--v2ex-sidebar-width);
   float: right;
-  margin-right: 20px;
+  margin-right: var(--v2ex-layout-gap);
 }
 
 #Main {
   width: auto;
-  margin: 0 310px 0 20px;
+  margin: 0 calc(var(--v2ex-sidebar-width) + var(--v2ex-layout-gap) * 2) 0 var(--v2ex-layout-gap);
   min-width: 0;
 }
 
@@ -274,7 +279,7 @@ a:visited {
  * 否则内容列右侧会留下一条纯灰色空档（见 Wrapper.tsx 注释）。
  */
 #Main.no-rightbar {
-  margin-right: 20px;
+  margin-right: var(--v2ex-layout-gap);
 }
 
 /* ------------------------------ Box / Cell ------------------------------ */
@@ -554,16 +559,23 @@ a.tab_current:hover {
 /* ------------------------------ Topic list item ------------------------------ */
 
 .cell.item {
-  padding: 10px;
+  padding: var(--v2ex-topic-row-padding);
   font-size: 14px;
   line-height: 150%;
   text-align: left;
   border-bottom: 1px solid var(--box-border-color);
+  transition: background-color 0.15s ease;
+}
+.cell.item:hover {
+  background-color: var(--box-background-hover-color);
+}
+.cell.item .sep5 {
+  min-height: 4px;
 }
 
 .item_title {
-  font-size: 16px;
-  line-height: 130%;
+  font-size: var(--v2ex-topic-title-size);
+  line-height: var(--v2ex-topic-title-line);
   word-break: break-word;
   line-break: strict;
 }
@@ -575,16 +587,16 @@ a.tab_current:hover {
 }
 
 .topic_info {
-  font-size: 12px;
-  color: var(--color-fade);
-  line-height: 200%;
+  font-size: var(--v2ex-topic-meta-size);
+  color: var(--v2ex-topic-meta-color);
+  line-height: var(--v2ex-topic-meta-line);
 }
 .topic_info a.node {
   color: var(--link-color);
   font-weight: 500;
 }
 .topic_info strong a {
-  color: var(--color-gray);
+  color: var(--v2ex-topic-meta-color);
   font-weight: 500;
 }
 
@@ -594,7 +606,7 @@ a.tab_current:hover {
   line-height: 12px;
   font-weight: 700;
   color: #fff;
-  background-color: #aab0c6;
+  background-color: #626b79;
   border-radius: 12px;
   padding: 2px 10px;
   margin: 0 5px 0 0;
@@ -619,7 +631,7 @@ a.count_livid:visited {
 }
 a.count_livid:hover {
   color: #fff;
-  background-color: #969cb1;
+  background-color: #535c6a;
   text-decoration: none;
 }
 
@@ -834,7 +846,11 @@ textarea {
   line-height: 100%;
   color: var(--link-color);
   padding: 10px;
+  background: transparent;
+  border: 0;
   border-bottom: 3px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
   text-decoration: none;
   transition: border-color 0.3s;
 }
@@ -1048,6 +1064,13 @@ textarea {
   line-height: 1.4;
   padding-right: 5px;
 }
+.node-header > .page-content-header a {
+  color: #c7d3d8;
+}
+.node-header > .page-content-header a:hover {
+  color: #fff;
+}
+
 .node-header > .page-content-header .topic-count {
   font-size: 12px;
   padding-right: 5px;
@@ -1448,6 +1471,24 @@ textarea {
   .cell.item,
   .cell .item {
     font-size: 14px;
+  }
+
+  .cell.item td:first-child {
+    width: 32px !important;
+  }
+  .cell.item td:nth-child(2) {
+    width: 6px !important;
+  }
+  .cell.item .avatar {
+    width: 32px;
+    height: 32px;
+  }
+  .cell.item .item_title {
+    font-size: 14px;
+  }
+  .cell.item .topic_info {
+    font-size: 11px;
+    line-height: 1.45;
   }
 
   /* 头像在窄屏下略缩 */

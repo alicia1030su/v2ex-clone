@@ -59,6 +59,7 @@ export default function SignUpForm({ error }: { error?: string }) {
                   type="text"
                   name="username"
                   id="username"
+                  aria-label="用户名"
                   maxLength={32}
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -76,6 +77,7 @@ export default function SignUpForm({ error }: { error?: string }) {
                   type="email"
                   name="email"
                   id="email"
+                  aria-label="邮箱"
                   maxLength={255}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -92,6 +94,7 @@ export default function SignUpForm({ error }: { error?: string }) {
                   type="password"
                   name="password"
                   id="password"
+                  aria-label="密码"
                   maxLength={128}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -109,6 +112,7 @@ export default function SignUpForm({ error }: { error?: string }) {
                   type="password"
                   name="confirm"
                   id="confirm"
+                  aria-label="确认密码"
                   maxLength={128}
                   value={form.confirm}
                   onChange={(e) => setForm({ ...form, confirm: e.target.value })}

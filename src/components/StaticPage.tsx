@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Footer from '@/components/Footer';
 import NavTools from '@/components/NavTools';
+import SearchBox from '@/components/SearchBox';
 
 /**
  * 静态信息页骨架
@@ -36,9 +37,7 @@ export default function StaticPage({
             <Link href="/" title="way to explore">
               <Logo />
             </Link>
-            <div id="search-container">
-              <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
-            </div>
+            <SearchBox />
             <NavTools user={null} />
           </div>
         </div>

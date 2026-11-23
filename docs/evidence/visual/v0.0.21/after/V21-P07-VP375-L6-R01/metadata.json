@@ -1,0 +1,302 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P07-VP375-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "classic",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/classic/metadata.json"
+    },
+    {
+      "role": "guest",
+      "variant": "quote",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/quote/metadata.json"
+    },
+    {
+      "role": "guest",
+      "variant": "badge",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/badge/metadata.json"
+    },
+    {
+      "role": "guest",
+      "variant": "nested",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/nested/metadata.json"
+    },
+    {
+      "role": "guest",
+      "variant": "tree",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/tree/metadata.json"
+    },
+    {
+      "role": "guest",
+      "variant": "lines",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/lines/metadata.json"
+    },
+    {
+      "role": "guest",
+      "variant": "excerpt",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/excerpt/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "classic",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/classic/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "quote",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/quote/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "badge",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/badge/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "nested",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/nested/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "tree",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/tree/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "lines",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/lines/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "excerpt",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/excerpt/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/classic/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/classic/metadata.json",
+      "sha256": "sha256:3b33b86d93fdc3c59618afe3c9d211df260bebab0c82deaaf662e81c55cbbbed"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/classic/page.png",
+      "sha256": "sha256:17d7cd31eb7061b80ef4460ee53c6b7a9ac58a2830698b2cd4db26c4e78f8e14"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/quote/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/quote/metadata.json",
+      "sha256": "sha256:ad692f380dcb5ad97d35f647588dc0b7e928cb7e830f3d43a2d9b8b3fa1f3b2c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/quote/page.png",
+      "sha256": "sha256:afd0fcdbdd369fac505edf6973a98ca391164537f8fd4bd0eefa5c08d52cf716"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/badge/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/badge/metadata.json",
+      "sha256": "sha256:3150bc38fafb663d5661aa27ee94a5f87f3cbbd2669d0c47f26a03ddba10347c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/badge/page.png",
+      "sha256": "sha256:5442f83b744efc375510c089087c3c7065545903b10dcd2a6a1fccc764b845d4"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/nested/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/nested/metadata.json",
+      "sha256": "sha256:399e0ce8bbd978db0ef8ecda37a25efd10413f574b1e91e73d83f27db87ccf81"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/nested/page.png",
+      "sha256": "sha256:9b65cbcd5eb0ae408e576a684c7a33e49f4352b073cf6086e829b7336db91822"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/tree/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/tree/metadata.json",
+      "sha256": "sha256:b5b041581c719686281bae788f2a2ebcb2d8204c6b5dc3eb47f49ae91fdb54da"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/tree/page.png",
+      "sha256": "sha256:7f50a3fa9c0bfa5c15fcc0f0d42adff07cdb38a04674482f649764aab6cf7566"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/lines/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/lines/metadata.json",
+      "sha256": "sha256:ca443226a3c582933ce1b1eaef68dda15f1a9b270ccd7b51d01d8e74df45adc7"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/lines/page.png",
+      "sha256": "sha256:1ef48f7b46f504e0a902cba1fa1650164b13b55a125fb23cbb0cf76a7acb4618"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/excerpt/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/excerpt/metadata.json",
+      "sha256": "sha256:4bb59ce44e42d93c363deb588716a73495ddc4774d617a68b473d178444deca0"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/guest/excerpt/page.png",
+      "sha256": "sha256:cb6e5432eb218f762c14d7b5231d2cfb56a088055fc6be106e20582a56ca94e4"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/classic/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/classic/metadata.json",
+      "sha256": "sha256:7f969d6f3131a227a3f4ebfb86cd809fff2a5fc40cbe83623aa884753c8acb80"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/classic/page.png",
+      "sha256": "sha256:13169eafe71705f4d18351f34973982d33f95690b4893edcdf7eb9d66fbc04df"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/quote/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/quote/metadata.json",
+      "sha256": "sha256:31e5f8039780a05c925514ed408a5706df0bdf4ba699ff49be4371328d171562"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/quote/page.png",
+      "sha256": "sha256:12b579f6f78fd4848e18331feae3094f44f7c60acfd006cbc1b9f8aaee291918"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/badge/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/badge/metadata.json",
+      "sha256": "sha256:b539f8639fcac8114db333c169e4fa1d3e1ead2fca381ab9df9331acc8f298cc"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/badge/page.png",
+      "sha256": "sha256:f910ec67a5d79c1460b07a5b0a0bab7c45bdcf86e2700c03d2d5b713d73b019f"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/nested/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/nested/metadata.json",
+      "sha256": "sha256:fbd1ff95edb7ab490728112feeb0b7da72b57d48da61cd083fb859d4c01743c2"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/nested/page.png",
+      "sha256": "sha256:b13327ce5ebbdf10db21cd0e05254fb48bfbeb482db3f8461581694196ab053e"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/tree/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/tree/metadata.json",
+      "sha256": "sha256:7a1fabeb2de5fd145fdcbcab4334b9c48493901940bf951c8f3214c15965b6e6"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/tree/page.png",
+      "sha256": "sha256:b6ed25c17ab840158ab62c7c41f30cfbf97f9fd2ceba2d06e4bce45a69d9d3f6"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/lines/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/lines/metadata.json",
+      "sha256": "sha256:38bea7456aae3a47d580192ffa31530c803af03fdc354df3eac9caaf54a1805f"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/lines/page.png",
+      "sha256": "sha256:c7d792d02ea6d212fd196c463367d6ee759361452d5a4d4cf01a3233c1fc70d2"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/excerpt/responsive.json",
+      "sha256": "sha256:3ee1820709acebe090645c0baeb03ed3bc166d54ec56173a031b71e1b300e989"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/excerpt/metadata.json",
+      "sha256": "sha256:418e622967bf9a3876a54ed5fb19c4275b0d381c17d0eec590371fef4f7e3005"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/reply-modes/mobile-375/user/excerpt/page.png",
+      "sha256": "sha256:8b1fa0bf5bb2bd1b26bc499da552c56ed9f482e5cca29a6496080475ea694c6a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:e1d2f342df9255c04fc2bdd5a9a917de587062b3c05bf3d6c5f3c125a1306566"
+}

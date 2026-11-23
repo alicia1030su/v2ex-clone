@@ -67,6 +67,7 @@ export default function SearchBox() {
       <form onSubmit={submit} role="search">
         <input
           id="search"
+          aria-label="搜索"
           type="text"
           maxLength={128}
           autoComplete="off"

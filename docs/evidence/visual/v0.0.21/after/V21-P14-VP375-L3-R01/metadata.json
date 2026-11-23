@@ -1,0 +1,55 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P14-VP375-L3-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/search/mobile-375/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/search/mobile-375/guest/styles.json",
+      "sha256": "sha256:fbc359377a6c6ec65027be8a4f6afe23363ab19bf3294a5bfec6645794d4c605"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/search/mobile-375/guest/metadata.json",
+      "sha256": "sha256:9ecda27c13a2f52dd258c021318cae821089c93c9f3051af31fa3e7bf79e5cb0"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/search/mobile-375/guest/page.png",
+      "sha256": "sha256:938c6232dbe2879d2b7975daae9ade9acd5d13a2090de666203784280d90b8bd"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:fb0e29863bd19621c75c72c8bea0574110ff3dbc927fc07d5ebdfe624aa9dcad"
+}

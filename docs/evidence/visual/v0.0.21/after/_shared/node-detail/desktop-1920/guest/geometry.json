@@ -1,0 +1,419 @@
+{
+  "boxes": [
+    {
+      "selector": "#Top",
+      "tag": "div",
+      "id": "Top",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 45
+      }
+    },
+    {
+      "selector": "#Wrapper",
+      "tag": "div",
+      "id": "Wrapper",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 45,
+        "width": 1920,
+        "height": 1679.39
+      }
+    },
+    {
+      "selector": "#Main",
+      "tag": "div",
+      "id": "Main",
+      "className": "",
+      "rect": {
+        "x": 430,
+        "y": 45,
+        "width": 770,
+        "height": 1659.39
+      }
+    },
+    {
+      "selector": "#Rightbar",
+      "tag": "div",
+      "id": "Rightbar",
+      "className": "",
+      "rect": {
+        "x": 1220,
+        "y": 45,
+        "width": 270,
+        "height": 147.8
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": "search-result",
+      "className": "box",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 1220,
+        "y": 65,
+        "width": 270,
+        "height": 127.8
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box box-title node-header",
+      "rect": {
+        "x": 430,
+        "y": 65,
+        "width": 770,
+        "height": 85
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 430,
+        "y": 221.8,
+        "width": 770,
+        "height": 1482.59
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 1220,
+        "y": 102.8,
+        "width": 270,
+        "height": 45
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 1220,
+        "y": 147.8,
+        "width": 270,
+        "height": 44
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell page-content-header",
+      "rect": {
+        "x": 430,
+        "y": 65,
+        "width": 770,
+        "height": 84
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell ps_container",
+      "rect": {
+        "x": 430,
+        "y": 221.8,
+        "width": 770,
+        "height": 51.8
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_434 t_314",
+      "rect": {
+        "x": 430,
+        "y": 273.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_433 t_313",
+      "rect": {
+        "x": 430,
+        "y": 342.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_312",
+      "rect": {
+        "x": 430,
+        "y": 411.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_432 t_311",
+      "rect": {
+        "x": 430,
+        "y": 480.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_431 t_310",
+      "rect": {
+        "x": 430,
+        "y": 549.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_309",
+      "rect": {
+        "x": 430,
+        "y": 618.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_308",
+      "rect": {
+        "x": 430,
+        "y": 687.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_307",
+      "rect": {
+        "x": 430,
+        "y": 756.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_306",
+      "rect": {
+        "x": 430,
+        "y": 825.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_305",
+      "rect": {
+        "x": 430,
+        "y": 894.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_430 t_304",
+      "rect": {
+        "x": 430,
+        "y": 963.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_429 t_303",
+      "rect": {
+        "x": 430,
+        "y": 1032.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_302",
+      "rect": {
+        "x": 430,
+        "y": 1101.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_301",
+      "rect": {
+        "x": 430,
+        "y": 1170.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_300",
+      "rect": {
+        "x": 430,
+        "y": 1239.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_22 t_299",
+      "rect": {
+        "x": 430,
+        "y": 1308.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_428 t_298",
+      "rect": {
+        "x": 430,
+        "y": 1377.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_421 t_295",
+      "rect": {
+        "x": 430,
+        "y": 1446.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_420 t_294",
+      "rect": {
+        "x": 430,
+        "y": 1515.59,
+        "width": 770,
+        "height": 69
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell from_417 t_293",
+      "rect": {
+        "x": 430,
+        "y": 1584.59,
+        "width": 770,
+        "height": 68
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell ps_container",
+      "rect": {
+        "x": 430,
+        "y": 1652.59,
+        "width": 770,
+        "height": 50.8
+      }
+    },
+    {
+      "selector": "form",
+      "tag": "form",
+      "id": null,
+      "className": "",
+      "rect": {
+        "x": 571,
+        "y": 8,
+        "width": 246,
+        "height": 22
+      }
+    }
+  ],
+  "overlap": false,
+  "overflow": {
+    "documentWidth": 1920,
+    "viewportWidth": 1920,
+    "bodyWidth": 1920,
+    "horizontalOverflow": false
+  }
+}

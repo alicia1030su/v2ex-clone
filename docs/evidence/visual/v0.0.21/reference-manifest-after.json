@@ -1,0 +1,64 @@
+{
+  "schema": "workbuddy-v021/reference-manifest/v1",
+  "generated_at": "2026-11-23T06:36:24.896Z",
+  "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "references": [
+    {
+      "reference_id": "NONE-OFFICIAL-PIXEL-SPEC",
+      "kind": "none",
+      "url_or_path": null,
+      "captured_at": "2026-11-23T06:36:24.896Z",
+      "legal_basis": "No legally eligible official pixel specification is available in the repository.",
+      "auth_role": "guest",
+      "viewport": "all",
+      "dpr": 1,
+      "locale": "zh-CN",
+      "sha256": null,
+      "eligible_for_official_pixel_claim": false
+    },
+    {
+      "reference_id": "SELF-V021-BEFORE",
+      "kind": "project-owned-baseline",
+      "url_or_path": "docs/evidence/visual/v0.0.21/runs/2026-11-23T06-36-24-896Z/raw-probes.json",
+      "captured_at": "2026-11-23T06:36:24.896Z",
+      "legal_basis": "Project-owned source and screenshots; regression only.",
+      "auth_role": "all",
+      "viewport": "all",
+      "dpr": 1,
+      "locale": "zh-CN",
+      "sha256": "sha256:6f5c59cdd300d085b44baadb223e4c8a06e8a708eb3feab474d12efca3d54ce2",
+      "eligible_for_official_pixel_claim": false
+    },
+    {
+      "reference_id": "OFFICIAL-LIVE-OBSERVATIONS",
+      "kind": "public-interaction-contract",
+      "url_or_path": "docs/evidence/visual/v0.0.21/runs/2026-11-23T06-36-24-896Z/official-observations.json",
+      "captured_at": "2026-11-23T06:36:24.896Z",
+      "legal_basis": "Public official pages observed live; numeric geometry and computed style only; no source or assets copied.",
+      "auth_role": "guest",
+      "viewport": "observed",
+      "dpr": 1,
+      "locale": "zh-CN",
+      "sha256": "sha256:1c479ce382123a0aa42e11a407e12bdc88a98f14ea2161717edd8804ebd6a26e",
+      "eligible_for_official_pixel_claim": false
+    }
+  ]
+}

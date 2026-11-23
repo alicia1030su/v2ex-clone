@@ -29,7 +29,8 @@ export function renderMatrix(matrixPath = DEFAULT_MATRIX, outputPath = DEFAULT_O
     return summary;
   }, {});
   const findings = records.reduce((summary, record) => {
-    for (const finding of record.delta?.findings ?? []) {
+    const source = record.before_findings ?? record.delta?.findings ?? [];
+    for (const finding of source) {
       summary[finding] = (summary[finding] ?? 0) + 1;
     }
     return summary;
@@ -48,7 +49,7 @@ export function renderMatrix(matrixPath = DEFAULT_MATRIX, outputPath = DEFAULT_O
   const lines = [
     '# V2EX Visual Fidelity Matrix v0.0.21',
     '',
-    '> 状态：before 审计完成；正式视觉改造候选仍为 No-Go，直到 P0 阻断项关闭。',
+    '> 状态：before/after 证据已采集；正式视觉改造候选仍为 No-Go，直到 P0 阻断项关闭。',
     '> 本文件只报告记录与证据，不输出视觉相似度或还原百分比。',
     '',
     '## 汇总',
@@ -58,8 +59,10 @@ export function renderMatrix(matrixPath = DEFAULT_MATRIX, outputPath = DEFAULT_O
     `- INTENTIONAL_DIFFERENCE：${counts.INTENTIONAL_DIFFERENCE ?? 0}`,
     `- UNVERIFIED：${counts.UNVERIFIED ?? 0}`,
     `- P0 UNVERIFIED 阻断：${p0}`,
-    `- 分类 A（内部结构/可访问性差距）：${classifications.A ?? 0}`,
-    `- 分类 E（官方参考不足）：${classifications.E ?? 0}`,
+    `- after 证据：${records.filter((record) => record.evidence_after).length}`,
+    `- before 分类 A：${records.filter((record) => record.before_classification === 'A').length}`,
+    `- after 分类 A：${classifications.A ?? 0}`,
+    `- after 分类 E：${classifications.E ?? 0}`,
     '',
     '## 官方参考可达性',
     '',
@@ -75,11 +78,11 @@ export function renderMatrix(matrixPath = DEFAULT_MATRIX, outputPath = DEFAULT_O
     '',
     '## 540 条索引',
     '',
-    '| gap_id | 页面类 | 路由 | 角色 | 视口 | 层 | 严重度 | 终态 | closure_allowed | before 证据 |',
-    '|---|---|---|---|---|---|---|---|---|---|',
+    '| gap_id | 页面类 | 路由 | 角色 | 视口 | 层 | 严重度 | 终态 | closure_allowed | before 证据 | after 证据 |',
+    '|---|---|---|---|---|---|---|---|---|---|---|',
   ];
   for (const record of records) {
-    lines.push(`| ${record.gap_id} | ${record.page_class} | ${record.route} | ${record.auth_role} | ${record.viewport} | ${record.layer} | ${record.severity} | ${record.status} | ${record.closure_allowed} | ${record.evidence_before} |`);
+    lines.push(`| ${record.gap_id} | ${record.page_class} | ${record.route} | ${record.auth_role} | ${record.viewport} | ${record.layer} | ${record.severity} | ${record.status} | ${record.closure_allowed} | ${record.evidence_before} | ${record.evidence_after ?? '—'} |`);
   }
   lines.push('', '## 复测规则', '', '只有同时具备合法 before/after 参考、证据哈希和复测结果的记录才能转为 VERIFIED 或 INTENTIONAL_DIFFERENCE。', '');
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });

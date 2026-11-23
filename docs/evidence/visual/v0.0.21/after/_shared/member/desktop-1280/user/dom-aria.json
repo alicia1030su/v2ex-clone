@@ -1,0 +1,30 @@
+{
+  "title": "V2EX",
+  "lang": "zh-CN",
+  "landmarks": [
+    {
+      "tag": "h2",
+      "text": "admin",
+      "rect": {
+        "x": 984,
+        "y": 75,
+        "width": 176,
+        "height": 21
+      }
+    }
+  ],
+  "headings": [
+    {
+      "level": 2,
+      "text": "admin"
+    }
+  ],
+  "unlabeledControls": [],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div",
+    "div",
+    "div"
+  ]
+}

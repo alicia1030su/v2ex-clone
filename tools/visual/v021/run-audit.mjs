@@ -75,6 +75,9 @@ async function createAuditContext(browser, baseUrl, viewport, role, env) {
       page.waitForURL((url) => !url.pathname.startsWith('/signin'), { timeout: 30_000 }),
       page.click('button[type="submit"]'),
     ]);
+  } catch (error) {
+    const pageText = await page.locator('body').innerText().catch(() => '').then((text) => text.slice(0, 240));
+    throw new Error(`login failed for role ${role}: ${error instanceof Error ? error.message : String(error)}; page=${pageText}`);
   } finally {
     await page.close();
   }
@@ -205,16 +208,21 @@ export async function runAudit(options = {}) {
   const worktree = new WorktreeIdentityService().resolve(options.worktree ?? ROOT);
   dotenv.config({ path: options.envFile ?? path.join(ROOT, '.env.test'), quiet: true });
   const capturedAt = new Date().toISOString();
+  const phase = options.phase === 'after' ? 'after' : 'before';
   const fixtures = options.skipFixtures
     ? { topicId: 1, nodeName: 'claude', username: 'admin', tagName: 'visual-audit', query: 'claude', replyMode: 'classic', fingerprint: 'not-prepared' }
     : await prepareFixtures({ envFile: options.envFile });
-  generate({
-    worktree: worktree.root,
-    output: MATRIX_PATH,
-    commit: worktree.git_head,
-    capturedAt,
-    fixtures,
-  });
+  if (phase === 'before') {
+    generate({
+      worktree: worktree.root,
+      output: MATRIX_PATH,
+      commit: worktree.git_head,
+      capturedAt,
+      fixtures,
+    });
+  } else if (!fs.existsSync(MATRIX_PATH)) {
+    throw new Error('after audit requires an existing before matrix');
+  }
 
   const baseUrl = options.baseUrl ?? (options.managedServer ? 'http://127.0.0.1:3210' : null);
   if (!baseUrl) throw new Error('provide --base-url or --managed-server');
@@ -307,6 +315,7 @@ export async function runAudit(options = {}) {
     environment,
     capturedAt,
     officialObservationsPath,
+    fileName: phase === 'before' ? 'reference-manifest.json' : 'reference-manifest-after.json',
   });
   const shared = new Map();
   const rawProbes = [];
@@ -324,35 +333,43 @@ export async function runAudit(options = {}) {
           contexts.set(role, await createAuditContext(browser, baseUrl, viewport, role, env));
         }
         for (const pageClass of selectedPages) {
+          const variants = pageClass.slug === 'reply-modes'
+            ? ['classic', 'quote', 'badge', 'nested', 'tree', 'lines', 'excerpt']
+            : ['default'];
           for (const role of pageClass.roles) {
             const context = contexts.get(role);
-            const route = resolveRoute(pageClass.routes[0], fixtures);
-            const page = await context.newPage();
-            let evidence;
-            try {
-              evidence = await collectPageEvidence(page, {
-                url: new URL(route, baseUrl).toString(),
-                pageClass: pageClass.slug,
-                states: pageClass.states,
-                screenshotPath: path.join(EVIDENCE_ROOT, 'before', '_shared', pageClass.slug, viewport.name, role, 'page.png'),
+            for (const variant of variants) {
+              const routeFixtures = variant === 'default' ? fixtures : { ...fixtures, replyMode: variant };
+              const route = resolveRoute(pageClass.routes[0], routeFixtures);
+              const page = await context.newPage();
+              let evidence;
+              try {
+                evidence = await collectPageEvidence(page, {
+                  url: new URL(route, baseUrl).toString(),
+                  pageClass: pageClass.slug,
+                  states: pageClass.states,
+                  screenshotPath: path.join(EVIDENCE_ROOT, phase, '_shared', pageClass.slug, viewport.name, role, ...(variant === 'default' ? [] : [variant]), 'page.png'),
+                });
+              } catch (error) {
+                evidence = emptyEvidence(error instanceof Error ? error.message : String(error));
+              } finally {
+                await page.close();
+              }
+              const stored = writeSharedEvidence({
+                pageClass,
+                viewport,
+                role,
+                phase,
+                variant,
+                evidence,
+                environment,
+                commit: worktree.git_head,
+                capturedAt,
               });
-            } catch (error) {
-              evidence = emptyEvidence(error instanceof Error ? error.message : String(error));
-            } finally {
-              await page.close();
+              shared.set(`${pageClass.slug}|${viewport.name}|${role}|${variant}`, stored);
+              rawProbes.push({ page_class: pageClass.slug, auth_role: role, viewport: viewport.name, variant, route, final_url: evidence.finalUrl, status: evidence.status, layout_stable: evidence.layoutStable });
+              consoleErrors.push(...evidence.consoleErrors.map((error) => ({ page_class: pageClass.slug, auth_role: role, viewport: viewport.name, variant, error })));
             }
-            const stored = writeSharedEvidence({
-              pageClass,
-              viewport,
-              role,
-              evidence,
-              environment,
-              commit: worktree.git_head,
-              capturedAt,
-            });
-            shared.set(`${pageClass.slug}|${viewport.name}|${role}`, stored);
-            rawProbes.push({ page_class: pageClass.slug, auth_role: role, viewport: viewport.name, route, final_url: evidence.finalUrl, status: evidence.status, layout_stable: evidence.layoutStable });
-            consoleErrors.push(...evidence.consoleErrors.map((error) => ({ page_class: pageClass.slug, auth_role: role, viewport: viewport.name, error })));
           }
         }
       } finally {
@@ -374,6 +391,7 @@ export async function runAudit(options = {}) {
     capturedAt,
     baselinePath: rawProbesPath,
     officialObservationsPath,
+    fileName: phase === 'before' ? 'reference-manifest.json' : 'reference-manifest-after.json',
   });
   const records = JSON.parse(fs.readFileSync(MATRIX_PATH, 'utf8'));
   for (const record of records) {
@@ -397,6 +415,10 @@ export async function runAudit(options = {}) {
       return { ...probe, evidence: path.relative(ROOT, stored.files[fileName]).split(path.sep).join('/') };
     });
     const summary = summarizeLayerEvidence(record, stored);
+    if (phase === 'after') {
+      record.before_classification = record.classification;
+      record.before_findings = [...(record.delta?.findings ?? [])];
+    }
     record.current_value = {
       ...summary.current,
       official_comparison: 'unavailable',
@@ -407,24 +429,35 @@ export async function runAudit(options = {}) {
       reason: summary.findings.length ? summary.findings.join(',') : 'NO_ELIGIBLE_OFFICIAL_PIXEL_REFERENCE',
       findings: summary.findings,
     };
+    record.classification = summary.findings.length > 0 ? 'A' : 'E';
     if (summary.findings.length > 0) {
-      record.classification = 'A';
-      record.notes = `${record.notes} Internal before-evidence findings: ${summary.findings.join(', ')}.`;
+      record.notes = `${record.notes} Internal ${phase}-evidence findings: ${summary.findings.join(', ')}.`;
+    } else {
+      record.notes = `${record.notes} Internal ${phase}-evidence findings: none.`;
     }
-    record.retest_result = 'before-collected';
-    record.evidence_before = writeGapMetadata({
+    record.retest_result = `${phase}-collected`;
+    const evidencePath = writeGapMetadata({
       record,
       shared: storedEntries,
       referenceManifestPath,
       environment,
+      phase,
     });
-    record.evidence_before = path.relative(ROOT, record.evidence_before).split(path.sep).join('/');
+    const relativeEvidencePath = path.relative(ROOT, evidencePath).split(path.sep).join('/');
+    if (phase === 'after') {
+      record.evidence_after = relativeEvidencePath;
+      record.retest_result = 'after-collected';
+    } else {
+      record.evidence_before = relativeEvidencePath;
+      record.retest_result = `${phase}-collected`;
+    }
   }
   writeJson(MATRIX_PATH, records);
   renderMatrix(MATRIX_PATH, MARKDOWN_PATH);
   const validation = await validateMatrix(MATRIX_PATH);
   return {
     ok: true,
+    phase,
     commit: worktree.git_head,
     records: records.length,
     collected_role_page_viewports: shared.size,
@@ -442,6 +475,7 @@ if (isMain()) {
     baseUrl: argument('base-url'),
     managedServer: has('managed-server'),
     skipFixtures: has('skip-fixtures'),
+    phase: argument('phase', 'before'),
     envFile: argument('env-file'),
     maxPageClasses: argument('max-page-classes') ? Number(argument('max-page-classes')) : null,
   }).then((result) => {

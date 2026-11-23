@@ -1,0 +1,310 @@
+{
+  "availableStates": [
+    "default",
+    "hover",
+    "focus",
+    "active",
+    "disabled",
+    "loading",
+    "error",
+    "empty"
+  ],
+  "observed": {
+    "disabled": 0,
+    "loading": 0,
+    "error": 0,
+    "empty": 0
+  },
+  "contrastChecks": [
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "div",
+      "text": "",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "首页",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "热门",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "最新",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "注册",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "登录",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "div",
+      "text": "站点订阅方式RSS{ }JSON Feed",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "RSS",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "RSS",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "div",
+      "text": "{ }JSON Feed",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "{ }",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "JSON Feed",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "div",
+      "text": "V2EX  ›  claude主题总数 2",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "V2EX  ›  claude主题总数 2",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(0, 29, 37)",
+      "ratio": 17.46
+    },
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(199, 211, 216)",
+      "background": "rgb(0, 29, 37)",
+      "ratio": 11.42
+    },
+    {
+      "tag": "div",
+      "text": "节点Claude (claude)主题用 deepseek 的 api+ccswitch 效果怎么样？lisi  • 3",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "节点",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(249, 249, 249)",
+      "ratio": 19.95
+    },
+    {
+      "tag": "div",
+      "text": "Claude (claude)",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "Claude",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "div",
+      "text": "主题",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(249, 249, 249)",
+      "ratio": 19.95
+    },
+    {
+      "tag": "div",
+      "text": "用 deepseek 的 api+ccswitch 效果怎么样？lisi  • 36 分钟前1",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "用 deepseek 的 api+ccswitch 效果怎么样？",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "lisi",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "1",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(98, 107, 121)",
+      "ratio": 5.39
+    },
+    {
+      "tag": "div",
+      "text": "有没有 claude 至今没跳 kyc 没封的 V 友，来讲讲做法？zhaoliu  • 5 小时 51 分钟前1",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "有没有 claude 至今没跳 kyc 没封的 V 友，来讲讲做法？",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "zhaoliu",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "1",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(98, 107, 121)",
+      "ratio": 5.39
+    },
+    {
+      "tag": "a",
+      "text": "关于",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "FAQ",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "Privacy",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "UTC 06:39",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "PVG 14:39",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "LAX 22:39",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "JFK 01:39",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    }
+  ],
+  "reducedMotion": true,
+  "touchPoints": 10,
+  "states": [
+    "no results",
+    "results",
+    "suggestions"
+  ],
+  "pageClass": "search",
+  "focus": {
+    "tag": "a",
+    "outline": "rgb(88, 151, 251) solid 2px",
+    "active": true
+  },
+  "keyboardTab": {
+    "tag": "select",
+    "text": "浅色深色跟随系统"
+  }
+}

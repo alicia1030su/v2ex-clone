@@ -326,6 +326,7 @@ export default function ReplyComposer({
           <input
             ref={fileRef}
             type="file"
+            aria-label="选择回复图片"
             accept="image/png,image/jpeg,image/webp,image/gif"
             multiple
             hidden

@@ -1,0 +1,28 @@
+{
+  "title": "V2EX › About",
+  "lang": "zh-CN",
+  "landmarks": [
+    {
+      "tag": "h1",
+      "text": "About V2EX",
+      "rect": {
+        "x": 20,
+        "y": 190.8,
+        "width": 335,
+        "height": 28.59
+      }
+    }
+  ],
+  "headings": [
+    {
+      "level": 1,
+      "text": "About V2EX"
+    }
+  ],
+  "unlabeledControls": [],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div"
+  ]
+}

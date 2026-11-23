@@ -1,0 +1,74 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P08-VP1280-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/guest/responsive.json",
+      "sha256": "sha256:2052f3dcb65d0d25f32eade956f438d4f3cb9789bd94bd3550429a2965d77686"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/guest/metadata.json",
+      "sha256": "sha256:0a9449c877e4e5013c5105a7ad446460f2c0d5d1d577245aceffd39c039bb551"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/guest/page.png",
+      "sha256": "sha256:ca8b9756de4748f1c02fab82c84e864641a624604ce3ebe44f7b65d99625b3c0"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/user/responsive.json",
+      "sha256": "sha256:2052f3dcb65d0d25f32eade956f438d4f3cb9789bd94bd3550429a2965d77686"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/user/metadata.json",
+      "sha256": "sha256:dc7e52e42a7e50a6f59093b34de04a14548736de3e61576126a857bc3c9b36e0"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/member/desktop-1280/user/page.png",
+      "sha256": "sha256:f87c985e81052f56a7eb5e0937bf598bd450f28fcd6eca633e903c98b35b2679"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:3219f0efeb9acaa12c5561f95f18194a6ad53686e0f8aaa5216641cb64b0667e"
+}

@@ -85,6 +85,7 @@ export default function ForgotPasswordForm() {
                   type="email"
                   name="email"
                   id="email"
+                  aria-label="邮箱"
                   maxLength={255}
                   placeholder="注册时使用的邮箱"
                   autoComplete="email"

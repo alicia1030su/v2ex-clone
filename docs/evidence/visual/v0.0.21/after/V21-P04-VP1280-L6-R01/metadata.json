@@ -1,0 +1,55 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P04-VP1280-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/nodes/desktop-1280/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/nodes/desktop-1280/guest/responsive.json",
+      "sha256": "sha256:8101ec1fce80c1ab21d1d200904cfa2f87e86ff279ff3dcf5d3d0957bb988a12"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/nodes/desktop-1280/guest/metadata.json",
+      "sha256": "sha256:f6e65002ad9d9b32bb73fd01aed1843a749f244e699b4c96c89631787d2e230b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/nodes/desktop-1280/guest/page.png",
+      "sha256": "sha256:0a94a21bda539af3f90bc5eb5c037ecbc57163a348fbce01e130326fabf618a8"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:3e42a33edf8c0f28e5f8f486bf88793324c0222935f86a28a1194d749db18e30"
+}

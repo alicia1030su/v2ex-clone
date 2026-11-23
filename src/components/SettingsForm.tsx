@@ -419,6 +419,7 @@ export default function SettingsForm({ user }: { user: User }) {
                   <input
                     type="text"
                     name="tagline"
+                    aria-label="头衔"
                     maxLength={255}
                     value={profile.tagline}
                     onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
@@ -432,6 +433,7 @@ export default function SettingsForm({ user }: { user: User }) {
                 <td>
                   <textarea
                     name="bio"
+                    aria-label="简介"
                     maxLength={5000}
                     value={profile.bio}
                     onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
@@ -447,6 +449,7 @@ export default function SettingsForm({ user }: { user: User }) {
                   <input
                     type="url"
                     name="url"
+                    aria-label="个人主页"
                     maxLength={512}
                     placeholder="https://"
                     value={profile.url}
@@ -464,6 +467,7 @@ export default function SettingsForm({ user }: { user: User }) {
                   <input
                     type="text"
                     name="location"
+                    aria-label="所在地"
                     maxLength={128}
                     value={profile.location}
                     onChange={(e) => setProfile({ ...profile, location: e.target.value })}
@@ -498,6 +502,7 @@ export default function SettingsForm({ user }: { user: User }) {
                   <input
                     type="password"
                     name="current"
+                    aria-label="当前密码"
                     maxLength={128}
                     value={pwd.current}
                     onChange={(e) => setPwd({ ...pwd, current: e.target.value })}
@@ -514,6 +519,7 @@ export default function SettingsForm({ user }: { user: User }) {
                   <input
                     type="password"
                     name="next"
+                    aria-label="新密码"
                     maxLength={128}
                     value={pwd.next}
                     onChange={(e) => setPwd({ ...pwd, next: e.target.value })}
@@ -532,6 +538,7 @@ export default function SettingsForm({ user }: { user: User }) {
                   <input
                     type="password"
                     name="confirm"
+                    aria-label="确认新密码"
                     maxLength={128}
                     value={pwd.confirm}
                     onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })}

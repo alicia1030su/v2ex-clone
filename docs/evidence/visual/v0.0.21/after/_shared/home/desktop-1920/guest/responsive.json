@@ -1,0 +1,26 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "dpr": 1
+  },
+  "overflow": {
+    "documentWidth": 1920,
+    "viewportWidth": 1920,
+    "bodyWidth": 1920,
+    "horizontalOverflow": false
+  },
+  "dataStates": [
+    "0/1/multiple topics",
+    "tab hot/all/r2"
+  ],
+  "missingImages": [],
+  "theme": "light",
+  "horizontalOverflow": false,
+  "zoom200": {
+    "method": "CDP Emulation.setPageScaleFactor",
+    "pageScaleFactor": 2,
+    "scrollWidth": 1920,
+    "clientWidth": 1920
+  }
+}

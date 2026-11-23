@@ -1,0 +1,317 @@
+{
+  "availableStates": [
+    "default",
+    "hover",
+    "focus",
+    "active",
+    "disabled",
+    "loading",
+    "error",
+    "empty"
+  ],
+  "observed": {
+    "disabled": 0,
+    "loading": 0,
+    "error": 0,
+    "empty": 0
+  },
+  "contrastChecks": [
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "div",
+      "text": "",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "首页",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "热门",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "最新",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "注册",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "登录",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "div",
+      "text": "admin管理员 UID 21 · 加入于 2026-11-06积分1056",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "admin管理员 UID 21 · 加入于 2026-11-06",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "积分1056",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "admin 发起的主题v14vismwpz7czjtopicV14 可见性节点 mwpz7czj  • admin  •",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "admin 发起的主题",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "v14vismwpz7czjtopicV14 可见性节点 mwpz7czj  • admin  • 刚刚0",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "v14vismwpz7czjtopic",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "V14 可见性节点 mwpz7czj",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "admin",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "0",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(98, 107, 121)",
+      "ratio": 5.39
+    },
+    {
+      "tag": "div",
+      "text": "V13 隐藏节点主题 1795239427974V13 节点可见性临时节点 v13hiddenmwpz7bzm  • a",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "V13 隐藏节点主题 1795239427974",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "V13 节点可见性临时节点 v13hiddenmwpz7bzm",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "admin",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "admin",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "1",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(98, 107, 121)",
+      "ratio": 5.39
+    },
+    {
+      "tag": "div",
+      "text": "锁定测试 lk_mwpz2wkc1o9v5jcm程序员  • admin  • 刚刚0",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "锁定测试 lk_mwpz2wkc1o9v5jcm",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "程序员",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "admin",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "0",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(98, 107, 121)",
+      "ratio": 5.39
+    },
+    {
+      "tag": "div",
+      "text": "v14vismwpytfuutopicV14 可见性节点 mwpytfuu  • admin  • 刚刚0",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "v14vismwpytfuutopic",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "V14 可见性节点 mwpytfuu",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "admin",
+      "color": "rgb(117, 117, 117)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.61
+    },
+    {
+      "tag": "a",
+      "text": "0",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(98, 107, 121)",
+      "ratio": 5.39
+    },
+    {
+      "tag": "div",
+      "text": "V13 隐藏节点主题 1795238778525V13 节点可见性临时节点 v13hiddenmwpyteux  • a",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "",
+      "color": "rgb(107, 116, 123)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.76
+    },
+    {
+      "tag": "a",
+      "text": "V13 隐藏节点主题 1795238778525",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    }
+  ],
+  "reducedMotion": true,
+  "touchPoints": 1,
+  "states": [
+    "0/1/multiple topics",
+    "long bio",
+    "missing avatar"
+  ],
+  "pageClass": "member",
+  "focus": {
+    "tag": "a",
+    "outline": "rgb(88, 151, 251) solid 2px",
+    "active": true
+  },
+  "keyboardTab": {
+    "tag": "select",
+    "text": "浅色深色跟随系统"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P06-VP375-L1-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/guest/metadata.json",
+      "sha256": "sha256:d0cf0325d53095bed002e8172710ca05e28f2e382334b07f5bf4ecf967854883"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/guest/metadata.json",
+      "sha256": "sha256:d0cf0325d53095bed002e8172710ca05e28f2e382334b07f5bf4ecf967854883"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/guest/page.png",
+      "sha256": "sha256:d119f466c6b962901c26d937839d0d06fe64fa75d27dafc944d2bdd69dca12de"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/user/metadata.json",
+      "sha256": "sha256:dd3aaa0a4ec7fd30a5f038dcf2eb52762bac1b03b3f566b15377a6dfb2a4b57c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/user/metadata.json",
+      "sha256": "sha256:dd3aaa0a4ec7fd30a5f038dcf2eb52762bac1b03b3f566b15377a6dfb2a4b57c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/topic-detail/mobile-375/user/page.png",
+      "sha256": "sha256:e72efc1c8a1da7d508c4e4769a0ce44aeb5a40e9e47d988f8418be692949fe7f"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:d658cc16cfa574ada2130276ec0baea0cf30c79bcedc68c31801827bb2822bcd"
+}

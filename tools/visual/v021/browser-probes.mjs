@@ -45,7 +45,9 @@ export function collectBrowserProbes({ pageClass, states }) {
   const rightbar = document.querySelector('#Rightbar');
   const mainRect = main ? rect(main) : null;
   const rightRect = rightbar ? rect(rightbar) : null;
-  const overlap = Boolean(mainRect && rightRect && mainRect.x + mainRect.width > rightRect.x + 1);
+  const horizontalOverlap = Boolean(mainRect && rightRect && mainRect.x + mainRect.width > rightRect.x + 1);
+  const verticalOverlap = Boolean(mainRect && rightRect && mainRect.y < rightRect.y + rightRect.height && rightRect.y < mainRect.y + mainRect.height);
+  const overlap = horizontalOverlap && verticalOverlap;
 
   const styleSelectors = ['body', '#Top', '#Main', '.box', '.cell', 'a', 'button', 'input'];
   const styles = styleSelectors.flatMap((selector) =>
@@ -64,7 +66,7 @@ export function collectBrowserProbes({ pageClass, states }) {
     .filter((element) => !element.labels?.length && !element.getAttribute('aria-label') && !element.getAttribute('aria-labelledby'))
     .map((element) => element.outerHTML.slice(0, 240));
   const emptyTargets = [...document.querySelectorAll('a,button')]
-    .filter((element) => !(element.textContent ?? '').trim() && !element.getAttribute('aria-label'))
+    .filter((element) => !(element.textContent ?? '').trim() && !element.getAttribute('aria-label') && !element.getAttribute('title') && !element.querySelector('img[alt]:not([alt=""]),svg[aria-label],[role="img"][aria-label]'))
     .map((element) => element.outerHTML.slice(0, 240));
   const domAria = {
     title: document.title,

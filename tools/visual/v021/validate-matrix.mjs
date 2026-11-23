@@ -108,6 +108,24 @@ export async function validateMatrix(matrixPath = DEFAULT_MATRIX, options = {}) 
         if (digest !== file.sha256) throw new Error(`${record.gap_id} evidence hash mismatch ${file.path}`);
       }
     }
+    if (record.evidence_after) {
+      const evidencePath = path.resolve(ROOT, record.evidence_after);
+      if (!fs.existsSync(evidencePath)) throw new Error(`${record.gap_id} missing after evidence ${record.evidence_after}`);
+      const metadata = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+      if (metadata.gap_id !== record.gap_id) throw new Error(`${record.gap_id} after evidence gap_id mismatch`);
+      const collectionStates = Array.isArray(metadata.collection_status)
+        ? metadata.collection_status
+        : [metadata.collection_status];
+      if (collectionStates.some((status) => status === 'collection-error' || status === 'error')) {
+        throw new Error(`${record.gap_id} after evidence collection failed: ${collectionStates.join(',')}`);
+      }
+      for (const file of metadata.files) {
+        const filePath = path.resolve(ROOT, file.path);
+        if (!fs.existsSync(filePath)) throw new Error(`${record.gap_id} after evidence file missing ${file.path}`);
+        const digest = `sha256:${(await import('node:crypto')).createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')}`;
+        if (digest !== file.sha256) throw new Error(`${record.gap_id} after evidence hash mismatch ${file.path}`);
+      }
+    }
   }
 
   const expected = new Set();

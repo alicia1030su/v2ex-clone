@@ -1,0 +1,74 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P18-VP768-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/guest/responsive.json",
+      "sha256": "sha256:141fe42e3c8b19fb2da647a4831ede81f92938d19b9891901528a140385b4c9a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/guest/metadata.json",
+      "sha256": "sha256:fef6c8efcd44d1f6a4b19dc5f1e95b242d079932fda507cf038fd4dbc99dadc0"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/guest/page.png",
+      "sha256": "sha256:caa98c9c49b2bc18b117b76dc59fe7b9149fa76f2a41706b29b1df8014eb25c1"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/user/responsive.json",
+      "sha256": "sha256:141fe42e3c8b19fb2da647a4831ede81f92938d19b9891901528a140385b4c9a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/user/metadata.json",
+      "sha256": "sha256:08293ac9e477ecc02d64e4639b883afe9fdf1cbbb100184a865aa9a92c727cb0"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/static-help/tablet-768/user/page.png",
+      "sha256": "sha256:829e78636823dd76b740cc552981b6c3dc623642e1524229097b54ee39961d25"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:83c46100fc93546d1bb9f6ed250d3386d5ca3b79a0895c2057bf4418b571447c"
+}

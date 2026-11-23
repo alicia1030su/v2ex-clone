@@ -1,0 +1,55 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P16-VP1280-L4-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/leaderboard/desktop-1280/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/leaderboard/desktop-1280/guest/dom-aria.json",
+      "sha256": "sha256:e7ef81c857879e881482c3d628877a8f970fec6bd698ee15d2571303993f320c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/leaderboard/desktop-1280/guest/metadata.json",
+      "sha256": "sha256:427b8be7cbec988a9bd5ec0b75772131933dee9d21b814364ed8d25ef479b1c6"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/leaderboard/desktop-1280/guest/page.png",
+      "sha256": "sha256:f419987e7b941a88e24f36578352d7d0e28e5ae575ff5e43d3ceddbde9ee7c65"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:57fc5f8940d60ac5445f83d050123cc8bd858aace074945ed1a9ccd6bbb2d537"
+}

@@ -1,0 +1,1172 @@
+[
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/recent",
+    "final_url": "http://127.0.0.1:3210/recent",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Ffollowing",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/following",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/nodes",
+    "final_url": "http://127.0.0.1:3210/nodes",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/go/search_probe_mw3svpmi",
+    "final_url": "http://127.0.0.1:3210/go/search_probe_mw3svpmi",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/signin",
+    "final_url": "http://127.0.0.1:3210/signin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/signup",
+    "final_url": "http://127.0.0.1:3210/signup",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/settings",
+    "final_url": "http://127.0.0.1:3210/settings",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/notifications",
+    "final_url": "http://127.0.0.1:3210/notifications",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/bookmarks",
+    "final_url": "http://127.0.0.1:3210/bookmarks",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/go/search?q=claude",
+    "final_url": "http://127.0.0.1:3210/go/search?q=claude",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/tag/visual-audit",
+    "final_url": "http://127.0.0.1:3210/tag/visual-audit",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/leaderboard",
+    "final_url": "http://127.0.0.1:3210/leaderboard",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Fadmin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "mobile-375",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "mobile-375",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": false
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/recent",
+    "final_url": "http://127.0.0.1:3210/recent",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Ffollowing",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/following",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/nodes",
+    "final_url": "http://127.0.0.1:3210/nodes",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/go/search_probe_mw3svpmi",
+    "final_url": "http://127.0.0.1:3210/go/search_probe_mw3svpmi",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/signin",
+    "final_url": "http://127.0.0.1:3210/signin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/signup",
+    "final_url": "http://127.0.0.1:3210/signup",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/settings",
+    "final_url": "http://127.0.0.1:3210/settings",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/notifications",
+    "final_url": "http://127.0.0.1:3210/notifications",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/bookmarks",
+    "final_url": "http://127.0.0.1:3210/bookmarks",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/go/search?q=claude",
+    "final_url": "http://127.0.0.1:3210/go/search?q=claude",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/tag/visual-audit",
+    "final_url": "http://127.0.0.1:3210/tag/visual-audit",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/leaderboard",
+    "final_url": "http://127.0.0.1:3210/leaderboard",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Fadmin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "mobile-390",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "mobile-390",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/recent",
+    "final_url": "http://127.0.0.1:3210/recent",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Ffollowing",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/following",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/nodes",
+    "final_url": "http://127.0.0.1:3210/nodes",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/go/search_probe_mw3svpmi",
+    "final_url": "http://127.0.0.1:3210/go/search_probe_mw3svpmi",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/signin",
+    "final_url": "http://127.0.0.1:3210/signin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/signup",
+    "final_url": "http://127.0.0.1:3210/signup",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/settings",
+    "final_url": "http://127.0.0.1:3210/settings",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/notifications",
+    "final_url": "http://127.0.0.1:3210/notifications",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/bookmarks",
+    "final_url": "http://127.0.0.1:3210/bookmarks",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/go/search?q=claude",
+    "final_url": "http://127.0.0.1:3210/go/search?q=claude",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/tag/visual-audit",
+    "final_url": "http://127.0.0.1:3210/tag/visual-audit",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/leaderboard",
+    "final_url": "http://127.0.0.1:3210/leaderboard",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Fadmin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "tablet-768",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "tablet-768",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/recent",
+    "final_url": "http://127.0.0.1:3210/recent",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Ffollowing",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/following",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/nodes",
+    "final_url": "http://127.0.0.1:3210/nodes",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/go/search_probe_mw3svpmi",
+    "final_url": "http://127.0.0.1:3210/go/search_probe_mw3svpmi",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/signin",
+    "final_url": "http://127.0.0.1:3210/signin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/signup",
+    "final_url": "http://127.0.0.1:3210/signup",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/settings",
+    "final_url": "http://127.0.0.1:3210/settings",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/notifications",
+    "final_url": "http://127.0.0.1:3210/notifications",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/bookmarks",
+    "final_url": "http://127.0.0.1:3210/bookmarks",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/go/search?q=claude",
+    "final_url": "http://127.0.0.1:3210/go/search?q=claude",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/tag/visual-audit",
+    "final_url": "http://127.0.0.1:3210/tag/visual-audit",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/leaderboard",
+    "final_url": "http://127.0.0.1:3210/leaderboard",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Fadmin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "desktop-1280",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "desktop-1280",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/recent",
+    "final_url": "http://127.0.0.1:3210/recent",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Ffollowing",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/following",
+    "final_url": "http://127.0.0.1:3210/following",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/nodes",
+    "final_url": "http://127.0.0.1:3210/nodes",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/go/search_probe_mw3svpmi",
+    "final_url": "http://127.0.0.1:3210/go/search_probe_mw3svpmi",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/t/315",
+    "final_url": "http://127.0.0.1:3210/t/315",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/t/315?reply=classic",
+    "final_url": "http://127.0.0.1:3210/t/315?reply=classic",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/member/admin",
+    "final_url": "http://127.0.0.1:3210/member/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/signin",
+    "final_url": "http://127.0.0.1:3210/signin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/signup",
+    "final_url": "http://127.0.0.1:3210/signup",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/settings",
+    "final_url": "http://127.0.0.1:3210/settings",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/notifications",
+    "final_url": "http://127.0.0.1:3210/notifications",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/bookmarks",
+    "final_url": "http://127.0.0.1:3210/bookmarks",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/go/search?q=claude",
+    "final_url": "http://127.0.0.1:3210/go/search?q=claude",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/tag/visual-audit",
+    "final_url": "http://127.0.0.1:3210/tag/visual-audit",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/leaderboard",
+    "final_url": "http://127.0.0.1:3210/leaderboard",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/signin?next=%2Fadmin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "desktop-1920",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "desktop-1920",
+    "route": "/admin",
+    "final_url": "http://127.0.0.1:3210/admin",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "route": "/about",
+    "final_url": "http://127.0.0.1:3210/about",
+    "status": "ok",
+    "layout_stable": true
+  }
+]

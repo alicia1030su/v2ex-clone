@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import NavTools from '@/components/NavTools';
+import SearchBox from '@/components/SearchBox';
 
 /**
  * 重置密码页（v0.0.3）
@@ -135,9 +136,7 @@ export default function ResetPasswordPage() {
             <Link href="/" title="way to explore">
               <Logo />
             </Link>
-            <div id="search-container">
-              <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
-            </div>
+            <SearchBox />
             <NavTools user={null} />
           </div>
         </div>

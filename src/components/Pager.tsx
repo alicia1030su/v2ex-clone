@@ -63,6 +63,7 @@ export default function Pager({
               )}{' '}
               <input
                 type="number"
+                aria-label="跳转到页码"
                 className="page_input"
                 autoComplete="off"
                 defaultValue={page}

@@ -1,0 +1,55 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P11-VP1280-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "user",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/settings/desktop-1280/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/settings/desktop-1280/user/responsive.json",
+      "sha256": "sha256:716fd43c19852d1a45f2849e3d33515e7271ff0b2debf8440dc1402bcf326c3b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/settings/desktop-1280/user/metadata.json",
+      "sha256": "sha256:b228d64c44c31c0928adb971c8332c45a8d6b5562dd83a98584c537b943ba7ca"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/settings/desktop-1280/user/page.png",
+      "sha256": "sha256:3634c1a535a62664a53fdd0289c0608a9529ae8138e2f275169c4e474baaee2c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:bca540ef652ed38b2e4ced629547fd71f3850a5c383b62833eda065e8b972883"
+}

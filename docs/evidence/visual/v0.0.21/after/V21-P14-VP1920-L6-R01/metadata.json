@@ -1,0 +1,55 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P14-VP1920-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "variant": "default",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/after/_shared/search/desktop-1920/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/search/desktop-1920/guest/responsive.json",
+      "sha256": "sha256:6bc7bd01c96874b2d8d68eb05318ff29eb8a555e35e04d03ce698e95ac8f8c77"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/search/desktop-1920/guest/metadata.json",
+      "sha256": "sha256:54bc76ba0c572b29af3dede448665ea84899dc50d2afff5cbffc47a514bd2f6b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/after/_shared/search/desktop-1920/guest/page.png",
+      "sha256": "sha256:1d30903f0afc3d35d3b1cdd7fdc50e14de91a63ae952b22f8e6d0ebb0d71c659"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest-after.json",
+      "sha256": "sha256:5b19dea3e14d0fb57f54de70ffff55749c1b9b2689e28b1c3335366c0e39e996"
+    }
+  ],
+  "sha256": "sha256:8189059c5c0d8da95ba8da13e0196213de6fc1fdec4cdadd50896374e94e0854"
+}

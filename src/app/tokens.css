@@ -1,0 +1,16 @@
+:root {
+  --v2ex-topbar-min-height: 45px;
+  --v2ex-topbar-content-width: 1060px;
+  --v2ex-content-max-width: 1100px;
+  --v2ex-main-width: 770px;
+  --v2ex-sidebar-width: 270px;
+  --v2ex-layout-gap: 20px;
+  --v2ex-topic-avatar-size: 48px;
+  --v2ex-topic-row-padding: 8px;
+  --v2ex-topic-title-size: 15px;
+  --v2ex-topic-title-line: 1.4;
+  --v2ex-topic-meta-size: 12px;
+  --v2ex-topic-meta-line: 1.5;
+  --v2ex-topic-meta-color: #757575;
+  --v2ex-focus-ring: #4c8dcb;
+}

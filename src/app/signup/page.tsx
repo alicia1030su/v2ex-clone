@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import SignUpForm from '@/components/SignUpForm';
 import NavTools from '@/components/NavTools';
+import SearchBox from '@/components/SearchBox';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,9 +42,7 @@ export default async function SignUpPage({
             <a href="/" title="way to explore">
               <Logo />
             </a>
-            <div id="search-container">
-              <input id="search" type="text" maxLength={128} autoComplete="off" tabIndex={1} />
-            </div>
+            <SearchBox />
             <NavTools user={null} />
           </div>
         </div>

@@ -119,6 +119,7 @@ export default function SignInForm({
                   type="text"
                   name="username"
                   id="username"
+                  aria-label="用户名"
                   maxLength={32}
                   placeholder="用户名或电子邮件地址"
                   value={username}
@@ -137,6 +138,7 @@ export default function SignInForm({
                   type="password"
                   name="password"
                   id="password"
+                  aria-label="密码"
                   maxLength={128}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

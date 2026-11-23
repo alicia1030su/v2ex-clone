@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { getSessionUser } from '@/lib/auth';
 import { getUserPreferences } from '@/server/reply-preferences';
+import './tokens.css';
 import './globals.css';
 
 export const metadata: Metadata = {
