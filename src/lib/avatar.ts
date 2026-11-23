@@ -1,8 +1,12 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { UPLOAD_ROOT } from '@/lib/upload-storage';
+import {
+  AVATAR_UPLOAD_ROOT,
+  resolveStoragePath,
+  deleteAvatarFile,
+} from '@/lib/avatar-storage';
 
 /**
  * 头像上传的校验与落盘
@@ -36,8 +40,7 @@ export const MAX_AVATAR_BYTES = Number(process.env.AVATAR_MAX_BYTES ?? 2 * 1024 
 /** 头像输出边长（正方形，与原站一致） */
 export const AVATAR_SIZE = Number(process.env.AVATAR_SIZE ?? 256);
 
-/** 文件存放根目录（Docker 私有卷；URL 仍为 /uploads/...） */
-export const AVATAR_UPLOAD_ROOT = UPLOAD_ROOT;
+export { AVATAR_UPLOAD_ROOT, resolveStoragePath, deleteAvatarFile } from '@/lib/avatar-storage';
 
 /** 头像文件在 public/uploads 下的子目录 */
 const AVATAR_SUBDIR = 'avatars';
@@ -127,19 +130,6 @@ export function mimeTypeForFormat(format: AvatarFormat): string {
 export function buildStoragePath(userId: number, format: AvatarFormat): string {
   const random = randomBytes(16).toString('hex');
   return `${AVATAR_SUBDIR}/${userId}/${random}.${FORMAT_EXT[format]}`;
-}
-
-/** 把相对存储路径解析成磁盘绝对路径（带越界检查） */
-export function resolveStoragePath(storagePath: string): string | null {
-  // 只允许形如 avatars/<数字>/<hex>.<ext> 的路径
-  if (!/^avatars\/\d+\/[a-f0-9]{8,64}\.(png|jpg|webp|gif)$/.test(storagePath)) {
-    return null;
-  }
-  const root = path.resolve(AVATAR_UPLOAD_ROOT);
-  const target = path.resolve(root, storagePath);
-  // 越界检查：解析后的路径必须仍在上传根目录内
-  if (target !== root && !target.startsWith(root + path.sep)) return null;
-  return target;
 }
 
 /** 由存储路径生成可访问 URL */
@@ -330,18 +320,6 @@ export async function writeAvatarFile(
   await writeFile(absolute, data, { flag: 'wx' });
 
   return storagePath;
-}
-
-/** 删除磁盘上的头像文件；仅“文件不存在”可幂等忽略，其它 IO 错误必须上抛。 */
-export async function deleteAvatarFile(storagePath: string | null): Promise<void> {
-  if (!storagePath) return;
-  const absolute = resolveStoragePath(storagePath);
-  if (!absolute) throw new Error('非法头像存储路径');
-  try {
-    await unlink(absolute);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-  }
 }
 
 /**

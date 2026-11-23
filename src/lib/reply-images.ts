@@ -1,8 +1,12 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { UPLOAD_ROOT } from '@/lib/upload-storage';
+import {
+  REPLY_IMAGE_UPLOAD_ROOT,
+  resolveReplyImagePath,
+  deleteReplyImageFile,
+} from '@/lib/reply-image-storage';
 import {
   detectImageFormat,
   mimeTypeForFormat,
@@ -14,7 +18,7 @@ export const MAX_REPLY_IMAGE_BYTES = Number(process.env.REPLY_IMAGE_MAX_BYTES ??
 export const MAX_REPLY_IMAGE_PIXELS = Number(process.env.REPLY_IMAGE_MAX_PIXELS ?? 40_000_000);
 export const MAX_REPLY_IMAGE_DIMENSION = Number(process.env.REPLY_IMAGE_MAX_DIMENSION ?? 2400);
 
-export const REPLY_IMAGE_UPLOAD_ROOT = UPLOAD_ROOT;
+export { REPLY_IMAGE_UPLOAD_ROOT, resolveReplyImagePath, deleteReplyImageFile } from '@/lib/reply-image-storage';
 const REPLY_IMAGE_SUBDIR = 'replies';
 const FORMAT_EXT: Record<AvatarFormat, string> = {
   png: 'png',
@@ -111,14 +115,6 @@ export function buildReplyImageStoragePath(userId: number, format: AvatarFormat)
   return `${REPLY_IMAGE_SUBDIR}/${userId}/${random}.${FORMAT_EXT[format]}`;
 }
 
-export function resolveReplyImagePath(storagePath: string): string | null {
-  if (!/^replies\/\d+\/[a-f0-9]{8,64}\.(png|jpg|webp|gif)$/.test(storagePath)) return null;
-  const root = path.resolve(REPLY_IMAGE_UPLOAD_ROOT);
-  const target = path.resolve(root, storagePath);
-  if (target !== root && !target.startsWith(root + path.sep)) return null;
-  return target;
-}
-
 export function publicUrlForReplyImage(storagePath: string): string {
   return `/uploads/${storagePath}`;
 }
@@ -134,16 +130,6 @@ export async function writeReplyImageFile(
   await mkdir(path.dirname(absolute), { recursive: true });
   await writeFile(absolute, data, { flag: 'wx' });
   return storagePath;
-}
-
-export async function deleteReplyImageFile(storagePath: string): Promise<void> {
-  const absolute = resolveReplyImagePath(storagePath);
-  if (!absolute) throw new Error('非法回复图片存储路径');
-  try {
-    await unlink(absolute);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-  }
 }
 
 export function replyImageMime(format: AvatarFormat): string {

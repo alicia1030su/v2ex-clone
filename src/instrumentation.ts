@@ -45,17 +45,17 @@ export async function register(): Promise<void> {
   // Edge 运行时没有 node:http，直接跳过（此分支不会执行）
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
-  // 动态 import：避免 Edge 构建期把 node:http 打进包
-  const http = await import('node:http');
+  // instrumentation 是独立 webpack bundle，不能静态分析 Node 内置模块。
+  // Node 22 的 getBuiltinModule 让内置模块在运行时加载，避开 Edge 资源解析。
+  const http = process.getBuiltinModule('http');
+  if (!http) throw new Error('Node http builtin is unavailable');
   const { countMetric, recordSlowRequest, normalizeApiPath } = await import('@/lib/observability');
 
-  // 生产/开发运行时启动附件清理 worker；构建期与测试期不得连接数据库。
-  if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV !== 'test') {
-    const { startAttachmentPurgeWorker } = await import('@/server/attachment-purge');
-    startAttachmentPurgeWorker();
-  }
+  // 后台附件清理 worker 由根布局的 Node server bundle 启动。
+  // instrumentation 是独立 webpack bundle，把 db/node:crypto/sharp 链入会导致
+  // Next dev 将这些 Node 资源按 Edge 规则解析，健康检查持续 500。
 
-  type ServerResponseLike = import('node:http').ServerResponse;
+  type ServerResponseLike = import('http').ServerResponse;
 
   const proto = http.ServerResponse.prototype as unknown as {
     writeHead: (...args: unknown[]) => unknown;

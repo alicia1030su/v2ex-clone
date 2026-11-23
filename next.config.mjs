@@ -25,7 +25,7 @@ const lowMemoryNextCpus = Number.isInteger(configuredNextCpus) && configuredNext
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  serverExternalPackages: ['postgres', 'ioredis'],
+  serverExternalPackages: ['postgres', 'ioredis', 'sharp'],
   ...(lowMemoryNextCpus === null ? {} : { experimental: { cpus: lowMemoryNextCpus } }),
 
   // ---------------------------------------------------------------------

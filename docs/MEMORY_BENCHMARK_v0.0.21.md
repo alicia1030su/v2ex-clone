@@ -137,3 +137,12 @@
 - 树 RSS 是进程 RSS 之和，会重复计算共享页；不称为 PSS。
 - 未运行 24h soak、完整跨浏览器 E2E、完整生产发布；本报告不构成发行授权。
 - profile 份额与下限仍未校准；next-dev readiness 在本机连续超过 180s，说明当前默认上限与开发服务器启动路径需要校准。
+
+## 8. 候选后诊断与修复（不改变主基准结论）
+
+- `next-dev` 连续未 ready 已定位为两个独立问题：
+  1. 真实源码缺陷：instrumentation 独立 webpack bundle 静态/动态链入 `node:http`、`node:crypto`、`sharp`，Next dev 按 Edge 资源规则解析，健康检查持续 500。
+  2. QA 环境问题：临时 worktree 的 Next dev 优先加载 `.env.local`（55433 开发库），未显式注入 `.env.test`（55440 隔离库），即使 instrumentation 修好也会返回 503。
+- 修复：附件清理 worker 移到根布局 Node server bundle，并用 `globalThis` Symbol 保证每进程只启动一次；头像/回复图片的路径校验与删除拆到无 sharp 的存储模块；instrumentation 通过 `process.getBuiltinModule('http')` 在运行时加载内置模块；`sharp` 加入 `serverExternalPackages`。
+- 验证：shell 显式注入 `.env.test` 后，`next dev /api/health/ready` 返回 200；生产 `next start /api/health/ready` 返回 200；Node 22.23.4 生产构建通过，峰值 1024.2MiB；相关回归 78/78。
+- MEM-08 `next-dev` 仍为 **not-completed**：before `e50f779` 本身包含上述启动缺陷，无法形成有效 before 运行样本；修复后的 after smoke 不能替代 3×2 基准。

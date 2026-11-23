@@ -2,8 +2,8 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { deleteAvatarFile } from '@/lib/avatar';
-import { deleteReplyImageFile } from '@/lib/reply-images';
+import { deleteAvatarFile } from '@/lib/avatar-storage';
+import { deleteReplyImageFile } from '@/lib/reply-image-storage';
 import { extractRows } from '@/server/sql-rows';
 
 type PurgeKind = 'avatar' | 'reply_image';
@@ -186,4 +186,13 @@ export function startAttachmentPurgeWorker(): void {
   run();
   const timer = setInterval(run, 60 * 60 * 1000);
   timer.unref?.();
+}
+
+const WORKER_FLAG = Symbol.for('v2ex.attachment-purge.worker-started');
+
+export function ensureAttachmentPurgeWorker(): void {
+  const globals = globalThis as typeof globalThis & { [WORKER_FLAG]?: boolean };
+  if (globals[WORKER_FLAG]) return;
+  globals[WORKER_FLAG] = true;
+  startAttachmentPurgeWorker();
 }
