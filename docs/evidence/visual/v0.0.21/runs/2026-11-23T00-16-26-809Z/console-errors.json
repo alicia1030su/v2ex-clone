@@ -1,0 +1,62 @@
+[
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "console:Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  }
+]

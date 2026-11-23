@@ -1,0 +1,54 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P12-VP375-L4-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/notifications/mobile-375/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/notifications/mobile-375/user/dom-aria.json",
+      "sha256": "sha256:7f644b31e39c78cef1a4a620018af6b9c9c4c998d775f36ee206d805e9a1899d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/notifications/mobile-375/user/metadata.json",
+      "sha256": "sha256:6afd6bb3e3fc2be580948266ca2a0d0fbfda1d5d40448158ae63b4e5c5ae117f"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/notifications/mobile-375/user/page.png",
+      "sha256": "sha256:a63ada0cde522b941e99da67f7b33edc282fa28a15bbaba1ee18f14cc4c9949b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:e8fe31d0930389aa291121110264b4a8aba0017d802a25d08c61fa6af1beabaa"
+}

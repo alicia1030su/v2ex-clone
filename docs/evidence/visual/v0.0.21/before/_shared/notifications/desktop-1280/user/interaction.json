@@ -1,0 +1,226 @@
+{
+  "availableStates": [
+    "default",
+    "hover",
+    "focus",
+    "active",
+    "disabled",
+    "loading",
+    "error",
+    "empty"
+  ],
+  "observed": {
+    "disabled": 0,
+    "loading": 0,
+    "error": 0,
+    "empty": 0
+  },
+  "contrastChecks": [
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "div",
+      "text": "",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "首页",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "热门",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "最新",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "通知",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "收藏",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "积分",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "关注",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "我的举报",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "lisi",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "设置",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "div",
+      "text": "通知共 0 条，你有 0 条未读通知",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "通知共 0 条，你有 0 条未读通知",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "我的通知共 0 条 · 未读 0全部仅未读暂无通知",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "我的通知",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "共 0 条 · 未读 0全部仅未读",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "button",
+      "text": "全部",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(240, 240, 240)",
+      "ratio": 3.53
+    },
+    {
+      "tag": "button",
+      "text": "仅未读",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(240, 240, 240)",
+      "ratio": 3.53
+    },
+    {
+      "tag": "div",
+      "text": "暂无通知",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "关于",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "FAQ",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "Privacy",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "UTC 00:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "PVG 08:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "LAX 16:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "JFK 19:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    }
+  ],
+  "reducedMotion": true,
+  "touchPoints": 10,
+  "states": [
+    "empty",
+    "unread",
+    "read"
+  ],
+  "pageClass": "notifications",
+  "focus": {
+    "tag": "a",
+    "outline": "rgb(88, 151, 251) solid 2px",
+    "active": true
+  },
+  "keyboardTab": {
+    "tag": "select",
+    "text": "浅色深色跟随系统"
+  }
+}

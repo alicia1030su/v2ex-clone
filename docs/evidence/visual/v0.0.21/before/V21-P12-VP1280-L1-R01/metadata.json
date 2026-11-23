@@ -1,0 +1,54 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P12-VP1280-L1-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/notifications/desktop-1280/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/notifications/desktop-1280/user/metadata.json",
+      "sha256": "sha256:33518f80315d10319025bdfa98f3cbb40d11277fa6a81440032d579750ed12dc"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/notifications/desktop-1280/user/metadata.json",
+      "sha256": "sha256:33518f80315d10319025bdfa98f3cbb40d11277fa6a81440032d579750ed12dc"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/notifications/desktop-1280/user/page.png",
+      "sha256": "sha256:773dfcbc4b85ae15798b46d6f5147c95eecb87f5e34ccf97de09391ae9d57391"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:ad27aa493d5b0154e3c842a61338924b8bd873e614c8e6b13c996e4d7ba71374"
+}

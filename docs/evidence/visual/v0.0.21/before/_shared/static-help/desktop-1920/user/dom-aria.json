@@ -1,0 +1,30 @@
+{
+  "title": "V2EX › About",
+  "lang": "zh-CN",
+  "landmarks": [
+    {
+      "tag": "h1",
+      "text": "About V2EX",
+      "rect": {
+        "x": 440,
+        "y": 112.8,
+        "width": 750,
+        "height": 28.59
+      }
+    }
+  ],
+  "headings": [
+    {
+      "level": 1,
+      "text": "About V2EX"
+    }
+  ],
+  "unlabeledControls": [
+    "<input id=\"search\" type=\"text\" maxlength=\"128\" autocomplete=\"off\" tabindex=\"1\">"
+  ],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div"
+  ]
+}

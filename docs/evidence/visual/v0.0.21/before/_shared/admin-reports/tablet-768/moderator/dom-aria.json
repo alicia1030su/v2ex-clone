@@ -1,0 +1,14 @@
+{
+  "title": "V2EX",
+  "lang": "zh-CN",
+  "landmarks": [],
+  "headings": [],
+  "unlabeledControls": [
+    "<input id=\"search\" type=\"text\" maxlength=\"128\" autocomplete=\"off\" tabindex=\"1\" placeholder=\"搜索 V2EX\" value=\"\">"
+  ],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div"
+  ]
+}

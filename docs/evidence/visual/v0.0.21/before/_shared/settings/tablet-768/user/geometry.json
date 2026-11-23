@@ -1,0 +1,167 @@
+{
+  "boxes": [
+    {
+      "selector": "#Top",
+      "tag": "div",
+      "id": "Top",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 59
+      }
+    },
+    {
+      "selector": "#Wrapper",
+      "tag": "div",
+      "id": "Wrapper",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 59,
+        "width": 768,
+        "height": 1243.58
+      }
+    },
+    {
+      "selector": "#Main",
+      "tag": "div",
+      "id": "Main",
+      "className": "",
+      "rect": {
+        "x": 10,
+        "y": 59,
+        "width": 748,
+        "height": 1143.58
+      }
+    },
+    {
+      "selector": "#Rightbar",
+      "tag": "div",
+      "id": "Rightbar",
+      "className": "",
+      "rect": {
+        "x": 10,
+        "y": 1214.58,
+        "width": 748,
+        "height": 88
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 10,
+        "y": 1234.58,
+        "width": 748,
+        "height": 68
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 10,
+        "y": 79,
+        "width": 748,
+        "height": 1123.58
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 10,
+        "y": 1234.58,
+        "width": 748,
+        "height": 67
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 10,
+        "y": 116.8,
+        "width": 748,
+        "height": 183.8
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 10,
+        "y": 300.59,
+        "width": 748,
+        "height": 393.8
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 10,
+        "y": 694.39,
+        "width": 748,
+        "height": 246.8
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 10,
+        "y": 941.19,
+        "width": 748,
+        "height": 260.39
+      }
+    },
+    {
+      "selector": "form",
+      "tag": "form",
+      "id": null,
+      "className": "",
+      "rect": {
+        "x": 20,
+        "y": 341.59,
+        "width": 728,
+        "height": 341.8
+      }
+    },
+    {
+      "selector": "form",
+      "tag": "form",
+      "id": null,
+      "className": "",
+      "rect": {
+        "x": 20,
+        "y": 735.39,
+        "width": 728,
+        "height": 194.8
+      }
+    }
+  ],
+  "overlap": true,
+  "overflow": {
+    "documentWidth": 768,
+    "viewportWidth": 768,
+    "bodyWidth": 768,
+    "horizontalOverflow": false
+  }
+}

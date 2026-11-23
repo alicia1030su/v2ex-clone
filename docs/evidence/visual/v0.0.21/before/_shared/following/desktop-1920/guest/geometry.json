@@ -1,0 +1,119 @@
+{
+  "boxes": [
+    {
+      "selector": "#Top",
+      "tag": "div",
+      "id": "Top",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 45
+      }
+    },
+    {
+      "selector": "#Wrapper",
+      "tag": "div",
+      "id": "Wrapper",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 45,
+        "width": 1920,
+        "height": 236.59
+      }
+    },
+    {
+      "selector": "#Main",
+      "tag": "div",
+      "id": "Main",
+      "className": "",
+      "rect": {
+        "x": 430,
+        "y": 45,
+        "width": 770,
+        "height": 236.59
+      }
+    },
+    {
+      "selector": "#Rightbar",
+      "tag": "div",
+      "id": "Rightbar",
+      "className": "",
+      "rect": {
+        "x": 1220,
+        "y": 45,
+        "width": 270,
+        "height": 186.8
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 1220,
+        "y": 65,
+        "width": 270,
+        "height": 166.8
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 430,
+        "y": 65,
+        "width": 770,
+        "height": 216.59
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 1220,
+        "y": 102.8,
+        "width": 270,
+        "height": 128
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 430,
+        "y": 102.8,
+        "width": 770,
+        "height": 177.8
+      }
+    },
+    {
+      "selector": "form",
+      "tag": "form",
+      "id": null,
+      "className": "auth-form",
+      "rect": {
+        "x": 440,
+        "y": 112.8,
+        "width": 750,
+        "height": 157.8
+      }
+    }
+  ],
+  "overlap": false,
+  "overflow": {
+    "documentWidth": 1920,
+    "viewportWidth": 1920,
+    "bodyWidth": 1920,
+    "horizontalOverflow": false
+  }
+}

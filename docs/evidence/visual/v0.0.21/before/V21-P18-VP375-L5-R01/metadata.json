@@ -1,0 +1,72 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P18-VP375-L5-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/guest/interaction.json",
+      "sha256": "sha256:b943240663b499b221b453a1749483104d49e192ed987b408ec9b75c4c7d040a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/guest/metadata.json",
+      "sha256": "sha256:a47d4ac79cefd6599e7d7ff71c6bb0cc9e7058cd1e4d499451e2e0d91f896e34"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/guest/page.png",
+      "sha256": "sha256:a0b1ff7ec551112985ce4a137dce36470208e6cd7566bf59c7046e1957ac270c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/user/interaction.json",
+      "sha256": "sha256:b943240663b499b221b453a1749483104d49e192ed987b408ec9b75c4c7d040a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/user/metadata.json",
+      "sha256": "sha256:fe1abb86bb1858989134dc4f3d45b33366b4cdd11890354791fd16a514ddeb92"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/static-help/mobile-375/user/page.png",
+      "sha256": "sha256:6bd1a8d3908dae05626a261f15d6f24b314d8a4debdcd0e63806fe8080faa8f3"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:724c668709eb20ab5a7c6dbd13b5d76d9a2e0b27c8fafc4e5b6e5ab406cbb677"
+}

@@ -1,0 +1,27 @@
+{
+  "viewport": {
+    "width": 375,
+    "height": 812,
+    "dpr": 1
+  },
+  "overflow": {
+    "documentWidth": 375,
+    "viewportWidth": 375,
+    "bodyWidth": 375,
+    "horizontalOverflow": false
+  },
+  "dataStates": [
+    "no results",
+    "results",
+    "suggestions"
+  ],
+  "missingImages": [],
+  "theme": "light",
+  "horizontalOverflow": false,
+  "zoom200": {
+    "method": "CDP Emulation.setPageScaleFactor",
+    "pageScaleFactor": 2,
+    "scrollWidth": 375,
+    "clientWidth": 375
+  }
+}

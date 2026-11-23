@@ -1,0 +1,143 @@
+{
+  "boxes": [
+    {
+      "selector": "#Top",
+      "tag": "div",
+      "id": "Top",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 45
+      }
+    },
+    {
+      "selector": "#Wrapper",
+      "tag": "div",
+      "id": "Wrapper",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 45,
+        "width": 1280,
+        "height": 175
+      }
+    },
+    {
+      "selector": "#Main",
+      "tag": "div",
+      "id": "Main",
+      "className": "",
+      "rect": {
+        "x": 110,
+        "y": 45,
+        "width": 770,
+        "height": 155
+      }
+    },
+    {
+      "selector": "#Rightbar",
+      "tag": "div",
+      "id": "Rightbar",
+      "className": "",
+      "rect": {
+        "x": 900,
+        "y": 45,
+        "width": 270,
+        "height": 88
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": "search-result",
+      "className": "box",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 900,
+        "y": 65,
+        "width": 270,
+        "height": 68
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 110,
+        "y": 65,
+        "width": 770,
+        "height": 135
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 900,
+        "y": 65,
+        "width": 270,
+        "height": 67
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell",
+      "rect": {
+        "x": 110,
+        "y": 65,
+        "width": 770,
+        "height": 42
+      }
+    },
+    {
+      "selector": ".cell",
+      "tag": "div",
+      "id": null,
+      "className": "cell item",
+      "rect": {
+        "x": 110,
+        "y": 107,
+        "width": 770,
+        "height": 92
+      }
+    },
+    {
+      "selector": "form",
+      "tag": "form",
+      "id": null,
+      "className": "",
+      "rect": {
+        "x": 251,
+        "y": 8,
+        "width": 246,
+        "height": 22
+      }
+    }
+  ],
+  "overlap": false,
+  "overflow": {
+    "documentWidth": 1280,
+    "viewportWidth": 1280,
+    "bodyWidth": 1280,
+    "horizontalOverflow": false
+  }
+}

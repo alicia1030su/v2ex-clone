@@ -1,0 +1,108 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P17-VP390-L3-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/user/metadata.json"
+    },
+    {
+      "role": "moderator",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/moderator/metadata.json"
+    },
+    {
+      "role": "admin",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/admin/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/guest/styles.json",
+      "sha256": "sha256:306a49642772ce8c86501b37a2384d50eb101d6420611679f0bc4b3222abbe57"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/guest/metadata.json",
+      "sha256": "sha256:2999d02b4646a11f10e47b0a912a30bc29a307c11923c9e936e6178dc28a2144"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/guest/page.png",
+      "sha256": "sha256:703b5b337538175ebc0abbb2c687f5d924fd5c35ef0b5dc4f160c4a3b0bf860d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/user/styles.json",
+      "sha256": "sha256:ee6f4e4884750a0660cdd81c993580862b22c95e9e8d2f86f22c490c2b5e9672"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/user/metadata.json",
+      "sha256": "sha256:f545fb1ac66a6889806734221a0e6ee09d0e8a374d90b539297eeffb854bd869"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/user/page.png",
+      "sha256": "sha256:97638d6c52f1a5a1c7c25ba017702b3d06472784ff444a29308782b40d36494d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/moderator/styles.json",
+      "sha256": "sha256:e94c097b865215497c2ddf6ce9d6ee0b9829fdfae2f4fdb6137aaea0a6838151"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/moderator/metadata.json",
+      "sha256": "sha256:bdee878db65f2a864c436f85a2ed0372a9e5c716b6235dd53f6ba0baca14ffd7"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/moderator/page.png",
+      "sha256": "sha256:619967e24f424be95168f57bc96bd312d44cc1c68f7df0a07c03e461b467ae43"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/admin/styles.json",
+      "sha256": "sha256:d6c79f3559a1f9b28a124741339f11cabfeba3062e986cd2b9216409ab53274d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/admin/metadata.json",
+      "sha256": "sha256:545d005ede9c6dfd2b14337892213ab0c785d7db0a3435706c2698bb0dd7c44d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/mobile-390/admin/page.png",
+      "sha256": "sha256:10a647230d8109c03574d4a87db413bbc3a3ee01e3678e4593321bd6d3ff4da9"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:03b36777706c1062f3849bda59543e2ee7aa33e8e41533d9983065f348b3e593"
+}

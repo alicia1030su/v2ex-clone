@@ -1,0 +1,72 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P03-VP768-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/guest/responsive.json",
+      "sha256": "sha256:618f2f2cb95dfc7a163441efbd60278d7d6e4e10d5492d8ab72065e04870e441"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/guest/metadata.json",
+      "sha256": "sha256:960db6bbe5ee9cbeb6bb1ab67fd8457d070e98b15680c9f0ecd38b3f5890dee3"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/guest/page.png",
+      "sha256": "sha256:5bcf0e7f83806f7e96dcb31081f584572f312efaad8ddad707130b3464a5d158"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/user/responsive.json",
+      "sha256": "sha256:618f2f2cb95dfc7a163441efbd60278d7d6e4e10d5492d8ab72065e04870e441"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/user/metadata.json",
+      "sha256": "sha256:2b0dc0cf36835e3b0bd69f2e3bb5f9dce46eeaa1649d3faa2aafac2bbbdf3b0e"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/tablet-768/user/page.png",
+      "sha256": "sha256:b2cae9b923cd6e1c2d60d398aa79f2b3a785479e71b20cacc2c380fb06f4465a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:9f986374f03e1b9ab5feda4693ad17116c8d169d0a4ea5a0408aa4dc1e1570a1"
+}

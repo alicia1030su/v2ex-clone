@@ -1,0 +1,108 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P17-VP768-L5-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/user/metadata.json"
+    },
+    {
+      "role": "moderator",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/moderator/metadata.json"
+    },
+    {
+      "role": "admin",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/admin/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/guest/interaction.json",
+      "sha256": "sha256:f6d990f1cf55a85f9dd6fb5e5407e95af4662b27cfaf0796462937c8735ac915"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/guest/metadata.json",
+      "sha256": "sha256:b3803d1d35ac53856f1642fe0e0d02e018e753efa0732af29d2ab4281a03351d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/guest/page.png",
+      "sha256": "sha256:b0c85191fe1d37c1395bef651b2e7cb6e232855a5777906dc39f7acb974ecd50"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/user/interaction.json",
+      "sha256": "sha256:098ea982f69d712c53026bfcfea63b2a7d44bc0373719c09279041368bc1644b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/user/metadata.json",
+      "sha256": "sha256:248d4f6cc418d51b6389104b15500544d450a023150aa821f774def7bf09e18d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/user/page.png",
+      "sha256": "sha256:efdbae69a599d3213cb589ba814b1313f5438f72e56b2a2e0cbdccd5610aa5ab"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/moderator/interaction.json",
+      "sha256": "sha256:04ae9c063cd31a6cafd71a7b9be4a465ab39084998f18a212cff8ff9cb57242d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/moderator/metadata.json",
+      "sha256": "sha256:96adc4952a7caa6ef4ccc4c0bb368220ae935e30d9c364925aefe8cbfea749fc"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/moderator/page.png",
+      "sha256": "sha256:2de69069a71e999db9389317773f21c492638361555e730e19132dcba312482b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/admin/interaction.json",
+      "sha256": "sha256:82111cabe2a19faaa44943a7dad1dceb9356379f2d6a52ea40c4eb5e72e370f3"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/admin/metadata.json",
+      "sha256": "sha256:3001ce990550a27abd1c3f907a20c615ef4ba8d9c0750f30d4828b9cc721bdff"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/tablet-768/admin/page.png",
+      "sha256": "sha256:a3b67c4270f02ccf4182277b8707eb72e90dd43f2d7d606ba46ad30f0be8cb85"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:ff409271dcc636c1a89954ccf9555d84b6594e03b6d30deafa4751e5d9bb5151"
+}

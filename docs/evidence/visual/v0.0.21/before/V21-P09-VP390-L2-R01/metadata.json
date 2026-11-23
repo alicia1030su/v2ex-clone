@@ -1,0 +1,54 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P09-VP390-L2-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/signin/mobile-390/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/signin/mobile-390/guest/geometry.json",
+      "sha256": "sha256:5efb626f99e72e40bed27d4068418d30857a03f0b2ff85d1c6220d95a7a503c2"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/signin/mobile-390/guest/metadata.json",
+      "sha256": "sha256:1557b0e247bc57cfc737af60050328852ae74c1cc96f10090c6fcbae0b4d0b3b"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/signin/mobile-390/guest/page.png",
+      "sha256": "sha256:703b5b337538175ebc0abbb2c687f5d924fd5c35ef0b5dc4f160c4a3b0bf860d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:27054ce7956184fb5b7f2029cf3f36f60e4696bb932f00551c1cc53acbc4a6b9"
+}

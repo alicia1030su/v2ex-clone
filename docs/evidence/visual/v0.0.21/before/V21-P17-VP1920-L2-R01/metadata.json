@@ -1,0 +1,108 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P17-VP1920-L2-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/user/metadata.json"
+    },
+    {
+      "role": "moderator",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/moderator/metadata.json"
+    },
+    {
+      "role": "admin",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/admin/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/guest/geometry.json",
+      "sha256": "sha256:7a5936b2ec6f16bd447142a49c56cadb0b15fa7f240222065094091ee9f71779"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/guest/metadata.json",
+      "sha256": "sha256:7e430659acd10e593905029eb03ed267d11f8e40f7c19c3d5ef2b0119488baaf"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/guest/page.png",
+      "sha256": "sha256:3175b36a9d405c192c0b435aacaa09a28312710fd2df973a7f54fa8e20642fd6"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/user/geometry.json",
+      "sha256": "sha256:dc6fa556ceb75e6821973fc352e9715a29c5804f8f96189ea60406f6d5ccaef7"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/user/metadata.json",
+      "sha256": "sha256:7e8d4b3789194234474aa1f71497b182c6e1af43be5fcf905ccdc0c925089a16"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/user/page.png",
+      "sha256": "sha256:596418ebd02ff8931cfe3388d380383bdff5bb2bda66a7cc217f86172daab6c8"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/moderator/geometry.json",
+      "sha256": "sha256:d5f226fc623692294cff31a00541381ae78e430b3ae28c6ccc79e65ac5b1590c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/moderator/metadata.json",
+      "sha256": "sha256:cd0116b8ad325d115c897771bd099ffbd90f4e2e68c2021dc7ae9c050bdbd831"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/moderator/page.png",
+      "sha256": "sha256:229db9c1b418bfafa7510683ec16f0bb06e3abedac52fc6a734618800a1c1aa2"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/admin/geometry.json",
+      "sha256": "sha256:d5f226fc623692294cff31a00541381ae78e430b3ae28c6ccc79e65ac5b1590c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/admin/metadata.json",
+      "sha256": "sha256:cfe3da88d3c5398f28e1939b297b71b05602b7c108206115ad9f3daf6965bc12"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/admin-reports/desktop-1920/admin/page.png",
+      "sha256": "sha256:38f980f7773059bbdd24a0c11bb2be8954279623f4dd332c79fb86b62b70336d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:3a79707376da6b7570bd6e9497ffdfb73c10eb6f08a502880bf6447c8bd30b25"
+}

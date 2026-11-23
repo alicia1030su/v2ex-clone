@@ -1,0 +1,21 @@
+{
+  "title": "V2EX",
+  "lang": "zh-CN",
+  "landmarks": [],
+  "headings": [],
+  "unlabeledControls": [
+    "<input id=\"search\" type=\"text\" maxlength=\"128\" autocomplete=\"off\" tabindex=\"1\">",
+    "<input type=\"text\" maxlength=\"255\" name=\"tagline\" value=\"E2E 测试头衔\">",
+    "<textarea name=\"bio\" maxlength=\"5000\" style=\"min-height:100px\">E2E 测试简介</textarea>",
+    "<input type=\"url\" maxlength=\"512\" placeholder=\"https://\" name=\"url\" value=\"\">",
+    "<input type=\"text\" maxlength=\"128\" name=\"location\" value=\"\">",
+    "<input type=\"password\" maxlength=\"128\" autocomplete=\"current-password\" required=\"\" name=\"current\" value=\"\">",
+    "<input type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" required=\"\" name=\"next\" value=\"\">",
+    "<input type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" required=\"\" name=\"confirm\" value=\"\">"
+  ],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div"
+  ]
+}

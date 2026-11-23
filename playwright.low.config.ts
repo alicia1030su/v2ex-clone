@@ -11,4 +11,9 @@ export default defineConfig({
   ...baseConfig,
   fullyParallel: false,
   workers: 1,
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results',
+  reporter: [
+    ['list'],
+    ['json', { outputFile: `${process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results'}/e2e-results.json` }],
+  ],
 });

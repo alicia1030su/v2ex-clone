@@ -1,0 +1,72 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P06-VP768-L2-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/guest/geometry.json",
+      "sha256": "sha256:51bf059dd50f1d1afde9b328e429b28b6fd62792a96b5fe7f9fc272c10e365a5"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/guest/metadata.json",
+      "sha256": "sha256:0991640e3250d937414ed1fb6d8d71798e4179ba285bb0e79d708da60f0089a2"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/guest/page.png",
+      "sha256": "sha256:17c53bc708effa7f51e799b41cbbf929344afce7f1d37de2bdbc4ab06d470909"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/user/geometry.json",
+      "sha256": "sha256:277dbdf3e08ccaf493d650e2a61599d5437f829f42b89bd72844141b16075d04"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/user/metadata.json",
+      "sha256": "sha256:00a7bf20f94dd508d710b625df7ce05cf5206ed10e051a7c0a5a040bcf25d220"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/topic-detail/tablet-768/user/page.png",
+      "sha256": "sha256:22aa20baff4c829f69e3392205b8ac3feaf40e70c25e18b8010fb7592727601c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:a5a7d75dfa365d5364be8fdca3135e98156d18ae49606e1e817c435c137ab3f3"
+}

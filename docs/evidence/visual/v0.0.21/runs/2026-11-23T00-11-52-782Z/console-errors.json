@@ -1,0 +1,782 @@
+[
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "mobile-375",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "mobile-390",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "tablet-768",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "desktop-1280",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "home",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-list",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "following",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "nodes",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "node-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "topic-detail",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "reply-modes",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "member",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "signin",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "account-recovery",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "settings",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "notifications",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "bookmarks",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "search",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "tag",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "leaderboard",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "moderator",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "admin-reports",
+    "auth_role": "admin",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "guest",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  },
+  {
+    "page_class": "static-help",
+    "auth_role": "user",
+    "viewport": "desktop-1920",
+    "error": "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object."
+  }
+]

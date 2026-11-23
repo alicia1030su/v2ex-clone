@@ -1,0 +1,72 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P03-VP1280-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/guest/responsive.json",
+      "sha256": "sha256:6691941831dbbaf3878d2e6ceb637fd874118b8e0c8c33a1a984a3231489fbf7"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/guest/metadata.json",
+      "sha256": "sha256:572bd4bdfc4653d4837e9d545a97812cea418d92f8435dc61481c6e0464328fe"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/guest/page.png",
+      "sha256": "sha256:27a94113fce78fb68fb2f0dee18dc6d883700b54e520a12cd0cc2c68fe2d872f"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/user/responsive.json",
+      "sha256": "sha256:6691941831dbbaf3878d2e6ceb637fd874118b8e0c8c33a1a984a3231489fbf7"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/user/metadata.json",
+      "sha256": "sha256:40626f03529bf9c16a092846d81c126cf1126aecf8811935b26c43180c643b0d"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/desktop-1280/user/page.png",
+      "sha256": "sha256:658c251dfab1dc2c49fcae082759461a021f789224a26e8785a9fbf9d1e9fb23"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:fd5b5878b4ee55b32f1156f1daa8bd40506afd4775ae17acce58e84281df9180"
+}

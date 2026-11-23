@@ -1,0 +1,31 @@
+{
+  "schema": "workbuddy-v021/shared-evidence/v1",
+  "page_class": "topic-detail",
+  "auth_role": "guest",
+  "viewport": "desktop-1920",
+  "route": "http://127.0.0.1:3210/t/315",
+  "status": "ok",
+  "http_status": 200,
+  "layout_stable": true,
+  "console_errors": [],
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  }
+}

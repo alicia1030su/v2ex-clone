@@ -1,0 +1,54 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P16-VP390-L2-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/leaderboard/mobile-390/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/leaderboard/mobile-390/guest/geometry.json",
+      "sha256": "sha256:b6adad5217f5940f43bc5ad2388d179d434d088775bdf4cf07a500946aad551f"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/leaderboard/mobile-390/guest/metadata.json",
+      "sha256": "sha256:ec64130b8699aab1bf2a442d80e999e9984465c1c3d2030eb9d42d0cae37f044"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/leaderboard/mobile-390/guest/page.png",
+      "sha256": "sha256:729ddbef4df3588aaeee8727237688314b096703264a9d2f0693f3c8fb27cb45"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:56c46bd59effac9e7a1d7a9682a2f912d4e133d7b7d37c288c96b532458f3e93"
+}

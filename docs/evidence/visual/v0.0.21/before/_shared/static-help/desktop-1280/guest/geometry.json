@@ -1,0 +1,59 @@
+{
+  "boxes": [
+    {
+      "selector": "#Top",
+      "tag": "div",
+      "id": "Top",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 45
+      }
+    },
+    {
+      "selector": "#Wrapper",
+      "tag": "div",
+      "id": "Wrapper",
+      "className": "",
+      "rect": {
+        "x": 0,
+        "y": 45,
+        "width": 1280,
+        "height": 672.39
+      }
+    },
+    {
+      "selector": "#Main",
+      "tag": "div",
+      "id": "Main",
+      "className": "",
+      "rect": {
+        "x": 110,
+        "y": 45,
+        "width": 770,
+        "height": 652.39
+      }
+    },
+    {
+      "selector": ".box",
+      "tag": "div",
+      "id": null,
+      "className": "box",
+      "rect": {
+        "x": 110,
+        "y": 65,
+        "width": 770,
+        "height": 632.39
+      }
+    }
+  ],
+  "overlap": false,
+  "overflow": {
+    "documentWidth": 1280,
+    "viewportWidth": 1280,
+    "bodyWidth": 1280,
+    "horizontalOverflow": false
+  }
+}

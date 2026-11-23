@@ -1,0 +1,72 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P03-VP375-L3-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/guest/styles.json",
+      "sha256": "sha256:306a49642772ce8c86501b37a2384d50eb101d6420611679f0bc4b3222abbe57"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/guest/metadata.json",
+      "sha256": "sha256:bc2aaac0c32e4609b1fea20a8faafcaa13266158cc7d39ce6853eed4a4ae16cd"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/guest/page.png",
+      "sha256": "sha256:e596eb628b5d2e4880b86134207c1d4dd1b05ba0770b3e961c8669dc768111ec"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/user/styles.json",
+      "sha256": "sha256:21261b72b046d0ed7ac08f8881845591b19d6639231908d22c2ad06529a153bf"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/user/metadata.json",
+      "sha256": "sha256:dcf829833ee94ea3891f5ff0e56112b8837fa5186ec3119b6376bc72b04924e5"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/following/mobile-375/user/page.png",
+      "sha256": "sha256:ace638a85f783bb60d3cf470059e3efb05c68ca9ef8a9009ea76c748fee0cc01"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:8d3550bb6c69ade88037d3bfc98b2837a9f2f9b959206d7c64657122add41853"
+}

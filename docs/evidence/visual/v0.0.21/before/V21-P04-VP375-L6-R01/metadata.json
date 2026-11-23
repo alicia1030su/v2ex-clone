@@ -1,0 +1,54 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P04-VP375-L6-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/nodes/mobile-375/guest/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/nodes/mobile-375/guest/responsive.json",
+      "sha256": "sha256:bad9165c1f23e992ae115362ce5e416be8899063dda3f9c9528f40e890ad4f5c"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/nodes/mobile-375/guest/metadata.json",
+      "sha256": "sha256:7d3b39bdafb84979f7e26505cdaa9612046ce9174452209c77cb08d7abcdd297"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/nodes/mobile-375/guest/page.png",
+      "sha256": "sha256:bfdaa9896845f220cd7fb7617abe405cb0f1c20c5b94fef8cdaff77c598ca8a8"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:8a08387b07059b45ece5165eb804c4c867dc11b7bd12bfe73a6e9617d2447f1f"
+}

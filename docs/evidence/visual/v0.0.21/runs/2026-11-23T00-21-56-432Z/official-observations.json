@@ -1,0 +1,108 @@
+[
+  {
+    "url": "https://www.v2ex.com/",
+    "final_url": "https://www.v2ex.com/?__cf_chl_rt_tk=EiBACK_4FabfddpH5qQ2UmXyhO8GRlwdbiFCewPpOvM-1795393352-1.0.1.1-vZIvIYg_a53VuYI2j7mllPlF6D18Kb0Wwty_J6gfjJI",
+    "http_status": 403,
+    "status": "http-403",
+    "captured_at": "2026-11-23T00:22:02.548Z",
+    "legal_basis": "Public page live observation; numeric geometry and computed style only; no source or assets copied.",
+    "eligible_for_official_pixel_claim": false,
+    "page_errors": [],
+    "observation": {
+      "title": "Just a moment...",
+      "lang": "en-US",
+      "viewport": {
+        "width": 1280,
+        "height": 900,
+        "dpr": 1
+      },
+      "document": {
+        "scrollWidth": 1280,
+        "clientWidth": 1280
+      },
+      "boxes": {
+        "top": null,
+        "wrapper": null,
+        "main": null,
+        "rightbar": null,
+        "firstTopic": null
+      },
+      "styles": {
+        "body": {
+          "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "18.4px",
+          "color": "rgb(49, 49, 49)",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "main": null,
+        "firstTopic": null
+      }
+    }
+  },
+  {
+    "url": "https://livid.v2ex.com/design.html",
+    "final_url": "https://livid.v2ex.com/design.html",
+    "http_status": 200,
+    "status": "observed",
+    "captured_at": "2026-11-23T00:22:03.594Z",
+    "legal_basis": "Public page live observation; numeric geometry and computed style only; no source or assets copied.",
+    "eligible_for_official_pixel_claim": false,
+    "page_errors": [],
+    "observation": {
+      "title": "Design | Livid",
+      "lang": "en",
+      "viewport": {
+        "width": 1280,
+        "height": 900,
+        "dpr": 1
+      },
+      "document": {
+        "scrollWidth": 1280,
+        "clientWidth": 1280
+      },
+      "boxes": {
+        "top": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 55.9375
+        },
+        "wrapper": {
+          "x": 240,
+          "y": 0,
+          "width": 800,
+          "height": 54
+        },
+        "main": {
+          "x": 0,
+          "y": 55.9375,
+          "width": 1280,
+          "height": 2657.640625
+        },
+        "rightbar": null,
+        "firstTopic": null
+      },
+      "styles": {
+        "body": {
+          "fontFamily": "\"Helvetica Neue\", \"Luxi Sans\", \"DejaVu Sans\", Tahoma, \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "24px",
+          "color": "rgb(17, 17, 17)",
+          "backgroundColor": "rgb(240, 240, 240)"
+        },
+        "main": {
+          "fontFamily": "\"Helvetica Neue\", \"Luxi Sans\", \"DejaVu Sans\", Tahoma, \"Hiragino Sans GB\", \"Microsoft Yahei\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "24px",
+          "color": "rgb(17, 17, 17)",
+          "backgroundColor": "rgba(0, 0, 0, 0)"
+        },
+        "firstTopic": null
+      }
+    }
+  }
+]

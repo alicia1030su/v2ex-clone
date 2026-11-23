@@ -1,0 +1,28 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "dpr": 1
+  },
+  "overflow": {
+    "documentWidth": 390,
+    "viewportWidth": 390,
+    "bodyWidth": 390,
+    "horizontalOverflow": false
+  },
+  "dataStates": [
+    "guest",
+    "user",
+    "moderator",
+    "admin"
+  ],
+  "missingImages": [],
+  "theme": "light",
+  "horizontalOverflow": false,
+  "zoom200": {
+    "method": "CDP Emulation.setPageScaleFactor",
+    "pageScaleFactor": 2,
+    "scrollWidth": 390,
+    "clientWidth": 390
+  }
+}

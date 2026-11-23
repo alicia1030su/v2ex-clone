@@ -1,0 +1,18 @@
+{
+  "title": "V2EX › 注册新用户",
+  "lang": "zh-CN",
+  "landmarks": [],
+  "headings": [],
+  "unlabeledControls": [
+    "<input id=\"search\" type=\"text\" maxlength=\"128\" autocomplete=\"off\" tabindex=\"1\">",
+    "<input type=\"text\" id=\"username\" maxlength=\"32\" autocomplete=\"username\" required=\"\" name=\"username\" value=\"\">",
+    "<input type=\"email\" id=\"email\" maxlength=\"255\" autocomplete=\"email\" name=\"email\" value=\"\">",
+    "<input type=\"password\" id=\"password\" maxlength=\"128\" autocomplete=\"new-password\" required=\"\" name=\"password\" value=\"\">",
+    "<input type=\"password\" id=\"confirm\" maxlength=\"128\" autocomplete=\"new-password\" required=\"\" name=\"confirm\" value=\"\">"
+  ],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div"
+  ]
+}

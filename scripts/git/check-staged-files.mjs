@@ -56,7 +56,13 @@ export function treeFiles(ref) {
 }
 
 export function stagedAddedLines(file) {
-  const out = execFileSync('git', ['diff', '--cached', '--unified=0', '--', file], { encoding: 'utf8' });
+  // Generated evidence files can legitimately exceed Node's default 1 MiB
+  // execFileSync buffer. Keep the same full diff scan, with an explicit bounded
+  // buffer instead of failing open or skipping large files.
+  const out = execFileSync('git', ['diff', '--cached', '--unified=0', '--', file], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
   return out.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'));
 }
 

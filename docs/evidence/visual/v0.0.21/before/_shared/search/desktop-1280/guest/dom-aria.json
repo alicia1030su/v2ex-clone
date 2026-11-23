@@ -1,0 +1,19 @@
+{
+  "title": "V2EX",
+  "lang": "zh-CN",
+  "landmarks": [],
+  "headings": [],
+  "unlabeledControls": [
+    "<input id=\"search\" type=\"text\" maxlength=\"128\" autocomplete=\"off\" tabindex=\"1\" placeholder=\"搜索 V2EX\" value=\"\">"
+  ],
+  "emptyTargets": [
+    "<a href=\"/api/feed\" target=\"_blank\" rel=\"noopener noreferrer\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\" role=\"img\" aria-label=\"RSS\" style=\"border-radius:4px;vertical-align:bottom\"><rect width=\"28\" height=\"28\" rx=\"4\" fill=\"#f26522\"></r",
+    "<a href=\"/member/lisi\"><img src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIzIiBmaWxsPSIjZmRlY2VjIi8+P",
+    "<a href=\"/member/zhaoliu\"><img src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSIzIiBmaWxsPSIjZThmMGZlIi"
+  ],
+  "childOrder": [
+    "div",
+    "div",
+    "div"
+  ]
+}

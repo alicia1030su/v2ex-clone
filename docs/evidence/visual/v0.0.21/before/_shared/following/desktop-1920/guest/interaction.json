@@ -1,0 +1,176 @@
+{
+  "availableStates": [
+    "default",
+    "hover",
+    "focus",
+    "active",
+    "disabled",
+    "loading",
+    "error",
+    "empty"
+  ],
+  "observed": {
+    "disabled": 0,
+    "loading": 0,
+    "error": 0,
+    "empty": 0
+  },
+  "contrastChecks": [
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "首页",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "热门",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "最新",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "注册",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "登录",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "div",
+      "text": "其他登录方式GSign in with GoogleSSign in with Solana",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "GSign in with GoogleSSign in with Solana",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "V2EX  ›  登录  用户名密码登录我忘记密码了",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "div",
+      "text": "用户名密码登录我忘记密码了",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "button",
+      "text": "登录",
+      "color": "rgb(102, 102, 102)",
+      "background": "rgb(240, 240, 240)",
+      "ratio": 5.04
+    },
+    {
+      "tag": "a",
+      "text": "我忘记密码了",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "关于",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "FAQ",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "Privacy",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "UTC 00:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "PVG 08:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "LAX 16:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "a",
+      "text": "JFK 19:35",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    }
+  ],
+  "reducedMotion": true,
+  "touchPoints": 10,
+  "states": [
+    "empty",
+    "non-empty"
+  ],
+  "pageClass": "following",
+  "focus": {
+    "tag": "a",
+    "outline": "rgb(88, 151, 251) solid 2px",
+    "active": true
+  },
+  "keyboardTab": {
+    "tag": "select",
+    "text": "浅色深色跟随系统"
+  }
+}

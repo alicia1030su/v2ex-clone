@@ -1,0 +1,72 @@
+{
+  "schema": "workbuddy-v021/gap-evidence/v1",
+  "gap_id": "V21-P08-VP1920-L2-R01",
+  "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+  "captured_at": "2026-11-23T00:33:34.185Z",
+  "environment": {
+    "commit": "01f834b10efee05006ddb2d15d73e6e6e90b64fe",
+    "tree": "a7babcbee9e7ec9d2c63819cfb345d5875f0ebdc",
+    "node_version": "v22.23.4",
+    "platform": "win32",
+    "arch": "x64",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "browser": "chromium",
+    "browser_version": "158.0.4370.33",
+    "channel": "msedge",
+    "locale": "zh-CN",
+    "dpr": 1,
+    "theme": "light",
+    "seed_time_anchor": "2026-11-06T04:00:00.000Z",
+    "fixture_fingerprint": "sha256:29b7ebce413a8dd28a1810ca13c1ebee2c9c97228377c9ffda9a86468ff51b42",
+    "base_url": "http://127.0.0.1:3210",
+    "scope": "managed-next-start-process-tree"
+  },
+  "collection_status": [
+    "ok",
+    "ok"
+  ],
+  "role_coverage": [
+    {
+      "role": "guest",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/guest/metadata.json"
+    },
+    {
+      "role": "user",
+      "status": "ok",
+      "metadata": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/user/metadata.json"
+    }
+  ],
+  "official_pixel_reference": false,
+  "files": [
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/guest/geometry.json",
+      "sha256": "sha256:dba815a813db06c58cbf7b6f16ca1db085e16692116f1e4c287a2d38cb95c884"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/guest/metadata.json",
+      "sha256": "sha256:682150bbc1219f16b159b43951d569b46a6a9c4060f9ef0d04e095c278fd7193"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/guest/page.png",
+      "sha256": "sha256:8a588bee20d1aeecd1d6ae5c0d9bde6066ecfef58fa49398b294d5f77c8a8083"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/user/geometry.json",
+      "sha256": "sha256:8dd968b502c0a0e5d83b3ea3c12936b82f0df7163c2f10ed1b17919abcbf8764"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/user/metadata.json",
+      "sha256": "sha256:38aac8991104889b5e2038a6a27c39de85268fe3204bed92c6edf387c77de223"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/before/_shared/member/desktop-1920/user/page.png",
+      "sha256": "sha256:e39fc01089a74f65b548eaf1fa48e5647f122347aed959df0fbd4c7b88e0ba5a"
+    },
+    {
+      "path": "docs/evidence/visual/v0.0.21/reference-manifest.json",
+      "sha256": "sha256:b83206fd484d12e07111343cf39a8b6aec6091cd31b03eb08c463ec008ed2142"
+    }
+  ],
+  "sha256": "sha256:dad295b38fc91bba81f08d0416b6910d872a4f96f0afb142ac6cd18b26210eb7"
+}

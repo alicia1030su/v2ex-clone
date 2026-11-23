@@ -1,0 +1,315 @@
+{
+  "availableStates": [
+    "default",
+    "hover",
+    "focus",
+    "active",
+    "disabled",
+    "loading",
+    "error",
+    "empty"
+  ],
+  "observed": {
+    "disabled": 0,
+    "loading": 0,
+    "error": 0,
+    "empty": 0
+  },
+  "contrastChecks": [
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "div",
+      "text": "",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "首页",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "热门",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "最新",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "注册",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "a",
+      "text": "登录",
+      "color": "rgb(51, 51, 51)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 12.63
+    },
+    {
+      "tag": "div",
+      "text": "积分说明积分额度为可配置规则，属本项目的独立实现，不代表原站真实数值。 可通过环境变量 TOPIC_CREDITS / ",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "积分说明积分额度为可配置规则，属本项目的独立实现，不代表原站真实数值。 可通过环境变量 TOPIC_CREDITS / ",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "V2EX  ›  积分排行榜1lisi主题 67 · 回复 763 · 被感谢 02850积分2wangwu主题 26 ",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "V2EX",
+      "color": "rgb(119, 128, 135)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 4.02
+    },
+    {
+      "tag": "div",
+      "text": "1lisi主题 67 · 回复 763 · 被感谢 02850积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "lisi",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "2wangwu主题 26 · 回复 112 · 被感谢 01325积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "wangwu",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "3moderator主题 36 · 回复 12 · 被感谢 01180积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "moderator",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "4admin主题 11 · 回复 11 · 被感谢 01056积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "admin",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "5conc_mwpz2xsh1pcfz674主题 1 · 回复 8 · 被感谢 01021积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "conc_mwpz2xsh1pcfz674",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "6conc_mwpypn7g1pg3la0h主题 1 · 回复 8 · 被感谢 01021积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "conc_mwpypn7g1pg3la0h",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "7conc_mwpwlpdc9r2bt7s主题 1 · 回复 8 · 被感谢 01021积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "conc_mwpwlpdc9r2bt7s",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "8conc_mwpw524k5gwk9t9主题 1 · 回复 8 · 被感谢 01021积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "conc_mwpw524k5gwk9t9",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "9concurrent_mwpz1nghwee1496主题 0 · 回复 5 · 被感谢 01010积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "concurrent_mwpz1nghwee1496",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "10concurrent_mwpyocduwudsqe0主题 0 · 回复 5 · 被感谢 01010积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "concurrent_mwpyocduwudsqe0",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "11concurrent_mwpwxl5834uiu9i主题 0 · 回复 5 · 被感谢 01010积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "concurrent_mwpwxl5834uiu9i",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "12concurrent_mwpwjrkf4tlj0kb主题 0 · 回复 5 · 被感谢 01010积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "concurrent_mwpwjrkf4tlj0kb",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "13concurrent_mwpvzfnh1tv0kra主题 0 · 回复 5 · 被感谢 01010积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "concurrent_mwpvzfnh1tv0kra",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "14v13_api_mwpz796g3j1m38nj主题 1 · 回复 2 · 被感谢 01009积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "a",
+      "text": "v13_api_mwpz796g3j1m38nj",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    },
+    {
+      "tag": "div",
+      "text": "15v13_api_mwpytbz4cb1ii39主题 1 · 回复 2 · 被感谢 01009积分",
+      "color": "rgb(0, 0, 0)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 21
+    }
+  ],
+  "reducedMotion": true,
+  "touchPoints": 10,
+  "states": [
+    "0/1/multiple users"
+  ],
+  "pageClass": "leaderboard",
+  "focus": {
+    "tag": "a",
+    "outline": "rgb(88, 151, 251) solid 2px",
+    "active": true
+  },
+  "keyboardTab": {
+    "tag": "select",
+    "text": "浅色深色跟随系统"
+  }
+}

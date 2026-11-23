@@ -1,0 +1,16 @@
+{
+  "title": "V2EX",
+  "lang": "zh-CN",
+  "landmarks": [],
+  "headings": [],
+  "unlabeledControls": [
+    "<input id=\"search\" type=\"text\" maxlength=\"128\" autocomplete=\"off\" tabindex=\"1\">",
+    "<input type=\"text\" id=\"username\" maxlength=\"32\" placeholder=\"用户名或电子邮件地址\" autocomplete=\"username\" required=\"\" name=\"username\" value=\"\">",
+    "<input type=\"password\" id=\"password\" maxlength=\"128\" autocomplete=\"current-password\" required=\"\" name=\"password\" value=\"\">"
+  ],
+  "emptyTargets": [],
+  "childOrder": [
+    "div",
+    "div"
+  ]
+}
