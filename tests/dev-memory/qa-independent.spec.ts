@@ -647,6 +647,10 @@ describe('QA independent supervisor boundaries', () => {
     const processTable = new ProcessTable();
     let childPid: number | null = null;
     const injected = {
+      snapshotDirectChild(pid: number) {
+        childPid = pid;
+        return processTable.snapshotOne(pid);
+      },
       snapshotOne(pid: number) {
         const row = processTable.snapshotOne(pid);
         if (row && childPid === null && pid !== process.pid) childPid = row.pid;

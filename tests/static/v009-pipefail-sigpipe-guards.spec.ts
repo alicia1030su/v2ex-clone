@@ -305,7 +305,7 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     try {
       const extractRun = spawnSync(
         'bash',
-        ['-c', 'tar -xzf "$1" -C "$2"', 'v009-extract', bundlePath, extract],
+        ['-c', 'tar --force-local -xzf "$1" -C "$2"', 'v009-extract', bundlePath.replace(/\\/g, '/'), extract.replace(/\\/g, '/')],
         { encoding: 'utf8' },
       );
       expect(extractRun.status, `解包 bundle 失败：${extractRun.stderr}`).toBe(0);
@@ -313,7 +313,7 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
       expect(existsSync(dumpPath), 'bundle 缺少 database.dump.gz').toBe(true);
       const dumpBytes = spawnSync(
         'bash',
-        ['-c', `gzip -cd ${JSON.stringify(dumpPath)} | wc -c`],
+        ['-c', `gzip -cd ${JSON.stringify(dumpPath.replace(/\\/g, '/'))} | wc -c`],
         { encoding: 'utf8' },
       );
       expect(dumpBytes.status, dumpBytes.stderr).toBe(0);
@@ -391,11 +391,11 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
     try {
       const unpack = spawnSync(
         'bash',
-        ['-c', 'tar -xzf "$1" -C "$2"', 'v009-unpack', goodPath, stage],
+        ['-c', 'tar --force-local -xzf "$1" -C "$2"', 'v009-unpack', goodPath.replace(/\\/g, '/'), stage.replace(/\\/g, '/')],
         { encoding: 'utf8' },
       );
       expect(unpack.status, `解包正常 bundle 失败：${unpack.stderr}`).toBe(0);
-      const made = spawnSync('bash', ['-c', `printf '' | gzip -9 > ${JSON.stringify(path.join(stage, 'database.dump.gz'))}`], {
+      const made = spawnSync('bash', ['-c', `printf '' | gzip -9 > ${JSON.stringify(path.join(stage, 'database.dump.gz').replace(/\\/g, '/'))}`], {
         encoding: 'utf8',
       });
       expect(made.status, made.stderr).toBe(0);
@@ -407,15 +407,17 @@ describe.skipIf(SKIP_REASON !== null)('真实 backup.sh / restore.sh 的内容�
           '-c',
           'cd "$1" && sha256sum database.dump.gz uploads.tar.gz uploads-files.tsv env VERSION docker-compose.yml migration-journal.json manifest.env manifest.json > SHA256SUMS',
           'v009-sums',
-          stage,
+          stage.replace(/\\/g, '/'),
         ],
         { encoding: 'utf8' },
       );
       expect(sums.status, sums.stderr).toBe(0);
-      expect(spawnSync('tar', ['-C', stage, '-czf', emptyPath, '.']).status, '重打包失败').toBe(0);
+      expect(spawnSync('tar', ['--force-local', '-C', stage.replace(/\\/g, '/'), '-czf', emptyPath.replace(/\\/g, '/'), '.']).status, '重打包失败').toBe(0);
       const outer = spawnSync('sha256sum', [emptyPath], { encoding: 'utf8' });
       expect(outer.status, outer.stderr).toBe(0);
-      writeFileSync(`${emptyPath}.sha256`, outer.stdout, 'utf8');
+      const outerHash = outer.stdout.trim().split(/\s+/)[0].replace(/^\\/, '');
+      expect(outerHash).toMatch(/^[a-f0-9]{64}$/);
+      writeFileSync(`${emptyPath}.sha256`, `${outerHash}\n`, 'utf8');
 
       const badRun = run(dir, './restore.sh', {
         args: ['--yes', path.posix.join('backups', emptyName)],

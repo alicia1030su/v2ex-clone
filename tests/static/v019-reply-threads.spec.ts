@@ -129,9 +129,11 @@ describe('v0.0.19 无刷新回复与草稿保护', () => {
 describe('v0.0.19 图片上传与三态主题', () => {
   it('回复图片拒绝 SVG/MIME 伪造并限制像素与路径', () => {
     const lib = read('src/lib/reply-images.ts');
+    const storage = read('src/lib/reply-image-storage.ts');
     expect(lib).toContain('limitInputPixels: MAX_REPLY_IMAGE_PIXELS');
-    expect(lib).toContain("^replies\\/\\d+\\/[a-f0-9]{8,64}\\.(png|jpg|webp|gif)$");
+    expect(storage).toContain("^replies\\/\\d+\\/[a-f0-9]{8,64}\\.(png|jpg|webp|gif)$");
     expect(lib).not.toContain('svg');
+    expect(storage).not.toContain('svg');
     const route = read('src/app/api/reply-images/route.ts');
     expect(route).toContain('图片 MIME 类型与真实内容不一致');
     expect(route).toContain('图片扩展名与真实内容不一致');
