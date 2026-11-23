@@ -1,0 +1,45 @@
+{
+  "schema": "workbuddy-dev-memory/monitor/v1",
+  "run_id": "2fbc365ed5c6a8917425c5102f194ac0",
+  "started_at": "2026-11-23T07:14:23.152Z",
+  "ended_at": "2026-11-23T07:14:23.406Z",
+  "interval_ms": 1000,
+  "samples": [
+    {
+      "at": "2026-11-23T07:14:23.393Z",
+      "monotonic_ns": "363513735644500",
+      "elapsed_ms": 0,
+      "processes": [],
+      "tree_rss_mb": 0,
+      "max_process_rss_mb": 0,
+      "error": "IDENTITY_MISMATCH"
+    }
+  ],
+  "summary": {
+    "root_pid": 13856,
+    "peak_tree_rss_mb": 0,
+    "peak_process_rss_mb": 0,
+    "p95_tree_rss_mb": 0,
+    "sample_count": 1,
+    "wall_clock_ms": 247.4,
+    "exit_code": 1,
+    "signal": null,
+    "command": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:/Users/TYMO001/AppData/Local/Temp/v0021-qa-bench/production-e2e-wrapper.mjs",
+      "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release",
+      ".next-qa-after",
+      "3324",
+      "start",
+      "playwright.low.config.ts",
+      "e2e/v021-interaction-contract.spec.ts",
+      "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release/docs/evidence/v0.0.21/interaction/output"
+    ],
+    "commit": "3d88b56dba90a122556036b7f547074355bd248d",
+    "profile": "playwright",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "monitor_errors": [
+      "IDENTITY_MISMATCH"
+    ]
+  }
+}

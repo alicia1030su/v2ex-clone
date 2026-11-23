@@ -1,0 +1,23 @@
+{
+  "schema": "workbuddy-dev-memory/cleanup/v1",
+  "run_id": "91d28a7b1183c99cd61293db8c0bf2df",
+  "decision": "NOOP",
+  "reason": "lease-creation-failed",
+  "started_at": "2026-11-23T08:08:01.460Z",
+  "finished_at": "2026-11-23T08:08:01.461Z",
+  "root_verification": {
+    "ok": false,
+    "pid": 26068,
+    "identity_hash": "sha256:unavailable",
+    "reason": "NO_LEASED_CHILD_PROCESS"
+  },
+  "root_pid_source": "spawned-child",
+  "targets": [],
+  "skipped": [],
+  "outside_probe": null,
+  "protected_intact": true,
+  "artifacts_intact": true,
+  "errors": [
+    "LEASE_CREATION_FAILED:lease root identity requires an executable fence"
+  ]
+}

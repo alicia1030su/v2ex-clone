@@ -1,0 +1,929 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\node_modules\\playwright\\cli.js",
+      "test",
+      "e2e/v021-interaction-contract.spec.ts",
+      "--config",
+      "playwright.low.config.ts",
+      "--workers=1",
+      "--output",
+      "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\docs\\evidence\\v0.0.21\\interaction\\output9-final\\playwright-output",
+      "e2e/v021-interaction-contract.spec.ts",
+      "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release/docs/evidence/v0.0.21/interaction/output9-final"
+    ],
+    "configFile": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\playwright.low.config.ts",
+    "rootDir": "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release/docs/evidence/v0.0.21/interaction/output9-final/playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "core",
+        "name": "core",
+        "testDir": "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release/e2e",
+        "testIgnore": [
+          "**/v008-smtp-stability.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\docs\\evidence\\v0.0.21\\interaction\\output9-final\\playwright-output",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "core",
+        "testDir": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e",
+        "snapshotDir": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e",
+        "testIgnore": [
+          "**/v008-smtp-stability.spec.ts"
+        ],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:3324",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "off",
+          "locale": "zh-CN",
+          "viewport": {
+            "width": 1280,
+            "height": 720
+          },
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+          "screen": {
+            "width": 1920,
+            "height": 1080
+          },
+          "deviceScaleFactor": 1,
+          "isMobile": false,
+          "hasTouch": false,
+          "defaultBrowserType": "chromium",
+          "channel": "msedge"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "core"
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "v021-interaction-contract.spec.ts",
+      "file": "v021-interaction-contract.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "搜索建议可见并可用 Enter 提交",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1594,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:28:54.207Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-2517a845ef639aa50ff1",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 66,
+          "column": 1
+        },
+        {
+          "title": "登录失败显示错误，正确账号可进入设置",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1567,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:28:56.072Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-316621ab96efb225741f",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 75,
+          "column": 1
+        },
+        {
+          "title": "注册校验两次密码并可完成注册",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1535,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:28:57.649Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-50b73dd4793f6300d6f5",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 87,
+          "column": 1
+        },
+        {
+          "title": "找回密码校验邮箱格式并返回防枚举提示",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 696,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:28:59.195Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-7f3293c45ceb3de9db89",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 102,
+          "column": 1
+        },
+        {
+          "title": "七种回复模式均可即时切换",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1891,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:28:59.901Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-a238c7cfefb460546fd9",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 114,
+          "column": 1
+        },
+        {
+          "title": "主题发布、编辑与删除入口形成真实闭环",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2462,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:01.809Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-b7b2dd820d431e82f05d",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 139,
+          "column": 1
+        },
+        {
+          "title": "赞同、收藏与书签页面联动",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1850,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:04.280Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-1782d004a4035e732816",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 163,
+          "column": 1
+        },
+        {
+          "title": "感谢与举报均有真实提交反馈",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5282,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:06.145Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-f9ce9ddbe0d6eb2047f9",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 179,
+          "column": 1
+        },
+        {
+          "title": "通知可单条与全部标记已读",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4666,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:11.439Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-fa1f3e96a9c5a1321e1b",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 200,
+          "column": 1
+        },
+        {
+          "title": "设置保存成功且密码不一致有可见校验",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1402,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:16.116Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-f6c07281c49233c969c1",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 226,
+          "column": 1
+        },
+        {
+          "title": "管理员与版主入口及角色可见性正确",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1964,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:17.526Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-7196a99dfd5b67e256fe",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 245,
+          "column": 1
+        },
+        {
+          "title": "明暗主题即时切换并在刷新后保持",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1132,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:19.499Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-20996380c80b811e797f",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 258,
+          "column": 1
+        },
+        {
+          "title": "Tab/Enter 与 Space 可完成真实键盘操作",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1859,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:20.642Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-4bc4463755dab24aef1f",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 270,
+          "column": 1
+        },
+        {
+          "title": "CDP 200% page scale 下关键页面无横向溢出",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "core",
+              "projectName": "core",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 866,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-23T07:29:22.511Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bbc959aec29fec061c9a-06dd2cdad97eb9deadfd",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 287,
+          "column": 1
+        }
+      ],
+      "suites": [
+        {
+          "title": "窄屏触摸交互",
+          "file": "v021-interaction-contract.spec.ts",
+          "line": 297,
+          "column": 6,
+          "specs": [
+            {
+              "title": "触摸搜索与主题切换可用且页面无溢出",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "core",
+                  "projectName": "core",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1134,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-23T07:29:23.388Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release\\e2e\\v021-interaction-contract.spec.ts",
+                            "line": 0,
+                            "column": 0
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bbc959aec29fec061c9a-de2f47c05374e1339fb9",
+              "file": "v021-interaction-contract.spec.ts",
+              "line": 300,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-23T07:28:52.854Z",
+    "duration": 32225.728,
+    "expected": 15,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schema": "workbuddy-dev-memory/preflight/v1",
+  "run_id": "63b80cb1111ef39bfe5c0b42428bb264",
+  "decision": "ALLOW",
+  "unsafe": false,
+  "reason_codes": [],
+  "profile": "playwright",
+  "measured_at": "2026-11-23T07:57:50.033Z",
+  "machine": {
+    "id": "wb-246e8e89178a9816ea7e",
+    "platform": "win32",
+    "arch": "x64",
+    "node_version": "v22.23.4",
+    "cpu_count": 16
+  },
+  "worktree": {
+    "root": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\after",
+    "git_head": "3d88b56dba90a122556036b7f547074355bd248d",
+    "git_tree": "16387172e33234eb0c40be54eb96124d5762dcbc",
+    "branch": "HEAD"
+  },
+  "limits": {
+    "physical_mb": 16122,
+    "cgroup_limit_mb": null,
+    "effective_limit_mb": 16122,
+    "host_reserve_mb": 1024,
+    "available_mb": 15098,
+    "current_available_mb": 5546,
+    "user_ceiling_mb": null,
+    "cgroup": null
+  },
+  "plan": {
+    "task_floor_mb": 512,
+    "task_share": 0.45,
+    "active_budgets_mb": 0,
+    "task_budget_mb": 6794,
+    "sum_task_budgets_plus_reserve_mb": 7818,
+    "runtime": {
+      "node_max_old_space_mb": 4076,
+      "vitest_max_workers": 1,
+      "vitest_file_parallelism": false,
+      "vitest_pool": "forks",
+      "playwright_workers": 1,
+      "playwright_fully_parallel": false,
+      "next_build_cpus": 4
+    }
+  },
+  "command": {
+    "argv": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\production-e2e-wrapper.mjs",
+      "C:/Users/TYMO001/AppData/Local/Temp/v0021-qa-bench/after",
+      ".next-qa-bench/playwright-dev-after-low-3",
+      "3322",
+      "dev",
+      "playwright.low.config.ts",
+      "e2e/v021-visual-contract.spec.ts",
+      "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\outputs\\playwright-dev-after-low-3"
+    ],
+    "cwd": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\after",
+    "env_fingerprint": "sha256:20acf5fc285388b5b3036630affdeba801c64d50b13c55b78f292e1b25fd0981"
+  },
+  "raw_memory": {
+    "physical_memory_bytes": 16905920512,
+    "free_memory_bytes": 5815537664,
+    "cgroup": null
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "workbuddy-dev-memory/monitor/v1",
+  "run_id": "91d28a7b1183c99cd61293db8c0bf2df",
+  "started_at": "2026-11-23T08:08:01.453Z",
+  "ended_at": "2026-11-23T08:08:01.453Z",
+  "interval_ms": 1000,
+  "samples": [],
+  "summary": {
+    "root_pid": 26068,
+    "peak_tree_rss_mb": 0,
+    "peak_process_rss_mb": 0,
+    "p95_tree_rss_mb": 0,
+    "sample_count": 0,
+    "wall_clock_ms": 0,
+    "exit_code": null,
+    "signal": "SIGKILL",
+    "command": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\dev-probe-wrapper.mjs",
+      "C:/Users/TYMO001/AppData/Local/Temp/v0021-qa-bench/before",
+      ".next-qa-bench/next-dev-before-standard-2",
+      "3321"
+    ],
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "profile": "next-dev",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "monitor_errors": [
+      "LEASE_CREATION_FAILED:lease root identity requires an executable fence"
+    ]
+  }
+}

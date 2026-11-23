@@ -1,0 +1,71 @@
+{
+  "schema": "workbuddy-dev-memory/preflight/v1",
+  "run_id": "61dad8df24fcda9bd4fa99906b1441e6",
+  "decision": "ALLOW",
+  "unsafe": false,
+  "reason_codes": [],
+  "profile": "vitest",
+  "measured_at": "2026-11-23T07:47:37.964Z",
+  "machine": {
+    "id": "wb-246e8e89178a9816ea7e",
+    "platform": "win32",
+    "arch": "x64",
+    "node_version": "v22.23.4",
+    "cpu_count": 16
+  },
+  "worktree": {
+    "root": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "git_head": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "git_tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "branch": "HEAD"
+  },
+  "limits": {
+    "physical_mb": 16122,
+    "cgroup_limit_mb": null,
+    "effective_limit_mb": 16122,
+    "host_reserve_mb": 1024,
+    "available_mb": 15098,
+    "current_available_mb": 5526,
+    "user_ceiling_mb": null,
+    "cgroup": null
+  },
+  "plan": {
+    "task_floor_mb": 384,
+    "task_share": 0.35,
+    "active_budgets_mb": 0,
+    "task_budget_mb": 5284,
+    "sum_task_budgets_plus_reserve_mb": 6308,
+    "runtime": {
+      "node_max_old_space_mb": 3170,
+      "vitest_max_workers": 1,
+      "vitest_file_parallelism": false,
+      "vitest_pool": "forks",
+      "playwright_workers": 1,
+      "playwright_fully_parallel": false,
+      "next_build_cpus": 4
+    }
+  },
+  "command": {
+    "argv": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "tests/dev-memory/budget.spec.ts",
+      "tests/dev-memory/cleanup-safety.spec.ts",
+      "tests/dev-memory/lease-fencing.spec.ts",
+      "tests/dev-memory/monitor-math.spec.ts",
+      "tests/dev-memory/process-table-parsers.spec.ts",
+      "tests/dev-memory/run-orchestrator.spec.ts",
+      "tests/static/v021-visual-matrix.spec.ts",
+      "--config",
+      "vitest.config.ts"
+    ],
+    "cwd": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "env_fingerprint": "sha256:1dc4b6ad9031920bd5f708a89ac640013b0f945a2f31d0232fa893e77ab6c677"
+  },
+  "raw_memory": {
+    "physical_memory_bytes": 16905920512,
+    "free_memory_bytes": 5794471936,
+    "cgroup": null
+  }
+}

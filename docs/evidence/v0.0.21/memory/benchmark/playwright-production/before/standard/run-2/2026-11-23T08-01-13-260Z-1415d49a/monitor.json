@@ -1,0 +1,196 @@
+{
+  "schema": "workbuddy-dev-memory/monitor/v1",
+  "run_id": "1415d49a6ac29d0110f8288ce8b1b54c",
+  "started_at": "2026-11-23T08:01:13.884Z",
+  "ended_at": "2026-11-23T08:01:15.867Z",
+  "interval_ms": 1000,
+  "samples": [
+    {
+      "at": "2026-11-23T08:01:14.136Z",
+      "monotonic_ns": "366324477966200",
+      "elapsed_ms": 0,
+      "processes": [
+        {
+          "pid": 19548,
+          "ppid": 17776,
+          "name": "node.exe",
+          "rss_mb": 37.4,
+          "start_time": "2026-11-23T08:01:13.857Z",
+          "identity_hash": "sha256:f37f01855931c729f5f6e11791a5125b2374f25befdccce11604fead3d034aa8"
+        },
+        {
+          "pid": 20556,
+          "ppid": 19548,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T08:01:13.867Z",
+          "identity_hash": "sha256:22b39a856f3e5fb59148ede50a6d254d9ed1f8f4133b779022c2465fdd01e325"
+        }
+      ],
+      "tree_rss_mb": 45.1,
+      "max_process_rss_mb": 37.4,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T08:01:14.153Z",
+      "monotonic_ns": "366324495230400",
+      "elapsed_ms": 17.2642,
+      "processes": [
+        {
+          "pid": 19548,
+          "ppid": 17776,
+          "name": "node.exe",
+          "rss_mb": 37.4,
+          "start_time": "2026-11-23T08:01:13.857Z",
+          "identity_hash": "sha256:f37f01855931c729f5f6e11791a5125b2374f25befdccce11604fead3d034aa8"
+        },
+        {
+          "pid": 20556,
+          "ppid": 19548,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T08:01:13.867Z",
+          "identity_hash": "sha256:22b39a856f3e5fb59148ede50a6d254d9ed1f8f4133b779022c2465fdd01e325"
+        }
+      ],
+      "tree_rss_mb": 45.1,
+      "max_process_rss_mb": 37.4,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T08:01:14.649Z",
+      "monotonic_ns": "366324991851800",
+      "elapsed_ms": 496.6214,
+      "processes": [
+        {
+          "pid": 19548,
+          "ppid": 17776,
+          "name": "node.exe",
+          "rss_mb": 37.4,
+          "start_time": "2026-11-23T08:01:13.857Z",
+          "identity_hash": "sha256:f37f01855931c729f5f6e11791a5125b2374f25befdccce11604fead3d034aa8"
+        },
+        {
+          "pid": 20556,
+          "ppid": 19548,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T08:01:13.867Z",
+          "identity_hash": "sha256:22b39a856f3e5fb59148ede50a6d254d9ed1f8f4133b779022c2465fdd01e325"
+        }
+      ],
+      "tree_rss_mb": 45.1,
+      "max_process_rss_mb": 37.4,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T08:01:15.156Z",
+      "monotonic_ns": "366325498773600",
+      "elapsed_ms": 506.9218,
+      "processes": [
+        {
+          "pid": 19548,
+          "ppid": 17776,
+          "name": "node.exe",
+          "rss_mb": 37.4,
+          "start_time": "2026-11-23T08:01:13.857Z",
+          "identity_hash": "sha256:f37f01855931c729f5f6e11791a5125b2374f25befdccce11604fead3d034aa8"
+        },
+        {
+          "pid": 20556,
+          "ppid": 19548,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T08:01:13.867Z",
+          "identity_hash": "sha256:22b39a856f3e5fb59148ede50a6d254d9ed1f8f4133b779022c2465fdd01e325"
+        }
+      ],
+      "tree_rss_mb": 45.1,
+      "max_process_rss_mb": 37.4,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T08:01:15.653Z",
+      "monotonic_ns": "366325995038800",
+      "elapsed_ms": 496.2652,
+      "processes": [
+        {
+          "pid": 19548,
+          "ppid": 17776,
+          "name": "node.exe",
+          "rss_mb": 55.6,
+          "start_time": "2026-11-23T08:01:13.857Z",
+          "identity_hash": "sha256:f37f01855931c729f5f6e11791a5125b2374f25befdccce11604fead3d034aa8"
+        },
+        {
+          "pid": 20556,
+          "ppid": 19548,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T08:01:13.867Z",
+          "identity_hash": "sha256:22b39a856f3e5fb59148ede50a6d254d9ed1f8f4133b779022c2465fdd01e325"
+        },
+        {
+          "pid": 23356,
+          "ppid": 19548,
+          "name": "powershell.exe",
+          "rss_mb": 70.1,
+          "start_time": "2026-11-23T08:01:13.992Z",
+          "identity_hash": "sha256:1cd7c521d6e7846174008b010e784e167a25b4b416a6c8d178edb6d4a671aac4"
+        },
+        {
+          "pid": 23336,
+          "ppid": 19548,
+          "name": "node.exe",
+          "rss_mb": 48.4,
+          "start_time": "2026-11-23T08:01:15.027Z",
+          "identity_hash": "sha256:e4a15ba4e97b331e26559d6bb367a51018ac96c3ae5ae64017ce01afed5c9a60"
+        },
+        {
+          "pid": 9528,
+          "ppid": 23356,
+          "name": "conhost.exe",
+          "rss_mb": 7.6,
+          "start_time": "2026-11-23T08:01:14.016Z",
+          "identity_hash": "sha256:6e0efeab7c49ea5f925873b35c3f0277425bdc8e0669185c092bf5007ab36313"
+        },
+        {
+          "pid": 19200,
+          "ppid": 23336,
+          "name": "conhost.exe",
+          "rss_mb": 7.6,
+          "start_time": "2026-11-23T08:01:15.038Z",
+          "identity_hash": "sha256:eae01f8e7851b35ecee16ca188c619ff79b3313d5e3365fcedf5fcb6d3f50008"
+        }
+      ],
+      "tree_rss_mb": 197,
+      "max_process_rss_mb": 70.1,
+      "error": null
+    }
+  ],
+  "summary": {
+    "root_pid": 19548,
+    "peak_tree_rss_mb": 197,
+    "peak_process_rss_mb": 70.1,
+    "p95_tree_rss_mb": 197,
+    "sample_count": 5,
+    "wall_clock_ms": 1982.9,
+    "exit_code": 1,
+    "signal": null,
+    "command": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\production-e2e-wrapper.mjs",
+      "C:/Users/TYMO001/AppData/Local/Temp/v0021-qa-bench/before",
+      ".next-qa-bench/playwright-production-before-standard-2",
+      "3323",
+      "start",
+      "playwright.config.ts",
+      "e2e/v021-visual-contract.spec.ts",
+      "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\outputs\\playwright-production-before-standard-2"
+    ],
+    "commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "profile": "playwright",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "monitor_errors": []
+  }
+}

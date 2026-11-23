@@ -1,0 +1,1214 @@
+{
+  "schema": "workbuddy-dev-memory/lease/v1",
+  "run_id": "86d59bb8a62249e159f6060fee450d3f",
+  "created_at": "2026-11-23T07:35:35.807Z",
+  "state": "FINISHED",
+  "profile": "next-dev",
+  "worktree": {
+    "root": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "git_head": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "git_tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "branch": "HEAD"
+  },
+  "command": {
+    "argv": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\dev-probe-wrapper.mjs",
+      "C:/Users/TYMO001/AppData/Local/Temp/v0021-qa-bench/before",
+      ".next-qa-bench/next-dev-before-standard-3",
+      "3321"
+    ],
+    "cwd": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "env_fingerprint": "sha256:e246b94cbb5ad7d61aa19b4c6f005bbd52245281c411eee156f0d5f6808e2fd0"
+  },
+  "budget_mb": 6039,
+  "root": {
+    "pid": 17544,
+    "ppid": 17776,
+    "start_time": "2026-11-23T07:35:35.787Z",
+    "start_ticks": null,
+    "exe": "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+    "cwd": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "name": "node",
+    "identity_hash": "sha256:50306710a8be6e5544323c4c09f814a0c054030f9d3942e811d22b7d822e0fb5"
+  },
+  "observed": [],
+  "protected": [
+    {
+      "pid": 788,
+      "ppid": 4,
+      "start_time": "2026-11-19T02:15:53.879Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "smss.exe",
+      "identity_hash": "sha256:02ceb71afcd5ef76820a11009ede737229d5d9df8c80841e93adc938767a24b0"
+    },
+    {
+      "pid": 1256,
+      "ppid": 916,
+      "start_time": "2026-11-19T02:16:04.482Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "csrss.exe",
+      "identity_hash": "sha256:7aba16d92a68046d2fadc704dd7c1dbaaa50fa58ccd2df2292c8c66da218c034"
+    },
+    {
+      "pid": 1344,
+      "ppid": 1336,
+      "start_time": "2026-11-19T02:16:04.728Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "csrss.exe",
+      "identity_hash": "sha256:5cf01cfb94720d608b754ad23c98cfbb148155297a46bce7b462b4718d0e8e3b"
+    },
+    {
+      "pid": 1352,
+      "ppid": 916,
+      "start_time": "2026-11-19T02:16:04.728Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "wininit.exe",
+      "identity_hash": "sha256:148e02711a6a4c72ef20359f515105974856e139184b3e5eeee294515cfe9740"
+    },
+    {
+      "pid": 1412,
+      "ppid": 1336,
+      "start_time": "2026-11-19T02:16:04.748Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "winlogon.exe",
+      "identity_hash": "sha256:3fe540ea0d2793a9e19fd28673d958f51f93e4c2101ae7ca15713b264e893c80"
+    },
+    {
+      "pid": 1492,
+      "ppid": 1352,
+      "start_time": "2026-11-19T02:16:04.789Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "services.exe",
+      "identity_hash": "sha256:77f88b08a64f7b7f28f725c935217ab03e7ddfd3014989da9fb605bc2af7ed05"
+    },
+    {
+      "pid": 1520,
+      "ppid": 1352,
+      "start_time": "2026-11-19T02:16:04.820Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "lsass.exe",
+      "identity_hash": "sha256:006ff8a37519ff9c6f103bf6a7fa40f01d985d6e8747365423a763026484f18b"
+    },
+    {
+      "pid": 1672,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.192Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:d4a84b93cb62de4ab4988d82c1e21d77375a64f10e9adb12f2b47bce219e38e8"
+    },
+    {
+      "pid": 1844,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.266Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:2524e2b9553a444b673eafa114ddb20f0261cdb3e624e28fba0c98b0402f81db"
+    },
+    {
+      "pid": 1984,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.295Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:c7daf32f50b698df68e1d90ba97410df5b8be5cd2b3cc715695440f8b0e2b623"
+    },
+    {
+      "pid": 2300,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.605Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:67a4eba20a0ad5e3aaeac1c272db01d1d29aa80a06ded8ecf2248410fd00a72f"
+    },
+    {
+      "pid": 2308,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.606Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:a5630a3909f57fd6d62922137c4d2615c603d3524f3c6c82d0b610d75005d699"
+    },
+    {
+      "pid": 2324,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.607Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:59e735955c7b0c491ceff3593d2ad920ce4397408d804d6a983be483071117fd"
+    },
+    {
+      "pid": 2352,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.609Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:9397709a3ac78e574ee64c642d004d818e2d6bc702615f9f51272780cace5af2"
+    },
+    {
+      "pid": 2368,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.610Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:1bd07b3d688a816c180038ebd72fbc346784919337f69cfbed7a19e42b56ade3"
+    },
+    {
+      "pid": 2392,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.611Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:3bdb985e149c3eb087295912078dad4632643c22e6ce01edec9acc632082a2e0"
+    },
+    {
+      "pid": 2520,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.622Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:48fac6c93cd85858c49c8b4cfa21801c1ff120995395c87b35ea906f1f05aaf1"
+    },
+    {
+      "pid": 2556,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.632Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:996d66b668a081180e529f194776e221ce3c8cb1b1380ba4d8819f45cb71a733"
+    },
+    {
+      "pid": 2588,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.637Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:7cad71e775936776dcf606ad0afc7d3c60f4200ccf0f4cff4db0b94bd738bc2d"
+    },
+    {
+      "pid": 2596,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.637Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:c4f506dfef445043f80d379b307b1b6a9353673600c8b7269e54931745c1ae01"
+    },
+    {
+      "pid": 2748,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.659Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:2ca37d83d8702f9a0c145a8e2e0a3483233513a4b1bca76f3799890af291565e"
+    },
+    {
+      "pid": 2808,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.664Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:80666c3b56693773c1bcc85898132368a2e5d2e2396e8793253ed5adac0a8618"
+    },
+    {
+      "pid": 2872,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.671Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:da4bab56414affb7032845ff0f873c8289e12b5adc92b5645df754d07df7048c"
+    },
+    {
+      "pid": 2880,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.671Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:20fe6ed9396bde6290965550f149b143af774327ffb3661e876d708c6c22d446"
+    },
+    {
+      "pid": 2928,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.676Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:6617d6cdc5ca27423499998848492c3106a880c470d7b2a30d10f660abfc7533"
+    },
+    {
+      "pid": 2972,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.683Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:1b7f44ffd5f130505dd6585bbbf626327bdd9ede0e56adf37783c62e62fcbedb"
+    },
+    {
+      "pid": 3176,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.707Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:2e045fbc2e3f6a8e3779fcf33dfab6c94faf84f2a43f4245687af1807f9fc2a4"
+    },
+    {
+      "pid": 3204,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.713Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:57a042f5890afc66e84ff8361b47088dbea2470d01ba4734c7897b6f368dd9de"
+    },
+    {
+      "pid": 3216,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.714Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:0f8aeadcc702ae9f1fc18eaeb64d4e1c2d08f09d266ed88c07ee888b8df779f5"
+    },
+    {
+      "pid": 3460,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.764Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:e995446a5d8c5f87b9dae75e401cb8bd09a1187f7b72715c114833bc0587aac8"
+    },
+    {
+      "pid": 3764,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.826Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:716070c06254487708b11cf3dc38bc1ac8f64aa836cc3434a01cc6433884b9c8"
+    },
+    {
+      "pid": 3796,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.831Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:42ffea58f71554d8cd8ec55221b790eff3471b826110af8703a5d8da35dd1a19"
+    },
+    {
+      "pid": 3864,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.858Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:f2881cbc083ca7be079596844bab8c5ec3eeafbcf371b46246d49c08b2949997"
+    },
+    {
+      "pid": 3924,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:05.887Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:55f573c1ba240365ef97b60d8c6dbd2a52847015caa4697d4f471cd9aed430a2"
+    },
+    {
+      "pid": 4292,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.149Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:bb5190077bfded917a7c1dcfdffe49ad1b1ec74c22557214cb12985d6335e7af"
+    },
+    {
+      "pid": 4436,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.163Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:ced2cb7209436d3f57f831c57712adc4273d9f2adc382c3fba0905b4b4cf9819"
+    },
+    {
+      "pid": 4444,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.163Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:d461bcb976340d5e9f8f378011708de4a5b68a12d2385f431ad14567be330d50"
+    },
+    {
+      "pid": 4452,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.163Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:83c867a55896585b8156e0865b885e0ac68fd39b5b954b0e05dc692b2d6adcc9"
+    },
+    {
+      "pid": 4692,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.202Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:7deb94b92f4c823b0882df0e9d9d4b551205c781ae10bc811bf21bbb2e69d4be"
+    },
+    {
+      "pid": 4732,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.219Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:3ae4edffcd473908740a354614bd91396f25e555ccd64893e3ef1178b3f7357e"
+    },
+    {
+      "pid": 4748,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.219Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:8306ea1bbc36f2bf6ffd0f953c356a57c196140bcec934aab2eeb19cc2421688"
+    },
+    {
+      "pid": 4840,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.239Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:d1ff09ee37884ddcdb89dc18116e602e40b7ef718f4b9b6af437d1d504f0bf20"
+    },
+    {
+      "pid": 4932,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.263Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:54c9e7b3a17c02f0a8340a5023fc03f1e197374e38f4f3c2f82e399bc7430836"
+    },
+    {
+      "pid": 5024,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.282Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:72081f65ba473dc8f101dd73f8e6a2584558296e0b002818d1dd6d773d89225c"
+    },
+    {
+      "pid": 5328,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.424Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:21b8800e62b1289897445168ea921f27deb8a0277c61d24e4a4e1088471f52c0"
+    },
+    {
+      "pid": 5372,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.441Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:d6e14286c71a2543bd822f42b40a4ba8678aee5d3d52a42f19a34e22aa2098c5"
+    },
+    {
+      "pid": 5384,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.443Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:6bb9217473619e1071d9f0fa1b48c31d654158d9197f16aaa7baf051e8578168"
+    },
+    {
+      "pid": 5520,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.467Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:5274e7a004b084024bd898972b599eb7b87e86b66f82903e2666ec1a19202503"
+    },
+    {
+      "pid": 5560,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.480Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:dbbd47b5e124aaba62dbc0bca259540d89e7662678fda05ae1ed5ed89066abb5"
+    },
+    {
+      "pid": 5744,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.648Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:6984d789de61d6b20265ffd2e8a222d52b83dd9ac31a1f58d71bafc488fe09de"
+    },
+    {
+      "pid": 5876,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.664Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:859c5bd94690b4259821168baa6302eaa210558ff91d7e93bf9587373e0a9bf9"
+    },
+    {
+      "pid": 5924,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.670Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:d47ebd4526bc9aa68ab043822add6d7dfaff002b40645db0315c081ba3a9fc82"
+    },
+    {
+      "pid": 5932,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.671Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:a1aabf80c16ff3921fb1c9be412c5c40cc867f60e6dd88bfb40732d77dcc4310"
+    },
+    {
+      "pid": 5964,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.672Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:b19a56a23d8a003a1aca486138d80b036ae18ea6f4c2233bef3e8540d0557b9d"
+    },
+    {
+      "pid": 5972,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.672Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:ac971d645877851a5b06fd91b72fc68a502efe8cd1270712c7a7fba9a7e35d71"
+    },
+    {
+      "pid": 5992,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.673Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:be4a11524168b40d3cea12803fb218e31f39e84834c9590b8e9688f47177d65e"
+    },
+    {
+      "pid": 6608,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.811Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:18eea81313309f5b1feaad5ea5b01c46eb16afd725e2c6f05d336d3e48ee378e"
+    },
+    {
+      "pid": 6836,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.896Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:cf88fecbf3e098b0296f83da8ea8e99c22d34f56cc2c6298740852162e03b916"
+    },
+    {
+      "pid": 7040,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:06.974Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:f893fc803f8d68b5d32822844262514c49f1453826826904834150e426990e79"
+    },
+    {
+      "pid": 8256,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:08.365Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:944865ca4aff97d6ac260650c54866a469a9dd141936965c2cdb6f259ca902a5"
+    },
+    {
+      "pid": 8524,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:08.443Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:7adc36d6e2596696da88f3ee729bd0f0b028d415322f51801c00c7719b1f74d8"
+    },
+    {
+      "pid": 9164,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:09.081Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:4a444433b730167ff1bd4bb486ea30836c68e14dbe59cc60ff4b6c4b9d3c45d2"
+    },
+    {
+      "pid": 5844,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:12.362Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:f1b223171af309c1dda51bf7ce8bc3000e97756d878c8f5d31b07076956bb94c"
+    },
+    {
+      "pid": 9532,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:13.447Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:f1373d772c84c9f318fd5eef135d605ed8c0145688e89e6cf0ab6ca47d17d29b"
+    },
+    {
+      "pid": 10256,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:16.639Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:c56f50d9e01a5daa82cd1388c64b00eb01b5fef873ef7c2a0179d739bb200c3d"
+    },
+    {
+      "pid": 10304,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:16.673Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:d09a7cc876a6c72cb02688bf90572bcc7f473d22d5dbc31fd377f85de5ea67a7"
+    },
+    {
+      "pid": 10528,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:37.701Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:ca238210b0a39d62b7c9c7452e97586d48b558d12eb549ddef3d4b05af30ce9e"
+    },
+    {
+      "pid": 9000,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:37.985Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:991c0f07bce9ba4ed9c005914bc17ea3773f42bd8bff19e412954120c4faf4e1"
+    },
+    {
+      "pid": 8908,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:37.989Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:f5b38a0c19063294ebb3a5af5daa325ced132d303b219615e8343c8ce1517441"
+    },
+    {
+      "pid": 10924,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:38.024Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:0f19cbcd8d4ba88b4a6cec1fbccb1a1431b4bfcb4ff9314a13b86b1aeca62be5"
+    },
+    {
+      "pid": 10168,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:38.053Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:9f32281fc01b5b4aafacb7d0d707d686c4f091a4d34e0432f4c17c7b114c405a"
+    },
+    {
+      "pid": 2364,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:38.121Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:b1f7eaa3c8fe28bd2ffe6d2ba36d5d7c319b4351fc07adc4dd60075e0d862ce7"
+    },
+    {
+      "pid": 6696,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:38.258Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:ace1e3fd31fdb052c765962eafb358b6beab4a4dca59d0f86ab8ac39f03a8040"
+    },
+    {
+      "pid": 6904,
+      "ppid": 2408,
+      "start_time": "2026-11-19T02:16:38.769Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\Explorer.EXE",
+      "cwd": "UNKNOWN",
+      "name": "explorer.exe",
+      "identity_hash": "sha256:0f06dcb3efdaac97cac6e5f014254858b9d7b03b7cf04f680c6767e0a7aba2e5"
+    },
+    {
+      "pid": 12540,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:42.434Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:58d58cfea42e85a8925c00d42b363b0df3b68cba33a1cdb4f13eacab08f787aa"
+    },
+    {
+      "pid": 12856,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:16:43.942Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:9a16654513e5e522af2e1565a984847087289734e9c7bbe04e55566b5f1ec2f5"
+    },
+    {
+      "pid": 11336,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:17:47.536Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:933a6c5ccacee5e77a41ab6bcb403934a790d8403fcff1bd4c10bf1a3c8b5144"
+    },
+    {
+      "pid": 22480,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:09.509Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:1617ca4f946fd72057905dc74612ad606fc6025ac7ee7fc89458225c6ad5e6fb"
+    },
+    {
+      "pid": 12192,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:10.199Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:156ecdfea3a25a294bad6a020df5870a260685085f23e5988825ac23b777e1d3"
+    },
+    {
+      "pid": 21580,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:10.727Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:c7c3635ad0df9a717b12b495cc56f6ac1a0afd4c199c5cd763c597cb4aa648d7"
+    },
+    {
+      "pid": 17352,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:10.882Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:3481c46660e0997db7e55fe3304d705dbc3cf3a0a1a203e3eddba26fa1baecd7"
+    },
+    {
+      "pid": 6160,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:11.418Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:523730860d65438749d3539f8a0945aa115b98ffdeeb0fcc3689e62f3659b359"
+    },
+    {
+      "pid": 6588,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:11.625Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:c4b26d1d6efb3ce6743f597c4d6b3079ae2dedb781bd164382d23b2411fd75bf"
+    },
+    {
+      "pid": 6472,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:48.549Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:74eabe0846450c57580fcc012ba74c0a40159b1769a4c374199068fbb6160150"
+    },
+    {
+      "pid": 19592,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:48.913Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:56e446b2838c2913d3f011bf50ff0c482f02137a06352daf9412b5079ad4f478"
+    },
+    {
+      "pid": 8904,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:18:49.571Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:45da2312fdab1381fa8ec868ba4d824c62e4118ec59931cccfb4ace620a2c965"
+    },
+    {
+      "pid": 2640,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:33:21.887Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:2a38d47298011d71c8e3f58f0decbfeb0396a64e87b71d4c294f741aced5c171"
+    },
+    {
+      "pid": 12576,
+      "ppid": 1492,
+      "start_time": "2026-11-19T02:33:39.326Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:7094502d03f63e9331d8112614403def457c59d2e7c72e407aaa816be4bb7abd"
+    },
+    {
+      "pid": 16520,
+      "ppid": 1492,
+      "start_time": "2026-11-20T07:47:04.541Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\System32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:dc82e9894d337da97e924e4680ce03d4a62f302c6ce7d3a0c0c4cc76a4b1aefe"
+    },
+    {
+      "pid": 20896,
+      "ppid": 1492,
+      "start_time": "2026-11-21T07:10:03.599Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:8e16d464316035cad681bdc2e5bd193dc4d542694e14048560c41c5a42b972bf"
+    },
+    {
+      "pid": 14656,
+      "ppid": 1492,
+      "start_time": "2026-11-21T07:29:13.871Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:4b44cb58f4b26fef1f68d3737d62bad4ab51ed5ac6c2bc621dc44515e09c3d21"
+    },
+    {
+      "pid": 8888,
+      "ppid": 1492,
+      "start_time": "2026-11-21T16:40:39.988Z",
+      "start_ticks": null,
+      "exe": "C:\\WINDOWS\\system32\\svchost.exe",
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:a9e6e5c07efd2382126ea551c35dc59cf6eb418e439d41f796efd9872b2df06e"
+    },
+    {
+      "pid": 6384,
+      "ppid": 1492,
+      "start_time": "2026-11-21T16:40:40.820Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:1351c778b60458774f09e9e84c83d7652396d4cdcb596f78274c1f8916e73777"
+    },
+    {
+      "pid": 1360,
+      "ppid": 1492,
+      "start_time": "2026-11-23T01:21:21.923Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:438e211bd997ef61a7ccb2f04b2f775d8eab14b58c0c6d9092119727244d6c4b"
+    },
+    {
+      "pid": 22076,
+      "ppid": 6904,
+      "start_time": "2026-11-23T05:46:20.088Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:bb993634d0464b81438c2898cff91e44c34e3d98983ce72f6a9a19c5542a6e74"
+    },
+    {
+      "pid": 6192,
+      "ppid": 22076,
+      "start_time": "2026-11-23T05:46:20.868Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:a34fc5899de5379a4be9283a75fd549a180459cff4eb71663330766dae37a760"
+    },
+    {
+      "pid": 23832,
+      "ppid": 22076,
+      "start_time": "2026-11-23T05:46:20.895Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:d7c24bc3a0eec92515fbd4b938f0f4e28eb8d4d963ab4298e7cd1c3b4d391114"
+    },
+    {
+      "pid": 8880,
+      "ppid": 22076,
+      "start_time": "2026-11-23T05:46:21.691Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:16a1f36b8a8adcdf1dfbedca1a2475c078c1dd37d0e28549a14aa09a56b332b0"
+    },
+    {
+      "pid": 19580,
+      "ppid": 22076,
+      "start_time": "2026-11-23T05:46:21.796Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:631d0f759cb046cbf68a5981635490e371c33be3aca6675a6c4e00804f1d8db7"
+    },
+    {
+      "pid": 6324,
+      "ppid": 22076,
+      "start_time": "2026-11-23T05:46:45.354Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\vendor\\sandbox\\5.11.4\\sandbox-center.exe",
+      "cwd": "UNKNOWN",
+      "name": "sandbox-center.exe",
+      "identity_hash": "sha256:bed498208093b2fedf41da14c44c5c323271d0811b9340f2a7c91db0201ee6d1"
+    },
+    {
+      "pid": 3728,
+      "ppid": 22076,
+      "start_time": "2026-11-23T05:46:45.535Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:58f22746bd2f459aa6f87bf43f2bf84fe9a574baaa4b62ac17706e02144c92f0"
+    },
+    {
+      "pid": 22860,
+      "ppid": 6324,
+      "start_time": "2026-11-23T05:46:46.392Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\cli\\vendor\\sandbox\\5.11.4\\betterleaks.exe",
+      "cwd": "UNKNOWN",
+      "name": "betterleaks.exe",
+      "identity_hash": "sha256:2e6d2db5f4d1d8e51f60828b031d12d605eba9cb339584a7698b84efa33e30d8"
+    },
+    {
+      "pid": 23684,
+      "ppid": 19580,
+      "start_time": "2026-11-23T05:47:01.932Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:be2af31bc87085040eb4993a027a04f5d7408207d186eed097332d025b17a31d"
+    },
+    {
+      "pid": 23452,
+      "ppid": 19580,
+      "start_time": "2026-11-23T05:58:06.183Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:fdd718fc9d4565d57afc9ebb6162922a0ec64b3e8034ab684755c11552f71294"
+    },
+    {
+      "pid": 24280,
+      "ppid": 18860,
+      "start_time": "2026-11-23T05:58:08.527Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\resources\\app.asar.unpacked\\node_modules\\@tencent\\tencent-docs-ai-engine\\bin\\win32-x64\\editor_sdk.exe",
+      "cwd": "UNKNOWN",
+      "name": "editor_sdk.exe",
+      "identity_hash": "sha256:f42e4b8a8304be30c9d8346085d9c7cc88dbf3834b4598a2753dbf550c448396"
+    },
+    {
+      "pid": 8692,
+      "ppid": 15432,
+      "start_time": "2026-11-23T05:59:47.464Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_tools\\pgsql\\pgsql\\bin\\postgres.exe",
+      "cwd": "UNKNOWN",
+      "name": "postgres.exe",
+      "identity_hash": "sha256:e63905907e94b8f0c978525bbc425542b38a6bd3620c7285cac190a28bf41592"
+    },
+    {
+      "pid": 3136,
+      "ppid": 8692,
+      "start_time": "2026-11-23T05:59:47.946Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_tools\\pgsql\\pgsql\\bin\\postgres.exe",
+      "cwd": "UNKNOWN",
+      "name": "postgres.exe",
+      "identity_hash": "sha256:9d6b70dd1d08fad3cc8fe1781cd960e0d2dcffceb5ef843d5ef312ff80994c3a"
+    },
+    {
+      "pid": 22732,
+      "ppid": 8692,
+      "start_time": "2026-11-23T05:59:47.968Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_tools\\pgsql\\pgsql\\bin\\postgres.exe",
+      "cwd": "UNKNOWN",
+      "name": "postgres.exe",
+      "identity_hash": "sha256:42cda8ea20109c33b6621d401679a5f5c1897c9e2b2bce297f0e27866eeee1c7"
+    },
+    {
+      "pid": 10548,
+      "ppid": 8692,
+      "start_time": "2026-11-23T06:01:23.602Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_tools\\pgsql\\pgsql\\bin\\postgres.exe",
+      "cwd": "UNKNOWN",
+      "name": "postgres.exe",
+      "identity_hash": "sha256:0517606c9dc9d4bdb0a3a743835537d60e39b55dc9b0900c5a7810b2c63fe42c"
+    },
+    {
+      "pid": 13316,
+      "ppid": 8692,
+      "start_time": "2026-11-23T06:01:23.617Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_tools\\pgsql\\pgsql\\bin\\postgres.exe",
+      "cwd": "UNKNOWN",
+      "name": "postgres.exe",
+      "identity_hash": "sha256:cfa0cb60fdb78382572106f44fc5fee86b6b440aa65e9446a846fdd2ab4d2e82"
+    },
+    {
+      "pid": 26184,
+      "ppid": 8692,
+      "start_time": "2026-11-23T06:01:23.634Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_tools\\pgsql\\pgsql\\bin\\postgres.exe",
+      "cwd": "UNKNOWN",
+      "name": "postgres.exe",
+      "identity_hash": "sha256:4c2ec7d84a4d1a9cecf6cfde6c3299846a0fe803bd89e453d5c1f1e480b47a7a"
+    },
+    {
+      "pid": 26464,
+      "ppid": 19580,
+      "start_time": "2026-11-23T06:36:54.967Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\WorkBuddy.exe",
+      "cwd": "UNKNOWN",
+      "name": "WorkBuddy.exe",
+      "identity_hash": "sha256:b492c5a8a3485c229a2e50909ec20523682c8d3f7689fda91de68b0a02d830ef"
+    },
+    {
+      "pid": 21324,
+      "ppid": 1492,
+      "start_time": "2026-11-23T07:32:06.567Z",
+      "start_ticks": null,
+      "exe": null,
+      "cwd": "UNKNOWN",
+      "name": "svchost.exe",
+      "identity_hash": "sha256:3a7ab1c17d47ec01dae4e5d049fc151311031c275ca79dc1f0d42957cd55c5c1"
+    },
+    {
+      "pid": 17776,
+      "ppid": 11692,
+      "start_time": "2026-11-23T07:32:27.203Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "cwd": "UNKNOWN",
+      "name": "node.exe",
+      "identity_hash": "sha256:61a5717ab54951e9fa8399203b120b5e30e8ae587b45667bba7c0afd461ccdaa"
+    },
+    {
+      "pid": 11692,
+      "ppid": 23412,
+      "start_time": "2026-11-23T07:32:27.184Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\resources\\vendor\\PortableGit\\bin\\..\\usr\\bin\\bash.exe",
+      "cwd": "UNKNOWN",
+      "name": "bash.exe",
+      "identity_hash": "sha256:115b1e43d4107b5eefd2f2aa4343c5806313df25f894fd632f712257b44c85c3"
+    },
+    {
+      "pid": 23412,
+      "ppid": 11160,
+      "start_time": "2026-11-23T07:32:27.109Z",
+      "start_ticks": null,
+      "exe": "C:\\Program Files\\WorkBuddy\\resources\\vendor\\PortableGit\\bin\\..\\usr\\bin\\bash.exe",
+      "cwd": "UNKNOWN",
+      "name": "bash.exe",
+      "identity_hash": "sha256:67d76e8c9003640ecd8be55e49d7c262b4790c7a274f8513c2dbb9bda92b9a78"
+    },
+    {
+      "pid": 11160,
+      "ppid": 23452,
+      "start_time": "2026-11-23T07:32:27.026Z",
+      "start_ticks": null,
+      "exe": "C:\\Users\\TYMO001\\.workbuddy\\binaries\\PortableGit\\versions\\1.3.0\\bin\\bash.exe",
+      "cwd": "UNKNOWN",
+      "name": "bash.exe",
+      "identity_hash": "sha256:63f5be9eb8cb60f2f7fbed7bff3407227b2fbf6d53ab9f069885beb0f640a8dc"
+    }
+  ],
+  "artifacts": [],
+  "fence": {
+    "worktree_hash": "sha256:123da4dc102f031f7e90907082e8ab32993a62c5a8fe1639e7c1309f63e101cd",
+    "created_monotonic_ns": "364786150628000"
+  },
+  "finished_at": "2026-11-23T07:37:08.038Z"
+}

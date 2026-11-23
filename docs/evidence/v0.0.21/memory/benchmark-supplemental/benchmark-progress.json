@@ -1,0 +1,28 @@
+{
+  "schema": "workbuddy-dev-memory/qa-benchmark/v1",
+  "created_at": "2026-11-23T08:04:57.121Z",
+  "node_version": "v22.23.4",
+  "node_executable": "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+  "machine_id": "wb-246e8e89178a9816ea7e",
+  "before": {
+    "root": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "git_head": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "git_tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "branch": "HEAD"
+  },
+  "after": {
+    "root": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\after",
+    "git_head": "3d88b56dba90a122556036b7f547074355bd248d",
+    "git_tree": "16387172e33234eb0c40be54eb96124d5762dcbc",
+    "branch": "HEAD"
+  },
+  "database": {
+    "url_fingerprint": "sha256:4b88e3493ff3664f01dce7dd09ace7b318d519bdd8603968df9a378f2d59135d",
+    "port": 55440,
+    "redis": "empty/PgKV"
+  },
+  "warmup": "none for every before/after pair; supplemental harness uses 180s readiness timeout and copied identical visual evidence fixture",
+  "samples": {},
+  "production_builds": {},
+  "acceptance": {}
+}

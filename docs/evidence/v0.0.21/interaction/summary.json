@@ -1,0 +1,211 @@
+{
+  "stats": {
+    "startTime": "2026-11-23T07:28:52.854Z",
+    "duration": 32225.728,
+    "expected": 15,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "total": 15,
+  "passed": 15,
+  "failed": 0,
+  "skipped": 0,
+  "specs": [
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "触摸搜索与主题切换可用且页面无溢出",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "搜索建议可见并可用 Enter 提交",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "登录失败显示错误，正确账号可进入设置",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "注册校验两次密码并可完成注册",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "找回密码校验邮箱格式并返回防枚举提示",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "七种回复模式均可即时切换",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "主题发布、编辑与删除入口形成真实闭环",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "赞同、收藏与书签页面联动",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "感谢与举报均有真实提交反馈",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "通知可单条与全部标记已读",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "设置保存成功且密码不一致有可见校验",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "管理员与版主入口及角色可见性正确",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "明暗主题即时切换并在刷新后保持",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "Tab/Enter 与 Space 可完成真实键盘操作",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "CDP 200% page scale 下关键页面无横向溢出",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "node_version": "v22.23.4",
+  "node_executable": "C:/Users/TYMO001/AppData/Local/npm-cache/_npx/361c55be1121897e/node_modules/node/bin/node.exe",
+  "npm_cli": "C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js",
+  "before_commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+  "after_commit": "3d88b56dba90a122556036b7f547074355bd248d",
+  "dependency_lock_working_sha256_before": "7e5b1a9230a0b1699f5c35480271d56a998edde8ea3346d1af7409ddbe88c553",
+  "dependency_lock_working_sha256_after": "7e5b1a9230a0b1699f5c35480271d56a998edde8ea3346d1af7409ddbe88c553",
+  "dependency_lock_git_blob_sha256_before": "468f7586cb1259a8a18e3f30d3c6e5237f6d8b8007fd17351cf8cb85297c9f12",
+  "dependency_lock_git_blob_sha256_after": "468f7586cb1259a8a18e3f30d3c6e5237f6d8b8007fd17351cf8cb85297c9f12",
+  "machine_id": "wb-246e8e89178a9816ea7e",
+  "platform": "win32",
+  "arch": "x64",
+  "postgres": "127.0.0.1:55440/v2ex_test_base",
+  "redis": "empty/PgKV",
+  "playwright_version": "1.64.1",
+  "browser": "Microsoft Edge Chromium 156.0.8078.4",
+  "browser_channel": "msedge",
+  "workers": 1,
+  "fully_parallel": false,
+  "warmup": "none",
+  "visual_evidence_fixture": "docs/evidence/visual/v0.0.21 copied identically to before/after for supplemental Vitest"
+}

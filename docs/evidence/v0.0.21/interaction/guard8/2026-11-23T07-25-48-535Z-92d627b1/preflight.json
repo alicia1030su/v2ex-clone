@@ -1,0 +1,68 @@
+{
+  "schema": "workbuddy-dev-memory/preflight/v1",
+  "run_id": "92d627b15354da31e84d8ce350220175",
+  "decision": "ALLOW",
+  "unsafe": false,
+  "reason_codes": [],
+  "profile": "playwright",
+  "measured_at": "2026-11-23T07:25:48.794Z",
+  "machine": {
+    "id": "wb-246e8e89178a9816ea7e",
+    "platform": "win32",
+    "arch": "x64",
+    "node_version": "v22.23.4",
+    "cpu_count": 16
+  },
+  "worktree": {
+    "root": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release",
+    "git_head": "3d88b56dba90a122556036b7f547074355bd248d",
+    "git_tree": "16387172e33234eb0c40be54eb96124d5762dcbc",
+    "branch": "release/v0.0.21-stable"
+  },
+  "limits": {
+    "physical_mb": 16122,
+    "cgroup_limit_mb": null,
+    "effective_limit_mb": 16122,
+    "host_reserve_mb": 1024,
+    "available_mb": 15098,
+    "current_available_mb": 5150,
+    "user_ceiling_mb": null,
+    "cgroup": null
+  },
+  "plan": {
+    "task_floor_mb": 512,
+    "task_share": 0.45,
+    "active_budgets_mb": 0,
+    "task_budget_mb": 6794,
+    "sum_task_budgets_plus_reserve_mb": 7818,
+    "runtime": {
+      "node_max_old_space_mb": 4076,
+      "vitest_max_workers": 1,
+      "vitest_file_parallelism": false,
+      "vitest_pool": "forks",
+      "playwright_workers": 1,
+      "playwright_fully_parallel": false,
+      "next_build_cpus": 4
+    }
+  },
+  "command": {
+    "argv": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "C:/Users/TYMO001/AppData/Local/Temp/v0021-qa-bench/production-e2e-wrapper.mjs",
+      "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release",
+      ".next-qa-after",
+      "3324",
+      "start",
+      "playwright.low.config.ts",
+      "e2e/v021-interaction-contract.spec.ts",
+      "C:/Users/TYMO001/WorkBuddy/ai/_worktrees/v0021-release/docs/evidence/v0.0.21/interaction/output8"
+    ],
+    "cwd": "C:\\Users\\TYMO001\\WorkBuddy\\ai\\_worktrees\\v0021-release",
+    "env_fingerprint": "sha256:f583170543332f0ba8575e6d130b26d5a1d25bef5b89c9c1563cc98641c467d3"
+  },
+  "raw_memory": {
+    "physical_memory_bytes": 16905920512,
+    "free_memory_bytes": 5400469504,
+    "cgroup": null
+  }
+}

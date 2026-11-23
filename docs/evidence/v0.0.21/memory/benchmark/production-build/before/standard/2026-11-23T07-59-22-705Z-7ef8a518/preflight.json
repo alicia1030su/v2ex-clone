@@ -1,0 +1,62 @@
+{
+  "schema": "workbuddy-dev-memory/preflight/v1",
+  "run_id": "7ef8a518515ae1aead1e3dbe1df3bbf7",
+  "decision": "ALLOW",
+  "unsafe": false,
+  "reason_codes": [],
+  "profile": "next-build",
+  "measured_at": "2026-11-23T07:59:22.890Z",
+  "machine": {
+    "id": "wb-246e8e89178a9816ea7e",
+    "platform": "win32",
+    "arch": "x64",
+    "node_version": "v22.23.4",
+    "cpu_count": 16
+  },
+  "worktree": {
+    "root": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "git_head": "e50f77988bd639823658bfcbe690643bf11d24cb",
+    "git_tree": "7fd2a7bdf1d6dc5770efdf8af04cf8f902dabdf9",
+    "branch": "HEAD"
+  },
+  "limits": {
+    "physical_mb": 16122,
+    "cgroup_limit_mb": null,
+    "effective_limit_mb": 16122,
+    "host_reserve_mb": 1024,
+    "available_mb": 15098,
+    "current_available_mb": 6239,
+    "user_ceiling_mb": null,
+    "cgroup": null
+  },
+  "plan": {
+    "task_floor_mb": 768,
+    "task_share": 0.55,
+    "active_budgets_mb": 0,
+    "task_budget_mb": 8303,
+    "sum_task_budgets_plus_reserve_mb": 9327,
+    "runtime": {
+      "node_max_old_space_mb": 4981,
+      "vitest_max_workers": 1,
+      "vitest_file_parallelism": false,
+      "vitest_pool": "forks",
+      "playwright_workers": 1,
+      "playwright_fully_parallel": false,
+      "next_build_cpus": 4
+    }
+  },
+  "command": {
+    "argv": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "node_modules/next/dist/bin/next",
+      "build"
+    ],
+    "cwd": "C:\\Users\\TYMO001\\AppData\\Local\\Temp\\v0021-qa-bench\\before",
+    "env_fingerprint": "sha256:e28a560dbddbf9df7ce9a9b2fa1538e3369c82d02287f8f11be253ab5fa3b8f4"
+  },
+  "raw_memory": {
+    "physical_memory_bytes": 16905920512,
+    "free_memory_bytes": 6543052800,
+    "cgroup": null
+  }
+}

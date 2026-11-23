@@ -1,0 +1,20 @@
+{
+  "schema": "workbuddy-dev-memory/cleanup/v1",
+  "run_id": "7ef8a518515ae1aead1e3dbe1df3bbf7",
+  "decision": "NOOP",
+  "reason": "run-finished",
+  "started_at": "2026-11-23T08:00:17.928Z",
+  "finished_at": "2026-11-23T08:00:18.207Z",
+  "root_verification": {
+    "ok": false,
+    "pid": 26044,
+    "identity_hash": "sha256:18c21e08df650eed7efd1c964342aebbe78af6cca9f0202f987d09b0356cd37e",
+    "reason": "ROOT_NOT_RUNNING"
+  },
+  "targets": [],
+  "skipped": [],
+  "outside_probe": null,
+  "protected_intact": true,
+  "artifacts_intact": true,
+  "errors": []
+}

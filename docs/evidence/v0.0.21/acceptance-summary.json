@@ -1,0 +1,31 @@
+{
+  "source_after_commit": "3d88b56dba90a122556036b7f547074355bd248d",
+  "source_before_commit": "e50f77988bd639823658bfcbe690643bf11d24cb",
+  "qa_interaction_commit": "a121fdab7bfc04a2f7062fd4182b4f5c2c7cf4cf",
+  "node_version": "v22.23.4",
+  "typescript_no_emit": "passed",
+  "visual_matrix_static": { "passed": 3, "failed": 0, "skipped": 0 },
+  "interaction_contract": { "passed": 15, "failed": 0, "skipped": 0 },
+  "visual_contract": { "passed": 95, "failed": 0, "skipped": 0 },
+  "resource_report_schema_validation": { "validated": 210, "invalid": 0 },
+  "primary_benchmark": {
+    "next-dev": "not-completed",
+    "next-build": "completed",
+    "vitest": "not-completed",
+    "playwright-dev": "not-completed",
+    "playwright-production": "not-completed"
+  },
+  "supplemental_benchmark": {
+    "vitest": "not-completed",
+    "playwright-production": "not-completed"
+  },
+  "overall_mem_08_mem_09": "not-completed",
+  "overall_interaction": "completed",
+  "official_visual_fidelity": "UNVERIFIED",
+  "remaining_blockers": [
+    "next-dev readiness exceeded 180s in supplemental attempts",
+    "Vitest after peak 595.2MiB is not below before median 584.4MiB",
+    "Playwright production after peak 1284.9MiB equals before median 1284.9MiB",
+    "official pixel reference remains unavailable and P0 UNVERIFIED records block release"
+  ]
+}

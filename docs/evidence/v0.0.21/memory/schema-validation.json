@@ -1,0 +1,6 @@
+{
+  "schema_set": "workbuddy-dev-memory/preflight/v1, lease/v1, monitor/v1, cleanup/v1",
+  "validator": "Ajv 7.2.4 with draft-2020-12-compatible schema keywords and ajv-formats",
+  "validated": 210,
+  "invalid": 0
+}
