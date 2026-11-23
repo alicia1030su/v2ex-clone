@@ -1,0 +1,20 @@
+{
+  "health_ready": 200,
+  "admin_login": 200,
+  "instrumentation": {
+    "before_requests": 3,
+    "after_requests": 9,
+    "delta": 6,
+    "pid": 23468,
+    "instance_id": "p106for7",
+    "node_version": "v22.23.4"
+  },
+  "attachment_purge": {
+    "interval_starts": 1,
+    "per_process": {
+      "unknown": 1
+    },
+    "duplicate_processes": []
+  },
+  "runtime_errors": []
+}

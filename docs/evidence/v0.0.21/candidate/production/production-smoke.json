@@ -1,0 +1,9 @@
+{
+  "health_ready": 200,
+  "playwright_exit_code": 0,
+  "specs": [
+    "e2e/v021-visual-contract.spec.ts",
+    "e2e/v021-interaction-contract.spec.ts"
+  ],
+  "output_dir": "C:/Users/TYMO001/AppData/Local/Temp/v0021-candidate-final/playwright-output"
+}

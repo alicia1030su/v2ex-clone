@@ -1,0 +1,5 @@
+{
+  "validated": 44,
+  "invalid": 0,
+  "schemas": ["preflight/v1", "lease/v1", "monitor/v1", "cleanup/v1"]
+}

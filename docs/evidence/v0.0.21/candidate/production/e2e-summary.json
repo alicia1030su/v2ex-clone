@@ -1,0 +1,1446 @@
+{
+  "stats": {
+    "startTime": "2026-11-23T09:48:47.914Z",
+    "duration": 88131.368,
+    "expected": 110,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "total": 110,
+  "passed": 110,
+  "failed": 0,
+  "skipped": 0,
+  "specs": [
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "触摸搜索与主题切换可用且页面无溢出",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "搜索建议可见并可用 Enter 提交",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "登录失败显示错误，正确账号可进入设置",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "注册校验两次密码并可完成注册",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "找回密码校验邮箱格式并返回防枚举提示",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "七种回复模式均可即时切换",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "主题发布、编辑与删除入口形成真实闭环",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "赞同、收藏与书签页面联动",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "感谢与举报均有真实提交反馈",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "通知可单条与全部标记已读",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "设置保存成功且密码不一致有可见校验",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "管理员与版主入口及角色可见性正确",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "明暗主题即时切换并在刷新后保持",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "Tab/Enter 与 Space 可完成真实键盘操作",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-interaction-contract.spec.ts",
+      "title": "CDP 200% page scale 下关键页面无横向溢出",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/ has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/recent has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/hot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/following has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/nodes has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/t/1 has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/member/admin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signup has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/forgot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/search?q=claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/tag/visual-audit has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/leaderboard has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/about has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/faq has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/privacy has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/worldclock has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/xna has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/ has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/recent has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/hot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/following has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/nodes has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/t/1 has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/member/admin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signup has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/forgot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/search?q=claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/tag/visual-audit has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/leaderboard has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/about has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/faq has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/privacy has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/worldclock has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/xna has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/ has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/recent has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/hot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/following has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/nodes has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/t/1 has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/member/admin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signup has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/forgot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/search?q=claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/tag/visual-audit has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/leaderboard has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/about has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/faq has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/privacy has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/worldclock has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/xna has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/ has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/recent has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/hot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/following has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/nodes has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/t/1 has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/member/admin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signup has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/forgot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/search?q=claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/tag/visual-audit has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/leaderboard has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/about has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/faq has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/privacy has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/worldclock has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/xna has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/ has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/recent has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/hot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/following has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/nodes has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/t/1 has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/member/admin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signin has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/signup has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/forgot has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/go/search?q=claude has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/tag/visual-audit has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/leaderboard has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/about has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/faq has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/privacy has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/worldclock has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    },
+    {
+      "file": "v021-visual-contract.spec.ts",
+      "title": "/xna has no overflow or runtime noise",
+      "ok": true,
+      "tests": [
+        {
+          "status": "expected",
+          "expectedStatus": "passed",
+          "project": "core",
+          "error": null
+        }
+      ]
+    }
+  ]
+}

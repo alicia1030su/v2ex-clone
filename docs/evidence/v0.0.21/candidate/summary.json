@@ -1,0 +1,59 @@
+{
+  "source_candidate": "6094160cc9781e9c5adf4365c94ac3918e411587",
+  "validated_candidate": "c6cbcdcc65d500bd7a13bbd8170c9efbae92ca1c",
+  "node_version": "v22.23.4",
+  "typescript_no_emit": "passed",
+  "vitest": {
+    "files": 104,
+    "total": 1198,
+    "passed": 1197,
+    "failed": 0,
+    "skipped": 1,
+    "static_passed_or_skipped": 513,
+    "non_static_passed_or_skipped": 685,
+    "peak_tree_rss_mb": 579,
+    "wall_clock_ms": 254857
+  },
+  "build": {
+    "exit_code": 0,
+    "peak_tree_rss_mb": 1137.9,
+    "peak_process_rss_mb": 1042.4,
+    "p95_tree_rss_mb": 1026,
+    "sample_count": 117,
+    "wall_clock_ms": 57862
+  },
+  "dev_smoke": {
+    "health_ready": 200,
+    "admin_login": 200,
+    "instrumentation_delta": 6,
+    "attachment_purge_interval_starts": 1,
+    "attachment_purge_duplicate_processes": 0,
+    "runtime_errors": 0,
+    "peak_tree_rss_mb": 1018.3,
+    "wall_clock_ms": 20216
+  },
+  "production_smoke": {
+    "health_ready": 200,
+    "e2e_total": 110,
+    "e2e_passed": 110,
+    "e2e_failed": 0,
+    "e2e_skipped": 0,
+    "peak_tree_rss_mb": 1387.4,
+    "p95_tree_rss_mb": 1319.7,
+    "sample_count": 188,
+    "wall_clock_ms": 93425.7
+  },
+  "resource_report_schema": { "validated": 44, "invalid": 0 },
+  "go_no_go": "No-Go",
+  "blockers": [
+    "QA-03 baseline file scripts/ci/baseline-v0.0.20.json is missing",
+    "non-static Vitest count 685 is below PRD unit lower bound 1122",
+    "full Chromium E2E 296, cross-browser 15 shards, and candidate package 41 were not run",
+    "MEM-08/09 overall not-completed",
+    "540 visual records UNVERIFIED including 360 P0",
+    "R-01 remains DEFERRED",
+    "v0.0.21 A3/B1 authorization file is absent",
+    "24h soak not completed",
+    "one existing Windows-only symlink test remains skipped"
+  ]
+}

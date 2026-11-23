@@ -1,0 +1,2453 @@
+{
+  "schema": "workbuddy-dev-memory/monitor/v1",
+  "run_id": "30a3c9f3664e45f0dffac84b7d210988",
+  "started_at": "2026-11-23T09:32:29.379Z",
+  "ended_at": "2026-11-23T09:32:54.247Z",
+  "interval_ms": 1000,
+  "samples": [
+    {
+      "at": "2026-11-23T09:32:29.656Z",
+      "monotonic_ns": "371799998816000",
+      "elapsed_ms": 0,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 40.5,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        }
+      ],
+      "tree_rss_mb": 48.2,
+      "max_process_rss_mb": 40.5,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:29.664Z",
+      "monotonic_ns": "371800006215800",
+      "elapsed_ms": 7.3998,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 40.5,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        }
+      ],
+      "tree_rss_mb": 48.2,
+      "max_process_rss_mb": 40.5,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:30.168Z",
+      "monotonic_ns": "371800510145200",
+      "elapsed_ms": 503.9294,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 40.5,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        }
+      ],
+      "tree_rss_mb": 48.2,
+      "max_process_rss_mb": 40.5,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:30.676Z",
+      "monotonic_ns": "371801018162400",
+      "elapsed_ms": 508.0172,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 40.5,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        }
+      ],
+      "tree_rss_mb": 48.2,
+      "max_process_rss_mb": 40.5,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:31.167Z",
+      "monotonic_ns": "371801509915900",
+      "elapsed_ms": 491.7535,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.6,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 58,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 8636,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 2.6,
+          "start_time": "2026-11-23T09:32:30.718Z",
+          "identity_hash": "sha256:b25fc60b5f8f4b59360b6dff9db0214f5e0edb9f838eacce8148adc3e5d1da5f"
+        }
+      ],
+      "tree_rss_mb": 167.9,
+      "max_process_rss_mb": 99.6,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:31.670Z",
+      "monotonic_ns": "371802012375500",
+      "elapsed_ms": 502.4596,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.6,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 58,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 8636,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 2.6,
+          "start_time": "2026-11-23T09:32:30.718Z",
+          "identity_hash": "sha256:b25fc60b5f8f4b59360b6dff9db0214f5e0edb9f838eacce8148adc3e5d1da5f"
+        }
+      ],
+      "tree_rss_mb": 167.9,
+      "max_process_rss_mb": 99.6,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:32.173Z",
+      "monotonic_ns": "371802516089800",
+      "elapsed_ms": 503.7143,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.6,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 58,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 8636,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 2.6,
+          "start_time": "2026-11-23T09:32:30.718Z",
+          "identity_hash": "sha256:b25fc60b5f8f4b59360b6dff9db0214f5e0edb9f838eacce8148adc3e5d1da5f"
+        }
+      ],
+      "tree_rss_mb": 167.9,
+      "max_process_rss_mb": 99.6,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:32.666Z",
+      "monotonic_ns": "371803008902200",
+      "elapsed_ms": 492.8124,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:33.174Z",
+      "monotonic_ns": "371803516744400",
+      "elapsed_ms": 507.8422,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:33.664Z",
+      "monotonic_ns": "371804006814200",
+      "elapsed_ms": 490.0698,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:34.172Z",
+      "monotonic_ns": "371804514324900",
+      "elapsed_ms": 507.5107,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:34.668Z",
+      "monotonic_ns": "371805010166300",
+      "elapsed_ms": 495.8414,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:35.171Z",
+      "monotonic_ns": "371805513381800",
+      "elapsed_ms": 503.2155,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:35.677Z",
+      "monotonic_ns": "371806019249300",
+      "elapsed_ms": 505.8675,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:36.174Z",
+      "monotonic_ns": "371806516974500",
+      "elapsed_ms": 497.7252,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        },
+        {
+          "pid": 17396,
+          "ppid": 22272,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:35.708Z",
+          "identity_hash": "sha256:abb9f58eb32c90b4a65b82f6ffc12eca28e6ac5b7370a5084002da9dd63e2390"
+        },
+        {
+          "pid": 24316,
+          "ppid": 17396,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:35.726Z",
+          "identity_hash": "sha256:fcdf7dff703707d5b487c41668c39ab26f6b1d6d65ddace53b57ea7352409207"
+        }
+      ],
+      "tree_rss_mb": 190.8,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:36.677Z",
+      "monotonic_ns": "371807020017600",
+      "elapsed_ms": 503.0431,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        },
+        {
+          "pid": 17396,
+          "ppid": 22272,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:35.708Z",
+          "identity_hash": "sha256:abb9f58eb32c90b4a65b82f6ffc12eca28e6ac5b7370a5084002da9dd63e2390"
+        },
+        {
+          "pid": 24316,
+          "ppid": 17396,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:35.726Z",
+          "identity_hash": "sha256:fcdf7dff703707d5b487c41668c39ab26f6b1d6d65ddace53b57ea7352409207"
+        }
+      ],
+      "tree_rss_mb": 190.8,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:37.173Z",
+      "monotonic_ns": "371807515835800",
+      "elapsed_ms": 495.8182,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        },
+        {
+          "pid": 17396,
+          "ppid": 22272,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:35.708Z",
+          "identity_hash": "sha256:abb9f58eb32c90b4a65b82f6ffc12eca28e6ac5b7370a5084002da9dd63e2390"
+        },
+        {
+          "pid": 24316,
+          "ppid": 17396,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:35.726Z",
+          "identity_hash": "sha256:fcdf7dff703707d5b487c41668c39ab26f6b1d6d65ddace53b57ea7352409207"
+        }
+      ],
+      "tree_rss_mb": 190.8,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:37.665Z",
+      "monotonic_ns": "371808007908900",
+      "elapsed_ms": 492.0731,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        },
+        {
+          "pid": 17396,
+          "ppid": 22272,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:35.708Z",
+          "identity_hash": "sha256:abb9f58eb32c90b4a65b82f6ffc12eca28e6ac5b7370a5084002da9dd63e2390"
+        },
+        {
+          "pid": 24316,
+          "ppid": 17396,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:35.726Z",
+          "identity_hash": "sha256:fcdf7dff703707d5b487c41668c39ab26f6b1d6d65ddace53b57ea7352409207"
+        }
+      ],
+      "tree_rss_mb": 190.8,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:38.173Z",
+      "monotonic_ns": "371808515602200",
+      "elapsed_ms": 507.6933,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:38.664Z",
+      "monotonic_ns": "371809006455400",
+      "elapsed_ms": 490.8532,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:39.167Z",
+      "monotonic_ns": "371809509415200",
+      "elapsed_ms": 502.9598,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:39.670Z",
+      "monotonic_ns": "371810012382300",
+      "elapsed_ms": 502.9671,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 99.2,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 61.6,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 22272,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:31.491Z",
+          "identity_hash": "sha256:a5441ae56a869086f733d82c1c1c90a18bdafe5ce533c0389a4448bb14e6cdc8"
+        }
+      ],
+      "tree_rss_mb": 179.6,
+      "max_process_rss_mb": 99.2,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:40.175Z",
+      "monotonic_ns": "371810517209800",
+      "elapsed_ms": 504.8275,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 12304,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.8,
+          "start_time": "2026-11-23T09:32:39.687Z",
+          "identity_hash": "sha256:0a90d62b9439814c8536c00c70469cb32046f7d78df3ed679e70759f6ec2d685"
+        },
+        {
+          "pid": 17300,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:39.701Z",
+          "identity_hash": "sha256:fbee91654140ad6689c09a4596a1251a113bd873d6a6d68aa5bebf8639ba3b29"
+        },
+        {
+          "pid": 488,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:39.716Z",
+          "identity_hash": "sha256:73e74bfe4a18f9ffc9c4233dcdaca669776822f5a65b08eef82af83c92a05908"
+        }
+      ],
+      "tree_rss_mb": 189,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:40.663Z",
+      "monotonic_ns": "371811005710900",
+      "elapsed_ms": 488.5011,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 12304,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.8,
+          "start_time": "2026-11-23T09:32:39.687Z",
+          "identity_hash": "sha256:0a90d62b9439814c8536c00c70469cb32046f7d78df3ed679e70759f6ec2d685"
+        },
+        {
+          "pid": 17300,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:39.701Z",
+          "identity_hash": "sha256:fbee91654140ad6689c09a4596a1251a113bd873d6a6d68aa5bebf8639ba3b29"
+        },
+        {
+          "pid": 488,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:39.716Z",
+          "identity_hash": "sha256:73e74bfe4a18f9ffc9c4233dcdaca669776822f5a65b08eef82af83c92a05908"
+        }
+      ],
+      "tree_rss_mb": 189,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:41.168Z",
+      "monotonic_ns": "371811510322200",
+      "elapsed_ms": 504.6113,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 12304,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.8,
+          "start_time": "2026-11-23T09:32:39.687Z",
+          "identity_hash": "sha256:0a90d62b9439814c8536c00c70469cb32046f7d78df3ed679e70759f6ec2d685"
+        },
+        {
+          "pid": 17300,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:39.701Z",
+          "identity_hash": "sha256:fbee91654140ad6689c09a4596a1251a113bd873d6a6d68aa5bebf8639ba3b29"
+        },
+        {
+          "pid": 488,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:39.716Z",
+          "identity_hash": "sha256:73e74bfe4a18f9ffc9c4233dcdaca669776822f5a65b08eef82af83c92a05908"
+        }
+      ],
+      "tree_rss_mb": 189,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:41.674Z",
+      "monotonic_ns": "371812016783000",
+      "elapsed_ms": 506.4608,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 12304,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.8,
+          "start_time": "2026-11-23T09:32:39.687Z",
+          "identity_hash": "sha256:0a90d62b9439814c8536c00c70469cb32046f7d78df3ed679e70759f6ec2d685"
+        },
+        {
+          "pid": 17300,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:39.701Z",
+          "identity_hash": "sha256:fbee91654140ad6689c09a4596a1251a113bd873d6a6d68aa5bebf8639ba3b29"
+        },
+        {
+          "pid": 488,
+          "ppid": 12304,
+          "name": "bash.exe",
+          "rss_mb": 2.7,
+          "start_time": "2026-11-23T09:32:39.716Z",
+          "identity_hash": "sha256:73e74bfe4a18f9ffc9c4233dcdaca669776822f5a65b08eef82af83c92a05908"
+        }
+      ],
+      "tree_rss_mb": 189,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:42.171Z",
+      "monotonic_ns": "371812513161000",
+      "elapsed_ms": 496.378,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 26224,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:41.697Z",
+          "identity_hash": "sha256:5b022efb95c54433eaf73addcde530c5e570b3833889dd5cce0f3c757728adbc"
+        },
+        {
+          "pid": 23448,
+          "ppid": 26224,
+          "name": "bash.exe",
+          "rss_mb": 5.1,
+          "start_time": "2026-11-23T09:32:41.711Z",
+          "identity_hash": "sha256:16128cab5a1da9ab24bd83c72484954a0e01c16ef2c371a62a5b564a43abfbb5"
+        }
+      ],
+      "tree_rss_mb": 182.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:42.674Z",
+      "monotonic_ns": "371813016570300",
+      "elapsed_ms": 503.4093,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 26224,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:41.697Z",
+          "identity_hash": "sha256:5b022efb95c54433eaf73addcde530c5e570b3833889dd5cce0f3c757728adbc"
+        },
+        {
+          "pid": 23448,
+          "ppid": 26224,
+          "name": "bash.exe",
+          "rss_mb": 5.1,
+          "start_time": "2026-11-23T09:32:41.711Z",
+          "identity_hash": "sha256:16128cab5a1da9ab24bd83c72484954a0e01c16ef2c371a62a5b564a43abfbb5"
+        }
+      ],
+      "tree_rss_mb": 182.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:43.171Z",
+      "monotonic_ns": "371813513922600",
+      "elapsed_ms": 497.3523,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 26224,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:41.697Z",
+          "identity_hash": "sha256:5b022efb95c54433eaf73addcde530c5e570b3833889dd5cce0f3c757728adbc"
+        },
+        {
+          "pid": 23448,
+          "ppid": 26224,
+          "name": "bash.exe",
+          "rss_mb": 5.1,
+          "start_time": "2026-11-23T09:32:41.711Z",
+          "identity_hash": "sha256:16128cab5a1da9ab24bd83c72484954a0e01c16ef2c371a62a5b564a43abfbb5"
+        }
+      ],
+      "tree_rss_mb": 182.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:43.664Z",
+      "monotonic_ns": "371814006224000",
+      "elapsed_ms": 492.3014,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 26224,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:41.697Z",
+          "identity_hash": "sha256:5b022efb95c54433eaf73addcde530c5e570b3833889dd5cce0f3c757728adbc"
+        },
+        {
+          "pid": 23448,
+          "ppid": 26224,
+          "name": "bash.exe",
+          "rss_mb": 5.1,
+          "start_time": "2026-11-23T09:32:41.711Z",
+          "identity_hash": "sha256:16128cab5a1da9ab24bd83c72484954a0e01c16ef2c371a62a5b564a43abfbb5"
+        }
+      ],
+      "tree_rss_mb": 182.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:44.172Z",
+      "monotonic_ns": "371814514418900",
+      "elapsed_ms": 508.1949,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:44.664Z",
+      "monotonic_ns": "371815006699600",
+      "elapsed_ms": 492.2807,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:45.173Z",
+      "monotonic_ns": "371815516090600",
+      "elapsed_ms": 509.391,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:45.666Z",
+      "monotonic_ns": "371816008764300",
+      "elapsed_ms": 492.6737,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 11148,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:45.210Z",
+          "identity_hash": "sha256:5b911053ca2814800d80a2c4c02aced8f25c11e3da87effa21478101a2966c85"
+        },
+        {
+          "pid": 7272,
+          "ppid": 11148,
+          "name": "env.exe",
+          "rss_mb": 1.9,
+          "start_time": "2026-11-23T09:32:45.236Z",
+          "identity_hash": "sha256:4c88be446017fd6822d2f4e2a9f913e6eac9534c568cb490975a1b1af71347f0"
+        }
+      ],
+      "tree_rss_mb": 179.4,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:46.172Z",
+      "monotonic_ns": "371816514350400",
+      "elapsed_ms": 505.5861,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 11148,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:45.210Z",
+          "identity_hash": "sha256:5b911053ca2814800d80a2c4c02aced8f25c11e3da87effa21478101a2966c85"
+        },
+        {
+          "pid": 7272,
+          "ppid": 11148,
+          "name": "env.exe",
+          "rss_mb": 1.9,
+          "start_time": "2026-11-23T09:32:45.236Z",
+          "identity_hash": "sha256:4c88be446017fd6822d2f4e2a9f913e6eac9534c568cb490975a1b1af71347f0"
+        }
+      ],
+      "tree_rss_mb": 179.4,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:46.665Z",
+      "monotonic_ns": "371817007822000",
+      "elapsed_ms": 493.4716,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 11148,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:45.210Z",
+          "identity_hash": "sha256:5b911053ca2814800d80a2c4c02aced8f25c11e3da87effa21478101a2966c85"
+        },
+        {
+          "pid": 7272,
+          "ppid": 11148,
+          "name": "env.exe",
+          "rss_mb": 1.9,
+          "start_time": "2026-11-23T09:32:45.236Z",
+          "identity_hash": "sha256:4c88be446017fd6822d2f4e2a9f913e6eac9534c568cb490975a1b1af71347f0"
+        }
+      ],
+      "tree_rss_mb": 179.4,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:47.173Z",
+      "monotonic_ns": "371817515247400",
+      "elapsed_ms": 507.4254,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        },
+        {
+          "pid": 11148,
+          "ppid": 18056,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:45.210Z",
+          "identity_hash": "sha256:5b911053ca2814800d80a2c4c02aced8f25c11e3da87effa21478101a2966c85"
+        },
+        {
+          "pid": 7272,
+          "ppid": 11148,
+          "name": "env.exe",
+          "rss_mb": 1.9,
+          "start_time": "2026-11-23T09:32:45.236Z",
+          "identity_hash": "sha256:4c88be446017fd6822d2f4e2a9f913e6eac9534c568cb490975a1b1af71347f0"
+        }
+      ],
+      "tree_rss_mb": 179.4,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:47.669Z",
+      "monotonic_ns": "371818011243400",
+      "elapsed_ms": 495.996,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:48.177Z",
+      "monotonic_ns": "371818519317800",
+      "elapsed_ms": 508.0744,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:48.675Z",
+      "monotonic_ns": "371819017599700",
+      "elapsed_ms": 498.2819,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:49.171Z",
+      "monotonic_ns": "371819513126000",
+      "elapsed_ms": 495.5263,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:49.675Z",
+      "monotonic_ns": "371820017635600",
+      "elapsed_ms": 504.5096,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:50.172Z",
+      "monotonic_ns": "371820514931300",
+      "elapsed_ms": 497.2957,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 64.5,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 18056,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:38.619Z",
+          "identity_hash": "sha256:9d77329d9fff779efcfe901863efec29dad55e985e51d099f70ad81690a14345"
+        }
+      ],
+      "tree_rss_mb": 169,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:50.666Z",
+      "monotonic_ns": "371821008685100",
+      "elapsed_ms": 493.7538,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        },
+        {
+          "pid": 9812,
+          "ppid": 24596,
+          "name": "bash.exe",
+          "rss_mb": 8.3,
+          "start_time": "2026-11-23T09:32:50.207Z",
+          "identity_hash": "sha256:e199eb4d5450136b6477cb2aed5a5bc1c98cae197d195b284a4e8163232fbe1f"
+        }
+      ],
+      "tree_rss_mb": 178.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:51.172Z",
+      "monotonic_ns": "371821514661600",
+      "elapsed_ms": 505.9765,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        },
+        {
+          "pid": 9812,
+          "ppid": 24596,
+          "name": "bash.exe",
+          "rss_mb": 8.3,
+          "start_time": "2026-11-23T09:32:50.207Z",
+          "identity_hash": "sha256:e199eb4d5450136b6477cb2aed5a5bc1c98cae197d195b284a4e8163232fbe1f"
+        }
+      ],
+      "tree_rss_mb": 178.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:51.677Z",
+      "monotonic_ns": "371822019549000",
+      "elapsed_ms": 504.8874,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        },
+        {
+          "pid": 9812,
+          "ppid": 24596,
+          "name": "bash.exe",
+          "rss_mb": 8.3,
+          "start_time": "2026-11-23T09:32:50.207Z",
+          "identity_hash": "sha256:e199eb4d5450136b6477cb2aed5a5bc1c98cae197d195b284a4e8163232fbe1f"
+        }
+      ],
+      "tree_rss_mb": 178.6,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:52.169Z",
+      "monotonic_ns": "371822511855200",
+      "elapsed_ms": 492.3062,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        }
+      ],
+      "tree_rss_mb": 170.3,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:52.676Z",
+      "monotonic_ns": "371823018158300",
+      "elapsed_ms": 506.3031,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        }
+      ],
+      "tree_rss_mb": 170.3,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:53.164Z",
+      "monotonic_ns": "371823506160600",
+      "elapsed_ms": 488.0023,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        }
+      ],
+      "tree_rss_mb": 170.3,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:53.672Z",
+      "monotonic_ns": "371824014483400",
+      "elapsed_ms": 508.3228,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.8,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24596,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:49.522Z",
+          "identity_hash": "sha256:f0da39533e0837dfb5e1da81c641d8b5c1454e232d9680cdeac2e8849d57b786"
+        }
+      ],
+      "tree_rss_mb": 170.3,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    },
+    {
+      "at": "2026-11-23T09:32:54.176Z",
+      "monotonic_ns": "371824518791900",
+      "elapsed_ms": 504.3085,
+      "processes": [
+        {
+          "pid": 11796,
+          "ppid": 16248,
+          "name": "node.exe",
+          "rss_mb": 85.7,
+          "start_time": "2026-11-23T09:32:29.314Z",
+          "identity_hash": "sha256:a3377564b55eba07ad135bd2611f8a46b7583844f5ba4d68e2324e0a18c98d3e"
+        },
+        {
+          "pid": 21168,
+          "ppid": 11796,
+          "name": "conhost.exe",
+          "rss_mb": 7.7,
+          "start_time": "2026-11-23T09:32:29.327Z",
+          "identity_hash": "sha256:32ff16ddb3831610c43aac465727e43833131a0414650cf8246b902b2424d782"
+        },
+        {
+          "pid": 11808,
+          "ppid": 11796,
+          "name": "node.exe",
+          "rss_mb": 65.9,
+          "start_time": "2026-11-23T09:32:30.357Z",
+          "identity_hash": "sha256:def6cdc95e1ef81a2dc2612a457c86529ed700054a5c9315acb974e435e3c32b"
+        },
+        {
+          "pid": 24676,
+          "ppid": 11808,
+          "name": "bash.exe",
+          "rss_mb": 11.1,
+          "start_time": "2026-11-23T09:32:52.353Z",
+          "identity_hash": "sha256:365b4ab3f52646c173e59742abf255877e27718add87630fed01b1a89019dadd"
+        },
+        {
+          "pid": 3112,
+          "ppid": 24676,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:53.685Z",
+          "identity_hash": "sha256:775de771ab166b28d8361f20f3a166053eed666b02615a5b82cc748df5ab63c2"
+        },
+        {
+          "pid": 24240,
+          "ppid": 3112,
+          "name": "bash.exe",
+          "rss_mb": 8.5,
+          "start_time": "2026-11-23T09:32:53.701Z",
+          "identity_hash": "sha256:8b91da8c84bce0309fc5532e90d38a364913d29d55fa42c6f4cd3a44a6611e4f"
+        },
+        {
+          "pid": 24468,
+          "ppid": 3112,
+          "name": "bash.exe",
+          "rss_mb": 3.5,
+          "start_time": "2026-11-23T09:32:53.717Z",
+          "identity_hash": "sha256:faaa2ddacc02aed619895c69db226fd0228691826e4b823d562237311b3bacea"
+        },
+        {
+          "pid": 13452,
+          "ppid": 24240,
+          "name": "gzip.exe",
+          "rss_mb": 1.9,
+          "start_time": "2026-11-23T09:32:53.717Z",
+          "identity_hash": "sha256:cd2ac25060db4588bdcb80995647d9c746409c09b8c27998215653ea957b05b7"
+        }
+      ],
+      "tree_rss_mb": 192.8,
+      "max_process_rss_mb": 85.7,
+      "error": null
+    }
+  ],
+  "summary": {
+    "root_pid": 11796,
+    "peak_tree_rss_mb": 192.8,
+    "peak_process_rss_mb": 99.6,
+    "p95_tree_rss_mb": 190.8,
+    "sample_count": 51,
+    "wall_clock_ms": 24867.8,
+    "exit_code": 0,
+    "signal": null,
+    "command": [
+      "C:\\Users\\TYMO001\\AppData\\Local\\npm-cache\\_npx\\361c55be1121897e\\node_modules\\node\\bin\\node.exe",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "--config",
+      "vitest.low.config.ts",
+      "tests/static/v009-pipefail-sigpipe-guards.spec.ts"
+    ],
+    "commit": "6094160cc9781e9c5adf4365c94ac3918e411587",
+    "profile": "vitest",
+    "machine_id": "wb-246e8e89178a9816ea7e",
+    "monitor_errors": []
+  }
+}

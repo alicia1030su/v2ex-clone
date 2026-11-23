@@ -1,0 +1,19 @@
+{
+  "commit": "c6cbcdcc65d500bd7a13bbd8170c9efbae92ca1c",
+  "source_candidate": "6094160cc9781e9c5adf4365c94ac3918e411587",
+  "node_version": "v22.23.4",
+  "command": "node node_modules/vitest/vitest.mjs run --config vitest.low.config.ts",
+  "test_files": 104,
+  "total_tests": 1198,
+  "passed": 1197,
+  "failed": 0,
+  "skipped": 1,
+  "skip_reason": "tests/v020-upload-migration.spec.ts:61 skipIf(process.platform === 'win32') refuses symlinks in the legacy tree",
+  "peak_tree_rss_mb": 579,
+  "peak_process_rss_mb": 146.4,
+  "p95_tree_rss_mb": 357.7,
+  "sample_count": 511,
+  "wall_clock_ms": 254857,
+  "exit_code": 0,
+  "monitor_errors": []
+}
